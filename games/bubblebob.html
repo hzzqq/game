@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>泡泡堂 BubbleBob</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+    --blue:#3aa0ff; --purple:#9b6bff; --cyan:#2ee6d6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(246,70,93,.08), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.02) 1px, transparent 1px) 0 0/100% 3px,
+      var(--bg);
+    color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding:16px;
+  }
+  .window{
+    width:min(640px,100%);
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:0 0 40px rgba(0,0,0,.6), 0 0 0 1px rgba(246,70,93,.08);
+    overflow:hidden;
+  }
+  .titlebar{
+    display:flex; align-items:center; gap:10px; padding:12px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);
+    border-bottom:1px solid var(--border);
+  }
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .body{padding:18px; display:flex; flex-direction:column; align-items:center; gap:12px}
+  #stage{position:relative; width:600px; max-width:100%}
+  canvas{display:block; width:100%; height:auto; background:#070a0f; border:1px solid var(--border); border-radius:8px; touch-action:none}
+  .hud{display:flex; gap:14px; flex-wrap:wrap; justify-content:center; font-size:12px; color:var(--dim)}
+  .hud b{color:var(--text)}
+  .overlay{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(7,10,15,.92); border-radius:8px; gap:14px; text-align:center; padding:20px;
+  }
+  .overlay.hidden{display:none}
+  .overlay h2{font-size:26px; letter-spacing:2px; color:var(--gold); text-shadow:0 0 18px rgba(240,185,11,.4)}
+  .overlay p{color:var(--dim); font-size:13px; line-height:1.7; max-width:440px}
+  .btn{
+    background:#0e141d; border:1px solid var(--red); color:var(--text);
+    padding:10px 18px; border-radius:8px; cursor:pointer; font-family:inherit; font-size:13px;
+    transition:.15s ease; letter-spacing:1px;
+  }
+  .btn:hover{background:rgba(246,70,93,.15); box-shadow:0 0 16px rgba(246,70,93,.35)}
+  .btn.gold{border-color:var(--gold)} .btn.gold:hover{background:rgba(240,185,11,.15); box-shadow:0 0 16px rgba(240,185,11,.35)}
+  .row{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
+  .keys{font-size:11px; color:var(--dim); line-height:1.9; text-align:center}
+  .keys b{color:var(--green)}
+  .touch{display:none; gap:10px; width:100%; max-width:600px; margin-top:6px}
+  .touch.on{display:flex; justify-content:space-between}
+  .pad{display:grid; grid-template-columns:repeat(3,46px); grid-template-rows:repeat(3,46px); gap:6px}
+  .pad button, .bombbtn{
+    background:#0e141d; border:1px solid var(--border); color:var(--text);
+    border-radius:8px; font-family:inherit; font-size:18px; cursor:pointer; user-select:none;
+  }
+  .pad button:active, .bombbtn:active{border-color:var(--red); background:rgba(246,70,93,.2)}
+  .bombbtn{width:96px; height:96px; font-size:14px; color:var(--gold); border-color:var(--gold)}
+  .pad .sp{visibility:hidden}
+  .foot{margin-top:4px; color:var(--dim); font-size:11px; text-align:center; border-top:1px dashed var(--border); padding-top:12px; width:100%}
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="t">TERMINAL // <b>BUBBLE BOB</b> · 泡泡堂</span>
+    </div>
+    <div class="body">
+      <div id="stage">
+        <canvas id="cv" width="600" height="520"></canvas>
+        <div id="menu" class="overlay">
+          <h2>泡泡堂 BUBBLE BOB</h2>
+          <p>放炸弹炸开砖块、抢道具，把对手全部炸飞，最后存活者获胜。<br/>本地多人 + AI，纯离线单文件。</p>
+          <div class="row">
+            <button class="btn gold" data-mode="1v3">1 人 vs 3 AI</button>
+            <button class="btn gold" data-mode="2v2">2 人 vs 2 AI</button>
+            <button class="btn gold" data-mode="1v1">1 人 vs 1 AI</button>
+          </div>
+          <div class="keys">
+            <b>P1</b>：W A S D 移动 · 空格 放炸弹 &nbsp;|&nbsp; <b>P2</b>：方向键 移动 · 回车 放炸弹<br/>
+            暂停 P · 手机：下方虚拟按键（P1）
+          </div>
+        </div>
+        <div id="roundover" class="overlay hidden">
+          <h2 id="roTitle">ROUND</h2>
+          <p id="roMsg"></p>
+          <div class="row">
+            <button class="btn" id="nextRound">下一局</button>
+            <button class="btn gold" id="newGame">新游戏</button>
+          </div>
+        </div>
+      </div>
+      <div class="hud" id="hud"></div>
+      <div class="touch" id="touch">
+        <div class="pad">
+          <span class="sp"></span><button data-k="KeyW">▲</button><span class="sp"></span>
+          <button data-k="KeyA">◀</button><button data-k="KeyS">▼</button><button data-k="KeyD">▶</button>
+          <span class="sp"></span><button data-k="Space" style="font-size:11px">炸</button><span class="sp"></span>
+        </div>
+        <button class="bombbtn" data-k="Space">放炸弹</button>
+      </div>
+      <div class="foot">WORKBUDDY · 软件工程实训 · 暗色金融终端风</div>
+    </div>
+  </div>
+<script>
+(function(){
+"use strict";
+// ===================== 常量 =====================
+const TILE=40, COLS=15, ROWS=13;
+const W=COLS*TILE, H=ROWS*TILE;
+const EMPTY=0, SOLID=1, SOFT=2;
+const BOMB_FUSE=2.0;     // 引线秒数
+const EXPL_DUR=0.45;     // 爆炸停留秒数
+const SAFE_TIME=1.3;     // AI 认为危险的时间阈值
+const POWER_CHANCE=0.32; // 砖块掉落道具概率
+
+// ===================== 状态 =====================
+let grid=[];            // grid[y][x]
+let players=[];
+let bombs=[];           // {gx,gy,t,range,owner,exploded,passOwner}
+let explosions=[];      // {gx,gy,t}
+let powerups=[];        // {gx,gy,type}
+let state='menu';       // menu | playing | roundover
+let aliveCount=0;
+let lastWinner=null;
+let keys=new Set();
+let mode='1v3';
+let roundNo=1;
+let canvas=null, ctx=null;
+let rafId=null;
+
+const COLORS=[
+  {body:'#f6465d', name:'P1'},   // 红
+  {body:'#02c076', name:'P2'},   // 绿
+  {body:'#f0b90b', name:'AI-3'}, // 金
+  {body:'#3aa0ff', name:'AI-4'}, // 蓝
+];
+
+// ===================== 工具 =====================
+function inBounds(x,y){ return x>=0&&y>=0&&x<COLS&&y<ROWS; }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function rand(a,b){ return a+Math.random()*(b-a); }
+function choice(arr){ return arr[(Math.random()*arr.length)|0]; }
+
+function bombAt(x,y){ return bombs.find(b=>!b.exploded && b.gx===x && b.gy===y); }
+function explosionAt(x,y){ return explosions.find(e=>e.gx===x && e.gy===y); }
+function powerupAt(x,y){ return powerups.find(p=>p.gx===x && p.gy===y); }
+
+// 玩家是否被 (x,y) 处的炸弹阻挡（自己刚放下的炸弹在自己脚下时可通过）
+function blockedByBomb(p,x,y){
+  const b=bombAt(x,y);
+  if(!b) return false;
+  if(b.passOwner===p.id && p.gx===x && p.gy===y) return false; // 脚下炸弹放行
+  return true;
+}
+function walkable(p,x,y){
+  if(!inBounds(x,y)) return false;
+  const t=grid[y][x];
+  if(t===SOLID||t===SOFT) return false;
+  if(blockedByBomb(p,x,y)) return false;
+  return true;
+}
+
+// ===================== 地图生成 =====================
+function genMap(){
+  grid=[];
+  for(let y=0;y<ROWS;y++){
+    const row=[];
+    for(let x=0;x<COLS;x++){
+      if(x===0||y===0||x===COLS-1||y===ROWS-1) row.push(SOLID);
+      else if(x%2===0 && y%2===0) row.push(SOLID); // 内部柱子
+      else row.push(EMPTY);
+    }
+    grid.push(row);
+  }
+  // 出生点（四角）与安全区（3x3 内不堆软砖）
+  const spawns=[[1,1],[COLS-2,1],[1,ROWS-2],[COLS-2,ROWS-2]];
+  const safe=new Set();
+  for(const [sx,sy] of spawns){
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+      const x=sx+dx,y=sy+dy;
+      if(inBounds(x,y)) safe.add(x+','+y);
+    }
+  }
+  for(let y=1;y<ROWS-1;y++){
+    for(let x=1;x<COLS-1;x++){
+      if(grid[y][x]!==EMPTY) continue;
+      if(safe.has(x+','+y)) continue;
+      if(Math.random()<0.78) grid[y][x]=SOFT;
+    }
+  }
+}
+
+// ===================== 玩家 =====================
+function makePlayer(id, gx, gy, isAI){
+  return {
+    id, gx, gy,
+    px:gx*TILE+TILE/2, py:gy*TILE+TILE/2,
+    dir:null, progress:0, fromX:0, fromY:0,
+    alive:true, isAI,
+    bombsMax:1, bombsActive:0, range:2, speed:3.4,
+    score:0, bombCd:0,
+    intent:{dx:0,dy:0,bomb:false},
+    color:COLORS[id%COLORS.length].body,
+    name:COLORS[id%COLORS.length].name,
+  };
+}
+
+function spawnConfig(m){
+  // 返回 [players数组] 基于模式
+  const corners=[[1,1],[COLS-2,1],[1,ROWS-2],[COLS-2,ROWS-2]];
+  const arr=[];
+  if(m==='1v1'){ arr.push(makePlayer(0,corners[0][0],corners[0][1],false)); arr.push(makePlayer(2,corners[2][0],corners[2][1],true)); }
+  else if(m==='2v2'){ arr.push(makePlayer(0,corners[0][0],corners[0][1],false)); arr.push(makePlayer(1,corners[1][0],corners[1][1],false)); arr.push(makePlayer(2,corners[2][0],corners[2][1],true)); arr.push(makePlayer(3,corners[3][0],corners[3][1],true)); }
+  else { arr.push(makePlayer(0,corners[0][0],corners[0][1],false)); arr.push(makePlayer(2,corners[2][0],corners[2][1],true)); arr.push(makePlayer(3,corners[3][0],corners[3][1],true)); arr.push(makePlayer(1,corners[1][0],corners[1][1],true)); }
+  return arr;
+}
+
+function startGame(m){
+  mode=m||mode; roundNo=1;
+  genMap();
+  players=spawnConfig(mode);
+  bombs=[]; explosions=[]; powerups=[];
+  state='playing';
+  // 重置炸弹通行标记
+  for(const p of players) p.bombsActive=0;
+  aliveCount=players.length;
+  hideOverlay('menu'); hideOverlay('roundover');
+  updateHud();
+}
+
+function nextRound(){
+  // 保留分数，重新生图与位置
+  genMap();
+  const cfg=spawnConfig(mode);
+  players=cfg.map((np,i)=>{ np.score=players[i]?players[i].score:0; return np; });
+  bombs=[]; explosions=[]; powerups=[];
+  state='playing'; aliveCount=players.length;
+  roundNo++;
+  hideOverlay('roundover');
+  updateHud();
+}
+
+// ===================== 炸弹 / 爆炸 =====================
+function placeBomb(p){
+  if(!p.alive) return false;
+  if(p.bombsActive>=p.bombsMax) return false;
+  if(bombAt(p.gx,p.gy)) return false;
+  bombs.push({gx:p.gx, gy:p.gy, t:BOMB_FUSE, range:p.range, owner:p.id, exploded:false, passOwner:p.id});
+  p.bombsActive++;
+  return true;
+}
+
+function maybeSpawnPowerup(x,y){
+  if(Math.random()<POWER_CHANCE){
+    powerups.push({gx:x, gy:y, type:choice(['B','F','S'])});
+  }
+}
+
+function addExplosion(x,y){
+  if(!explosionAt(x,y)) explosions.push({gx:x,gy:y,t:EXPL_DUR});
+}
+
+function explodeBomb(bomb){
+  if(bomb.exploded) return;
+  bomb.exploded=true;
+  const cells=[{x:bomb.gx,y:bomb.gy}];
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  for(const [dx,dy] of dirs){
+    for(let r=1;r<=bomb.range;r++){
+      const x=bomb.gx+dx*r, y=bomb.gy+dy*r;
+      if(!inBounds(x,y)) break;
+      const t=grid[y][x];
+      if(t===SOLID) break;
+      cells.push({x,y});
+      const other=bombAt(x,y);
+      if(other && !other.exploded) explodeBomb(other); // 连锁
+      if(t===SOFT){ grid[y][x]=EMPTY; maybeSpawnPowerup(x,y); break; }
+    }
+  }
+  for(const c of cells) addExplosion(c.x,c.y);
+  bombs=bombs.filter(b=>b!==bomb);
+  const owner=players.find(p=>p.id===bomb.owner);
+  if(owner) owner.bombsActive=Math.max(0,owner.bombsActive-1);
+}
+
+// ===================== 输入意图 =====================
+function refreshIntents(){
+  for(const p of players){
+    if(!p.alive) continue;
+    if(p.isAI){ p.intent=aiThink(p); }
+    else { p.intent=humanIntent(p); }
+  }
+}
+function humanIntent(p){
+  const on=k=>keys.has(k);
+  let dx=0,dy=0,bomb=false;
+  if(p.id===0){
+    if(on('KeyW')) dy=-1; else if(on('KeyS')) dy=1;
+    if(on('KeyA')) dx=-1; else if(on('KeyD')) dx=1;
+    if(on('Space')) bomb=true;
+  } else if(p.id===1){
+    if(on('ArrowUp')) dy=-1; else if(on('ArrowDown')) dy=1;
+    if(on('ArrowLeft')) dx=-1; else if(on('ArrowRight')) dx=1;
+    if(on('Enter')) bomb=true;
+  }
+  // 单轴优先
+  if(dx!==0 && dy!==0){ dy=0; }
+  return {dx,dy,bomb};
+}
+
+// ===================== 移动（网格插值） =====================
+function movePlayer(p, dt){
+  if(p.progress>0){
+    p.progress += p.speed*dt;
+    if(p.progress>=1){
+      p.progress=0; p.gx+=p.dir.x; p.gy+=p.dir.y; p.dir=null;
+      p.px=p.gx*TILE+TILE/2; p.py=p.gy*TILE+TILE/2;
+    } else {
+      p.px=lerp(p.fromX, p.gx*TILE+TILE/2, p.progress);
+      p.py=lerp(p.fromY, p.gy*TILE+TILE/2, p.progress);
+    }
+    return;
+  }
+  // 已对齐到格子中心，决定下一步
+  let dx=p.intent.dx, dy=p.intent.dy;
+  if(dx===0 && dy===0){ p.dir=null; return; }
+  // 单轴
+  if(dx!==0 && dy!==0) dy=0;
+  const nx=p.gx+dx, ny=p.gy+dy;
+  if(walkable(p,nx,ny)){
+    p.dir={x:dx,y:dy};
+    p.fromX=p.px; p.fromY=p.py;
+    p.progress=0.0001;
+  } else {
+    p.dir=null;
+  }
+}
+
+// ===================== AI =====================
+function computeDanger(){
+  const d=[];
+  for(let y=0;y<ROWS;y++) d.push(new Array(COLS).fill(false));
+  for(const b of bombs){
+    if(b.exploded) continue;
+    if(b.t>SAFE_TIME) continue; // 还很久，不躲
+    const cells=[{x:b.gx,y:b.gy}];
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      for(let r=1;r<=b.range;r++){
+        const x=b.gx+dx*r, y=b.gy+dy*r;
+        if(!inBounds(x,y)) break;
+        const t=grid[y][x];
+        if(t===SOLID) break;
+        cells.push({x,y});
+        if(t===SOFT) break;
+      }
+    }
+    for(const c of cells) d[c.y][c.x]=true;
+  }
+  return d;
+}
+function bfsStep(start, isGoal, p){
+  const q=[{x:start.x,y:start.y,first:null}];
+  const seen=new Set([start.x+','+start.y]);
+  while(q.length){
+    const cur=q.shift();
+    if(cur.first && isGoal(cur.x,cur.y)) return cur.first;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const x=cur.x+dx, y=cur.y+dy, key=x+','+y;
+      if(seen.has(key)) continue;
+      if(!walkable(p,x,y)) continue;
+      seen.add(key);
+      q.push({x,y,first:cur.first||{x:dx,y:dy}});
+    }
+  }
+  return null;
+}
+function adjacentSoft(p){
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const x=p.gx+dx,y=p.gy+dy;
+    if(inBounds(x,y) && grid[y][x]===SOFT) return true;
+  }
+  return false;
+}
+function enemyInLine(p){
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    for(let r=1;r<=p.range;r++){
+      const x=p.gx+dx*r,y=p.gy+dy*r;
+      if(!inBounds(x,y)) break;
+      const t=grid[y][x];
+      if(t===SOLID) break;
+      const foe=players.find(o=>o.alive && o.id!==p.id && o.gx===x && o.gy===y);
+      if(foe) return true;
+      if(t===SOFT) break;
+    }
+  }
+  return false;
+}
+function nearestTarget(p){
+  // 最近敌人或软砖
+  let best=null,bd=1e9;
+  for(const o of players){
+    if(!o.alive||o.id===p.id) continue;
+    const d=Math.abs(o.gx-p.gx)+Math.abs(o.gy-p.gy);
+    if(d<bd){bd=d;best={x:o.gx,y:o.gy};}
+  }
+  if(best) return best;
+  // 没有敌人则找软砖
+  for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){
+    if(grid[y][x]===SOFT){ const d=Math.abs(x-p.gx)+Math.abs(y-p.gy); if(d<bd){bd=d;best={x,y};} }
+  }
+  return best;
+}
+function aiThink(p){
+  if(p.bombCd>0) p.bombCd-=1/60;
+  const danger=computeDanger();
+  const cur={x:p.gx,y:p.gy};
+  if(danger[cur.y][cur.x]){
+    const step=bfsStep(cur,(x,y)=>!danger[y][x],p);
+    if(step) return {dx:step.x,dy:step.y,bomb:false};
+    // 无处可逃，随便走
+    for(const [dx,dy] of shuffle([[1,0],[-1,0],[0,1],[0,-1]])){
+      if(walkable(p,p.gx+dx,p.gy+dy)) return {dx,dy,bomb:false};
+    }
+    return {dx:0,dy:0,bomb:false};
+  }
+  if(p.bombCd<=0 && (adjacentSoft(p)||enemyInLine(p))){
+    p.bombCd=1.6;
+    return {dx:0,dy:0,bomb:true};
+  }
+  const target=nearestTarget(p);
+  if(target){
+    const step=bfsStep(cur,(x,y)=>x===target.x&&y===target.y,p);
+    if(step) return {dx:step.x,dy:step.y,bomb:false};
+  }
+  // 游走
+  if(Math.random()<0.15){
+    const dirs=shuffle([[1,0],[-1,0],[0,1],[0,-1]]);
+    for(const [dx,dy] of dirs){ if(walkable(p,p.gx+dx,p.gy+dy)) return {dx,dy,bomb:false}; }
+  }
+  return {dx:0,dy:0,bomb:false};
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+// ===================== 主更新 =====================
+function update(dt){
+  if(state!=='playing') return;
+  // 炸弹引线
+  for(const b of bombs){ if(!b.exploded) b.t-=dt; }
+  // 触发到点的炸弹
+  let guard=0;
+  while(guard++<50){
+    const due=bombs.find(b=>!b.exploded && b.t<=0);
+    if(!due) break;
+    explodeBomb(due);
+  }
+  // 爆炸停留计时
+  for(const e of explosions) e.t-=dt;
+  explosions=explosions.filter(e=>e.t>0);
+
+  // 意图
+  refreshIntents();
+  // 放炸弹
+  for(const p of players){
+    if(p.alive && p.intent.bomb) placeBomb(p);
+  }
+  // 移动
+  for(const p of players){ if(p.alive) movePlayer(p,dt); }
+
+  // 击杀：玩家所在格有爆炸
+  for(const p of players){
+    if(!p.alive) continue;
+    const gx=Math.floor(p.px/TILE), gy=Math.floor(p.py/TILE);
+    if(explosionAt(gx,gy)){ p.alive=false; }
+  }
+  // 道具拾取（同一格可能有多个道具，全部拾取）
+  for(const p of players){
+    if(!p.alive) continue;
+    const gx=Math.floor(p.px/TILE), gy=Math.floor(p.py/TILE);
+    const here=powerups.filter(pu=>pu.gx===gx && pu.gy===gy);
+    if(here.length){
+      for(const pu of here){
+        if(pu.type==='B') p.bombsMax++;
+        else if(pu.type==='F') p.range++;
+        else if(pu.type==='S') p.speed=Math.min(6.5,p.speed+0.5);
+      }
+      powerups=powerups.filter(pu=>!(pu.gx===gx && pu.gy===gy));
+    }
+  }
+  // 胜负
+  aliveCount=players.filter(p=>p.alive).length;
+  if(aliveCount<=1){
+    state='roundover';
+    const survivors=players.filter(p=>p.alive);
+    lastWinner=survivors.length===1?survivors[0]:null;
+    if(lastWinner) lastWinner.score++;
+    showRoundOver();
+  }
+  updateHud();
+}
+
+// ===================== 渲染 =====================
+function draw(){
+  if(!ctx) return;
+  ctx.clearRect(0,0,W,H);
+  // 地板
+  ctx.fillStyle='#0b1018'; ctx.fillRect(0,0,W,H);
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+    const t=grid[y][x];
+    const px=x*TILE, py=y*TILE;
+    if(t===SOLID){
+      ctx.fillStyle='#1b2735'; ctx.fillRect(px+2,py+2,TILE-4,TILE-4);
+      ctx.fillStyle='#243447'; ctx.fillRect(px+5,py+5,TILE-10,TILE-10);
+    } else if(t===SOFT){
+      ctx.fillStyle='#3a2a1c'; ctx.fillRect(px+3,py+3,TILE-6,TILE-6);
+      ctx.fillStyle='#5a3f28'; ctx.fillRect(px+6,py+6,TILE-12,TILE-12);
+    }
+  }
+  // 道具
+  for(const pu of powerups){
+    const px=pu.gx*TILE, py=pu.gy*TILE;
+    ctx.fillStyle = pu.type==='B'?'#f6465d':pu.type==='F'?'#f0b90b':'#3aa0ff';
+    ctx.fillRect(px+10,py+10,TILE-20,TILE-20);
+    ctx.fillStyle='#0a0e14'; ctx.font='bold 16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(pu.type==='B'?'+B':pu.type==='F'?'+F':'+S', px+TILE/2, py+TILE/2);
+  }
+  // 炸弹
+  for(const b of bombs){
+    const cx=b.gx*TILE+TILE/2, cy=b.gy*TILE+TILE/2;
+    const pulse=0.5+0.5*Math.sin((BOMB_FUSE-b.t)*10);
+    ctx.fillStyle='#11151c'; ctx.beginPath(); ctx.arc(cx,cy,TILE*0.34,0,7); ctx.fill();
+    ctx.fillStyle='rgba(246,70,93,'+(0.3+0.5*pulse)+')'; ctx.beginPath(); ctx.arc(cx,cy,TILE*0.18,0,7); ctx.fill();
+  }
+  // 爆炸
+  for(const e of explosions){
+    const px=e.gx*TILE, py=e.gy*TILE;
+    ctx.fillStyle='rgba(240,185,11,'+Math.min(1,e.t/EXPL_DUR)+')';
+    ctx.fillRect(px+2,py+2,TILE-4,TILE-4);
+    ctx.fillStyle='rgba(246,70,93,'+Math.min(1,e.t/EXPL_DUR)*0.7+')';
+    ctx.fillRect(px+8,py+8,TILE-16,TILE-16);
+  }
+  // 玩家
+  for(const p of players){
+    if(!p.alive) continue;
+    const cx=p.px, cy=p.py, r=TILE*0.34;
+    ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+    ctx.fillStyle='#0a0e14';
+    // 眼睛（朝向）
+    let ex=0,ey=0; if(p.dir){ex=p.dir.x*4;ey=p.dir.y*4;}
+    ctx.beginPath(); ctx.arc(cx-6+ex,cy-4+ey,3,0,7); ctx.arc(cx+6+ex,cy-4+ey,3,0,7); ctx.fill();
+  }
+}
+
+// ===================== HUD / 覆盖层 =====================
+function updateHud(){
+  if(typeof document==='undefined') return;
+  const el=document.getElementById('hud'); if(!el) return;
+  el.textContent='';
+  for(const p of players){
+    const span=document.createElement('span');
+    span.style.color=p.color;
+    const tag=p.alive?'' : ' (阵亡)';
+    span.textContent=`${p.name} 分:${p.score}${tag}  `;
+    el.appendChild(span);
+  }
+  const r=document.createElement('span');
+  r.textContent=`回合:${roundNo}`;
+  el.appendChild(r);
+}
+function showOverlay(id){ if(typeof document==='undefined') return; const e=document.getElementById(id); if(e) e.classList.remove('hidden'); }
+function hideOverlay(id){ if(typeof document==='undefined') return; const e=document.getElementById(id); if(e) e.classList.add('hidden'); }
+function showRoundOver(){
+  if(typeof document==='undefined') return;
+  const t=document.getElementById('roTitle'), m=document.getElementById('roMsg');
+  if(t&&m){
+    t.textContent = lastWinner? 'WIN' : 'DRAW';
+    m.textContent = lastWinner? `🏆 ${lastWinner.name} 获胜！` : '同归于尽，平局。';
+    m.style.color = lastWinner? lastWinner.color : '';
+  }
+  showOverlay('roundover');
+}
+
+// ===================== 主循环 =====================
+let lastT=0;
+function loop(ts){
+  const dt=Math.min(0.05,(ts-lastT)/1000||0); lastT=ts;
+  update(dt); draw();
+  rafId=requestAnimationFrame(loop);
+}
+
+// ===================== 测试钩子 =====================
+// 暴露内部状态与步进函数，供 node 逻辑测试使用（不影响正常游玩）
+const __bb={
+  get state(){return state;}, set state(v){state=v;},
+  get grid(){return grid;}, get players(){return players;},
+  get bombs(){return bombs;}, get explosions(){return explosions;},
+  get powerups(){return powerups;}, get aliveCount(){return aliveCount;},
+  get lastWinner(){return lastWinner;},
+  get roundNo(){return roundNo;},
+  COLS, ROWS, TILE, EMPTY, SOLID, SOFT, BOMB_FUSE, EXPL_DUR,
+  startGame, nextRound, placeBomb, update,
+  setKey:(k,v)=>{ if(v) keys.add(k); else keys.delete(k); },
+  setIntent:(id,dx,dy,bomb)=>{ const p=players.find(p=>p.id===id); if(p) p.intent={dx,dy,bomb:!!bomb}; },
+  forceStep:(id,dx,dy)=>{ const p=players.find(p=>p.id===id); if(p){ p.intent={dx,dy,bomb:false}; } },
+  killBombsSoon:()=>{ for(const b of bombs) b.t=Math.min(b.t,0.01); },
+  gridSet:(x,y,v)=>{ if(inBounds(x,y)) grid[y][x]=v; },
+};
+if(typeof window!=='undefined') window.__bb=__bb;
+
+// ===================== 启动 =====================
+function bindUI(){
+  canvas=document.getElementById('cv');
+  if(canvas) ctx=canvas.getContext('2d');
+  // 菜单
+  document.querySelectorAll('#menu .btn').forEach(b=>{
+    b.addEventListener('click',()=>startGame(b.dataset.mode));
+  });
+  const nr=document.getElementById('nextRound'); if(nr) nr.addEventListener('click',nextRound);
+  const ng=document.getElementById('newGame'); if(ng) ng.addEventListener('click',()=>startGame(mode));
+  // 键盘
+  window.addEventListener('keydown',e=>{
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+    keys.add(e.code);
+    if(e.code==='KeyP'){ /* 暂停切换可扩展 */ }
+  });
+  window.addEventListener('keyup',e=>keys.delete(e.code));
+  // 触屏（P1）
+  const touch=document.getElementById('touch');
+  if(touch){
+    if('ontouchstart' in window || navigator.maxTouchPoints>0) touch.classList.add('on');
+    touch.querySelectorAll('button').forEach(btn=>{
+      const k=btn.dataset.k;
+      const dn=e=>{ e.preventDefault(); keys.add(k); };
+      const up=e=>{ e.preventDefault(); keys.delete(k); };
+      btn.addEventListener('touchstart',dn,{passive:false});
+      btn.addEventListener('touchend',up,{passive:false});
+      btn.addEventListener('mousedown',dn);
+      btn.addEventListener('mouseup',up);
+      btn.addEventListener('mouseleave',up);
+    });
+  }
+  // 启动循环
+  if(typeof requestAnimationFrame!=='undefined'){
+    rafId=requestAnimationFrame(loop);
+  }
+}
+if(typeof document!=='undefined' && document.getElementById){
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindUI);
+  else bindUI();
+}
+})();
+</script>
+</body>
+</html>

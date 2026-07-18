@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // DOUDIZHU</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+      radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,
+      var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:14px 10px;min-height:100%}
+  .titlebar{width:min(720px,98vw);display:flex;align-items:center;gap:10px;padding:9px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:10px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--gold)}
+
+  .status{width:min(720px,98vw);display:flex;justify-content:space-between;align-items:center;
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;color:var(--dim);flex-wrap:wrap;gap:6px}
+  .status b{color:var(--text)}
+  .status .you{color:var(--gold)}
+
+  .table{width:min(720px,98vw);display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  .opp{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 10px;min-height:64px}
+  .opp.cur{border-color:var(--gold);box-shadow:0 0 12px rgba(240,185,11,.25)}
+  .opp-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px}
+  .opp-head .name{color:var(--text)}
+  .role-land{color:var(--red);font-weight:700}
+  .role-peas{color:var(--green)}
+  .cnt{color:var(--dim)}
+  .opp-play{display:flex;flex-wrap:wrap;gap:3px;min-height:24px;align-items:center}
+
+  .bottom{width:min(720px,98vw);display:flex;align-items:center;gap:8px;justify-content:center;
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:8px;font-size:12px}
+  .blabel{color:var(--dim)}
+  .owner{color:var(--gold);margin-left:6px}
+
+  .center-play{width:min(720px,98vw);min-height:30px;display:flex;justify-content:center;align-items:center;gap:3px;margin-bottom:8px;flex-wrap:wrap}
+  .pass{color:var(--dim);font-style:italic}
+  .dim{color:var(--dim)}
+
+  .mc{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+    width:22px;height:30px;border:1px solid var(--border);border-radius:4px;background:#0e141d;
+    font-size:11px;line-height:1;color:var(--text);padding:1px}
+  .mc.red{color:var(--red)}
+  .mc.joker{color:var(--gold);font-size:8px}
+  .mc.back{color:var(--dim)}
+
+  .hand-wrap{width:min(720px,98vw);display:flex;flex-direction:column;align-items:center}
+  #hand{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;padding:6px;min-height:80px;width:100%}
+  .card{position:relative;width:clamp(34px,9vw,46px);aspect-ratio:5/7;background:#0e141d;
+    border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;cursor:pointer;user-select:none;touch-action:manipulation;
+    color:var(--text);transition:transform .08s}
+  .card .r{font-size:clamp(13px,3.4vw,17px);font-weight:700;line-height:1}
+  .card .s{font-size:clamp(12px,3vw,15px);line-height:1;margin-top:2px}
+  .card.red{color:var(--red)}
+  .card.joker{color:var(--gold)}
+  .card.joker .r{font-size:8px}
+  .card.sel{border-color:var(--red);box-shadow:0 0 10px rgba(246,70,93,.5);transform:translateY(-12px)}
+  .card.disabled{opacity:.5;cursor:default}
+
+  .controls{width:min(720px,98vw);display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+  .btn{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;
+    padding:12px 18px;cursor:pointer;font-family:inherit;font-size:14px;touch-action:manipulation}
+  .btn:hover{border-color:var(--dim)}
+  .btn.red{color:var(--red);border-color:rgba(246,70,93,.4)}
+  .btn.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+  .btn.green{color:var(--green);border-color:rgba(2,192,118,.4)}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+
+  #toast{position:fixed;left:50%;bottom:18%;transform:translateX(-50%);background:var(--panel);
+    border:1px solid var(--border);border-radius:8px;padding:8px 16px;color:var(--gold);font-size:13px;
+    opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw;text-align:center}
+  #toast.show{opacity:1}
+
+  #overlay{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.92)}
+  #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 36px;text-align:center;max-width:90vw}
+  #overlay h2{font-size:26px;margin-bottom:12px;letter-spacing:1px}
+  #overlay p{color:var(--dim);font-size:13px;margin-bottom:18px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>DOUDIZHU</b> · 斗地主</span>
+  </div>
+
+  <div class="status">
+    <span id="stPhase">阶段：<b>叫地主</b></span>
+    <span id="stTurn">轮到：<b>—</b></span>
+    <span id="stRole" class="you">身份：<b>—</b></span>
+  </div>
+
+  <div class="table">
+    <div class="opp" id="opp1"></div>
+    <div class="opp" id="opp2"></div>
+  </div>
+
+  <div class="bottom" id="bottom"></div>
+
+  <div class="center-play" id="centerPlay"></div>
+
+  <div class="hand-wrap">
+    <div id="hand"></div>
+    <div class="controls" id="bidControls" style="display:none">
+      <button class="btn red" id="callBtn">叫地主</button>
+      <button class="btn green" id="passBidBtn">不叫</button>
+    </div>
+    <div class="controls" id="playControls" style="display:none">
+      <button class="btn red" id="playBtn">出牌</button>
+      <button class="btn" id="passBtn">不出 / 过</button>
+      <button class="btn gold" id="hintBtn">提示</button>
+      <button class="btn" id="newBtn">新游戏</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="overlay"><div class="box">
+    <h2 id="ovTitle">—</h2>
+    <p id="ovText"></p>
+    <button class="btn red" id="ovBtn">再来一局</button>
+  </div></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 牌与基础工具 ---------- */
+  const SUITS=['♠','♥','♦','♣'];
+  function suitVal(s){ return {'♠':4,'♥':3,'♦':2,'♣':1}[s]||0; }
+  function rankLabel(r){
+    if(r<=10) return ''+r;
+    return {11:'J',12:'Q',13:'K',14:'A',15:'2'}[r]||'';
+  }
+  function buildDeck(){
+    const deck=[]; let id=0;
+    for(const s of SUITS){
+      for(let r=3;r<=15;r++){ deck.push({id:id++, rank:r, suit:s, red:(s==='♥'||s==='♦'), joker:null}); }
+    }
+    deck.push({id:id++, rank:16, suit:'', red:false, joker:'small'});
+    deck.push({id:id++, rank:17, suit:'', red:false, joker:'big'});
+    return deck;
+  }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function sortHandDesc(h){ return h.slice().sort((a,b)=> b.rank-a.rank || suitVal(b.suit)-suitVal(a.suit)); }
+  function cardsByRank(hand){ const m={}; for(const c of hand){ (m[c.rank]=m[c.rank]||[]).push(c); } return m; }
+
+  /* ---------- 牌型识别 ---------- */
+  function straightCheck(uniq, counts, n){
+    if(uniq.length!==n) return false;
+    if(n<5) return false;
+    for(const r of uniq){ if(counts[r]!==1) return false; }
+    if(uniq[uniq.length-1]>14) return false; // 2、王不能进顺子
+    for(let i=1;i<uniq.length;i++){ if(uniq[i]!==uniq[i-1]+1) return false; }
+    return true;
+  }
+  function isConsecutive(arr){ for(let i=1;i<arr.length;i++){ if(arr[i]!==arr[i-1]+1) return false; } return true; }
+
+  function detectAirplane(uniq, counts, n){
+    const trip = uniq.filter(r=>counts[r]>=3 && r<=14).sort((a,b)=>a-b);
+    if(trip.length<2) return null;
+    // 拆出所有连续段
+    const runs=[]; let cur=[trip[0]];
+    for(let i=1;i<trip.length;i++){ if(trip[i]===trip[i-1]+1) cur.push(trip[i]); else { runs.push(cur); cur=[trip[i]]; } }
+    runs.push(cur);
+    runs.sort((a,b)=>b.length-a.length);
+    for(const run of runs){
+      const k=run.length; if(k<2) continue;
+      const runSet=new Set(run);
+      const left={}; let leftTotal=0;
+      for(const r of uniq){ const c=counts[r]-(runSet.has(r)?3:0); if(c>0){ left[r]=c; leftTotal+=c; } }
+      const maxTrip=run[run.length-1];
+      if(leftTotal===0 && n===3*k) return {type:'airplane', rank:maxTrip, len:k};
+      if(leftTotal===k && n===4*k){
+        if(Object.values(left).every(c=>c<3)) return {type:'airplane_single', rank:maxTrip, len:k};
+      }
+      if(leftTotal===2*k && n===5*k){
+        if(Object.values(left).every(c=>c===2)) return {type:'airplane_pair', rank:maxTrip, len:k};
+      }
+    }
+    return null;
+  }
+
+  function getCombo(cards){
+    if(!cards || !cards.length) return null;
+    const ranks = cards.map(c=>c.rank).sort((a,b)=>a-b);
+    const n = ranks.length;
+    const counts = {};
+    for(const r of ranks) counts[r]=(counts[r]||0)+1;
+    const uniq = Object.keys(counts).map(Number).sort((a,b)=>a-b);
+
+    if(n===2 && counts[16] && counts[17]) return {type:'rocket', rank:1000, len:0};
+    if(n===4 && uniq.length===1) return {type:'bomb', rank:uniq[0], len:0};
+    if(n===1) return {type:'single', rank:ranks[0], len:1};
+    if(n===2 && uniq.length===1) return {type:'pair', rank:ranks[0], len:1};
+    if(n===3 && uniq.length===1) return {type:'triple', rank:ranks[0], len:1};
+    if(n===4){
+      for(const r of uniq){ if(counts[r]===3) return {type:'triple_single', rank:r, len:1}; }
+      return null;
+    }
+    if(n===5){
+      let t=null,p=null;
+      for(const r of uniq){ if(counts[r]===3) t=r; else if(counts[r]===2) p=r; }
+      if(t!==null && p!==null) return {type:'triple_pair', rank:t, len:1};
+      if(straightCheck(uniq,counts,5)) return {type:'straight', rank:uniq[uniq.length-1], len:5};
+      return null;
+    }
+    // n >= 5 通用
+    if(straightCheck(uniq,counts,n)) return {type:'straight', rank:uniq[uniq.length-1], len:n};
+    if(n%2===0){
+      const pairs = uniq.filter(r=>counts[r]===2);
+      if(pairs.length===uniq.length && pairs.length>=3 && isConsecutive(pairs) && pairs.every(r=>r<=14))
+        return {type:'pairs', rank:pairs[pairs.length-1], len:pairs.length};
+    }
+    const air = detectAirplane(uniq, counts, n);
+    if(air) return air;
+    return null;
+  }
+
+  function beatsCombo(c, p){
+    if(!p) return true;            // 首出
+    if(c.type==='rocket') return true;
+    if(p.type==='rocket') return false;
+    if(c.type==='bomb'){
+      if(p.type==='bomb') return c.rank>p.rank;
+      return true;
+    }
+    if(p.type==='bomb') return false;
+    if(c.type!==p.type) return false;
+    if(c.len!==p.len) return false;
+    return c.rank>p.rank;
+  }
+
+  /* ---------- 枚举合法牌型（AI / 提示用） ---------- */
+  function make(cards){
+    const c=getCombo(cards);
+    if(!c) return null;
+    return {cards:cards.slice(), combo:c};
+  }
+  function findSingle(m, excludeRank, count){
+    const cand=Object.keys(m).map(Number).filter(r=>r!==excludeRank).sort((a,b)=>(m[a].length-m[b].length)||(a-b));
+    const res=[];
+    for(const r of cand){ res.push(m[r][0]); if(res.length>=count) break; }
+    return res.length>=count?res:null;
+  }
+  function findPair(m, excludeRank){
+    const cand=Object.keys(m).map(Number).filter(r=>r!==excludeRank&&m[r].length>=2).sort((a,b)=>(m[a].length-m[b].length)||(a-b));
+    if(!cand.length) return null;
+    return m[cand[0]].slice(0,2);
+  }
+  function findSingles(m, coreRanks, k){
+    const core=new Set(coreRanks);
+    let pool=[];
+    for(const r of Object.keys(m).map(Number)){
+      if(core.has(r)) continue;
+      for(const c of m[r]) pool.push(c);
+    }
+    pool.sort((a,b)=>a.rank-b.rank);
+    if(pool.length<k) return null;
+    return pool.slice(0,k);
+  }
+  function findPairsAtt(m, coreRanks, k){
+    const core=new Set(coreRanks);
+    const cand=Object.keys(m).map(Number).filter(r=>!core.has(r)&&m[r].length>=2).sort((a,b)=>(m[a].length-m[b].length)||(a-b));
+    const res=[];
+    for(const r of cand){ res.push(...m[r].slice(0,2)); if(res.length>=k*2) break; }
+    if(res.length<k*2) return null;
+    return res.slice(0,k*2);
+  }
+
+  function enumerateCombos(hand){
+    const plays=[];
+    const m=cardsByRank(hand);
+    const ranks=Object.keys(m).map(Number).sort((a,b)=>a-b);
+    const has=r=>m[r]&&m[r].length;
+
+    for(const r of ranks) plays.push(make(m[r].slice(0,1)));                 // 单
+    for(const r of ranks) if(has(r)>=2) plays.push(make(m[r].slice(0,2)));   // 对
+    for(const r of ranks) if(has(r)>=3) plays.push(make(m[r].slice(0,3)));   // 三
+    for(const r of ranks) if(has(r)>=3){                                     // 三带一
+      const att=findSingle(m,r,1); if(att) plays.push(make([...m[r].slice(0,3),...att]));
+    }
+    for(const r of ranks) if(has(r)>=3){                                     // 三带二
+      const att=findPair(m,r); if(att) plays.push(make([...m[r].slice(0,3),...att]));
+    }
+    for(const r of ranks) if(has(r)>=4) plays.push(make(m[r].slice(0,4)));   // 炸弹
+    if(has(16)&&has(17)) plays.push(make([m[16][0],m[17][0]]));              // 火箭
+
+    // 顺子
+    const sRanks=ranks.filter(r=>r<=14);
+    for(let i=0;i<sRanks.length;i++){
+      const seq=[sRanks[i]];
+      for(let j=i+1;j<sRanks.length;j++){
+        if(sRanks[j]===seq[seq.length-1]+1) seq.push(sRanks[j]); else break;
+        if(seq.length>=5) plays.push(make(seq.map(r=>m[r][0])));
+      }
+    }
+    // 连对
+    const pRanks=ranks.filter(r=>has(r)>=2 && r<=14);
+    for(let i=0;i<pRanks.length;i++){
+      const seq=[pRanks[i]];
+      for(let j=i+1;j<pRanks.length;j++){
+        if(pRanks[j]===seq[seq.length-1]+1) seq.push(pRanks[j]); else break;
+        if(seq.length>=3) plays.push(make(seq.flatMap(r=>m[r].slice(0,2))));
+      }
+    }
+    // 飞机（纯 / 带单 / 带对）
+    const tRanks=ranks.filter(r=>has(r)>=3 && r<=14);
+    for(let i=0;i<tRanks.length;i++){
+      const seq=[tRanks[i]];
+      for(let j=i+1;j<tRanks.length;j++){
+        if(tRanks[j]===seq[seq.length-1]+1) seq.push(tRanks[j]); else break;
+        const k=seq.length;
+        if(k>=2){
+          const core=seq.flatMap(r=>m[r].slice(0,3));
+          plays.push(make(core));
+          const ex=findSingles(m, seq, k); if(ex) plays.push(make([...core,...ex]));
+          const exP=findPairsAtt(m, seq, k); if(exP) plays.push(make([...core,...exP]));
+        }
+      }
+    }
+    return plays.filter(Boolean);
+  }
+
+  /* ---------- AI ---------- */
+  function handStrength(h){
+    let s=0; const cnt={};
+    for(const c of h){ cnt[c.rank]=(cnt[c.rank]||0)+1; }
+    for(const c of h){ if(c.rank===17) s+=8; else if(c.rank===16) s+=6; else if(c.rank===15) s+=3; }
+    for(const r in cnt){ if(cnt[r]===4) s+=10; }
+    s+=(cnt[14]||0);
+    return s;
+  }
+  function chooseLead(hand){
+    const all=enumerateCombos(hand);
+    const nb=all.filter(p=>p.combo.type!=='bomb'&&p.combo.type!=='rocket');
+    const pool=nb.length?nb:all;
+    pool.sort((a,b)=>(b.cards.length-a.cards.length)||(a.combo.rank-b.combo.rank));
+    return pool[0].cards;
+  }
+  function chooseFollow(hand, prev){
+    const all=enumerateCombos(hand);
+    const beats=all.filter(p=>beatsCombo(p.combo, prev));
+    if(!beats.length) return null;
+    const normal=beats.filter(p=>p.combo.type!=='bomb'&&p.combo.type!=='rocket');
+    if(normal.length){ normal.sort((a,b)=>a.combo.rank-b.combo.rank); return normal[0].cards; }
+    beats.sort((a,b)=>{ const ra=a.combo.type==='rocket'?1000:a.combo.rank; const rb=b.combo.type==='rocket'?1000:b.combo.rank; return ra-rb; });
+    if(hand.length<=10 || Math.random()<0.3) return beats[0].cards;
+    return null;
+  }
+
+  /* ---------- 游戏状态 ---------- */
+  let hands=[[],[],[]];
+  let bottomCards=[];
+  let landlordIndex=null;
+  let phase='bidding';      // bidding | playing | over
+  let currentTurn=0;
+  let lastPlay=null;        // {owner, combo, cards}
+  let passes=0;
+  let trickPlay=[null,null,null]; // 本回合各家出牌
+  const selection=new Set();
+  let hintList=[], hintIdx=-1;
+
+  const names=['你','AI 左','AI 右'];
+
+  /* ---------- DOM ---------- */
+  const $=id=>document.getElementById(id);
+  function miniCard(c){
+    if(c.joker){ return `<span class="mc joker">JOKER${c.joker==='big'?'大':'小'}</span>`; }
+    const cls=c.red?'red':'';
+    return `<span class="mc ${cls}">${rankLabel(c.rank)}${c.suit}</span>`;
+  }
+  function toast(msg){
+    const t=$('toast'); t.textContent=msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),1400);
+  }
+
+  function render(){
+    // status
+    $('stPhase').innerHTML = '阶段：<b>'+(phase==='bidding'?'叫地主':phase==='playing'?'出牌中':'结束')+'</b>';
+    let turnTxt='—';
+    if(phase==='bidding') turnTxt='叫地主';
+    else if(phase==='playing'){ turnTxt=names[currentTurn]+(lastPlay?'（跟牌）':'（首出）'); }
+    else turnTxt='—';
+    $('stTurn').innerHTML='轮到：<b>'+turnTxt+'</b>';
+    let roleTxt='—';
+    if(landlordIndex!==null){
+      const myRole = landlordIndex===0?'地主':'农民';
+      roleTxt = myRole+(landlordIndex===0?'（你）':'（对手）');
+    }
+    $('stRole').innerHTML='身份：<b>'+roleTxt+'</b>';
+
+    // opponents
+    for(const idx of [1,2]){
+      const box=$('opp'+idx);
+      const role = idx===landlordIndex?'地主':'农民';
+      const roleCls = idx===landlordIndex?'role-land':'role-peas';
+      const curCls = (phase==='playing'&&currentTurn===idx)?' cur':'';
+      const tp=trickPlay[idx];
+      let playHtml;
+      if(tp==='pass') playHtml='<span class="pass">过</span>';
+      else if(Array.isArray(tp)) playHtml=tp.map(miniCard).join('');
+      else playHtml='<span class="dim">—</span>';
+      box.className='opp'+curCls;
+      box.innerHTML='<div class="opp-head"><span class="name">'+(idx===1?'AI 左':'AI 右')+
+        '</span><span class="'+roleCls+'">'+role+'</span><span class="cnt">'+hands[idx].length+' 张</span></div>'+
+        '<div class="opp-play">'+playHtml+'</div>';
+    }
+
+    // bottom cards
+    let bhtml='<span class="blabel">底牌</span>';
+    if(landlordIndex===null){ for(let i=0;i<3;i++) bhtml+='<span class="mc back">?</span>'; }
+    else {
+      bhtml+=bottomCards.map(miniCard).join('');
+      bhtml+='<span class="owner">→ '+(landlordIndex===0?'你':names[landlordIndex])+'</span>';
+    }
+    $('bottom').innerHTML=bhtml;
+
+    // center play (human last trick)
+    const tp=trickPlay[0];
+    let chtml='';
+    if(tp==='pass') chtml='<span class="pass">你：过</span>';
+    else if(Array.isArray(tp)) chtml=tp.map(miniCard).join('');
+    $('centerPlay').innerHTML=chtml;
+
+    // hand
+    const handEl=$('hand'); handEl.innerHTML='';
+    const sorted=sortHandDesc(hands[0]);
+    for(const c of sorted){
+      const div=document.createElement('div');
+      div.className='card'+(c.red?' red':'')+(c.joker?' joker':'')+(selection.has(c.id)?' sel':'');
+      if(c.joker){ div.innerHTML='<div class="r">JOKER</div><div class="s">'+(c.joker==='big'?'大':'小')+'</div>'; }
+      else { div.innerHTML='<div class="r">'+rankLabel(c.rank)+'</div><div class="s">'+c.suit+'</div>'; }
+      div.dataset.id=c.id;
+      div.addEventListener('click',()=>toggleSelect(c.id));
+      handEl.appendChild(div);
+    }
+
+    // controls
+    const bid=$('bidControls'), play=$('playControls');
+    if(phase==='bidding'){ bid.style.display='flex'; play.style.display='none'; }
+    else if(phase==='playing'){
+      bid.style.display='none'; play.style.display='flex';
+      const humanTurn = currentTurn===0;
+      $('playBtn').disabled=!humanTurn;
+      $('hintBtn').disabled=!humanTurn;
+      $('passBtn').disabled = !humanTurn || !lastPlay;
+    } else { bid.style.display='none'; play.style.display='none'; }
+  }
+
+  function toggleSelect(id){
+    if(phase!=='playing') return;
+    if(selection.has(id)) selection.delete(id); else selection.add(id);
+    hintIdx=-1;
+    render();
+  }
+
+  /* ---------- 流程 ---------- */
+  function newGame(){
+    phase='bidding'; landlordIndex=null; bottomCards=[]; lastPlay=null; passes=0;
+    trickPlay=[null,null,null]; selection.clear(); hintList=[]; hintIdx=-1;
+    const deck=shuffle(buildDeck());
+    hands=[deck.slice(0,17), deck.slice(17,34), deck.slice(34,51)];
+    bottomCards=deck.slice(51,54);
+    currentTurn=0;
+    $('overlay').style.display='none';
+    render();
+  }
+
+  function humanCall(){ becomeLandlord(0); }
+  function humanPassBid(){
+    let ai=null, bestS=-1;
+    for(const idx of [1,2]){ const s=handStrength(hands[idx]); if(s>bestS){ bestS=s; ai=idx; } }
+    if(bestS>=12){ becomeLandlord(ai); }
+    else { toast('无人叫地主，重新发牌'); newGame(); }
+  }
+
+  function becomeLandlord(idx){
+    landlordIndex=idx;
+    hands[idx]=hands[idx].concat(bottomCards);
+    hands[idx]=sortHandDesc(hands[idx]);
+    phase='playing'; currentTurn=idx; lastPlay=null; passes=0; trickPlay=[null,null,null];
+    selection.clear(); hintList=[]; hintIdx=-1;
+    render();
+    beginTurn();
+  }
+
+  function beginTurn(){
+    if(phase!=='playing') return;
+    if(passes>=2){ lastPlay=null; passes=0; trickPlay=[null,null,null]; }
+    render();
+    if(currentTurn===0){ /* 等待玩家操作 */ }
+    else { setTimeout(()=>aiTurn(currentTurn), 650); }
+  }
+
+  function proceed(){
+    if(phase!=='playing') return;
+    currentTurn=(currentTurn+1)%3;
+    beginTurn();
+  }
+
+  function doPlay(idx, cards, combo){
+    hands[idx]=hands[idx].filter(c=>!cards.includes(c));
+    lastPlay={owner:idx, combo:combo, cards:cards};
+    trickPlay[idx]=cards;
+    passes=0;
+    selection.clear(); hintList=[]; hintIdx=-1;
+    if(hands[idx].length===0){ endGame(idx); return; }
+    proceed();
+  }
+
+  function humanPlay(){
+    if(phase!=='playing'||currentTurn!==0) return;
+    const sel=hands[0].filter(c=>selection.has(c.id));
+    if(sel.length===0){ toast('请先选择要出的牌'); return; }
+    const combo=getCombo(sel);
+    if(!combo){ toast('不是合法牌型'); return; }
+    if(lastPlay && !beatsCombo(combo, lastPlay.combo)){ toast('打不过上家，请重选或不出'); return; }
+    doPlay(0, sel, combo);
+  }
+
+  function humanPass(){
+    if(phase!=='playing'||currentTurn!==0) return;
+    if(!lastPlay){ toast('你是首出，必须出牌'); return; }
+    trickPlay[0]='pass'; passes++; proceed();
+  }
+
+  function showHint(){
+    if(phase!=='playing'||currentTurn!==0) return;
+    const all=enumerateCombos(hands[0]);
+    const legal = lastPlay ? all.filter(p=>beatsCombo(p.combo, lastPlay.combo)) : all;
+    if(!legal.length){ toast('没有能压过的牌，请选择“不出”'); return; }
+    if(hintIdx>=legal.length) hintIdx=-1;
+    hintIdx=(hintIdx+1)%legal.length;
+    selection.clear();
+    for(const c of legal[hintIdx].cards) selection.add(c.id);
+    render();
+    toast('提示 '+(hintIdx+1)+'/'+legal.length);
+  }
+
+  function aiTurn(idx){
+    if(phase!=='playing'||currentTurn!==idx) return;
+    let cards;
+    if(!lastPlay){ cards=chooseLead(hands[idx]); }
+    else {
+      const f=chooseFollow(hands[idx], lastPlay.combo);
+      if(f){ cards=f; }
+      else { trickPlay[idx]='pass'; passes++; proceed(); return; }
+    }
+    const combo=getCombo(cards);
+    if(!combo){ // 兜底：出最小单张
+      const sorted=sortHandDesc(hands[idx]);
+      cards=[sorted[sorted.length-1]];
+    }
+    doPlay(idx, cards, getCombo(cards));
+  }
+
+  function endGame(winnerIdx){
+    phase='over';
+    const landlordWon = winnerIdx===landlordIndex;
+    let title, sub;
+    if(landlordWon){ title='地主胜'; }
+    else { title='农民胜'; }
+    if(landlordIndex===0){
+      sub = landlordWon ? '你（地主）赢得了本局！' : '你（农民）惜败';
+    } else {
+      sub = landlordWon ? (names[landlordIndex]+'（地主）获胜') : '农民方（你与队友）获胜！';
+    }
+    $('ovTitle').textContent = title;
+    $('ovTitle').style.color = landlordWon ? 'var(--red)' : 'var(--green)';
+    $('ovText').textContent = sub;
+    $('overlay').style.display='flex';
+    render();
+  }
+
+  /* ---------- 事件 ---------- */
+  $('callBtn').onclick=humanCall;
+  $('passBidBtn').onclick=humanPassBid;
+  $('playBtn').onclick=humanPlay;
+  $('passBtn').onclick=humanPass;
+  $('hintBtn').onclick=showHint;
+  $('newBtn').onclick=newGame;
+  $('ovBtn').onclick=newGame;
+  window.addEventListener('keydown',e=>{
+    if(phase!=='playing') return;
+    if(currentTurn!==0) return;
+    if(e.key==='Enter') humanPlay();
+    else if(e.key===' '){ e.preventDefault(); humanPass(); }
+    else if(e.key==='h'||e.key==='H') showHint();
+  });
+
+  newGame();
+})();
+</script>
+</body>
+</html>

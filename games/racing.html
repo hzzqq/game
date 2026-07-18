@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // RACING</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  #stage{position:fixed;inset:0;z-index:0}
+  #stage canvas{display:block;touch-action:none}
+  #scan{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px}
+  .titlebar{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:10px;
+    padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border-bottom:1px solid var(--border)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .titlebar .btn{margin-left:auto;background:transparent;color:var(--dim);border:1px solid var(--border);
+    border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px}
+  .titlebar .btn:hover{color:var(--red);border-color:var(--red)}
+
+  #hud{position:fixed;top:52px;left:16px;right:16px;z-index:5;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .stat{background:rgba(18,24,33,.85);border:1px solid var(--border);border-radius:8px;padding:8px 12px;backdrop-filter:blur(4px);min-width:74px}
+  .stat .k{color:var(--dim);font-size:11px;letter-spacing:.5px}
+  .stat .v{font-size:18px;margin-top:2px}
+  .v.speed{color:var(--green)} .v.dist{color:var(--gold)} .v.best{color:var(--red)} .v.lives{color:var(--text)}
+
+  #overlay{position:fixed;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,.88)}
+  #overlay .box{text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 36px;max-width:92vw}
+  #overlay h1{font-size:26px;letter-spacing:2px;margin-bottom:6px;text-shadow:0 0 18px rgba(246,70,93,.35)}
+  #overlay p{color:var(--dim);font-size:13px;line-height:1.9;margin-bottom:18px}
+  #overlay .start{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;box-shadow:0 0 14px rgba(246,70,93,.4)}
+  #overlay .start:hover{filter:brightness(1.1)}
+  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;color:var(--dim);font-size:12px;text-align:center;width:100%}
+
+  #touch{position:fixed;bottom:0;left:0;right:0;z-index:6;display:none;justify-content:space-between;padding:0 10px 14px;pointer-events:none}
+  #touch .pad{pointer-events:auto;width:38%;max-width:160px;height:120px;display:flex;align-items:center;justify-content:center;
+    background:rgba(18,24,33,.7);border:1px solid var(--border);border-radius:14px;color:var(--dim);font-size:30px;
+    -webkit-user-select:none;user-select:none}
+  #touch .pad:active{color:var(--red);border-color:var(--red)}
+  body.touch #touch{display:flex}
+  body.touch #hint{display:none}
+</style>
+</head>
+<body>
+  <div id="stage"><canvas id="game"></canvas></div>
+  <div id="scan"></div>
+
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>RACING</b> · 极速飙车</span>
+    <button class="btn" id="pauseBtn">暂停</button>
+  </div>
+
+  <div id="hud">
+    <div class="stat"><div class="k">SPEED</div><div class="v speed" id="hSpeed">0</div></div>
+    <div class="stat"><div class="k">DIST (M)</div><div class="v dist" id="hDist">0</div></div>
+    <div class="stat"><div class="k">BEST</div><div class="v best" id="hBest">0</div></div>
+    <div class="stat"><div class="k">LIVES</div><div class="v lives" id="hLives">3</div></div>
+  </div>
+
+  <div id="touch">
+    <div class="pad" id="btnLeft">&#9664;</div>
+    <div class="pad" id="btnRight">&#9654;</div>
+  </div>
+
+  <div id="hint">方向键 / A · D 切换车道　·　躲避来车</div>
+
+  <div id="overlay">
+    <div class="box">
+      <h1 id="ovTitle">极速飙车</h1>
+      <p id="ovText">
+        用 <b>← →</b> 或 <b>A / D</b> 在车道间穿梭，<br>
+        躲避对向与同向车辆。速度越快得分越高。<br>
+        撞车扣一条命，三命耗尽即结束。
+      </p>
+      <button class="start" id="startBtn">开始 (START)</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- DOM refs ----
+  var cv = document.getElementById('game');
+  var ctx = cv.getContext('2d');
+  var hSpeed = document.getElementById('hSpeed');
+  var hDist  = document.getElementById('hDist');
+  var hBest  = document.getElementById('hBest');
+  var hLives = document.getElementById('hLives');
+  var overlay = document.getElementById('overlay');
+  var ovTitle = document.getElementById('ovTitle');
+  var ovText  = document.getElementById('ovText');
+  var startBtn = document.getElementById('startBtn');
+  var pauseBtn = document.getElementById('pauseBtn');
+  var btnLeft = document.getElementById('btnLeft');
+  var btnRight = document.getElementById('btnRight');
+
+  // ---- constants ----
+  var LANES = 5;
+  var BEST_KEY = 'terminal_racing_best';
+
+  // ---- responsive canvas ----
+  var W = 0, H = 0, DPR = 1;
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    cv.width = Math.floor(W * DPR);
+    cv.height = Math.floor(H * DPR);
+    cv.style.width = W + 'px';
+    cv.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function isTouch(){
+    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  }
+  if (isTouch()) document.body.classList.add('touch');
+
+  // ---- road geometry ----
+  function roadMetrics(){
+    var margin = Math.max(16, W * 0.06);
+    var roadX = margin;
+    var roadW = W - margin * 2;
+    var laneW = roadW / LANES;
+    return { roadX: roadX, roadW: roadW, laneW: laneW };
+  }
+  function laneCenterX(i){
+    var m = roadMetrics();
+    return m.roadX + m.laneW * (i + 0.5);
+  }
+
+  // ---- game state ----
+  var state = 'menu'; // menu | playing | paused | over
+  var best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0;
+  hBest.textContent = best;
+
+  var player, enemies, worldSpeed, distance, lives, spawnTimer, lastTime, dashOffset, invuln, shake;
+
+  function reset(){
+    var m = roadMetrics();
+    var carW = Math.min(m.laneW * 0.62, 54);
+    var carH = carW * 1.7;
+    player = {
+      lane: Math.floor(LANES / 2),
+      x: laneCenterX(Math.floor(LANES / 2)),
+      y: H - 110,
+      w: carW,
+      h: carH,
+      laneFloat: Math.floor(LANES / 2)
+    };
+    enemies = [];
+    worldSpeed = 220;      // px/sec baseline scroll
+    distance = 0;
+    lives = 3;
+    spawnTimer = 0;
+    dashOffset = 0;
+    invuln = 0;
+    shake = 0;
+    hLives.textContent = lives;
+  }
+
+  function spawnEnemy(){
+    var lane = (Math.random() * LANES) | 0;
+    var m = roadMetrics();
+    var carW = Math.min(m.laneW * 0.62, 54);
+    var carH = carW * 1.7;
+    // pick a color: green / gold / dim
+    var r = Math.random();
+    var color = r < 0.45 ? '#02c076' : (r < 0.8 ? '#f0b90b' : '#3b6ea5');
+    enemies.push({
+      lane: lane,
+      x: laneCenterX(lane),
+      y: -carH - 20,
+      w: carW,
+      h: carH,
+      color: color,
+      // relative closing speed: slower than scroll so they drift toward player
+      gap: 90 + Math.random() * 160
+    });
+  }
+
+  function startGame(){
+    reset();
+    state = 'playing';
+    overlay.style.display = 'none';
+    lastTime = performance.now();
+  }
+
+  function gameOver(){
+    state = 'over';
+    if (Math.floor(distance) > best){
+      best = Math.floor(distance);
+      localStorage.setItem(BEST_KEY, String(best));
+      hBest.textContent = best;
+    }
+    ovTitle.textContent = 'GAME OVER';
+    ovTitle.style.color = 'var(--red)';
+    ovText.innerHTML = '本次里程 <b style="color:var(--gold)">' + Math.floor(distance) + '</b> M<br>' +
+                       '历史最佳 <b style="color:var(--red)">' + best + '</b> M<br><br>再来一局？';
+    startBtn.textContent = '新局 (RESTART)';
+    overlay.style.display = 'flex';
+  }
+
+  // ---- input ----
+  function moveLane(dir){
+    if (state !== 'playing') return;
+    var nl = player.lane + dir;
+    if (nl < 0) nl = 0;
+    if (nl > LANES - 1) nl = LANES - 1;
+    player.lane = nl;
+  }
+
+  window.addEventListener('keydown', function(e){
+    var k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A'){ moveLane(-1); e.preventDefault(); }
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D'){ moveLane(1); e.preventDefault(); }
+    else if (k === ' ' || k === 'Enter'){
+      if (state === 'menu' || state === 'over'){ startGame(); }
+      else if (state === 'playing'){ togglePause(); }
+      e.preventDefault();
+    }
+  });
+
+  startBtn.addEventListener('click', function(){
+    if (state === 'playing' || state === 'paused') return;
+    startGame();
+  });
+
+  function togglePause(){
+    if (state === 'playing'){
+      state = 'paused';
+      pauseBtn.textContent = '继续';
+      ovTitle.textContent = 'PAUSED';
+      ovTitle.style.color = 'var(--gold)';
+      ovText.innerHTML = '游戏已暂停。<br><br>按 继续 或空格键恢复。';
+      startBtn.textContent = '继续 (RESUME)';
+      overlay.style.display = 'flex';
+    } else if (state === 'paused'){
+      state = 'playing';
+      pauseBtn.textContent = '暂停';
+      overlay.style.display = 'none';
+      lastTime = performance.now();
+    }
+  }
+  pauseBtn.addEventListener('click', function(){
+    if (state === 'playing' || state === 'paused') togglePause();
+  });
+
+  // touch buttons
+  function bindHold(el, dir){
+    var fn = function(e){ e.preventDefault(); moveLane(dir); };
+    el.addEventListener('touchstart', fn, { passive:false });
+    el.addEventListener('mousedown', fn);
+  }
+  bindHold(btnLeft, -1);
+  bindHold(btnRight, 1);
+
+  // ---- collision ----
+  function aabb(a, b){
+    return Math.abs(a.x - b.x) * 2 < (a.w + b.w) &&
+           Math.abs(a.y - b.y) * 2 < (a.h + b.h);
+  }
+
+  // ---- update ----
+  function update(dt){
+    // ramp difficulty
+    worldSpeed += dt * 8;               // speed grows steadily
+    distance += worldSpeed * dt * 0.1;  // meters (scaled)
+
+    dashOffset = (dashOffset + worldSpeed * dt) % 60;
+
+    // smooth lane interpolation
+    var targetX = laneCenterX(player.lane);
+    player.x += (targetX - player.x) * Math.min(1, dt * 12);
+
+    if (invuln > 0) invuln -= dt;
+    if (shake > 0) shake -= dt * 60;
+
+    // spawn
+    spawnTimer -= dt;
+    var interval = Math.max(0.45, 1.4 - worldSpeed / 600);
+    if (spawnTimer <= 0){
+      spawnEnemy();
+      spawnTimer = interval * (0.7 + Math.random() * 0.6);
+    }
+
+    // move enemies (down the screen, relative to scroll)
+    var rel = worldSpeed + 40;
+    for (var i = enemies.length - 1; i >= 0; i--){
+      var en = enemies[i];
+      en.y += rel * dt;
+      if (en.y > H + en.h){
+        enemies.splice(i, 1);
+        continue;
+      }
+      if (invuln <= 0 && aabb(player, en)){
+        // crash
+        lives -= 1;
+        hLives.textContent = lives;
+        invuln = 1.4;
+        shake = 14;
+        // remove the offending car so it doesn't double-hit
+        enemies.splice(i, 1);
+        if (lives <= 0){
+          gameOver();
+          return;
+        }
+      }
+    }
+  }
+
+  // ---- render ----
+  function drawCar(x, y, w, h, color, isPlayer){
+    ctx.save();
+    ctx.translate(x, y);
+    // body
+    ctx.fillStyle = color;
+    roundRect(-w/2, -h/2, w, h, 6);
+    ctx.fill();
+    // windshield
+    ctx.fillStyle = 'rgba(10,14,20,.55)';
+    roundRect(-w*0.32, -h*0.28, w*0.64, h*0.30, 3);
+    ctx.fill();
+    // tail (for player, lights at bottom)
+    ctx.fillStyle = 'rgba(255,255,255,.25)';
+    if (isPlayer){
+      ctx.fillRect(-w*0.4, h*0.36, w*0.8, 3);
+      ctx.fillStyle = 'rgba(255,80,90,.8)';
+      ctx.fillRect(-w*0.4, h*0.40, w*0.26, 3);
+      ctx.fillRect(w*0.14, h*0.40, w*0.26, 3);
+    }
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (shake > 0){
+      var s = shake;
+      ctx.translate((Math.random()-0.5)*s, (Math.random()-0.5)*s);
+    }
+
+    var m = roadMetrics();
+    // grass / off-road
+    ctx.fillStyle = '#0c1118';
+    ctx.fillRect(0, 0, W, H);
+    // road surface
+    ctx.fillStyle = '#11161f';
+    ctx.fillRect(m.roadX, 0, m.roadW, H);
+    // road edges
+    ctx.strokeStyle = '#2a3b4f';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(m.roadX, 0); ctx.lineTo(m.roadX, H);
+    ctx.moveTo(m.roadX + m.roadW, 0); ctx.lineTo(m.roadX + m.roadW, H);
+    ctx.stroke();
+
+    // lane dashes
+    ctx.strokeStyle = 'rgba(246,70,93,.35)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([22, 38]);
+    ctx.lineDashOffset = -dashOffset;
+    for (var i = 1; i < LANES; i++){
+      var lx = m.roadX + m.laneW * i;
+      ctx.beginPath();
+      ctx.moveTo(lx, 0); ctx.lineTo(lx, H);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // enemies
+    for (var j = 0; j < enemies.length; j++){
+      var en = enemies[j];
+      drawCar(en.x, en.y, en.w, en.h, en.color, false);
+    }
+
+    // player (blink while invulnerable)
+    if (!(invuln > 0 && ((performance.now() / 100) | 0) % 2 === 0)){
+      drawCar(player.x, player.y, player.w, player.h, '#f6465d', true);
+    }
+
+    ctx.restore();
+  }
+
+  function updateHUD(){
+    var kmh = Math.floor(worldSpeed * 0.42);
+    hSpeed.textContent = kmh;
+    hDist.textContent = Math.floor(distance);
+  }
+
+  // ---- loop ----
+  function frame(now){
+    if (state === 'playing'){
+      var dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+      update(dt);
+      if (state === 'playing'){ // may have ended inside update
+        render();
+        updateHUD();
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // initial menu render (static scene behind overlay)
+  reset();
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // SUDOKU</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+    linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,
+    var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px}
+  .titlebar{width:min(560px,96vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:14px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+
+  .bar{width:min(560px,96vw);display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;justify-content:center}
+  .seg button,.act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer;font-family:inherit;font-size:13px}
+  .seg button.on{border-color:var(--red);box-shadow:0 0 12px rgba(246,70,93,.35);color:var(--red)}
+  .act:hover{border-color:var(--dim)}
+  .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+  .meta{width:min(560px,96vw);display:flex;justify-content:space-between;color:var(--dim);font-size:12px;margin-bottom:8px;padding:0 4px}
+  .meta b{color:var(--text)}
+
+  #board{width:min(560px,96vw);aspect-ratio:1;display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);
+    background:var(--border);gap:1px;border:2px solid var(--border);border-radius:6px;overflow:hidden;touch-action:manipulation}
+  .cell{background:var(--panel);display:flex;align-items:center;justify-content:center;font-size:clamp(16px,5vw,26px);position:relative;cursor:pointer;user-select:none;color:var(--text)}
+  .cell.given{color:var(--gold);font-weight:700}
+  .cell.sel{background:#16202c;box-shadow:inset 0 0 0 2px var(--red)}
+  .cell.peer{background:#10161f}
+  .cell.conflict{color:var(--red);text-shadow:0 0 8px rgba(246,70,93,.6)}
+  .cell.same{color:var(--green)}
+  .cell .notes{position:absolute;inset:2px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);font-size:9px;color:var(--dim);line-height:1}
+  .cell .notes span{display:flex;align-items:center;justify-content:center}
+  .cell.bb{border-bottom:2px solid var(--border)} .cell.br{border-right:2px solid var(--border)}
+
+  #pad{width:min(560px,96vw);display:grid;grid-template-columns:repeat(9,1fr);gap:6px;margin-top:14px}
+  #pad button{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px 0;font-size:18px;cursor:pointer;font-family:inherit}
+  #pad button:hover{border-color:var(--red);color:var(--red)}
+  .tools{width:min(560px,96vw);display:flex;gap:8px;margin-top:10px;justify-content:center}
+  .tools .act{flex:1;text-align:center}
+
+  #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.9)}
+  #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;text-align:center}
+  #overlay h2{font-size:24px;margin-bottom:12px;color:var(--green);letter-spacing:1px}
+  #overlay p{color:var(--dim);font-size:13px;margin-bottom:16px}
+  #overlay .act{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 26px;font-family:inherit;cursor:pointer;border-radius:8px}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>SUDOKU</b> · 数独</span>
+  </div>
+
+  <div class="bar">
+    <div class="seg">
+      <button data-d="easy" class="on">简单</button>
+      <button data-d="medium">中等</button>
+      <button data-d="hard">困难</button>
+    </div>
+    <button class="act gold" id="newBtn">新游戏</button>
+  </div>
+  <div class="meta"><span>⏱ <b id="time">00:00</b></span><span>错误 <b id="mistakes">0</b></span><span>提示剩余 <b id="hints">3</b></span></div>
+
+  <div id="board"></div>
+
+  <div id="pad"></div>
+  <div class="tools">
+    <button class="act" id="eraseBtn">⌫ 擦除</button>
+    <button class="act" id="noteBtn">✎ 笔记</button>
+    <button class="act gold" id="hintBtn">💡 提示</button>
+  </div>
+
+  <div id="overlay"><div class="box"><h2>🎉 完成！</h2><p id="ovText"></p><button class="act" id="ovBtn">再来一局</button></div></div>
+
+<script>
+(function(){
+  const boardEl=document.getElementById('board');
+  const N=9;
+  let solution=[], board=[], given=[], notes=[], sel=-1, difficulty='easy';
+  let notesMode=false, mistakes=0, hintsLeft=3, solved=false, timer=0, timerId=null;
+
+  const CLUES={easy:42, medium:34, hard:28};
+
+  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+  function valid(g,r,c,v){
+    for(let i=0;i<9;i++){ if(g[r*9+i]===v) return false; if(g[i*9+c]===v) return false; }
+    const br=Math.floor(r/3)*3, bc=Math.floor(c/3)*3;
+    for(let i=0;i<3;i++)for(let j=0;j<3;j++) if(g[(br+i)*9+(bc+j)]===v) return false;
+    return true;
+  }
+  function solve(g){
+    for(let i=0;i<81;i++){ if(g[i]===0){ const r=Math.floor(i/9),c=i%9;
+      for(const v of shuffle([1,2,3,4,5,6,7,8,9])){ if(valid(g,r,c,v)){ g[i]=v; if(solve(g)) return true; g[i]=0; } } return false; } }
+    return true;
+  }
+  function countSolutions(g,limit){
+    let count=0;
+    (function rec(gg){ if(count>=limit) return;
+      for(let i=0;i<81;i++){ if(gg[i]===0){ const r=Math.floor(i/9),c=i%9;
+        for(let v=1;v<=9;v++){ if(valid(gg,r,c,v)){ gg[i]=v; rec(gg); gg[i]=0; if(count>=limit) return; } } return; } }
+      count++;
+    })(g.slice());
+    return count;
+  }
+  function generate(){
+    const full=new Array(81).fill(0); solve(full); solution=full.slice();
+    const puzzle=full.slice();
+    const cells=shuffle([...Array(81).keys()]);
+    const target=CLUES[difficulty]; let removed=0;
+    for(const idx of cells){ if(81-removed<=target) break;
+      const bak=puzzle[idx]; puzzle[idx]=0;
+      if(countSolutions(puzzle,2)!==1) puzzle[idx]=bak; else removed++;
+    }
+    board=puzzle.slice(); given=puzzle.map(v=>v!==0); notes=Array.from({length:81},()=>new Set());
+    sel=-1; mistakes=0; hintsLeft=3; solved=false; timer=0; notesMode=false;
+    document.getElementById('noteBtn').classList.remove('on');
+    render(); updateMeta(); startTimer();
+  }
+
+  function render(){
+    boardEl.innerHTML='';
+    for(let i=0;i<81;i++){
+      const c=document.createElement('div');
+      c.className='cell'; const r=Math.floor(i/9), col=i%9;
+      if(r===2||r===5) c.classList.add('bb'); if(col===2||col===5) c.classList.add('br');
+      if(given[i]) c.classList.add('given');
+      const v=board[i];
+      if(v!==0){
+        c.textContent=v;
+        if(isConflict(i)) c.classList.add('conflict');
+        else if(sel>=0 && board[sel]===v && i!==sel) c.classList.add('same');
+      } else if(notes[i].size){
+        const n=document.createElement('div'); n.className='notes';
+        for(let k=1;k<=9;k++){ const s=document.createElement('span'); s.textContent=notes[i].has(k)?k:''; n.appendChild(s); }
+        c.appendChild(n);
+      }
+      if(i===sel) c.classList.add('sel');
+      else if(sel>=0 && isPeer(i,sel)) c.classList.add('peer');
+      c.onclick=()=>{ sel=i; render(); };
+      boardEl.appendChild(c);
+    }
+  }
+  function isPeer(a,b){ const ra=Math.floor(a/9),ca=a%9,rb=Math.floor(b/9),cb=b%9;
+    return ra===rb||ca===cb||(Math.floor(ra/3)===Math.floor(rb/3)&&Math.floor(ca/3)===Math.floor(cb/3)); }
+  function isConflict(i){ const v=board[i]; if(v===0) return false; const r=Math.floor(i/9),c=i%9;
+    for(let k=0;k<9;k++){ if((k!==c && board[r*9+k]===v)||(k!==r && board[k*9+c]===v)) return true; }
+    const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;
+    for(let a=0;a<3;a++)for(let b=0;b<3;b++){ const idx=(br+a)*9+(bc+b); if(idx!==i && board[idx]===v) return true; }
+    return false;
+  }
+
+  function place(v){
+    if(sel<0||given[sel]||solved) return;
+    if(notesMode){
+      if(board[sel]!==0) return;
+      if(notes[sel].has(v)) notes[sel].delete(v); else notes[sel].add(v);
+      render(); return;
+    }
+    if(board[sel]===v){ board[sel]=0; }
+    else {
+      board[sel]=v;
+      if(v!==solution[sel]){ mistakes++; }
+    }
+    checkWin(); render(); updateMeta();
+  }
+  function erase(){ if(sel<0||given[sel]||solved) return; board[sel]=0; notes[sel].clear(); render(); }
+  function hint(){ if(sel<0||given[sel]||solved||hintsLeft<=0) return; board[sel]=solution[sel]; notes[sel].clear(); hintsLeft--; checkWin(); render(); updateMeta(); }
+  function checkWin(){
+    if(board.every((v,i)=>v===solution[i])){ solved=true; stopTimer();
+      document.getElementById('overlay').style.display='flex';
+      document.getElementById('ovText').textContent='用时 '+fmt(timer)+' · 错误 '+mistakes+' 次'; }
+  }
+
+  function startTimer(){ stopTimer(); timerId=setInterval(()=>{ timer++; document.getElementById('time').textContent=fmt(timer); },1000); }
+  function stopTimer(){ if(timerId) clearInterval(timerId); timerId=null; }
+  function fmt(s){ const m=Math.floor(s/60), ss=s%60; return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'); }
+  function updateMeta(){ document.getElementById('mistakes').textContent=mistakes; document.getElementById('hints').textContent=hintsLeft; }
+
+  // pad
+  const pad=document.getElementById('pad');
+  for(let v=1;v<=9;v++){ const b=document.createElement('button'); b.textContent=v; b.onclick=()=>place(v); pad.appendChild(b); }
+  document.getElementById('eraseBtn').onclick=erase;
+  document.getElementById('hintBtn').onclick=hint;
+  document.getElementById('noteBtn').onclick=function(){ notesMode=!notesMode; this.classList.toggle('on',notesMode); };
+  document.getElementById('newBtn').onclick=generate;
+  document.getElementById('ovBtn').onclick=()=>{ document.getElementById('overlay').style.display='none'; generate(); };
+  document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.seg button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    difficulty=b.dataset.d; generate();
+  });
+  // 键盘
+  window.addEventListener('keydown',e=>{ if(e.key>='1'&&e.key<='9') place(+e.key); else if(e.key==='Backspace'||e.key==='Delete') erase(); else if(e.key==='h') hint(); });
+
+  generate();
+})();
+</script>
+</body>
+</html>

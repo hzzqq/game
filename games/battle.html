@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // BATTLE</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace}
+  #stage{position:fixed;inset:0;z-index:0}
+  #stage canvas{display:block;touch-action:none}
+  #scan{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px}
+  .titlebar{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:10px;
+    padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border-bottom:1px solid var(--border)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .titlebar .reset{margin-left:auto;background:transparent;color:var(--dim);border:1px solid var(--border);
+    border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px}
+  .titlebar .reset:hover{color:var(--red);border-color:var(--red)}
+
+  /* HUD */
+  #hud{position:fixed;top:50px;left:0;right:0;z-index:5;display:flex;justify-content:space-between;padding:0 18px}
+  .pside{width:46%}
+  .pbar{height:14px;border:1px solid var(--border);border-radius:7px;overflow:hidden;background:#0e141d}
+  .pbar > i{display:block;height:100%;transition:width .15s}
+  .p1 .pbar>i{background:linear-gradient(90deg,#f6465d,#ff8a96)}
+  .p2 .pbar>i{background:linear-gradient(90deg,#02c076,#5be0a0)}
+  .pname{font-size:12px;margin-bottom:4px;display:flex;justify-content:space-between}
+  .p1 .pname{color:var(--red)} .p2 .pname{color:var(--green)}
+  #status{position:fixed;top:96px;left:50%;transform:translateX(-50%);z-index:5;color:var(--dim);font-size:13px;text-align:center;width:90%}
+
+  /* 开始/大厅遮罩 */
+  #lobby{position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;
+    background:rgba(10,14,20,.92)}
+  .panel{width:min(460px,92vw);border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:26px}
+  .panel h2{font-size:20px;letter-spacing:1px;margin-bottom:6px}
+  .panel .sub{color:var(--dim);font-size:12px;line-height:1.7;margin-bottom:18px}
+  .seg{display:flex;gap:8px;margin-bottom:16px}
+  .seg button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px}
+  .seg button.on{border-color:var(--red);box-shadow:0 0 12px rgba(246,70,93,.35);color:var(--red)}
+  .row{display:flex;gap:8px;margin-bottom:10px}
+  .row input{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;
+    padding:10px;font-family:inherit;font-size:13px;letter-spacing:1px}
+  .btn{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:11px 14px;cursor:pointer;
+    font-family:inherit;font-weight:700;font-size:13px;box-shadow:0 0 14px rgba(246,70,93,.4)}
+  .btn.ghost{background:transparent;color:var(--dim);border:1px solid var(--border);box-shadow:none;font-weight:400}
+  .btn:active{transform:translateY(1px)}
+  #roomCode{font-size:22px;letter-spacing:3px;color:var(--gold);text-align:center;margin:6px 0 4px}
+  .hint{color:var(--dim);font-size:11px;text-align:center;margin-top:8px;line-height:1.6}
+
+  /* 触屏控制 */
+  #touch{position:fixed;inset:0;z-index:6;pointer-events:none;display:none}
+  body.touch #touch{display:block}
+  #joy{position:absolute;left:22px;bottom:26px;width:120px;height:120px;border-radius:50%;
+    background:rgba(18,24,33,.55);border:1px solid var(--border);pointer-events:auto;touch-action:none}
+  #knob{position:absolute;left:42px;top:42px;width:36px;height:36px;border-radius:50%;
+    background:rgba(246,70,93,.5);border:1px solid var(--red)}
+  #fire{position:absolute;right:26px;bottom:42px;width:96px;height:96px;border-radius:50%;
+    background:rgba(2,192,118,.18);border:1px solid var(--green);color:var(--green);
+    pointer-events:auto;display:flex;align-items:center;justify-content:center;font-size:14px;touch-action:none}
+  #err{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.94)}
+  #err .box{max-width:520px;border:1px solid var(--border);border-radius:12px;padding:28px;background:var(--panel);text-align:center}
+  #err h2{color:var(--red);margin-bottom:12px} #err p{color:var(--dim);line-height:1.8;font-size:13px}
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="scan"></div>
+
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>BATTLE</b> · 实时坦克对战</span>
+    <button class="reset" id="resetBtn">返回大厅</button>
+  </div>
+
+  <div id="hud">
+    <div class="pside p1"><div class="pname"><span>● P1 红方</span><span id="s1">0</span></div><div class="pbar"><i id="hp1" style="width:100%"></i></div></div>
+    <div class="pside p2" style="text-align:right"><div class="pname"><span id="s2">0</span><span>P2 绿方 ●</span></div><div class="pbar"><i id="hp2" style="width:100%"></i></div></div>
+  </div>
+  <div id="status"></div>
+
+  <div id="touch">
+    <div id="joy"><div id="knob"></div></div>
+    <div id="fire">开火</div>
+  </div>
+
+  <div id="lobby">
+    <div class="panel">
+      <h2>实时坦克对战</h2>
+      <div class="sub">红方(P1) vs 绿方(P2)。选择模式后开始。在线模式通过 WebRTC 真·联网，两人各开一个浏览器页面（可不同设备）。</div>
+      <div class="seg">
+        <button id="mOn" class="on">在线对战 (P2P)</button>
+        <button id="mLoc">本地双人</button>
+      </div>
+      <div id="onlineBox">
+        <div class="row"><input id="peerHost" placeholder="信令服务器（默认自动）" value="" style="font-size:12px"/></div>
+        <div class="hint" style="margin-bottom:8px">如遇 server-error，试试填入备用信令：<code>my-peerjs-server.herokuapp.com</code> 或留空用默认。</div>
+        <div class="row"><button class="btn" id="createBtn">创建房间</button></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0">
+          <div id="roomCode" style="flex:1;text-align:right;font-size:22px;letter-spacing:3px;color:var(--gold)"></div>
+          <button class="btn ghost" id="copyBtn" style="padding:6px 10px;font-size:11px;display:none">复制</button>
+        </div>
+        <div class="row" style="margin-top:14px"><input id="joinInput" placeholder="输入房间码" maxlength="20"/><button class="btn" id="joinBtn">加入</button></div>
+      </div>
+      <div id="localBox" style="display:none">
+        <div class="hint" style="margin-top:6px">同一键盘：P1 = W A S D + 空格开火 ｜ P2 = ↑ ← ↓ → + 回车开火</div>
+        <div class="row" style="margin-top:14px"><button class="btn" id="localBtn">开始本地对战</button></div>
+      </div>
+      <div class="hint">提示：在线模式需要联网加载 PeerJS 信令库。</div>
+    </div>
+  </div>
+
+  <div id="err"><div class="box"><h2>无法加载 PeerJS</h2><p>在线对战模式需要通过 CDN 加载 PeerJS 信令库，请确认网络连接后刷新。<br/>你仍可改用「本地双人」模式（纯离线）。</p></div></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+  (function(){
+    // ============ 基础 ============
+    const stage=document.getElementById('stage');
+    const W=window.innerWidth, H=window.innerHeight;
+    const cv=document.createElement('canvas');
+    cv.width=W; cv.height=H; stage.appendChild(cv);
+    const ctx=cv.getContext('2d');
+    if('ontouchstart' in window) document.body.classList.add('touch');
+
+    const ARENA={x:0,y:0,w:W,h:H};
+    const BULLET_R=5, TANK_R=16, BULLET_SPD=9, FIRE_CD=28, DMG=12, MAXHP=100;
+
+    // 障碍块（简单掩体）
+    const obstacles=[];
+    (function(){
+      const cx=W/2, cy=H/2;
+      const pad=Math.min(W,H)*0.12;
+      obstacles.push({x:cx-pad-60,y:cy-30,w:120,h:60});
+      obstacles.push({x:cx+pad-60,y:cy-30,w:120,h:60});
+      obstacles.push({x:cx-30,y:cy-pad-60,w:60,h:120});
+    })();
+
+    function rnd(a,b){return a+Math.random()*(b-a);}
+
+    // ============ 状态 ============
+    let mode=null;            // 'online' | 'local'
+    let role=null;            // 'host' | 'guest' (online)
+    let peer=null, conn=null;
+    let running=false, over=false;
+
+    const tankA={x:W*0.25,y:H*0.5,a:-Math.PI/2,hp:MAXHP};
+    const tankB={x:W*0.75,y:H*0.5,a:Math.PI/2,hp:MAXHP};
+    let bullets=[];           // {x,y,vx,vy,owner:'A'|'B'}
+    let scoreA=0, scoreB=0;
+    const keys={};
+    let myBullets=[];         // 本地发射的（在线模式只发自己的）
+    let remoteBullets=[];     // 对手发来的
+    let remoteTank=null;      // 在线时对手坦克状态
+    let lastInput={fwd:false,back:false,left:false,right:false,fire:false};
+
+    // ============ 输入 ============
+    window.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true; if([ ' ','arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase()))e.preventDefault();});
+    window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+
+    // 触屏摇杆
+    const joy=document.getElementById('joy'), knob=document.getElementById('knob'), fireBtn=document.getElementById('fire');
+    let joyId=null, joyVec={x:0,y:0};
+    joy.addEventListener('touchstart',e=>{e.preventDefault(); const t=e.changedTouches[0]; joyId=t.identifier; updateJoy(t);},{passive:false});
+    joy.addEventListener('touchmove',e=>{e.preventDefault(); for(const t of e.changedTouches) if(t.identifier===joyId) updateJoy(t);},{passive:false});
+    const endJoy=e=>{ for(const t of e.changedTouches) if(t.identifier===joyId){joyId=null; joyVec={x:0,y:0}; knob.style.left='42px'; knob.style.top='42px';} };
+    joy.addEventListener('touchend',endJoy); joy.addEventListener('touchcancel',endJoy);
+    function updateJoy(t){const r=joy.getBoundingClientRect(); let dx=t.clientX-(r.left+r.width/2), dy=t.clientY-(r.top+r.height/2);
+      const max=42, d=Math.hypot(dx,dy); if(d>max){dx=dx/d*max; dy=dy/d*max;} knob.style.left=(42+dx)+'px'; knob.style.top=(42+dy)+'px';
+      joyVec={x:dx/max, y:dy/max};}
+    fireBtn.addEventListener('touchstart',e=>{e.preventDefault(); keys[' ']=true;},{passive:false});
+    fireBtn.addEventListener('touchend',e=>{e.preventDefault(); keys[' ']=false;},{passive:false});
+
+    function gatherInput(){
+      // 本地双人：A=WASD+space, B=Arrows+enter
+      if(mode==='local'){
+        return {
+          A:{fwd:keys['w'],back:keys['s'],left:keys['a'],right:keys['d'],fire:keys[' ']},
+          B:{fwd:keys['arrowup'],back:keys['arrowdown'],left:keys['arrowleft'],right:keys['arrowright'],fire:keys['enter']}
+        };
+      }
+      // 在线：我控制 A(host) 或 B(guest)
+      const me = role==='host'?'A':'B';
+      const inp = {fwd:keys['w']||joyVec.y<-0.3, back:keys['s']||joyVec.y>0.3,
+                   left:keys['a']||joyVec.x<-0.3, right:keys['d']||joyVec.x>0.3, fire:keys[' ']};
+      return {[me]:inp};
+    }
+
+    // ============ 物理 ============
+    function moveTank(t, inp, dt){
+      const spd=2.6;
+      if(inp.left) t.a-=0.055;
+      if(inp.right) t.a+=0.055;
+      if(inp.fwd){ t.x+=Math.cos(t.a)*spd; t.y+=Math.sin(t.a)*spd; }
+      if(inp.back){ t.x-=Math.cos(t.a)*spd*0.6; t.y-=Math.sin(t.a)*spd*0.6; }
+      // 边界 + 障碍
+      t.x=Math.max(TANK_R, Math.min(W-TANK_R, t.x));
+      t.y=Math.max(TANK_R+40, Math.min(H-TANK_R, t.y));
+      for(const o of obstacles){
+        const nx=Math.max(o.x, Math.min(t.x, o.x+o.w));
+        const ny=Math.max(o.y, Math.min(t.y, o.y+o.h));
+        const dx=t.x-nx, dy=t.y-ny, d=Math.hypot(dx,dy);
+        if(d<TANK_R){ const a=Math.atan2(dy,dx); t.x=nx+Math.cos(a)*TANK_R; t.y=ny+Math.sin(a)*TANK_R; }
+      }
+    }
+
+    function fire(t, owner){
+      bullets.push({x:t.x+Math.cos(t.a)*(TANK_R+4), y:t.y+Math.sin(t.a)*(TANK_R+4),
+        vx:Math.cos(t.a)*BULLET_SPD, vy:Math.sin(t.a)*BULLET_SPD, owner});
+    }
+
+    function hitTank(b, t){ return Math.hypot(b.x-t.x, b.y-t.y) < TANK_R+BULLET_R; }
+
+    function step(dt){
+      const inp=gatherInput();
+      if(mode==='local'){
+        moveTank(tankA, inp.A, dt); moveTank(tankB, inp.B, dt);
+        if(inp.A.fire && fireCd<=0){ fire(tankA,'A'); fireCd=FIRE_CD; }
+        if(inp.B.fire && fireCd<=0){ fire(tankB,'B'); fireCd=FIRE_CD; }
+      } else {
+        const me = role==='host' ? tankA : tankB;
+        const meInp = inp[role==='host'?'A':'B'];
+        moveTank(me, meInp, dt);
+        if(meInp.fire && fireCd<=0){ fire(me, role==='host'?'A':'B'); fireCd=FIRE_CD; sendState(); }
+        if(remoteTank){ moveTank(remoteTank, remoteTank.inp||{}, dt); }
+        // 合并子弹用于本地模拟
+        bullets = myBullets.concat(remoteBullets);
+      }
+      if(fireCd>0) fireCd--;
+      // 子弹推进 + 碰撞
+      for(const b of bullets){
+        b.x+=b.vx; b.y+=b.vy;
+        if(b.x<0||b.x>W||b.y<0||b.y>H){ b.dead=true; continue; }
+        for(const o of obstacles){ if(b.x>o.x&&b.x<o.x+o.w&&b.y>o.y&&b.y<o.y+o.h){ b.dead=true; } }
+        if(b.owner==='A'){ if(hitTank(b,tankB)){ tankB.hp-=DMG; b.dead=true; if(mode==='online'&&role==='host') sendState(); } }
+        else { if(hitTank(b,tankA)){ tankA.hp-=DMG; b.dead=true; if(mode==='online'&&role==='guest') sendState(); } }
+      }
+      bullets=bullets.filter(b=>!b.dead);
+      if(mode==='online'){ myBullets=myBullets.filter(b=>!b.dead); remoteBullets=remoteBullets.filter(b=>!b.dead); }
+
+      if(tankA.hp<=0){ endRound('B'); } else if(tankB.hp<=0){ endRound('A'); }
+    }
+    let fireCd=0;
+
+    function endRound(winner){
+      if(over) return;
+      if(winner==='A') scoreA++; else scoreB++;
+      setStatus((winner==='A'?'红方 P1':'绿方 P2')+' 获胜本回合！');
+      over=true; setTimeout(()=>{
+        if(scoreA>=3||scoreB>=3){ setStatus((scoreA>scoreB?'红方 P1':'绿方 P2')+' 赢得比赛！点击返回大厅再战。'); return; }
+        resetPositions(); over=false; setStatus('');
+      }, 1600);
+    }
+    function resetPositions(){
+      tankA.x=W*0.25;tankA.y=H*0.5;tankA.a=-Math.PI/2;tankA.hp=MAXHP;
+      tankB.x=W*0.75;tankB.y=H*0.5;tankB.a=Math.PI/2;tankB.hp=MAXHP;
+      bullets=[]; myBullets=[]; remoteBullets=[]; fireCd=0;
+    }
+
+    // ============ 渲染 ============
+    function drawTank(t,color){
+      ctx.save(); ctx.translate(t.x,t.y); ctx.rotate(t.a);
+      ctx.fillStyle=color; ctx.shadowColor=color; ctx.shadowBlur=14;
+      ctx.fillRect(-TANK_R,-TANK_R*0.7,TANK_R*2,TANK_R*1.4);
+      ctx.fillStyle='#0a0e14'; ctx.fillRect(TANK_R-3,-3,TANK_R+6,6); // 炮管
+      ctx.restore(); ctx.shadowBlur=0;
+    }
+    function render(){
+      ctx.clearRect(0,0,W,H);
+      // 网格底
+      ctx.strokeStyle='rgba(31,42,56,.5)'; ctx.lineWidth=1;
+      for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+      for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+      // 障碍
+      ctx.fillStyle='#16202c'; ctx.strokeStyle='#1f2a38';
+      for(const o of obstacles){ctx.fillRect(o.x,o.y,o.w,o.h);ctx.strokeRect(o.x,o.y,o.w,o.h);}
+      // 子弹
+      for(const b of bullets){
+        ctx.beginPath(); ctx.arc(b.x,b.y,BULLET_R,0,7);
+        ctx.fillStyle=b.owner==='A'?'#f6465d':'#02c076'; ctx.fill();
+      }
+      drawTank(tankA,'#f6465d');
+      const bt = (mode==='online'&&remoteTank)?remoteTank:tankB;
+      drawTank(bt,'#02c076');
+      // HUD 条
+      document.getElementById('hp1').style.width=Math.max(0,tankA.hp)+'%';
+      document.getElementById('hp2').style.width=Math.max(0,(mode==='online'&&remoteTank?remoteTank.hp:tankB.hp))+'%';
+      document.getElementById('s1').textContent=scoreA;
+      document.getElementById('s2').textContent=scoreB;
+    }
+
+    // ============ 循环 ============
+    let raf=null, last=0;
+    function loop(ts){
+      if(!running) return;
+      const dt=Math.min(40, ts-last)||16; last=ts;
+      if(!over) step(dt);
+      render();
+      if(mode==='online' && role==='host') sendState();
+      raf=requestAnimationFrame(loop);
+    }
+
+    // ============ 在线（PeerJS）============
+    function setStatus(s){ document.getElementById('status').textContent=s; }
+    function sendState(){
+      if(!conn||!conn.open) return;
+      const me = role==='host'?tankA:tankB;
+      const payload={t:'s', x:me.x, y:me.y, a:me.a, hp:me.hp, b:myBullets.map(b=>({x:b.x,y:b.y,vx:b.vx,vy:b.vy}))};
+      try{conn.send(JSON.stringify(payload));}catch(e){}
+    }
+    function onPeerData(raw){
+      let d; try{d=JSON.parse(raw);}catch(e){return;}
+      if(d.t==='s'){
+        if(!remoteTank) remoteTank={x:0,y:0,a:0,hp:MAXHP};
+        remoteTank.x=d.x; remoteTank.y=d.y; remoteTank.a=d.a; remoteTank.hp=d.hp;
+        remoteBullets = (d.b||[]).map(o=>({x:o.x,y:o.y,vx:o.vx,vy:o.vy,owner: role==='host'?'B':'A'}));
+        myBullets = myBullets.filter(b=>!b.dead);
+      }
+    }
+    function startOnline(asHost, roomId){
+      if(typeof Peer==='undefined'){ document.getElementById('err').style.display='flex'; return; }
+      mode='online'; role=asHost?'host':'guest';
+      const hostEl=document.getElementById('peerHost');
+      const hostVal=hostEl.value.trim();
+      let peerOpts={};
+      if(hostVal){ peerOpts.host=hostVal; peerOpts.port=443; peerOpts.secure=true; peerOpts.path='/'; }
+      peer=new Peer(asHost?undefined:roomId, peerOpts);
+      peer.on('open', id=>{ if(asHost) { document.getElementById('roomCode').textContent=id; document.getElementById('copyBtn').style.display=''; } });
+      peer.on('connection', c=>{ conn=c; setupConn(); });
+      if(!asHost){ conn=peer.connect(roomId); setupConn(); }
+      peer.on('error', e=>{
+        setStatus('⚠️ 连接错误：'+e.type+' — 信令服务器不可达。建议切「本地双人」模式（零依赖，同键盘对战）。');
+        // 3秒后自动提示切换
+        setTimeout(()=>{ if(mode==='online'&&!conn||!conn.open) document.getElementById('mLoc').click(); }, 4000);
+      });
+      beginGame();
+    }
+    function setupConn(){
+      conn.on('open', ()=>{ setStatus('已连接，开始对战！'); });
+      conn.on('data', onPeerData);
+      conn.on('close', ()=>{ setStatus('对手已断开'); });
+    }
+
+    // ============ 大厅 UI ============
+    const lobby=document.getElementById('lobby');
+    let selMode='online';
+    document.getElementById('mOn').onclick=()=>{selMode='online';document.getElementById('mOn').classList.add('on');document.getElementById('mLoc').classList.remove('on');document.getElementById('onlineBox').style.display='';document.getElementById('localBox').style.display='none';};
+    document.getElementById('mLoc').onclick=()=>{selMode='local';document.getElementById('mLoc').classList.add('on');document.getElementById('mOn').classList.remove('on');document.getElementById('onlineBox').style.display='none';document.getElementById('localBox').style.display='';};
+    document.getElementById('createBtn').onclick=()=>startOnline(true);
+    document.getElementById('joinBtn').onclick=()=>{const v=document.getElementById('joinInput').value.trim(); if(v) startOnline(false, v);};
+    document.getElementById('localBtn').onclick=()=>{mode='local'; beginGame();};
+    document.getElementById('copyBtn').onclick=()=>{ const code=document.getElementById('roomCode').textContent; if(code) { navigator.clipboard.writeText(code).then(()=>{ document.getElementById('copyBtn').textContent='已复制！'; setTimeout(()=>document.getElementById('copyBtn').textContent='复制',1500); }); } };
+    document.getElementById('resetBtn').onclick=()=>{ running=false; if(raf)cancelAnimationFrame(raf); if(peer){try{peer.destroy();}catch(e){}} mode=null;role=null;conn=null;remoteTank=null;lobby.style.display='flex'; setStatus(''); };
+
+    function beginGame(){
+      lobby.style.display='none'; resetPositions(); scoreA=0;scoreB=0; over=false; running=true; last=0;
+      if(raf) cancelAnimationFrame(raf);
+      raf=requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('resize', ()=>{ /* 简单处理：不重排，仅更新画布尺寸上限 */
+      cv.width=window.innerWidth; cv.height=window.innerHeight; });
+  })();
+  </script>
+</body>
+</html>

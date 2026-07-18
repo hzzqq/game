@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // ICE &amp; FIRE</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,
+      var(--bg);
+    color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:14px 10px 30px;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  }
+  .titlebar{width:min(960px,96vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+
+  .status{width:min(960px,96vw);display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;
+    background:#0e141d;border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:10px}
+  .status .seg{display:flex;gap:18px;align-items:center}
+  .status .lab{color:var(--dim);font-size:12px;letter-spacing:1px}
+  .status .val{font-size:18px;font-weight:700;letter-spacing:1px}
+  .status .val.red{color:var(--red)} .status .val.green{color:var(--green)} .status .val.gold{color:var(--gold)}
+  .act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px}
+  .act:hover{border-color:var(--dim)}
+  .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+
+  .stage{width:min(960px,96vw);position:relative}
+  #game{width:100%;height:auto;display:block;background:var(--bg);
+    border:1px solid var(--border);border-radius:10px;box-shadow:0 0 30px rgba(0,0,0,.5)}
+  .hint{width:min(960px,96vw);color:var(--dim);font-size:12px;margin-top:10px;line-height:1.7;text-align:center}
+  .hint b.ice{color:#3aa0ff}.hint b.fire{color:var(--red)}.hint b.gold{color:var(--gold)}
+
+  /* virtual pads */
+  .pads{width:min(960px,96vw);display:flex;justify-content:space-between;margin-top:14px;gap:14px}
+  .pad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:6px}
+  .pad .ptitle{grid-column:1/4;grid-row:1;text-align:center;font-size:12px;letter-spacing:1px;align-self:end;padding-bottom:2px}
+  .ice .ptitle{color:#3aa0ff}
+  .fire .ptitle{color:var(--red)}
+  .kb{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:10px;
+    font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:none}
+  .kb:active,.kb.on{background:#1b2531}
+  .ice .kb.on{border-color:#3aa0ff;color:#3aa0ff;box-shadow:0 0 12px rgba(58,160,255,.4)}
+  .fire .kb.on{border-color:var(--red);color:var(--red);box-shadow:0 0 12px rgba(246,70,93,.4)}
+  .kb.up{grid-column:2;grid-row:1}
+  .kb.left{grid-column:1;grid-row:2}
+  .kb.right{grid-column:3;grid-row:2}
+  .kb.spacer{grid-column:2;grid-row:2;visibility:hidden}
+  @media(min-width:760px){ .pads{opacity:.92} }
+
+  #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.9)}
+  #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 38px;text-align:center;min-width:280px}
+  #overlay h2{font-size:24px;margin-bottom:10px;letter-spacing:1px}
+  #overlay p{color:var(--dim);font-size:13px;margin-bottom:18px;line-height:1.6}
+  #overlay .act{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 26px;font-family:inherit;cursor:pointer;border-radius:8px;font-size:14px}
+  .blink{color:var(--red);animation:bl 1.1s steps(2) infinite}
+  @keyframes bl{50%{opacity:0}}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>ICE &amp; FIRE</b> · 冰火人闯关</span>
+  </div>
+
+  <div class="status">
+    <div class="seg">
+      <div><span class="lab">关卡 LV</span> <span class="val red" id="lvl">1/2</span></div>
+      <div><span class="lab">积分 PTS</span> <span class="val gold" id="score">0</span></div>
+    </div>
+    <button class="act gold" id="restart">↻ 新局</button>
+  </div>
+
+  <div class="stage">
+    <canvas id="game" width="960" height="560"></canvas>
+  </div>
+
+  <div class="hint">
+    <b class="ice">冰人</b>：方向键 ← ↑ → 移动/跳，免疫蓝水，碰红岩浆即重生 &nbsp;·&nbsp;
+    <b class="fire">火人</b>：W A D 移动/跳，免疫红岩浆，碰蓝水即重生<br/>
+    收集 <b class="gold">金块</b> 得分，踩机关开门，<b class="gold">两人同时到达出口</b> 过关。死亡仅该角色回起点，另一人不受影响。
+  </div>
+
+  <div class="pads">
+    <div class="pad ice">
+      <div class="ptitle">◀ 冰人 ICE · 左摇杆</div>
+      <button class="kb up"    data-c="ice" data-d="up">▲</button>
+      <button class="kb left"  data-c="ice" data-d="left">◀</button>
+      <button class="kb spacer">·</button>
+      <button class="kb right" data-c="ice" data-d="right">▶</button>
+    </div>
+    <div class="pad fire">
+      <div class="ptitle">火人 FIRE · 右摇杆 ▶</div>
+      <button class="kb up"    data-c="fire" data-d="up">▲</button>
+      <button class="kb left"  data-c="fire" data-d="left">◀</button>
+      <button class="kb spacer">·</button>
+      <button class="kb right" data-c="fire" data-d="right">▶</button>
+    </div>
+  </div>
+
+  <div id="overlay"><div class="box">
+    <h2 id="ovTitle">关卡完成</h2>
+    <p id="ovText"></p>
+    <button class="act" id="ovBtn">下一关 ▸</button>
+  </div></div>
+
+<script>
+(function(){
+  "use strict";
+  const T=40, GRAV=0.6, MOVE=3.3, JUMP=-11.5, MAXFALL=12;
+  const CW=960, CH=560, STEP=1000/60;
+
+  const cv=document.getElementById('game');
+  const ctx=cv.getContext('2d');
+  const lvlEl=document.getElementById('lvl');
+  const scoreEl=document.getElementById('score');
+  const restartBtn=document.getElementById('restart');
+  const overlay=document.getElementById('overlay');
+  const ovTitle=document.getElementById('ovTitle');
+  const ovText=document.getElementById('ovText');
+  const ovBtn=document.getElementById('ovBtn');
+
+  const LEVELS=[
+    { name:'L1',
+      rows:[
+        "........................",
+        "........................",
+        "........................",
+        "........................",
+        "........................",
+        "........................",
+        "........................",
+        "........................",
+        "........................",
+        "........................",
+        "........................",
+        "....GG....GG....GG..GG..",
+        ".IF.W.....L..........EE.",
+        "####w#####l#############"
+      ]
+    },
+    { name:'L2',
+      rows:[
+        "........................",
+        "........................",
+        "........................",
+        "........................",
+        "............#...........",
+        "............#...........",
+        "............#...........",
+        "............#...........",
+        "............#...........",
+        "............#...........",
+        "............#...........",
+        "...GG...GG..#GG....GG...",
+        ".IF.W.S.L...D...L...EE..",
+        "####w###l#######l#######"
+      ]
+    }
+  ];
+
+  const input={ ice:{left:false,right:false,up:false}, fire:{left:false,right:false,up:false} };
+
+  function makeChar(type,color){
+    return { type:type, color:color, w:26, h:34, x:0, y:0, vx:0, vy:0,
+             onGround:false, upPrev:false, atExit:false, in:input[type], startX:0, startY:0 };
+  }
+  const ice=makeChar('ice','#3aa0ff');
+  const fire=makeChar('fire','#f6465d');
+
+  let grid=[], W=24, H=14;
+  let doorOpen=false, score=0, currentLevel=0, state='play', flash=0;
+  let iceStart=null, fireStart=null;
+
+  function solid(tx,ty){
+    if(tx<0||tx>=W) return true;
+    if(ty<0||ty>=H) return false;
+    const c=grid[ty][tx];
+    return c===1||c===8||c===9||(c===7&&!doorOpen);
+  }
+
+  function loadLevel(idx,resetScore){
+    const L=LEVELS[idx];
+    const rows=L.rows;
+    H=rows.length;
+    W=rows[0].length;
+    grid=[]; iceStart=null; fireStart=null;
+    for(let y=0;y<H;y++){
+      const row=[]; const s=rows[y];
+      for(let x=0;x<W;x++){
+        const ch=(x<s.length)?s[x]:'.';
+        let code=0;
+        switch(ch){
+          case '#': code=1; break;
+          case 'l': code=8; break;
+          case 'w': code=9; break;
+          case 'L': code=2; break;
+          case 'W': code=3; break;
+          case 'G': code=4; break;
+          case 'E': code=5; break;
+          case 'S': code=6; break;
+          case 'D': code=7; break;
+          case 'I': code=0; iceStart={x:x,y:y}; break;
+          case 'F': code=0; fireStart={x:x,y:y}; break;
+          default:  code=0;
+        }
+        row.push(code);
+      }
+      grid.push(row);
+    }
+    doorOpen=false;
+    if(iceStart){ ice.startX=iceStart.x*T+(T-ice.w)/2; ice.startY=iceStart.y*T+(T-ice.h); }
+    if(fireStart){ fire.startX=fireStart.x*T+(T-fire.w)/2; fire.startY=fireStart.y*T+(T-fire.h); }
+    ice.x=ice.startX; ice.y=ice.startY; ice.vx=0; ice.vy=0; ice.onGround=false; ice.upPrev=false; ice.atExit=false;
+    fire.x=fire.startX; fire.y=fire.startY; fire.vx=0; fire.vy=0; fire.onGround=false; fire.upPrev=false; fire.atExit=false;
+    if(resetScore) score=0;
+    state='play';
+    hideOverlay();
+    updateHUD();
+  }
+
+  function updateHUD(){
+    lvlEl.textContent=(currentLevel+1)+'/'+LEVELS.length;
+    scoreEl.textContent=score;
+  }
+
+  function die(c){
+    c.x=c.startX; c.y=c.startY; c.vx=0; c.vy=0; c.onGround=false; c.atExit=false; c.upPrev=false;
+    flash=1;
+  }
+
+  function resolveX(c){
+    const top=Math.floor(c.y/T), bot=Math.floor((c.y+c.h-1)/T);
+    const left=Math.floor(c.x/T), right=Math.floor((c.x+c.w-1)/T);
+    if(c.vx>0){
+      let nx=c.x;
+      for(let ty=top;ty<=bot;ty++) for(let tx=left;tx<=right;tx++) if(solid(tx,ty)) nx=Math.min(nx, tx*T-c.w);
+      if(nx<c.x){ c.x=nx; c.vx=0; }
+    } else if(c.vx<0){
+      let nx=c.x;
+      for(let ty=top;ty<=bot;ty++) for(let tx=left;tx<=right;tx++) if(solid(tx,ty)) nx=Math.max(nx, (tx+1)*T);
+      if(nx>c.x){ c.x=nx; c.vx=0; }
+    }
+  }
+
+  function resolveY(c){
+    const left=Math.floor(c.x/T), right=Math.floor((c.x+c.w-1)/T);
+    const top=Math.floor(c.y/T), bot=Math.floor((c.y+c.h-1)/T);
+    if(c.vy>0){
+      let ny=c.y;
+      for(let ty=top;ty<=bot;ty++) for(let tx=left;tx<=right;tx++) if(solid(tx,ty)) ny=Math.min(ny, ty*T-c.h);
+      if(ny<c.y){ c.y=ny; c.vy=0; c.onGround=true; }
+    } else if(c.vy<0){
+      let ny=c.y;
+      for(let ty=top;ty<=bot;ty++) for(let tx=left;tx<=right;tx++) if(solid(tx,ty)) ny=Math.max(ny, (ty+1)*T);
+      if(ny>c.y){ c.y=ny; c.vy=0; }
+    }
+  }
+
+  function checkTiles(c){
+    const left=Math.floor(c.x/T), right=Math.floor((c.x+c.w-1)/T);
+    const top=Math.floor(c.y/T), bot=Math.floor((c.y+c.h-1)/T);
+    for(let ty=top;ty<=bot;ty++){
+      for(let tx=left;tx<=right;tx++){
+        if(ty<0||ty>=H||tx<0||tx>=W) continue;
+        const code=grid[ty][tx];
+        if(code===4){ grid[ty][tx]=0; score+=10; updateHUD(); }
+        else if(code===5){ c.atExit=true; }
+        else if(code===6){ doorOpen=true; }
+        else if(code===2 && c.type==='ice'){ die(c); return; }
+        else if(code===3 && c.type==='fire'){ die(c); return; }
+        else if(code===8 && c.type==='ice'){ die(c); return; }
+        else if(code===9 && c.type==='fire'){ die(c); return; }
+      }
+    }
+  }
+
+  function updateChar(c){
+    c.vx=(c.in.right?MOVE:0)-(c.in.left?MOVE:0);
+    if(c.in.up && !c.upPrev && c.onGround){ c.vy=JUMP; c.onGround=false; }
+    c.upPrev=c.in.up;
+    c.vy+=GRAV; if(c.vy>MAXFALL) c.vy=MAXFALL;
+    c.x+=c.vx; resolveX(c);
+    c.y+=c.vy; c.onGround=false; resolveY(c);
+    c.atExit=false;
+    checkTiles(c);
+    if(c.y>CH+60) die(c);
+  }
+
+  function step(){
+    if(state!=='play') return;
+    updateChar(ice);
+    updateChar(fire);
+    if(ice.atExit && fire.atExit) completeLevel();
+  }
+
+  function completeLevel(){
+    if(currentLevel<LEVELS.length-1){
+      state='clear';
+      showOverlay('关卡完成', 'LEVEL '+(currentLevel+1)+' CLEARED · 当前积分 '+score, '下一关 ▸');
+    } else {
+      state='win';
+      showOverlay('全部通关', 'YOU WIN · 总积分 '+score, '再玩一次');
+    }
+  }
+
+  function showOverlay(title,text,btn){
+    ovTitle.textContent=title; ovText.textContent=text; ovBtn.textContent=btn;
+    overlay.style.display='flex';
+  }
+  function hideOverlay(){ overlay.style.display='none'; }
+
+  /* ---------- rendering ---------- */
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function drawTile(x,y,code){
+    const px=x*T, py=y*T;
+    switch(code){
+      case 1: {
+        const above=(y>0)?grid[y-1][x]:0;
+        let fill='#161d27', edge='#1f2a38';
+        if(above===2||above===8){ fill='#3a1418'; edge='#f6465d'; }
+        else if(above===3||above===9){ fill='#10243a'; edge='#3aa0ff'; }
+        ctx.fillStyle=fill; ctx.fillRect(px,py,T,T);
+        ctx.strokeStyle=edge; ctx.strokeRect(px+0.5,py+0.5,T-1,T-1);
+        break;
+      }
+      case 8:
+        ctx.fillStyle='#3a1418'; ctx.fillRect(px,py,T,T);
+        ctx.fillStyle='#f6465d'; ctx.fillRect(px+5,py+5,T-10,T-10);
+        break;
+      case 9:
+        ctx.fillStyle='#10243a'; ctx.fillRect(px,py,T,T);
+        ctx.fillStyle='#3aa0ff'; ctx.fillRect(px+5,py+5,T-10,T-10);
+        break;
+      case 2:
+        ctx.fillStyle='#f6465d'; ctx.fillRect(px,py,T,T);
+        ctx.fillStyle='#ff8a98'; ctx.fillRect(px+6,py+6,T-12,7);
+        break;
+      case 3:
+        ctx.fillStyle='#3aa0ff'; ctx.fillRect(px,py,T,T);
+        ctx.fillStyle='#9fd0ff'; ctx.fillRect(px+6,py+6,T-12,7);
+        break;
+      case 4:
+        ctx.save(); ctx.translate(px+T/2,py+T/2);
+        ctx.fillStyle='#f0b90b'; ctx.beginPath();
+        ctx.moveTo(0,-11); ctx.lineTo(9,0); ctx.lineTo(0,11); ctx.lineTo(-9,0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='#ffe27a'; ctx.beginPath();
+        ctx.moveTo(0,-11); ctx.lineTo(4,0); ctx.lineTo(0,4); ctx.lineTo(-4,0); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        break;
+      case 5:
+        ctx.fillStyle='#0e141d'; ctx.fillRect(px,py,T,T);
+        ctx.strokeStyle='#f0b90b'; ctx.lineWidth=2; ctx.strokeRect(px+3,py+3,T-6,T-6);
+        ctx.fillStyle='#02c076'; ctx.font='bold 18px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('出',px+T/2,py+T/2);
+        break;
+      case 6:
+        ctx.fillStyle=doorOpen?'#02c076':'#1f2a38';
+        ctx.fillRect(px+6,py+T-13,T-12,9);
+        ctx.strokeStyle=doorOpen?'#02c076':'#6b7785'; ctx.lineWidth=1;
+        ctx.strokeRect(px+6,py+T-13,T-12,9);
+        if(doorOpen){ ctx.fillStyle='#02c076'; ctx.font='bold 10px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('ON',px+T/2,py+T/2-2); }
+        break;
+      case 7:
+        if(doorOpen){
+          ctx.strokeStyle='rgba(240,185,11,0.35)'; ctx.lineWidth=2; ctx.setLineDash([4,4]);
+          ctx.strokeRect(px+4,py+2,T-8,T-4); ctx.setLineDash([]);
+        } else {
+          ctx.fillStyle='#f0b90b'; ctx.fillRect(px+4,py+2,T-8,T-4);
+          ctx.fillStyle='#0a0e14'; ctx.fillRect(px+9,py+7,T-18,T-14);
+        }
+        break;
+    }
+  }
+
+  function drawChar(c){
+    ctx.fillStyle=c.color;
+    roundRect(c.x,c.y,c.w,c.h,6); ctx.fill();
+    ctx.fillStyle='#0a0e14';
+    const ey=c.y+12;
+    ctx.fillRect(c.x+6,ey,4,4);
+    ctx.fillRect(c.x+c.w-10,ey,4,4);
+    ctx.fillStyle=c.color; ctx.font='bold 11px monospace'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+    ctx.fillText(c.type==='ice'?'冰':'火', c.x+c.w/2, c.y-4);
+  }
+
+  function render(){
+    ctx.clearRect(0,0,CW,CH);
+    ctx.fillStyle='#0a0e14'; ctx.fillRect(0,0,CW,CH);
+    ctx.strokeStyle='rgba(31,42,56,0.5)'; ctx.lineWidth=1;
+    for(let x=0;x<=W;x++){ ctx.beginPath(); ctx.moveTo(x*T,0); ctx.lineTo(x*T,H*T); ctx.stroke(); }
+    for(let y=0;y<=H;y++){ ctx.beginPath(); ctx.moveTo(0,y*T); ctx.lineTo(W*T,y*T); ctx.stroke(); }
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++) drawTile(x,y,grid[y][x]);
+    drawChar(ice); drawChar(fire);
+    if(flash>0.01){ ctx.fillStyle='rgba(246,70,93,'+(flash*0.35)+')'; ctx.fillRect(0,0,CW,CH); flash*=0.9; }
+    else flash=0;
+  }
+
+  /* ---------- input ---------- */
+  const KEYMAP={
+    ArrowLeft:['ice','left'], ArrowRight:['ice','right'], ArrowUp:['ice','up'],
+    KeyA:['fire','left'], KeyD:['fire','right'], KeyW:['fire','up']
+  };
+  window.addEventListener('keydown',function(e){
+    const m=KEYMAP[e.code];
+    if(m){ input[m[0]][m[1]]=true; if(e.code.indexOf('Arrow')===0) e.preventDefault(); }
+  });
+  window.addEventListener('keyup',function(e){
+    const m=KEYMAP[e.code];
+    if(m){ input[m[0]][m[1]]=false; }
+  });
+  document.querySelectorAll('.kb').forEach(function(btn){
+    const c=btn.dataset.c, d=btn.dataset.d;
+    const on=function(e){ e.preventDefault(); input[c][d]=true; btn.classList.add('on'); };
+    const off=function(e){ e.preventDefault(); input[c][d]=false; btn.classList.remove('on'); };
+    btn.addEventListener('pointerdown',on);
+    btn.addEventListener('pointerup',off);
+    btn.addEventListener('pointerleave',off);
+    btn.addEventListener('pointercancel',off);
+  });
+
+  restartBtn.addEventListener('click',function(){ currentLevel=0; loadLevel(0,true); });
+  ovBtn.addEventListener('click',function(){
+    if(state==='clear'){ currentLevel++; loadLevel(currentLevel,false); }
+    else if(state==='win'){ currentLevel=0; loadLevel(0,true); }
+  });
+
+  /* ---------- main loop ---------- */
+  let last=performance.now(), acc=0;
+  function loop(now){
+    acc+=now-last; last=now;
+    if(acc>200) acc=200;
+    while(acc>=STEP){ step(); acc-=STEP; }
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  loadLevel(0,true);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

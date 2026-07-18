@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // MINESWEEPER</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+    linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,
+    var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px}
+  .titlebar{width:min(640px,96vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:14px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+
+  .bar{width:min(640px,96vw);display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;justify-content:center}
+  .seg button,.act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer;font-family:inherit;font-size:13px}
+  .seg button.on{border-color:var(--red);box-shadow:0 0 12px rgba(246,70,93,.35);color:var(--red)}
+  .act:hover{border-color:var(--dim)}
+  .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+
+  .status{width:min(640px,96vw);display:flex;justify-content:space-between;align-items:center;
+    background:#0e141d;border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:12px}
+  .status .num{font-size:22px;font-weight:700;letter-spacing:1px}
+  .status .red{color:var(--red)} .status .green{color:var(--green)}
+  #face{font-size:24px;cursor:pointer;background:none;border:none;font-family:inherit;user-select:none}
+
+  #board{display:grid;gap:2px;background:var(--border);padding:2px;border:2px solid var(--border);border-radius:6px;touch-action:manipulation}
+  .cell{background:var(--panel);display:flex;align-items:center;justify-content:center;font-size:clamp(13px,4.4vw,20px);font-weight:700;cursor:pointer;user-select:none;aspect-ratio:1}
+  .cell.open{background:#0a0e14;cursor:default}
+  .cell.flag{color:var(--gold)}
+  .cell.mine{background:var(--red);color:#0a0e14}
+  .cell.boom{background:var(--red);box-shadow:inset 0 0 0 2px #fff;color:#0a0e14}
+  .n1{color:#5b9bd5}.n2{color:#02c076}.n3{color:#f6465d}.n4{color:#b07cf0}.n5{color:#f0b90b}.n6{color:#3fd0d0}.n7{color:#cfd8e3}.n8{color:#9aa7b5}
+
+  #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.9)}
+  #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;text-align:center}
+  #overlay h2{font-size:24px;margin-bottom:12px;letter-spacing:1px}
+  #overlay p{color:var(--dim);font-size:13px;margin-bottom:16px}
+  #overlay .act{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 26px;font-family:inherit;cursor:pointer;border-radius:8px}
+  #tip{width:min(640px,96vw);color:var(--dim);font-size:12px;margin-top:10px;text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>MINESWEEPER</b> · 扫雷</span>
+  </div>
+
+  <div class="bar">
+    <div class="seg">
+      <button data-d="easy" class="on">初级 9×9</button>
+      <button data-d="medium">中级 16×16</button>
+      <button data-d="hard">高级 16×30</button>
+    </div>
+    <button class="act gold" id="flagBtn">🚩 标雷模式:关</button>
+    <button class="act" id="newBtn">新游戏</button>
+  </div>
+
+  <div class="status">
+    <span class="num red">🚩 <span id="mineLeft">0</span></span>
+    <button id="face" title="重新开始">🙂</button>
+    <span class="num green">⏱ <span id="time">000</span></span>
+  </div>
+
+  <div id="board"></div>
+
+  <div id="tip">左键翻开 · 右击/标雷模式插旗 · 首次点击保证安全 · 数字表示周围 8 格的雷数</div>
+
+  <div id="overlay"><div class="box"><h2 id="ovTitle">💥 踩雷了</h2><p id="ovText"></p><button class="act" id="ovBtn">再来一局</button></div></div>
+
+<script>
+(function(){
+  const boardEl=document.getElementById('board');
+  const DIFFS={
+    easy:{r:9,c:9,m:10},
+    medium:{r:16,c:16,m:40},
+    hard:{r:16,c:30,m:99},
+  };
+  let diff='easy', R=9, C=9, M=10;
+  let grid=[], open=[], flag=[], revealedCount=0, flagCount=0;
+  let started=false, dead=false, won=false;
+  let flagMode=false, timer=0, timerId=null;
+
+  function setDiff(d){ diff=d; const cfg=DIFFS[d]; R=cfg.r;C=cfg.c;M=cfg.m; }
+
+  function startTimer(){ stopTimer(); timerId=setInterval(()=>{ timer++; document.getElementById('time').textContent=String(timer).padStart(3,'0'); },1000); }
+  function stopTimer(){ if(timerId) clearInterval(timerId); timerId=null; }
+
+  function generate(safeIdx){
+    setDiff(diff);
+    grid=new Array(R*C).fill(0);
+    open=new Array(R*C).fill(false);
+    flag=new Array(R*C).fill(false);
+    revealedCount=0; flagCount=0; started=false; dead=false; won=false; timer=0;
+    document.getElementById('time').textContent='000';
+    document.getElementById('face').textContent='🙂';
+
+    // 布雷，避开首点及其邻域（保证首点安全）
+    const banned=new Set();
+    if(safeIdx!=null){ banned.add(safeIdx);
+      const sr=Math.floor(safeIdx/C), sc=safeIdx%C;
+      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){ const nr=sr+dr,nc=sc+dc;
+        if(nr>=0&&nr<R&&nc>=0&&nc<C) banned.add(nr*C+nc); } }
+    let placed=0;
+    while(placed<M){
+      const idx=Math.floor(Math.random()*R*C);
+      if(banned.has(idx)||grid[idx]===-1) continue;
+      grid[idx]=-1; placed++;
+    }
+    // 计算数字
+    for(let i=0;i<R*C;i++){ if(grid[i]===-1) continue;
+      const r=Math.floor(i/C),c=i%C; let n=0;
+      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){ const nr=r+dr,nc=c+dc;
+        if(nr>=0&&nr<R&&nc>=0&&nc<C&&grid[nr*C+nc]===-1) n++; }
+      grid[i]=n;
+    }
+    updateMineLeft();
+    render();
+  }
+
+  function updateMineLeft(){ document.getElementById('mineLeft').textContent=String(M-flagCount).padStart(2,'0'); }
+
+  function render(){
+    boardEl.style.gridTemplateColumns=`repeat(${C},1fr)`;
+    const cellPx = diff==='hard'? Math.max(18, Math.min(26, Math.floor((Math.min(640, window.innerWidth*0.96))-4)/C - 2)) : '';
+    boardEl.innerHTML='';
+    for(let i=0;i<R*C;i++){
+      const d=document.createElement('div');
+      d.className='cell';
+      if(cellPx) d.style.width=cellPx+'px', d.style.height=cellPx+'px';
+      if(open[i]){
+        d.classList.add('open');
+        if(grid[i]===-1){ d.classList.add('mine'); d.textContent='✸'; }
+        else if(grid[i]>0){ d.classList.add('n'+grid[i]); d.textContent=grid[i]; }
+      } else {
+        if(flag[i]){ d.classList.add('flag'); d.textContent='🚩'; }
+      }
+      d.onclick=()=>clickCell(i);
+      d.oncontextmenu=(e)=>{ e.preventDefault(); toggleFlag(i); };
+      boardEl.appendChild(d);
+    }
+  }
+
+  function refreshCell(i){
+    const d=boardEl.children[i];
+    if(!d) return;
+    d.className='cell';
+    if(open[i]){
+      d.classList.add('open');
+      if(grid[i]===-1){ d.classList.add('mine'); d.textContent='✸'; }
+      else if(grid[i]>0){ d.classList.add('n'+grid[i]); d.textContent=grid[i]; }
+    } else if(flag[i]){ d.classList.add('flag'); d.textContent='🚩'; }
+    else d.textContent='';
+  }
+
+  function clickCell(i){
+    if(dead||won||open[i]) return;
+    if(flagMode){ toggleFlag(i); return; }
+    if(flag[i]) return;
+    if(!started){ started=true; startTimer(); generate(i); }
+    if(grid[i]===-1){ // 踩雷
+      open[i]=true; dead=true; stopTimer();
+      // 揭示所有雷
+      for(let k=0;k<R*C;k++) if(grid[k]===-1) open[k]=true;
+      document.getElementById('face').textContent='💀';
+      render();
+      showOverlay('💥 踩雷了','地雷爆炸！用时 '+timer+' 秒');
+      return;
+    }
+    flood(i);
+    render();
+    checkWin();
+  }
+
+  function toggleFlag(i){
+    if(dead||won||open[i]) return;
+    if(!started){ started=true; startTimer(); generate(i); }
+    flag[i]=!flag[i];
+    flagCount += flag[i]?1:-1;
+    updateMineLeft();
+    refreshCell(i);
+  }
+
+  function flood(i){
+    if(open[i]||flag[i]) return;
+    open[i]=true; revealedCount++;
+    if(grid[i]>0) return;
+    const r=Math.floor(i/C),c=i%C;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){ const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<R&&nc>=0&&nc<C){ const ni=nr*C+nc; if(!open[ni]&&!flag[ni]) flood(ni); } }
+  }
+
+  function checkWin(){
+    if(dead) return;
+    const total=R*C;
+    let closed=0; for(let i=0;i<total;i++) if(!open[i]) closed++;
+    if(closed===M){ won=true; stopTimer();
+      for(let i=0;i<total;i++) if(grid[i]===-1){ flag[i]=true; flagCount++; }
+      updateMineLeft(); render();
+      document.getElementById('face').textContent='😎';
+      showOverlay('🎉 通关！','用时 '+timer+' 秒 · 雷区全部标记');
+    }
+  }
+
+  function showOverlay(title,text){
+    document.getElementById('ovTitle').textContent=title;
+    document.getElementById('ovTitle').style.color = won? 'var(--green)':'var(--red)';
+    document.getElementById('ovText').textContent=text;
+    document.getElementById('overlay').style.display='flex';
+  }
+
+  document.getElementById('newBtn').onclick=()=>generate();
+  document.getElementById('face').onclick=()=>generate();
+  document.getElementById('ovBtn').onclick=()=>{ document.getElementById('overlay').style.display='none'; generate(); };
+  document.getElementById('flagBtn').onclick=function(){
+    flagMode=!flagMode; this.textContent='🚩 标雷模式:'+(flagMode?'开':'关'); this.classList.toggle('on',flagMode);
+  };
+  document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.seg button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    diff=b.dataset.d; generate();
+  });
+  // 双击快速翻开周围（chord）
+  boardEl.addEventListener('dblclick',e=>{
+    const cell=e.target.closest('.cell'); if(!cell) return;
+    const i=[...boardEl.children].indexOf(cell); if(i<0||!open[i]||grid[i]<=0) return;
+    const r=Math.floor(i/C),c=i%C; let f=0;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){ const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<R&&nc>=0&&nc<C&&flag[nr*C+nc]) f++; }
+    if(f===grid[i]){ for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){ const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<R&&nc>=0&&nc<C){ const ni=nr*C+nc; if(!open[ni]&&!flag[ni]) clickCell(ni); } } }
+  });
+  window.addEventListener('contextmenu',e=>{ if(e.target.closest('#board')) e.preventDefault(); });
+
+  generate();
+})();
+</script>
+</body>
+</html>
