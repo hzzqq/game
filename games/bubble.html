@@ -91,7 +91,7 @@
       <button id="restart">新 局</button>
     </div>
   </div>
-  <div class="hint">移动瞄准 · 点击/空格发射 · ←→ 旋转 · 三连同色消除</div>
+  <div class="hint">移动瞄准 · 点击/空格发射 · ←→ 旋转 · 三连同色消除 · 蓄力可得 💣炸弹(炸两圈)/🌈彩虹(通配) 特殊泡</div>
 </div>
 
 <script src="input.js"></script>
@@ -112,6 +112,10 @@
   var BOTTOM_LINE = H - 110;  // lose line
 
   var COLORS = ["#f6465d","#02c076","#f0b90b","#3aa0ff","#9b6bff","#2ee6d6"];
+
+  // 特殊泡哨兵值（保持在 [0,5] 颜色索引之外）
+  var RAINBOW = 98;   // 彩虹泡：通配，落点解析为相邻最大同色组颜色
+  var BOMB = 99;      // 炸弹泡：落点后炸掉周围两圈
 
   var cv = document.getElementById("cv");
   cv.width = W; cv.height = H;
@@ -134,6 +138,7 @@
   var aimAngle;      // radians, pointing up (negative)
   var score, best, shots, state;
   var popFx;         // particle effects
+  var clears;        // 成功消除计数（用于蓄力特殊泡）
 
   try { best = parseInt(localStorage.getItem("bubble_best") || "0", 10) || 0; } catch(e) { best = 0; }
   bestEl.textContent = best;
@@ -189,7 +194,7 @@
         grid[rr][cc] = activeColors[Math.floor(Math.random() * activeColors.length)];
       }
     }
-    score = 0; shots = 0;
+    score = 0; shots = 0; clears = 0;
     flying = null; popFx = [];
     aimAngle = -Math.PI / 2;
     pickNext();
@@ -210,7 +215,7 @@
     for (var r = 0; r < MAXROWS; r++) {
       for (var c = 0; c < grid[r].length; c++) {
         var v = grid[r][c];
-        if (v >= 0 && !set[v]) { set[v] = true; list.push(v); }
+        if (v >= 0 && v < RAINBOW && !set[v]) { set[v] = true; list.push(v); }
       }
     }
     return list;
@@ -296,29 +301,96 @@
     if (y <= R + 2) y = R; // ceiling
     var cell = findEmptyCell(x, y);
     if (!cell) { cell = [0, 0]; }
-    var r = cell[0], c = cell[1];
-    grid[r][c] = flying.color;
-    var placedColor = flying.color;
+    placeAndResolve(cell[0], cell[1], flying.color);
     flying = null;
+  }
 
-    // match group
-    var group = floodSameColor(r, c, placedColor);
-    if (group.length >= 3) {
-      var matchCenter = null;
-      for (var i = 0; i < group.length; i++) {
-        var gr = group[i][0], gc = group[i][1];
-        spawnFx(gr, gc, placedColor);
-        grid[gr][gc] = -1;
-        if (!matchCenter) matchCenter = cellCenter(gr, gc);
+  // BFS 收集距 (r,c) depth 圈内的所有格子（含自身）
+  function cellsWithin(r, c, depth) {
+    var res = [[r, c]], seen = {}; seen[r + "," + c] = true;
+    var frontier = [[r, c]];
+    for (var d = 0; d < depth; d++) {
+      var nxt = [];
+      for (var i = 0; i < frontier.length; i++) {
+        var nb = neighbors(frontier[i][0], frontier[i][1]);
+        for (var j = 0; j < nb.length; j++) {
+          var key = nb[j][0] + "," + nb[j][1];
+          if (!seen[key]) { seen[key] = true; res.push(nb[j]); nxt.push(nb[j]); }
+        }
       }
-      score += group.length * 10;
-      if (typeof Juice !== 'undefined') {
-        Juice.sfx('boom');
-        Juice.addTrauma(0.18);
-        Juice.burst(matchCenter.x, matchCenter.y, { color: COLORS[placedColor], n: 10, speed: 180 });
-        Juice.popup(matchCenter.x, matchCenter.y - 10, '+' + (group.length * 10), COLORS[placedColor], { size: 16 });
+      frontier = nxt;
+    }
+    return res;
+  }
+
+  // 落子并结算（普通同色消除 / 彩虹通配 / 炸弹爆炸）
+  function placeAndResolve(r, c, color) {
+    var placedColor = color;
+
+    // 彩虹泡：解析为相邻最大同色组的颜色（无相邻则取首个活动色）
+    if (placedColor === RAINBOW) {
+      var adj = neighbors(r, c), bestC = -1, bestN = 0;
+      for (var ai = 0; ai < adj.length; ai++) {
+        var ar = adj[ai][0], ac = adj[ai][1];
+        if (!bubbleAt(ar, ac)) continue;
+        var av = grid[ar][ac];
+        if (av < 0 || av >= RAINBOW) continue;
+        var sz = floodSameColor(ar, ac, av).length;
+        if (sz > bestN) { bestN = sz; bestC = av; }
       }
-      dropDisconnected();
+      placedColor = bestC >= 0 ? bestC : activeColors[0];
+    }
+    grid[r][c] = placedColor;
+
+    if (placedColor === BOMB) {
+      // 炸弹：炸掉落点周围两圈所有泡
+      var cluster = cellsWithin(r, c, 2);
+      var any = false;
+      for (var k = 0; k < cluster.length; k++) {
+        var cr = cluster[k][0], cc = cluster[k][1];
+        if (bubbleAt(cr, cc)) {
+          spawnFx(cr, cc, grid[cr][cc] >= 0 ? grid[cr][cc] : 0);
+          grid[cr][cc] = -1; any = true;
+        }
+      }
+      if (any) {
+        score += cluster.length * 10;
+        clears++;
+        if (typeof Juice !== 'undefined') {
+          Juice.sfx('boom'); Juice.addTrauma(0.4);
+          var bc = cellCenter(r, c);
+          Juice.burst(bc.x, bc.y, { color: '#f0b90b', n: 18, speed: 220 });
+        }
+        dropDisconnected();
+      }
+    } else {
+      // 普通 / 解析后的彩虹：同色三连消除
+      var group = floodSameColor(r, c, placedColor);
+      if (group.length >= 3) {
+        var matchCenter = null;
+        for (var i = 0; i < group.length; i++) {
+          var gr = group[i][0], gc = group[i][1];
+          spawnFx(gr, gc, placedColor);
+          grid[gr][gc] = -1;
+          if (!matchCenter) matchCenter = cellCenter(gr, gc);
+        }
+        score += group.length * 10;
+        clears++;
+        if (typeof Juice !== 'undefined') {
+          Juice.sfx('boom');
+          Juice.addTrauma(0.18);
+          Juice.burst(matchCenter.x, matchCenter.y, { color: COLORS[placedColor], n: 10, speed: 180 });
+          Juice.popup(matchCenter.x, matchCenter.y - 10, '+' + (group.length * 10), COLORS[placedColor], { size: 16 });
+        }
+        dropDisconnected();
+      }
+    }
+
+    // 蓄力：累计消除若干次后，下一发有几率变成特殊泡
+    if (clears >= 4 && next !== BOMB && next !== RAINBOW) {
+      clears = 0;
+      next = (Math.random() < 0.5) ? BOMB : RAINBOW;
+      if (typeof Juice !== 'undefined') Juice.achievement('✨ 特殊泡就绪！');
     }
 
     updateHud();
@@ -336,9 +408,12 @@
         var nr = nb[i][0], nc = nb[i][1];
         var key = nr + "," + nc;
         if (seen[key]) continue;
-        if (bubbleAt(nr, nc) && grid[nr][nc] === color) {
-          seen[key] = true;
-          stack.push([nr, nc]);
+        if (bubbleAt(nr, nc)) {
+          var cv2 = grid[nr][nc];
+          if (cv2 === color || cv2 === RAINBOW) {   // 彩虹泡作为通配
+            seen[key] = true;
+            stack.push([nr, nc]);
+          }
         }
       }
     }
@@ -456,6 +531,40 @@
     ctx.fill();
   }
 
+  // 统一绘制入口（区分普通/特殊泡）
+  function drawCell(x, y, v, scale) {
+    if (v === RAINBOW) return drawRainbow(x, y, scale);
+    if (v === BOMB) return drawBomb(x, y, scale);
+    return drawBubble(x, y, v, scale);
+  }
+
+  function drawRainbow(x, y, scale) {
+    var rad = R * (scale || 1);
+    var rc = ["#f6465d","#02c076","#f0b90b","#3aa0ff","#9b6bff","#2ee6d6"];
+    for (var i = 0; i < rc.length; i++) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, rad - 1, i / rc.length * Math.PI * 2, (i + 1) / rc.length * Math.PI * 2);
+      ctx.closePath();
+      ctx.fillStyle = rc[i]; ctx.fill();
+    }
+    ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.beginPath(); ctx.arc(x, y, rad - 1, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.font = "bold " + (rad * 0.72) + "px monospace";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("★", x, y);
+  }
+
+  function drawBomb(x, y, scale) {
+    var rad = R * (scale || 1);
+    ctx.beginPath(); ctx.arc(x, y, rad - 1, 0, Math.PI * 2);
+    ctx.fillStyle = "#11161f"; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.stroke();
+    ctx.fillStyle = "#f0b90b"; ctx.font = "bold " + (rad * 0.95) + "px monospace";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("💣", x, y);
+  }
+
   function lighten(hex, amt) {
     var r = parseInt(hex.substr(1, 2), 16);
     var g = parseInt(hex.substr(3, 2), 16);
@@ -484,7 +593,7 @@
       for (var c = 0; c < grid[r].length; c++) {
         if (grid[r][c] >= 0) {
           var p = cellCenter(r, c);
-          drawBubble(p.x, p.y, grid[r][c], 1);
+          drawCell(p.x, p.y, grid[r][c], 1);
         }
       }
     }
@@ -504,7 +613,7 @@
     }
 
     // next bubble preview (left)
-    drawBubble(W / 2 - 80, SHOOTER_Y, next, 0.7);
+    drawCell(W / 2 - 80, SHOOTER_Y, next, 0.7);
     ctx.fillStyle = "#6b7785";
     ctx.font = "10px monospace";
     ctx.textAlign = "center";
@@ -519,12 +628,12 @@
 
     // current bubble at shooter
     if (state === "playing") {
-      drawBubble(W / 2, SHOOTER_Y, current, 1);
+      drawCell(W / 2, SHOOTER_Y, current, 1);
     }
 
     // flying bubble
     if (flying) {
-      drawBubble(flying.x, flying.y, flying.color, 1);
+      drawCell(flying.x, flying.y, flying.color, 1);
     }
 
     // fx
@@ -609,6 +718,21 @@
   }
 
   restartBtn.addEventListener("click", function () { newGame(); });
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    newGame: newGame, fire: fire, update: update,
+    neighbors: neighbors, cellCenter: cellCenter, floodSameColor: floodSameColor,
+    COLS: COLS, MAXROWS: MAXROWS, RAINBOW: RAINBOW, BOMB: BOMB,
+    setGrid: function(g){ grid = g; },
+    getGrid: function(){ return grid.map(function(row){ return row.slice(); }); },
+    setCurrent: function(v){ current = v; },
+    setNext: function(v){ next = v; },
+    getNext: function(){ return next; },
+    getScore: function(){ return score; },
+    getState: function(){ return state; },
+    resolveAt: function(r, c, color){ flying = { x: cellCenter(r, c).x, y: cellCenter(r, c).y, vx: 0, vy: 0, color: color }; snapAndResolve(); }
+  };
 
   newGame();
   loop();

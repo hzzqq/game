@@ -30,7 +30,7 @@
   .stat{background:rgba(18,24,33,.85);border:1px solid var(--border);border-radius:8px;padding:8px 14px;backdrop-filter:blur(4px)}
   .stat .k{color:var(--dim);font-size:11px;letter-spacing:.5px}
   .stat .v{font-size:19px;margin-top:2px}
-  .v.dist{color:var(--gold)} .v.best{color:var(--green)} .v.spd{color:var(--red)}
+  .v.dist{color:var(--gold)} .v.best{color:var(--green)} .v.spd{color:var(--red)} .v.coin{color:#ffd94a}
   #overlay{position:fixed;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,.88)}
   #overlay .box{text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;max-width:90vw}
   #overlay h1{font-size:26px;letter-spacing:2px;margin-bottom:10px;text-shadow:0 0 18px rgba(246,70,93,.35)}
@@ -57,11 +57,12 @@
   <div id="hud">
     <div class="stat"><div class="k">DIST / 距离</div><div class="v dist" id="distEl">0</div></div>
     <div class="stat"><div class="k">SPEED / 速度</div><div class="v spd" id="spdEl">1.0x</div></div>
+    <div class="stat"><div class="k">COIN / 金币</div><div class="v coin" id="coinEl">0</div></div>
     <div class="stat"><div class="k">BEST / 最佳</div><div class="v best" id="bestEl">0</div></div>
   </div>
 
   <button id="jbtn">跳跃<br>JUMP</button>
-  <div id="hint">SPACE / ↑ / W 跳跃 · 落地后可二段跳</div>
+  <div id="hint">SPACE / ↑ / W 跳跃（可二段跳）· 🪙金币加分 · 🛡护盾免死 · ⭐星星限时穿障</div>
 
   <div id="overlay">
     <div class="box">
@@ -83,6 +84,7 @@
 
   var distEl = document.getElementById('distEl');
   var spdEl  = document.getElementById('spdEl');
+  var coinEl = document.getElementById('coinEl');
   var bestEl = document.getElementById('bestEl');
   var overlay = document.getElementById('overlay');
   var ovTitle = document.getElementById('ovTitle');
@@ -99,8 +101,8 @@
 
   function resize(){
     DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth;
-    H = window.innerHeight;
+    W = window.innerWidth || 800;
+    H = window.innerHeight || 480;
     canvas.width = Math.floor(W * DPR);
     canvas.height = Math.floor(H * DPR);
     canvas.style.width = W + 'px';
@@ -118,18 +120,23 @@
   try { best = parseInt(localStorage.getItem('parkour_best')||'0',10) || 0; } catch(e){ best = 0; }
   bestEl.textContent = best;
 
-  var runner, obstacles, particles;
+  var runner, obstacles, particles, pickups;
   var speed, baseSpeed, distance, spawnTimer, spawnGap, frame, scroll, lastTime, running, acc, bgScroll, farScroll;
+  var coins, pickTimer;
 
   function reset(){
-    runner = { x: 90, y: GROUND_Y, w: 26, h: 38, vy: 0, onGround: true, jumps: 0, ducking: false };
+    runner = { x: 90, y: GROUND_Y, w: 26, h: 38, vy: 0, onGround: true, jumps: 0, ducking: false,
+               shield: 0, invuln: 0, star: 0 };
     obstacles = [];
     particles = [];
+    pickups = [];
     speed = 4.2;
     baseSpeed = 4.2;
     distance = 0;
+    coins = 0;
     spawnTimer = 0;
     spawnGap = 78;           // frames between spawns (scaled down as difficulty rises)
+    pickTimer = 60;          // frames before first pickup
     frame = 0;
     scroll = 0;
     bgScroll = 0;
@@ -183,6 +190,41 @@
         life: 18 + Math.random()*14,
         col: Math.random()<0.5 ? '#f6465d' : '#f0b90b'
       });
+    }
+  }
+
+  // ---- 道具：🪙金币(加分) / 🛡护盾(免死一次) / ⭐无敌星(限时穿障) ----
+  function spawnPickup(){
+    var r = Math.random();
+    var type = r < 0.5 ? 'coin' : (r < 0.78 ? 'shield' : 'star');
+    var py = GROUND_Y - 44 - Math.random()*64;   // 悬浮在地面上方，跳跃可够到
+    pickups.push({ x: W + 22, type: type, r: type === 'coin' ? 9 : 11, y: py, bob: Math.random()*Math.PI*2 });
+  }
+
+  function collectPickup(pp){
+    if (pp.type === 'coin'){
+      coins++;
+      distance += 8;                 // 小加成，反馈更爽
+      if (typeof Juice !== 'undefined'){
+        Juice.sfx('pickup');
+        Juice.popup(pp.x, pp.y, '+¥', '#ffd94a');
+        Juice.burst(pp.x, pp.y, { color:'#ffd94a', n:8, speed:120 });
+      }
+    } else if (pp.type === 'shield'){
+      runner.shield++;
+      if (typeof Juice !== 'undefined'){
+        Juice.sfx('pickup');
+        Juice.popup(pp.x, pp.y, '🛡', '#3aa0ff');
+        Juice.burst(pp.x, pp.y, { color:'#3aa0ff', n:10, speed:120 });
+      }
+    } else {
+      runner.star = 240;            // 约 4 秒（60fps）无敌穿障
+      if (typeof Juice !== 'undefined'){
+        Juice.sfx('levelup');
+        Juice.popup(pp.x, pp.y, '⭐', '#f0b90b');
+        Juice.burst(pp.x, pp.y, { color:'#f0b90b', n:14, speed:160 });
+        Juice.achievement('⭐ 无敌星 · 4s 穿障');
+      }
     }
   }
 
@@ -264,8 +306,44 @@
       if (pt.life <= 0) particles.splice(p,1);
     }
 
-    if (hitTest()){
-      gameOver();
+    // 道具刷新
+    pickTimer--;
+    if (pickTimer <= 0){
+      spawnPickup();
+      pickTimer = 70 + Math.floor(Math.random()*90);
+    }
+
+    // 道具移动 + 拾取
+    for (var pk=pickups.length-1; pk>=0; pk--){
+      var pp = pickups[pk];
+      pp.x -= speed;
+      pp.bob += 0.1;
+      var pbx = pp.x - pp.r, pby = pp.y - pp.r, pbw = pp.r*2, pbh = pp.r*2;
+      var rx = runner.x, ry = runner.y - runner.h, rw = runner.w, rh = runner.h;
+      if (rx < pbx+pbw && rx+rw > pbx && ry < pby+pbh && ry+rh > pby){
+        collectPickup(pp);
+        pickups.splice(pk,1);
+        continue;
+      }
+      if (pp.x + pp.r < -20) pickups.splice(pk,1);
+    }
+
+    // 护盾 / 无敌星 处理
+    if (runner.invuln > 0) runner.invuln--;
+    if (runner.star > 0) runner.star--;
+    var blocked = runner.invuln > 0 || runner.star > 0;
+    if (!blocked && hitTest()){
+      if (runner.shield > 0){
+        runner.shield--;
+        runner.invuln = 30;          // 短暂无敌，避免立即再次判定
+        if (typeof Juice !== 'undefined'){
+          Juice.sfx('hit');
+          Juice.burst(runner.x + runner.w/2, runner.y - runner.h/2, { color:'#3aa0ff', n:14, speed:160 });
+          Juice.addTrauma(0.3);
+        }
+      } else {
+        gameOver();
+      }
     }
   }
 
@@ -338,6 +416,28 @@
       }
     }
 
+    // pickups（道具）
+    for (var pk=0;pk<pickups.length;pk++){
+      var pp = pickups[pk];
+      var by = pp.y + Math.sin(pp.bob)*3;
+      if (pp.type === 'coin'){
+        ctx.fillStyle = '#ffd94a'; ctx.shadowColor = '#ffd94a'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(pp.x, by, pp.r, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+        ctx.fillStyle = '#7a5c00'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('¥', pp.x, by+1);
+      } else if (pp.type === 'shield'){
+        ctx.fillStyle = 'rgba(58,160,255,0.18)'; ctx.strokeStyle = '#3aa0ff'; ctx.shadowColor = '#3aa0ff'; ctx.shadowBlur = 12; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(pp.x, by, pp.r, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+        ctx.fillStyle = '#9fd4ff'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('S', pp.x, by+1);
+      } else {
+        ctx.fillStyle = '#f0b90b'; ctx.shadowColor = '#f0b90b'; ctx.shadowBlur = 14;
+        ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('★', pp.x, by+1); ctx.shadowBlur = 0;
+      }
+    }
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+
     // particles
     for (var p=0;p<particles.length;p++){
       var pt = particles[p];
@@ -380,6 +480,16 @@
     // eye / direction
     ctx.fillStyle = '#f0b90b';
     ctx.fillRect(rx+rw-7, ry+5, 3, 3);
+
+    // 护盾环 / 无敌星光环
+    if (runner.shield > 0){
+      ctx.strokeStyle = 'rgba(58,160,255,0.85)'; ctx.lineWidth = 2;
+      ctx.strokeRect(rx-3, ry-3, rw+6, rh+6);
+    }
+    if (runner.star > 0){
+      ctx.fillStyle = 'rgba(240,185,11,0.16)';
+      ctx.beginPath(); ctx.arc(rx+rw/2, ry+rh/2, Math.max(rw,rh)*0.95, 0, Math.PI*2); ctx.fill();
+    }
   }
 
   var loopPrevT = 0;
@@ -403,6 +513,7 @@
     draw();
     distEl.textContent = Math.floor(distance);
     spdEl.textContent = (speed/baseSpeed).toFixed(1) + 'x';
+    coinEl.textContent = coins;
     requestAnimationFrame(loop);
   }
 
@@ -466,6 +577,22 @@
   });
 
   startBtn.addEventListener('click', function(e){ e.stopPropagation(); startGame(); });
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    GROUND_Y: function(){ return GROUND_Y; },
+    reset: reset, update: update, hitTest: hitTest,
+    spawnPickup: spawnPickup, collectPickup: collectPickup, startGame: startGame,
+    setRunner: function(o){ for (var k in o) runner[k] = o[k]; },
+    getRunner: function(){ return { x:runner.x, y:runner.y, h:runner.h, w:runner.w, shield:runner.shield, star:runner.star, invuln:runner.invuln }; },
+    setPickups: function(arr){ pickups = (arr||[]).map(function(p){ return { x:p.x, y:p.y, type:p.type, r:p.r||10, bob:0 }; }); },
+    getPickups: function(){ return pickups.map(function(p){ return { x:p.x, y:p.y, type:p.type, r:p.r }; }); },
+    getCoins: function(){ return coins; },
+    getState: function(){ return state; },
+    setState: function(s){ state = s; },
+    setObstacles: function(arr){ obstacles = arr; },
+    spawnObstacle: spawnObstacle
+  };
 
   // 初始并常驻主循环（菜单/结算态也轮询输入以支持键盘开始/重开）
   reset();
