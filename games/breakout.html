@@ -599,6 +599,23 @@
   buildLevel(); // 仅为初始化（菜单态不显示）
   setState('menu');
   requestAnimationFrame(frame);
+
+  // ---- 测试钩子 ----
+  window.__t = {
+    buildLevel: buildLevel, applyPower: applyPower, makeBall: makeBall,
+    resetBall: resetBall, startGame: startGame, maybeDrop: maybeDrop, launch: launch,
+    clamp: clamp,
+    getBricks: function(){ return bricks.map(function(b){ return {x:b.x,y:b.y,w:b.w,h:b.h,color:b.color,points:b.points,alive:b.alive}; }); },
+    getBalls: function(){ return balls.map(function(b){ return {x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r,stuck:b.stuck}; }); },
+    getPowerups: function(){ return powerups.map(function(p){ return {x:p.x,y:p.y,w:p.w,h:p.h,vy:p.vy,type:p.type}; }); },
+    getPaddle: function(){ return {baseW:paddle.baseW,w:paddle.w,h:paddle.h,x:paddle.x,y:paddle.y}; },
+    getScore: function(){ return score; }, getLives: function(){ return lives; },
+    getLevel: function(){ return level; }, getState: function(){ return state; },
+    setLevel: function(v){ level=v; }, setNow: function(v){ now=v; },
+    setLives: function(v){ lives=v; }, setScore: function(v){ score=v; },
+    setBalls: function(arr){ balls = arr.map(function(b){ return {x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r||7,stuck:!!b.stuck}; }); },
+    getWideUntil: function(){ return wideUntil; }, getSlowUntil: function(){ return slowUntil; }
+  };
 })();
 </script>
 </body>
