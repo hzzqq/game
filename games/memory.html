@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>TERMINAL // MEMORY</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --sub:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px;
+  }
+  .window{
+    position:relative; width:520px; max-width:100%;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    box-shadow:0 20px 60px rgba(0,0,0,.55); overflow:hidden;
+  }
+  .titlebar{
+    display:flex; align-items:center; gap:10px; height:40px; padding:0 14px;
+    background:linear-gradient(180deg,#161d28,#10151d); border-bottom:1px solid var(--border);
+  }
+  .dot{ width:12px; height:12px; border-radius:50%; }
+  .dot.r{ background:#ff5f56; } .dot.y{ background:#ffbd2e; } .dot.g{ background:#27c93f; }
+  .title{ flex:1; text-align:center; font-size:13px; letter-spacing:2px; }
+  .title .accent{ color:var(--gold); }
+  #fx{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:50; }
+  .stage{ padding:16px; background:var(--bg); display:flex; flex-direction:column; align-items:center; gap:12px; }
+  .hud{ display:flex; gap:18px; font-size:13px; }
+  .hud b{ color:var(--gold); }
+  .board{ display:grid; gap:8px; justify-content:center; }
+  .slot{ perspective:600px; }
+  .flip{ width:64px; height:64px; position:relative; transform-style:preserve-3d; transition:transform .28s; cursor:pointer; }
+  .flip.open{ transform:rotateY(180deg); }
+  .face{ position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+    display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:22px; font-weight:700; }
+  .back{ background:#0e1620; border:1px solid var(--border); color:var(--sub); }
+  .back::after{ content:'?'; }
+  .front{ background:#16202c; border:1px solid var(--border); transform:rotateY(180deg); color:var(--gold); }
+  .slot.matched .front{ border-color:var(--green); color:var(--green); box-shadow:0 0 12px rgba(2,192,118,.35); }
+  .slot.matched .flip{ cursor:default; }
+  .controls{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  button{
+    font-family:inherit; font-size:12px; cursor:pointer; border-radius:6px;
+    padding:9px 12px; border:1px solid var(--border); background:transparent; color:var(--text); transition:all .15s;
+  }
+  button:hover:not(:disabled){ border-color:var(--gold); }
+  .btn-go{ background:var(--gold); color:#0a0e14; border-color:var(--gold); font-weight:700; }
+  .btn-go.active{ box-shadow:0 0 12px rgba(240,185,11,.4); }
+  .hint{ color:var(--sub); font-size:11px; text-align:center; }
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">TERMINAL // <span class="accent">MEMORY</span> · 记忆翻牌</span>
+    </div>
+    <canvas id="fx"></canvas>
+    <div class="stage">
+      <div class="hud">
+        <div>步数 <b id="mv">0</b></div>
+        <div>配对 <b id="mt">0</b>/<b id="tt">8</b></div>
+        <div>用时 <b id="tm">0</b>s</div>
+      </div>
+      <div class="board" id="board"></div>
+      <div class="controls">
+        <button id="s4" class="btn-go active">4×4</button>
+        <button id="s6" class="btn-go">6×6</button>
+        <button id="again">⟳ 重开</button>
+      </div>
+      <div class="hint">点击翻牌找配对 · 全部配对即胜 · 越少步数越好</div>
+    </div>
+  </div>
+
+  <script src="juice.js"></script>
+  <script>
+  (function () {
+    var COL = { red:'#f6465d', green:'#02c076', gold:'#f0b90b', dim:'#6b7785' };
+    var SYMS = ['◆','▲','●','■','★','✦','◐','◑','▼','◇','○','□','☆','✧','◍','◒','▼','◭'];
+    var size = 4, cards = [], openIdx = [], moves = 0, matched = 0, won = false, started = 0;
+
+    var boardEl = document.getElementById('board');
+    var fx = document.getElementById('fx');
+    var fxc = fx.getContext('2d');
+    var W = 0, H = 0;
+    function resize() { W = (window.innerWidth || 520); H = (window.innerHeight || 600); if (fx.width !== W) { fx.width = W; fx.height = H; } }
+    resize();
+
+    function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var r = (Math.random() * (i + 1)) | 0; var t = a[i]; a[i] = a[r]; a[r] = t; } return a; }
+
+    function newGame(n) {
+      size = n; cards = []; openIdx = []; moves = 0; matched = 0; won = false; started = Date.now();
+      var pairs = (n * n) / 2;
+      var deck = [];
+      for (var i = 0; i < pairs; i++) { deck.push(i); deck.push(i); }
+      shuffle(deck);
+      cards = deck.map(function (s) { return { sym: SYMS[s], key: s, flipped: false, matched: false }; });
+      render();
+    }
+
+    function flip(i) {
+      if (won) return;
+      var c = cards[i];
+      if (!c || c.matched || c.flipped || openIdx.length >= 2) return;
+      c.flipped = true; openIdx.push(i);
+      if (typeof Juice !== 'undefined') Juice.sfx('click');
+      renderCard(i);
+      if (openIdx.length === 2) setTimeout(resolvePair, 620);
+    }
+
+    function resolvePair() {
+      if (openIdx.length < 2) return;
+      var a = openIdx[0], b = openIdx[1];
+      moves++;
+      if (cards[a].key === cards[b].key) {
+        cards[a].matched = true; cards[b].matched = true; matched += 2;
+        if (typeof Juice !== 'undefined') {
+          var p = cardCenter(a);
+          Juice.sfx('levelup'); Juice.burst(p.x, p.y, { color: COL.green, n: 12, speed: 190 });
+          Juice.ring(p.x, p.y, { color: COL.green, r1: 50 });
+          Juice.popup(p.x, p.y - 10, 'MATCH', COL.green, { size: 14 });
+        }
+      } else {
+        cards[a].flipped = false; cards[b].flipped = false;
+        if (typeof Juice !== 'undefined') { Juice.sfx('error'); Juice.flash('#f6465d', 0.12); }
+        renderCard(a); renderCard(b);
+      }
+      openIdx = [];
+      if (matched === cards.length && !won) {
+        won = true;
+        if (typeof Juice !== 'undefined') {
+          Juice.sfx('win'); Juice.addTrauma(0.2);
+          Juice.burst(W / 2, H / 2, { color: COL.gold, n: 24, speed: 240 });
+          Juice.ring(W / 2, H / 2, { color: COL.gold, r1: 140 });
+          Juice.achievement('✓ 全部配对！' + moves + ' 步');
+        }
+      }
+      renderHUD();
+    }
+
+    function cardCenter(i) {
+      var el = boardEl.children[i];
+      if (!el) return { x: W / 2, y: H / 2 };
+      var r = el.getBoundingClientRect(), fr = fx.getBoundingClientRect();
+      return { x: r.left - fr.left + r.width / 2, y: r.top - fr.top + r.height / 2 };
+    }
+
+    function renderCard(i) {
+      var el = boardEl.children[i]; if (!el) return;
+      var c = cards[i];
+      el.classList.toggle('matched', c.matched);
+      el.querySelector('.flip').classList.toggle('open', c.flipped || c.matched);
+      el.querySelector('.front').textContent = c.sym;
+    }
+    function render() {
+      boardEl.style.gridTemplateColumns = 'repeat(' + size + ', 64px)';
+      boardEl.innerHTML = '';
+      for (var i = 0; i < cards.length; i++) {
+        var slot = document.createElement('div'); slot.className = 'slot';
+        slot.innerHTML = '<div class="flip"><div class="face back"></div><div class="face front"></div></div>';
+        (function (idx) { slot.addEventListener('click', function () { flip(idx); }); })(i);
+        boardEl.appendChild(slot);
+        renderCard(i);
+      }
+      renderHUD();
+    }
+    function renderHUD() {
+      document.getElementById('mv').textContent = moves;
+      document.getElementById('mt').textContent = matched / 2;
+      document.getElementById('tt').textContent = cards.length / 2;
+      document.getElementById('tm').textContent = started ? Math.floor((Date.now() - started) / 1000) : 0;
+    }
+
+    function loop() {
+      function frame(ts) {
+        var last = loop._last || 0; var dt = Math.min(0.05, (ts - last) / 1000 || 0); loop._last = ts;
+        if (typeof Juice !== 'undefined') { Juice.update(dt); fxc.clearRect(0, 0, W, H); Juice.begin(fxc); Juice.mid(fxc); Juice.end(fxc); }
+        if (!won && started) renderHUD();
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    document.getElementById('s4').addEventListener('click', function () { setsize(4); });
+    document.getElementById('s6').addEventListener('click', function () { setsize(6); });
+    document.getElementById('again').addEventListener('click', function () { newGame(size); });
+    function setsize(n) {
+      size = n;
+      document.getElementById('s4').classList.toggle('active', n === 4);
+      document.getElementById('s6').classList.toggle('active', n === 6);
+      newGame(n);
+    }
+
+    // 测试钩子
+    window.__t = {
+      newGame: newGame, flip: flip, resolvePair: resolvePair,
+      isWon: function () { return won; },
+      getMoves: function () { return moves; },
+      getMatched: function () { return matched; },
+      getOpen: function () { return openIdx.length; },
+      getCards: function () { return cards.map(function (c) { return { sym: c.sym, key: c.key, flipped: c.flipped, matched: c.matched }; }); },
+      getSize: function () { return size; }
+    };
+
+    newGame(4);
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>
