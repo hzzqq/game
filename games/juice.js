@@ -27,6 +27,7 @@
 
   /* ---------- 粒子 ---------- */
   let parts = [];
+  let rings = [];
   J.burst = function (x, y, o) {
     o = o || {};
     const n = o.n || 12, color = o.color || '#f0b90b', spd = o.speed || 200,
@@ -37,6 +38,19 @@
         color, size: sz || (2 + Math.random() * 3) });
     }
     if (parts.length > 900) parts.splice(0, parts.length - 900);
+  };
+
+  /* ---------- 冲击波环（命中/爆发视觉强调，纯视觉、opt-in） ---------- */
+  J.ring = function (x, y, o) {
+    o = o || {};
+    rings.push({
+      x, y,
+      r0: o.r0 || 8,
+      r1: o.r || o.r1 || 64,
+      life: o.life || 0.45, max: o.life || 0.45,
+      color: o.color || '#f0b90b',
+      width: o.width || 3
+    });
   };
 
   /* ---------- 浮动文字（伤害/得分/提示） ---------- */
@@ -58,6 +72,9 @@
       const p = parts[i]; p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.vx *= 0.98;
     }
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i]; r.life -= dt; if (r.life <= 0) { rings.splice(i, 1); continue; }
+    }
     for (let i = pops.length - 1; i >= 0; i--) {
       const p = pops[i]; p.life -= dt; if (p.life <= 0) { pops.splice(i, 1); continue; }
       p.y += p.vy * dt; p.vy *= 0.96;
@@ -69,6 +86,13 @@
     for (const p of parts) {
       ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.color;
       ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
+    }
+    for (const r of rings) {
+      const k = 1 - r.life / r.max;
+      const rad = r.r0 + (r.r1 - r.r0) * k;
+      ctx.globalAlpha = Math.max(0, r.life / r.max);
+      ctx.strokeStyle = r.color; ctx.lineWidth = r.width;
+      ctx.beginPath(); ctx.arc(r.x, r.y, rad, 0, 7); ctx.stroke();
     }
     ctx.globalAlpha = 1; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const p of pops) {

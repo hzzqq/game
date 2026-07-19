@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>TERMINAL // SOKOBAN</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --sub:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px;
+  }
+  .window{
+    position:relative; width:520px; max-width:100%;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    box-shadow:0 20px 60px rgba(0,0,0,.55); overflow:hidden;
+  }
+  .titlebar{
+    display:flex; align-items:center; gap:10px; height:40px; padding:0 14px;
+    background:linear-gradient(180deg,#161d28,#10151d); border-bottom:1px solid var(--border);
+  }
+  .dot{ width:12px; height:12px; border-radius:50%; }
+  .dot.r{ background:#ff5f56; } .dot.y{ background:#ffbd2e; } .dot.g{ background:#27c93f; }
+  .title{ flex:1; text-align:center; font-size:13px; letter-spacing:2px; }
+  .title .accent{ color:var(--gold); }
+  .stage{ padding:16px; background:var(--bg); display:flex; flex-direction:column; align-items:center; gap:10px; }
+  canvas{ background:#0d1420; border-radius:6px; touch-action:none; max-width:100%; }
+  .hud{ display:flex; gap:16px; font-size:13px; }
+  .hud b{ color:var(--gold); }
+  .controls{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  button{
+    font-family:inherit; font-size:12px; cursor:pointer; border-radius:6px;
+    padding:9px 12px; border:1px solid var(--border); background:transparent; color:var(--text); transition:all .15s;
+  }
+  button:hover:not(:disabled){ border-color:var(--gold); }
+  button:disabled{ opacity:.3; cursor:default; }
+  .btn-go{ background:var(--gold); color:#0a0e14; border-color:var(--gold); font-weight:700; }
+  .hint{ color:var(--sub); font-size:11px; text-align:center; }
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">TERMINAL // <span class="accent">SOKOBAN</span> · 推箱子</span>
+    </div>
+    <div class="stage">
+      <div class="hud">
+        <div>关卡 LV <b id="lv">1</b></div>
+        <div>步数 <b id="mv">0</b></div>
+        <div>箱子 <b id="bx">0</b></div>
+      </div>
+      <canvas id="cv"></canvas>
+      <div class="controls">
+        <button id="undo">↶ 撤销</button>
+        <button id="reset">⟳ 重置</button>
+        <button id="prev">◀ 上一关</button>
+        <button id="next" class="btn-go">下一关 ▶</button>
+      </div>
+      <div class="hint">方向键 / WASD 移动 · 手机滑动 · 把所有 🟦箱子 推到 ◎目标 · 撤销可回退</div>
+    </div>
+  </div>
+
+  <script src="juice.js"></script>
+  <script>
+  (function () {
+    var COL = { red:'#f6465d', green:'#02c076', gold:'#f0b90b', dim:'#6b7785', wall:'#1f2a38', floor:'#0e1620' };
+    var TILE = 52;
+    var canvas = document.getElementById('cv');
+    var ctx = canvas.getContext('2d');
+
+    var LEVELS = [
+      [ '######',
+        '#    #',
+        '# .$@#',
+        '#    #',
+        '######' ],
+      [ '#########',
+        '#       #',
+        '# .$@$ . #',
+        '#       #',
+        '#########' ],
+      [ '########',
+        '#      #',
+        '# .$ $ .#',
+        '#   @  #',
+        '#      #',
+        '########' ]
+    ];
+
+    var levelIdx = 0, walls = {}, targets = {}, boxes = [], player = { x: 0, y: 0 }, rows = [], cols = 0, moves = 0, won = false, history = [];
+
+    function key(x, y) { return x + ',' + y; }
+    function isWall(x, y) { return !!walls[key(x, y)]; }
+    function isTarget(x, y) { return !!targets[key(x, y)]; }
+    function boxAt(x, y) { for (var i = 0; i < boxes.length; i++) if (boxes[i].x === x && boxes[i].y === y) return i; return -1; }
+
+    function setLevel(grid) {
+      walls = {}; targets = {}; boxes = []; history = []; moves = 0; won = false;
+      rows = grid.slice(); cols = 0;
+      for (var y = 0; y < rows.length; y++) {
+        var line = rows[y];
+        if (line.length > cols) cols = line.length;
+        for (var x = 0; x < line.length; x++) {
+          var c = line[x];
+          if (c === '#') walls[key(x, y)] = true;
+          else if (c === '.' || c === '*' || c === '+') targets[key(x, y)] = true;
+          if (c === '$' || c === '*') boxes.push({ x: x, y: y });
+          if (c === '@' || c === '+') player = { x: x, y: y };
+        }
+      }
+      canvas.width = cols * TILE; canvas.height = rows.length * TILE;
+      renderHUD();
+    }
+
+    function pushSnapshot() {
+      history.push({ px: player.x, py: player.y, boxes: boxes.map(function (b) { return { x: b.x, y: b.y }; }), moves: moves });
+      if (history.length > 200) history.shift();
+    }
+
+    function afterMove() {
+      moves++;
+      var allOn = boxes.length > 0 && boxes.every(function (b) { return isTarget(b.x, b.y); });
+      if (allOn && !won) {
+        won = true;
+        if (typeof Juice !== 'undefined') {
+          Juice.sfx('win'); Juice.addTrauma(0.25);
+          var p = cellPx(player.x, player.y);
+          Juice.burst(p.x, p.y, { color: COL.gold, n: 20, speed: 230 });
+          Juice.ring(p.x, p.y, { color: COL.gold, r1: 90 });
+          Juice.achievement('✓ 第 ' + (levelIdx + 1) + ' 关通关！');
+        }
+      }
+      renderHUD();
+    }
+
+    var DIR = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    function move(dir) {
+      if (won && dir) { /* 通关后仅允许切换关卡 */ }
+      var d = DIR[dir]; if (!d) return;
+      if (won) return;
+      var nx = player.x + d[0], ny = player.y + d[1];
+      if (isWall(nx, ny)) return;
+      var bi = boxAt(nx, ny);
+      if (bi >= 0) {
+        var bx = nx + d[0], by = ny + d[1];
+        if (isWall(bx, by) || boxAt(bx, by) >= 0) return;
+        pushSnapshot();
+        var wasOn = isTarget(boxes[bi].x, boxes[bi].y);
+        boxes[bi].x = bx; boxes[bi].y = by;
+        player.x = nx; player.y = ny;
+        var nowOn = isTarget(bx, by);
+        if (typeof Juice !== 'undefined' && !wasOn && nowOn) {
+          var p = cellPx(bx, by);
+          Juice.sfx('levelup'); Juice.burst(p.x, p.y, { color: COL.green, n: 12, speed: 180 });
+          Juice.ring(p.x, p.y, { color: COL.green, r1: 46 });
+          Juice.popup(p.x, p.y - 10, 'LOCK', COL.green, { size: 14 });
+        } else if (typeof Juice !== 'undefined') { Juice.sfx('click'); }
+        afterMove();
+        return;
+      }
+      pushSnapshot();
+      player.x = nx; player.y = ny;
+      if (typeof Juice !== 'undefined') Juice.sfx('click');
+      afterMove();
+    }
+
+    function undo() {
+      if (!history.length) return;
+      var s = history.pop();
+      player.x = s.px; player.y = s.py; boxes = s.boxes.map(function (b) { return { x: b.x, y: b.y }; });
+      moves = s.moves; won = false; renderHUD();
+    }
+    function reset() { setLevel(LEVELS[levelIdx]); }
+    function loadLevel(i) {
+      levelIdx = (i % LEVELS.length + LEVELS.length) % LEVELS.length;
+      setLevel(LEVELS[levelIdx]);
+    }
+    function isWon() { return won; }
+
+    function cellPx(x, y) { return { x: (x + 0.5) * TILE, y: (y + 0.5) * TILE }; }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (var y = 0; y < rows.length; y++) {
+        for (var x = 0; x < cols; x++) {
+          var px = x * TILE, py = y * TILE;
+          ctx.fillStyle = COL.floor; ctx.fillRect(px, py, TILE, TILE);
+          if (isWall(x, y)) { ctx.fillStyle = COL.wall; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4); }
+          if (isTarget(x, y)) {
+            ctx.strokeStyle = COL.gold; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(px + TILE / 2, py + TILE / 2, TILE * 0.22, 0, 7); ctx.stroke();
+          }
+        }
+      }
+      for (var i = 0; i < boxes.length; i++) {
+        var b = boxes[i], bx = b.x * TILE, by = b.y * TILE;
+        ctx.fillStyle = isTarget(b.x, b.y) ? COL.green : COL.red;
+        ctx.fillRect(bx + 8, by + 8, TILE - 16, TILE - 16);
+        ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(bx + 8, by + 8, TILE - 16, 6);
+      }
+      var pp = cellPx(player.x, player.y);
+      ctx.fillStyle = COL.gold;
+      ctx.beginPath(); ctx.arc(pp.x, pp.y, TILE * 0.28, 0, 7); ctx.fill();
+    }
+
+    function loop() {
+      function frame(ts) {
+        var last = loop._last || 0; var dt = Math.min(0.05, (ts - last) / 1000 || 0); loop._last = ts;
+        if (typeof Juice !== 'undefined') Juice.update(dt);
+        if (typeof Juice !== 'undefined') Juice.begin(ctx);
+        draw();
+        if (typeof Juice !== 'undefined') Juice.mid(ctx);
+        if (typeof Juice !== 'undefined') Juice.end(ctx);
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function renderHUD() {
+      document.getElementById('lv').textContent = levelIdx + 1;
+      document.getElementById('mv').textContent = moves;
+      document.getElementById('bx').textContent = boxes.length;
+    }
+
+    // 输入
+    window.addEventListener('keydown', function (e) {
+      var k = e.key;
+      if (k === 'ArrowUp' || k === 'w' || k === 'W') { e.preventDefault(); move('up'); }
+      else if (k === 'ArrowDown' || k === 's' || k === 'S') { e.preventDefault(); move('down'); }
+      else if (k === 'ArrowLeft' || k === 'a' || k === 'A') { e.preventDefault(); move('left'); }
+      else if (k === 'ArrowRight' || k === 'd' || k === 'D') { e.preventDefault(); move('right'); }
+      else if (k === 'z' || k === 'Z') { undo(); }
+    });
+    var sx = 0, sy = 0;
+    canvas.addEventListener('pointerdown', function (e) { sx = e.clientX; sy = e.clientY; });
+    canvas.addEventListener('pointerup', function (e) {
+      var dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+      if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 'right' : 'left');
+      else move(dy > 0 ? 'down' : 'up');
+    });
+    document.getElementById('undo').addEventListener('click', undo);
+    document.getElementById('reset').addEventListener('click', reset);
+    document.getElementById('prev').addEventListener('click', function () { loadLevel(levelIdx - 1); });
+    document.getElementById('next').addEventListener('click', function () { loadLevel(levelIdx + 1); });
+
+    // 测试钩子
+    window.__t = {
+      setLevel: setLevel, loadLevel: loadLevel, reset: reset, move: move, undo: undo,
+      isWon: isWon,
+      countLevels: function () { return LEVELS.length; },
+      getLevel: function () { return levelIdx; },
+      getMoves: function () { return moves; },
+      getState: function () {
+        return {
+          level: levelIdx, moves: moves, won: won, cols: cols, rows: rows.length,
+          player: { x: player.x, y: player.y },
+          boxes: boxes.map(function (b) { return { x: b.x, y: b.y, on: isTarget(b.x, b.y) }; }),
+          targets: Object.keys(targets).map(function (k) { var p = k.split(','); return { x: +p[0], y: +p[1] }; })
+        };
+      }
+    };
+
+    loadLevel(0);
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

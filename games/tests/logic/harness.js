@@ -90,7 +90,7 @@ function makeSandbox() {
     // 这里提供 no-op 实现，确保逻辑单测只测纯逻辑、不依赖 juice.js 真实加载。
     Juice: {
       update() {}, begin() {}, mid() {}, end() {},
-      sfx() {}, burst() {}, popup() {}, flash() {}, addTrauma() {}, shake() {},
+      sfx() {}, burst() {}, popup() {}, flash() {}, ring() {}, addTrauma() {}, shake() {},
       setMuted() {}, toggleMute() { return false; },
       best(k, v) { return { isNew: false, value: v || 0 }; },
       rank() { return '青铜'; },

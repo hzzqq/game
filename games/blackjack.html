@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>TERMINAL // BLACKJACK</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --sub:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px;
+  }
+  .window{
+    position:relative; width:480px; max-width:100%;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    box-shadow:0 20px 60px rgba(0,0,0,.55); overflow:hidden;
+  }
+  .titlebar{
+    display:flex; align-items:center; gap:10px; height:40px; padding:0 14px;
+    background:linear-gradient(180deg,#161d28,#10151d); border-bottom:1px solid var(--border);
+  }
+  .dot{ width:12px; height:12px; border-radius:50%; }
+  .dot.r{ background:#ff5f56; } .dot.y{ background:#ffbd2e; } .dot.g{ background:#27c93f; }
+  .title{ flex:1; text-align:center; font-size:13px; letter-spacing:2px; }
+  .title .accent{ color:var(--gold); }
+  #fx{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:50; }
+  .table{ padding:16px; background:radial-gradient(120% 80% at 50% 0%, #15212e, #0a0e14 70%); }
+  .row{ min-height:96px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 0; }
+  .row .lab{ width:100%; color:var(--sub); font-size:11px; letter-spacing:1px; }
+  .card{
+    width:54px; height:78px; border-radius:7px; background:#0e1620; border:1px solid var(--border);
+    display:flex; flex-direction:column; justify-content:space-between; padding:5px 6px;
+    font-size:15px; font-weight:700; position:relative; box-shadow:0 4px 10px rgba(0,0,0,.4);
+  }
+  .card .s{ font-size:18px; }
+  .card.red{ color:var(--red); } .card.green{ color:var(--green); }
+  .card .corner{ position:absolute; top:4px; right:6px; font-size:11px; opacity:.7; }
+  .msg{ text-align:center; font-size:15px; letter-spacing:1px; min-height:24px; padding:4px 0; }
+  .msg.win{ color:var(--green); } .msg.lose{ color:var(--red); } .msg.push{ color:var(--sub); } .msg.bj{ color:var(--gold); }
+  .stats{ display:flex; justify-content:space-between; font-size:13px; padding:6px 2px; border-top:1px dashed var(--border); border-bottom:1px dashed var(--border); margin:6px 0; }
+  .stats b{ color:var(--gold); }
+  .controls{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  button{
+    flex:1; min-width:64px; font-family:inherit; font-size:12px; cursor:pointer; border-radius:6px;
+    padding:10px 8px; border:1px solid var(--border); background:transparent; color:var(--text); transition:all .15s;
+  }
+  button:hover:not(:disabled){ border-color:var(--gold); }
+  button:disabled{ opacity:.3; cursor:default; }
+  .btn-go{ background:var(--gold); color:#0a0e14; border-color:var(--gold); font-weight:700; }
+  .hint{ color:var(--sub); font-size:11px; text-align:center; padding:8px 0 2px; }
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">TERMINAL // <span class="accent">BLACKJACK</span> · 21点</span>
+    </div>
+    <canvas id="fx"></canvas>
+    <div class="table">
+      <div class="row"><div class="lab">庄家 DEALER · <span id="dV">?</span></div><div id="dealerCards" class="row" style="padding:0"></div></div>
+      <div class="msg" id="msg">下注后点「发牌」</div>
+      <div class="row"><div class="lab">玩家 YOU · <span id="pV">?</span></div><div id="playerCards" class="row" style="padding:0"></div></div>
+      <div class="stats">
+        <div>筹码 CHIPS · <b id="chips">1000</b></div>
+        <div>本局下注 · <b id="bet">10</b></div>
+      </div>
+      <div class="controls" id="betCtl">
+        <button data-b="10">+10</button><button data-b="25">+25</button>
+        <button data-b="50">+50</button><button data-b="100">+100</button>
+        <button id="deal" class="btn-go">发牌 ▶</button>
+      </div>
+      <div class="controls" id="playCtl" style="display:none">
+        <button id="hit">要牌 HIT</button><button id="stand">停牌 STAND</button>
+      </div>
+      <div class="controls" id="overCtl" style="display:none">
+        <button id="again" class="btn-go">下一局 ▶</button>
+      </div>
+      <div class="hint">H 要牌 · S 停牌 · 庄家 17 点必停 · 黑杰克赔率 3:2</div>
+    </div>
+  </div>
+
+  <script src="juice.js"></script>
+  <script>
+  (function () {
+    var COL = { red:'#f6465d', green:'#02c076', gold:'#f0b90b', dim:'#6b7785' };
+    var SUITS = [
+      { s:'♠', c:'green' }, { s:'♥', c:'red' }, { s:'♦', c:'red' }, { s:'♣', c:'green' }
+    ];
+    var RANKS = [
+      { r:'A', v:11 }, { r:'2', v:2 }, { r:'3', v:3 }, { r:'4', v:4 }, { r:'5', v:5 },
+      { r:'6', v:6 }, { r:'7', v:7 }, { r:'8', v:8 }, { r:'9', v:9 }, { r:'10', v:10 },
+      { r:'J', v:10 }, { r:'Q', v:10 }, { r:'K', v:10 }
+    ];
+
+    var shoe = [], chips = 1000, bet = 10;
+    var player = [], dealer = [], dealerHidden = true, phase = 'bet', result = null;
+
+    // ---- 纯逻辑 ----
+    function buildShoe() {
+      shoe = [];
+      for (var d = 0; d < 4; d++)
+        for (var i = 0; i < SUITS.length; i++)
+          for (var j = 0; j < RANKS.length; j++)
+            shoe.push({ r: RANKS[j].r, v: RANKS[j].v, s: SUITS[i].s, c: SUITS[i].c });
+      for (var k = shoe.length - 1; k > 0; k--) {
+        var r = (Math.random() * (k + 1)) | 0; var t = shoe[k]; shoe[k] = shoe[r]; shoe[r] = t;
+      }
+    }
+    function draw() {
+      if (shoe.length < 15) buildShoe();
+      return shoe.pop();
+    }
+    function handValue(cs) {
+      var sum = 0, aces = 0;
+      for (var i = 0; i < cs.length; i++) { sum += cs[i].v; if (cs[i].r === 'A') aces++; }
+      while (sum > 21 && aces > 0) { sum -= 10; aces--; }
+      return sum;
+    }
+    function isBlackjack(cs) { return cs.length === 2 && handValue(cs) === 21; }
+    function dealerShouldHit(cs) { return handValue(cs) < 17; }
+    function resolveRound(p, d) {
+      var pv = handValue(p), dv = handValue(d);
+      var pbj = isBlackjack(p), dbj = isBlackjack(d);
+      if (pbj && !dbj) return 'blackjack';
+      if (dbj && !pbj) return 'lose';
+      if (pbj && dbj) return 'push';
+      if (pv > 21) return 'lose';
+      if (dv > 21) return 'win';
+      if (pv > dv) return 'win';
+      if (pv < dv) return 'lose';
+      return 'push';
+    }
+
+    function finish() {
+      result = resolveRound(player, dealer);
+      if (result === 'win') chips += bet * 2;
+      else if (result === 'blackjack') chips += Math.floor(bet * 2.5);
+      else if (result === 'push') chips += bet;
+      if (typeof Juice !== 'undefined') {
+        if (result === 'blackjack') { Juice.sfx('win'); Juice.achievement('🂡 黑杰克 BLACKJACK!'); Juice.burst(W / 2, H / 2, { color: COL.gold, n: 22, speed: 240 }); Juice.ring(W / 2, H / 2, { color: COL.gold, r1: 120 }); }
+        else if (result === 'win') { Juice.sfx('win'); Juice.burst(W / 2, H / 2, { color: COL.green, n: 16, speed: 220 }); Juice.popup(W / 2, H / 2, '+' + bet, COL.green, { size: 28, big: true }); }
+        else if (result === 'lose') { Juice.sfx('lose'); Juice.addTrauma(0.35); Juice.flash('#f6465d', 0.25); Juice.popup(W / 2, H / 2, '-' + bet, COL.red, { size: 26, big: true }); }
+        else { Juice.sfx('click'); Juice.popup(W / 2, H / 2, 'PUSH', COL.dim, { size: 22 }); }
+      }
+      phase = 'roundover';
+      render();
+    }
+
+    function deal() {
+      if (phase !== 'bet') return;
+      if (chips < bet) { bet = chips; }
+      if (chips <= 0) return;
+      chips -= bet;
+      player = [draw(), draw()]; dealer = [draw(), draw()]; dealerHidden = true; result = null;
+      if (isBlackjack(player)) { dealerHidden = false; finish(); return; }
+      phase = 'player';
+      render();
+    }
+    function hit() {
+      if (phase !== 'player') return;
+      player.push(draw());
+      if (typeof Juice !== 'undefined') Juice.sfx('click');
+      if (handValue(player) > 21) { dealerHidden = false; finish(); return; }
+      render();
+    }
+    function stand() {
+      if (phase !== 'player') return;
+      dealerHidden = false;
+      while (dealerShouldHit(dealer)) dealer.push(draw());
+      finish();
+    }
+
+    // ---- 渲染 ----
+    var W = 0, H = 0;
+    var fx = document.getElementById('fx');
+    var fxc = fx.getContext('2d');
+    function resize() { W = (window.innerWidth || 480); H = (window.innerHeight || 600); if (fx.width !== W) { fx.width = W; fx.height = H; } }
+    resize();
+
+    function cardHTML(c, hidden) {
+      if (hidden) return '<div class="card green"><div class="s">?</div></div>';
+      return '<div class="card ' + c.c + '"><div>' + c.r + '</div><div class="s">' + c.s + '</div><div class="corner">' + c.r + '</div></div>';
+    }
+    function render() {
+      var dc = dealerHidden ? (dealer.length ? [dealer[0], { hidden: true }] : []) : dealer;
+      var dh = '';
+      for (var i = 0; i < dc.length; i++) dh += cardHTML(dc[i], dc[i] && dc[i].hidden);
+      document.getElementById('dealerCards').innerHTML = dh;
+      var ph = '';
+      for (var j = 0; j < player.length; j++) ph += cardHTML(player[j], false);
+      document.getElementById('playerCards').innerHTML = ph;
+      document.getElementById('chips').textContent = chips;
+      document.getElementById('bet').textContent = bet;
+      document.getElementById('pV').textContent = player.length ? handValue(player) : '?';
+      document.getElementById('dV').textContent = dealer.length ? (dealerHidden ? handValue([dealer[0]]) + '+?' : handValue(dealer)) : '?';
+      var m = document.getElementById('msg');
+      m.className = 'msg ' + (result || '');
+      m.textContent = result === 'blackjack' ? '🂡 黑杰克！赢 ' + Math.floor(bet * 1.5)
+        : result === 'win' ? '你赢了 +' + bet
+        : result === 'lose' ? (handValue(player) > 21 ? '爆牌，输 ' + bet : '庄家胜，输 ' + bet)
+        : result === 'push' ? '平局，退还下注'
+        : (phase === 'bet' ? '下注后点「发牌」' : '要牌 / 停牌？');
+      document.getElementById('betCtl').style.display = phase === 'bet' ? 'flex' : 'none';
+      document.getElementById('playCtl').style.display = phase === 'player' ? 'flex' : 'none';
+      document.getElementById('overCtl').style.display = phase === 'roundover' ? 'flex' : 'none';
+    }
+
+    function loop(ts) {
+      var last = 0;
+      function frame(t) {
+        var dt = Math.min(0.05, (t - last) / 1000 || 0); last = t;
+        if (typeof Juice !== 'undefined') { Juice.update(dt); fxc.clearRect(0, 0, W, H); Juice.begin(fxc); Juice.mid(fxc); Juice.end(fxc); }
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    // ---- 输入 ----
+    document.getElementById('betCtl').addEventListener('click', function (e) {
+      var b = e.target.getAttribute && e.target.getAttribute('data-b');
+      if (b) { bet = Math.min(chips, bet + parseInt(b, 10)); render(); }
+    });
+    document.getElementById('deal').addEventListener('click', deal);
+    document.getElementById('hit').addEventListener('click', hit);
+    document.getElementById('stand').addEventListener('click', stand);
+    document.getElementById('again').addEventListener('click', function () { phase = 'bet'; result = null; player = []; dealer = []; render(); });
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'h' || e.key === 'H') hit();
+      if (e.key === 's' || e.key === 'S') stand();
+    });
+
+    // ---- 测试钩子 ----
+    window.__t = {
+      buildShoe: buildShoe, draw: draw,
+      handValue: handValue, isBlackjack: isBlackjack, dealerShouldHit: dealerShouldHit, resolveRound: resolveRound,
+      deal: deal, hit: hit, stand: stand,
+      setChips: function (v) { chips = v; },
+      getChips: function () { return chips; },
+      setBet: function (v) { bet = v; },
+      getBet: function () { return bet; },
+      setPhase: function (p) { phase = p; },
+      // 直接摆好牌面并结算（绕过随机发牌，供单测）
+      runRound: function (p, d, b) {
+        b = b || 10; chips -= b; bet = b;
+        player = p.map(function (c) { return { r: c.r, v: c.v, s: c.s || '♠', c: c.c || 'green' }; });
+        dealer = d.map(function (c) { return { r: c.r, v: c.v, s: c.s || '♠', c: c.c || 'green' }; });
+        dealerHidden = false; finish();
+        return result;
+      },
+      getResult: function () { return result; },
+      getState: function () { return { phase: phase, chips: chips, bet: bet, result: result,
+        player: player.map(function (c) { return c.r; }), dealer: dealer.map(function (c) { return c.r; }) }; }
+    };
+
+    buildShoe();
+    render();
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

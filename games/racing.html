@@ -396,6 +396,7 @@
       if (typeof Juice !== 'undefined'){
         Juice.sfx('hit'); Juice.addTrauma(0.5); Juice.flash('#f6465d',0.25);
         Juice.burst(player.x, player.y, { color:'#f6465d', n:14, speed:220 });
+        Juice.ring(player.x, player.y, { color:'#f6465d', r1:60 });
         Juice.popup(player.x, player.y-30, '撞车!', '#f6465d', { size:18, big:true });
       }
       enemies.splice(i, 1);
