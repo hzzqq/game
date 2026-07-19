@@ -323,6 +323,27 @@
       camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth,window.innerHeight);
     });
+
+    // ---- 测试钩子：暴露纯逻辑函数 + 状态访问器（不改功能）----
+    window.__t = {
+      GRID, TILE, HALF, MAXLV, TYPES,
+      upgradeCost, handleClick, computeClusters, applyEconomy, updateHUD,
+      getMoney: ()=>money, setMoney: v=>{money=v;},
+      getPopulation: ()=>population, setPopulation: v=>{population=v;},
+      getHappiness: ()=>happiness, setHappiness: v=>{happiness=v;},
+      getIncomePerSec: ()=>incomePerSec, setIncomePerSec: v=>{incomePerSec=v;},
+      getScore: ()=>score, setScore: v=>{score=v;},
+      getCells: ()=>cells,
+      getSelected: ()=>selected, setSelected: v=>{selected=v;},
+      reset: ()=>{
+        for(let i=0;i<GRID;i++) for(let j=0;j<GRID;j++){
+          if(cells[i][j] && cells[i][j].mesh) { try{scene.remove(cells[i][j].mesh);}catch(e){} }
+          cells[i][j]=null;
+        }
+        money=1000; population=0; happiness=60; incomePerSec=0; score=0;
+        updateHUD();
+      },
+    };
   })();
   </script>
 </body>

@@ -49,6 +49,49 @@ function fakeCtx() {
   });
 }
 
+// ---- THREE.js 桩：cubecity 等 3D 游戏依赖 THREE，无 CDN 时 IIFE 会提前 return。
+// 这里提供最小可用的构造器/常量，让 boot 流程能跑通、能挂 __t 钩子。
+function fakeTHREE() {
+  const makeObj = () => ({
+    position: { set() {}, x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: { x: 1, y: 1, z: 1 },
+    material: { emissiveIntensity: 0, color: { setHex() {} }, emissive: 0, dispose() {} },
+    geometry: { dispose() {}, parameters: {} },
+    userData: {},
+    castShadow: false, receiveShadow: false, visible: true,
+    shadow: { mapSize: { set() {} }, camera: { left: 0, right: 0, top: 0, bottom: 0, near: 0, far: 0 } },
+    add() {}, remove() {}, lookAt() {}, updateProjectionMatrix() {},
+    setPixelRatio() {}, setSize() {}, render() {}, appendChild() {},
+    domElement: fakeEl(),
+    intersectObject() { return []; },
+    setFromCamera() {},
+    set() {},
+    getDelta() { return 0.016; },
+    getElapsedTime() { return 0; },
+  });
+  return {
+    WebGLRenderer: function () { return Object.assign(makeObj(), { shadowMap: { enabled: false, type: 0 }, outputEncoding: 0, domElement: fakeEl() }); },
+    Scene: function () { const o = makeObj(); o.background = null; o.fog = null; return o; },
+    Color: function () { return { setHex() {} }; },
+    Fog: function () { return {}; },
+    PerspectiveCamera: function () { return makeObj(); },
+    AmbientLight: function () { return makeObj(); },
+    DirectionalLight: function () { return makeObj(); },
+    MeshStandardMaterial: function () { return { color: 0, roughness: 0, metalness: 0, emissive: 0, emissiveIntensity: 0, dispose() {}, setHex() {} }; },
+    MeshBasicMaterial: function () { return { color: 0, transparent: false, opacity: 1, side: 0, dispose() {} }; },
+    Mesh: function () { return makeObj(); },
+    BoxGeometry: function () { return { dispose() {}, parameters: {} }; },
+    PlaneGeometry: function () { return { dispose() {}, parameters: {} }; },
+    GridHelper: function () { return makeObj(); },
+    Raycaster: function () { return makeObj(); },
+    Vector2: function () { return { set() {}, x: 0, y: 0 }; },
+    Vector3: function () { return { x: 0, y: 0, z: 0 }; },
+    Clock: function () { return { getDelta: () => 0.016, getElapsedTime: () => 0 }; },
+    PCFSoftShadowMap: 1, sRGBEncoding: 1, DoubleSide: 2,
+  };
+}
+
 function makeSandbox() {
   const store = {};
   const documentStub = {
@@ -105,6 +148,9 @@ function makeSandbox() {
       init() {}, consume() { return false; }, update() {},
       bindVirtualButtons() {}, down() { return false; }, pressed() { return false; },
     },
+    // THREE 桩：cubecity 等 3D 游戏 boot 时调 new THREE.WebGLRenderer/Scene/Mesh...，
+    // 无 typeof 守卫（只有 'undefined' 守卫）。提供最小可用构造器，让 IIFE 能跑通。
+    THREE: fakeTHREE(),
     Math, JSON, Date, parseInt, parseFloat, isNaN, Array, Object, String, Number, Boolean,
     Audio: function () { return { play() {}, pause() {}, addEventListener() {} }; },
     AudioContext: function () { return { createOscillator: () => ({ connect() {}, start() {}, stop() {}, frequency: {} }), createGain: () => ({ connect() {}, gain: {} }), destination: {}, currentTime: 0 }; },
