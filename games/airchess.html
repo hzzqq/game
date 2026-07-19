@@ -315,6 +315,22 @@
   Input.bindVirtualButtons(document);
   // 初始渲染
   for(var c=0;c<4;c++){ var ps=[]; for(var k=0;k<4;k++) ps.push({state:'base',prog:-1,k:k}); players.push({color:c,planes:ps,shield:false,done:0}); }
+
+  /* ---------- 测试钩子（非侵入，仅暴露纯函数 + 状态访问器） ---------- */
+  window.__t = {
+    angleOf, cellPos, mainIndexOf, planeXY, basePos, homePos,
+    movablePlanes, doMove, planeProg, setProg, doMoveRaw, findRivalOnTrack,
+    ITEMS, newGame,
+    getPlayers: function(){ return players; },
+    setPlayers: function(v){ players = v; },
+    getCur: function(){ return cur; }, setCur: function(v){ cur = v; },
+    getDice: function(){ return dice; }, setDice: function(v){ dice = v; },
+    getPhase: function(){ return phase; }, setPhase: function(v){ phase = v; },
+    getExtra: function(){ return extra; }, setExtra: function(v){ extra = v; },
+    getWIN: function(){ return WIN; }, getN: function(){ return N; },
+    getStart: function(){ return START; }, getSafe: function(){ return SAFE; }, getItemcell: function(){ return ITEMCELL; }
+  };
+
   loop();
 })();
 </script>

@@ -96,6 +96,12 @@ function makeSandbox() {
       rank() { return '青铜'; },
       achievement() {}, save() {}, load(k, d) { return d; },
     },
+    // Input 桩：部分游戏（airchess/gun/fight/monopoly 等）boot 时直接调 Input.init，
+    // 无 typeof 守卫。提供 no-op 实现，consume/pressed/down 永远返回 false（无输入）。
+    Input: {
+      init() {}, consume() { return false; }, update() {},
+      bindVirtualButtons() {}, down() { return false; }, pressed() { return false; },
+    },
     Math, JSON, Date, parseInt, parseFloat, isNaN, Array, Object, String, Number, Boolean,
     Audio: function () { return { play() {}, pause() {}, addEventListener() {} }; },
     AudioContext: function () { return { createOscillator: () => ({ connect() {}, start() {}, stop() {}, frequency: {} }), createGain: () => ({ connect() {}, gain: {} }), destination: {}, currentTime: 0 }; },
