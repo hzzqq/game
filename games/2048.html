@@ -171,6 +171,23 @@
     0%{transform:scale(0);opacity:0;}
     100%{transform:scale(1);opacity:1;}
   }
+  /* 合并飘字 */
+  .float-score{
+    position:absolute;
+    font-weight:700;
+    font-size:26px;
+    pointer-events:none;
+    animation:floatUp .55s ease forwards;
+    z-index:4;
+    text-shadow:0 0 10px currentColor, 0 2px 4px rgba(0,0,0,.5);
+    white-space:nowrap;
+    font-family:'JetBrains Mono','Fira Code',Consolas,monospace;
+  }
+  @keyframes floatUp{
+    0%{transform:translate(-50%,-50%) scale(.5);opacity:0;}
+    25%{transform:translate(-50%,-65%) scale(1.15);opacity:1;}
+    100%{transform:translate(-50%,-140%) scale(.95);opacity:0;}
+  }
   /* 遮罩 */
   .overlay{
     position:absolute;
@@ -474,6 +491,15 @@
           nextTile.mergedThisMove = true;
           score += nextTile.value;
           if (typeof Juice !== 'undefined') Juice.sfx('pickup');
+          // 合并飘字（纯视觉，不改逻辑）
+          const fx = document.createElement('div');
+          fx.className = 'float-score';
+          fx.textContent = '+' + nextTile.value;
+          fx.style.color = tileColors(nextTile.value).base;
+          fx.style.left = (GAP + next.c * (CELL + GAP) + CELL / 2) + 'px';
+          fx.style.top = (GAP + next.r * (CELL + GAP) + CELL / 2) + 'px';
+          tileLayer.appendChild(fx);
+          setTimeout(() => { if (fx.parentNode) fx.parentNode.removeChild(fx); }, 560);
           if (nextTile.value === 2048) won = true;
           mergedAway.push(tile);
           moved = true;
