@@ -17,7 +17,7 @@
     linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,
     var(--bg);
     color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
-    display:flex;flex-direction:column;align-items:center;padding:18px 12px}
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px;overscroll-behavior:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
   .titlebar{width:min(560px,96vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
     background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:14px}
   .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
@@ -36,7 +36,7 @@
   .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
   .act.on{background:var(--red);color:#0a0e14;border-color:var(--red)}
   #wrap{width:min(560px,96vw);position:relative}
-  canvas{width:100%;height:auto;display:block;background:#0d1320;border:1px solid var(--border);border-radius:10px;touch-action:manipulation;cursor:pointer}
+  canvas{width:100%;height:auto;display:block;background:#0d1320;border:1px solid var(--border);border-radius:10px;touch-action:none;cursor:pointer}
   #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.9)}
   #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;text-align:center;min-width:240px}
   #overlay h2{font-size:22px;margin-bottom:12px;letter-spacing:1px}
