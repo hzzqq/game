@@ -60,6 +60,7 @@
   <div class="titlebar">
     <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>PLANE</b> · 飞机大战</span>
+    <button class="btn" id="muteBtn">🔊</button>
     <button class="btn" id="pauseBtn">暂停</button>
   </div>
 
@@ -85,6 +86,7 @@
     </div>
   </div>
 
+  <script src="juice.js"></script>
   <script>
   (function(){
     if('ontouchstart' in window) document.body.classList.add('touch');
@@ -97,6 +99,7 @@
     // ===== 状态 =====
     const player={x:W/2,y:H-90,r:16,speed:380,lives:3,power:1,fireCd:0,invuln:0,hp:100,maxhp:100,shield:0,rapid:0};
     let bullets=[], enemies=[], eBullets=[], particles=[], drops=[];
+    let lastShoot=0;
     let score=0, level=1, spawnT=0, boss=null, bossNext=1200, running=false, paused=false, over=false;
     const keys={};
     const DROP={power:{c:'#f0b90b',g:'P'},life:{c:'#02c076',g:'♥'},shield:{c:'#3aa0ff',g:'S'},rapid:{c:'#ff8a96',g:'R'},bomb:{c:'#f6465d',g:'B'},heal:{c:'#7CFC00',g:'+'}};
@@ -136,6 +139,7 @@
     }
     function firePattern(){
       const sp=620, y=player.y-player.r;
+      const now=performance.now(); if(now-lastShoot>140){ Juice.sfx('shoot'); lastShoot=now; }
       let offs;
       switch(player.power){
         case 1: offs=[0]; break;
@@ -248,14 +252,16 @@
         for(const e of enemies){
           if(e.hp>0 && Math.hypot(b.x-e.x,b.y-e.y)<e.r+b.r){
             e.hp-=b.dmg; b.dead=true;
-            if(e.hp<=0){ score+=e.score; spawnParticles(e.x,e.y,'#02c076',10); maybeDrop(e.x,e.y); }
+            if(e.hp<=0){ score+=e.score; spawnParticles(e.x,e.y,'#02c076',10); Juice.burst(e.x,e.y,{color:'#02c076',n:8}); Juice.popup(e.x,e.y-12,'+'+e.score,'#f0b90b',{size:15}); maybeDrop(e.x,e.y); }
             break;
           }
         }
         if(boss && !b.dead && Math.hypot(b.x-boss.x,b.y-boss.y)<boss.r+b.r){
-          boss.hp-=b.dmg; b.dead=true; spawnParticles(b.x,b.y,'#f6465d',3);
-          if(boss.hp<=0){ score+=500; spawnParticles(boss.x,boss.y,'#f0b90b',40); boss=null;
-            document.getElementById('bossbar').style.display='none'; level++; player.power=Math.min(6,player.power+1);
+          boss.hp-=b.dmg; b.dead=true; spawnParticles(b.x,b.y,'#f6465d',3); Juice.addTrauma(0.1);
+          if(boss.hp<=0){ const nl=level+1; score+=500; spawnParticles(boss.x,boss.y,'#f0b90b',40);
+            Juice.burst(boss.x,boss.y,{color:'#f0b90b',n:50,speed:280}); Juice.flash('#f0b90b',0.5);
+            Juice.sfx('boom'); Juice.sfx('levelup'); Juice.achievement('⚔ BOSS 击破！进入第 '+nl+' 关');
+            boss=null; document.getElementById('bossbar').style.display='none'; level=nl; player.power=Math.min(6,player.power+1);
             bossNext=score+1400; }
         }
       }
@@ -301,6 +307,8 @@
       }
     }
     function applyDrop(t){
+      Juice.sfx('pickup');
+      const DM={power:['火力 +1','#f0b90b'],life:['余机 +1','#02c076'],shield:['护盾 6s','#3aa0ff'],rapid:['急速 6s','#ff8a96'],bomb:['清屏!','#f6465d'],heal:['HP +40','#7CFC00']};
       if(t==='power'){ player.power=Math.min(6,player.power+1); spawnParticles(player.x,player.y,'#f0b90b',12); }
       else if(t==='life'){ player.lives=Math.min(5,player.lives+1); spawnParticles(player.x,player.y,'#02c076',12); }
       else if(t==='shield'){ player.shield=6; spawnParticles(player.x,player.y,'#3aa0ff',14); }
@@ -309,12 +317,17 @@
         for(const e of enemies){ score+=e.score; spawnParticles(e.x,e.y,'#02c076',8); }
         enemies=[]; eBullets=[];
         spawnParticles(player.x,player.y,'#f6465d',26);
+        Juice.flash('#f6465d',0.35); Juice.addTrauma(0.4);
       }
       else if(t==='heal'){ player.hp=Math.min(player.maxhp,player.hp+40); spawnParticles(player.x,player.y,'#7CFC00',12); }
+      const dm=DM[t]; if(dm) Juice.popup(player.x,player.y-26,dm[0],dm[1],{size:14});
     }
     function hitPlayer(dmg){
-      if(player.invuln>0 || player.shield>0) return;
+      if(player.invuln>0) return;
+      if(player.shield>0){ Juice.sfx('pickup'); Juice.popup(player.x,player.y-22,'护盾','#3aa0ff',{size:14}); return; }
       player.hp-=dmg; spawnParticles(player.x,player.y,'#f6465d',8);
+      Juice.addTrauma(0.5); Juice.flash('#f6465d',0.4); Juice.sfx('hit');
+      Juice.popup(player.x,player.y-22,'-'+dmg,'#f6465d',{size:16});
       if(player.hp<=0){ player.hp=player.maxhp; loseLife(); }
     }
     function loseLife(){
@@ -324,9 +337,13 @@
 
     function gameOver(){
       over=true; running=false;
+      const b=Juice.best('plane',score); const rk=Juice.rank(score);
+      if(b.isNew) Juice.achievement('🏆 新纪录 '+score+'！');
+      Juice.sfx('lose');
       document.getElementById('overlay').style.display='flex';
       document.querySelector('#overlay h1').textContent='💥 任务失败';
-      document.querySelector('#overlay p').innerHTML='最终得分 <b style="color:var(--gold)">'+score+'</b> · 关卡 '+level+'<br/>点击重新开始。';
+      document.querySelector('#overlay p').innerHTML='最终得分 <b style="color:var(--gold)">'+score+'</b> · 段位 '+rk+' · 关卡 '+level+
+        '<br/>历史最佳 <b style="color:var(--gold)">'+b.value+'</b>'+(b.isNew?'（新纪录!）':'')+'<br/>点击重新开始。';
       document.getElementById('startBtn').textContent='再来一局';
     }
 
@@ -340,6 +357,7 @@
     }
     function render(){
       ctx.clearRect(0,0,W,H);
+      Juice.begin(ctx);
       ctx.strokeStyle='rgba(31,42,56,.5)'; ctx.lineWidth=1;
       for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
       for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
@@ -372,6 +390,7 @@
       for(const p of particles){ ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.color;
         ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size); }
       ctx.globalAlpha=1;
+      Juice.mid(ctx); Juice.end(ctx);
       // HUD
       document.getElementById('score').textContent=score;
       document.getElementById('level').textContent=level;
@@ -389,6 +408,7 @@
     function loop(ts){
       if(!running) return;
       const dt=Math.min(0.05,(ts-last)||0.016); last=ts;
+      Juice.update(dt);
       if(!paused && !over) update(dt);
       render();
       raf=requestAnimationFrame(loop);
@@ -409,6 +429,7 @@
 
     document.getElementById('startBtn').onclick=start;
     document.getElementById('pauseBtn').onclick=togglePause;
+    document.getElementById('muteBtn').onclick=()=>{ const m=Juice.toggleMute(); document.getElementById('muteBtn').textContent=m?'🔇':'🔊'; };
     window.addEventListener('resize',()=>{ W=window.innerWidth; H=window.innerHeight; cv.width=W; cv.height=H; });
 
     // 初始渲染一帧（菜单背景）

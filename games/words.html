@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // WORDS · 成语大作战</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace}
+  #fx{position:fixed;inset:0;z-index:6;pointer-events:none}
+  .titlebar{position:fixed;top:0;left:0;right:0;z-index:8;display:flex;align-items:center;gap:10px;
+    padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border-bottom:1px solid var(--border)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--gold)}
+  .titlebar .btn{margin-left:auto;background:transparent;color:var(--dim);border:1px solid var(--border);
+    border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px}
+  .titlebar .btn:hover{color:var(--gold);border-color:var(--gold)}
+
+  #hud{position:fixed;top:52px;left:0;right:0;z-index:8;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;padding:0 12px}
+  .stat{background:rgba(18,24,33,.85);border:1px solid var(--border);border-radius:8px;padding:7px 14px;min-width:78px;text-align:center}
+  .stat .k{color:var(--dim);font-size:10px;letter-spacing:.5px}
+  .stat .v{font-size:18px;margin-top:2px;font-weight:700}
+  .v.score{color:var(--gold)} .v.rank{color:var(--green)} .v.lives{color:var(--red)}
+  .v.combo{color:var(--red)} .v.best{color:var(--dim)}
+
+  .center{position:fixed;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 16px}
+  #anchor{font-size:42px;font-weight:800;letter-spacing:6px;color:var(--text);text-shadow:0 0 18px rgba(246,70,93,.25)}
+  #req{font-size:18px;color:var(--dim)}
+  #req b{color:var(--gold);font-size:30px;letter-spacing:2px;vertical-align:-3px;
+    display:inline-block;animation:pulse 1.1s ease-in-out infinite}
+  #req.challenge b{color:var(--red)}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+  .inputrow{display:flex;gap:8px;margin-top:6px}
+  #guess{width:min(72vw,340px);background:#0e141d;border:1px solid var(--border);border-radius:8px;
+    color:var(--text);font-family:inherit;font-size:20px;letter-spacing:3px;padding:12px 14px;text-align:center;outline:none}
+  #guess:focus{border-color:var(--gold);box-shadow:0 0 12px rgba(240,185,11,.25)}
+  .submit{background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:0 22px;cursor:pointer;
+    font-family:inherit;font-weight:700;font-size:15px;transition:transform .12s}
+  .submit:hover{transform:scale(1.06)}
+  .submit:active{transform:scale(.96)}
+  #msg{min-height:22px;font-size:14px;color:var(--dim);text-align:center}
+  #msg.good{color:var(--green)} #msg.bad{color:var(--red)} #msg.gold{color:var(--gold)}
+
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+  .tool{background:transparent;color:var(--dim);border:1px solid var(--border);border-radius:6px;
+    padding:7px 12px;cursor:pointer;font-family:inherit;font-size:12px;transition:all .12s}
+  .tool:hover{color:var(--text);border-color:var(--text)}
+  .tool:disabled{opacity:.4;cursor:not-allowed}
+
+  #wrong{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.92);padding:20px}
+  #wrong .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:24px 28px;max-width:92vw;max-height:80vh;overflow:auto}
+  #wrong h2{font-size:20px;color:var(--gold);margin-bottom:12px}
+  #wrongList{display:flex;flex-wrap:wrap;gap:8px}
+  #wrongList span{background:#0e141d;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:14px;letter-spacing:2px}
+  #wrong .close{margin-top:16px;background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:10px 22px;cursor:pointer;font-family:inherit;font-weight:700}
+
+  #overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,.9)}
+  #overlay .box{text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;max-width:92vw}
+  #overlay h1{font-size:26px;letter-spacing:2px;margin-bottom:10px;text-shadow:0 0 18px rgba(240,185,11,.35)}
+  #overlay p{color:var(--dim);font-size:13px;line-height:1.9;margin-bottom:18px}
+  #overlay .start{background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;box-shadow:0 0 14px rgba(240,185,11,.4);margin:4px}
+  #overlay .ghost{background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px 22px;cursor:pointer;font-family:inherit;font-size:14px;margin:4px}
+</style>
+</head>
+<body>
+  <canvas id="fx"></canvas>
+
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>WORDS</b> · 成语大作战</span>
+    <button class="btn" id="muteBtn">🔊</button>
+  </div>
+
+  <div id="hud">
+    <div class="stat"><div class="k">段位</div><div class="v rank" id="rank">青铜</div></div>
+    <div class="stat"><div class="k">得分</div><div class="v score" id="score">0</div></div>
+    <div class="stat"><div class="k">最佳</div><div class="v best" id="best">0</div></div>
+    <div class="stat"><div class="k">生命</div><div class="v lives" id="lives">♥♥♥</div></div>
+    <div class="stat"><div class="k">连击</div><div class="v combo" id="combo">x0</div></div>
+  </div>
+
+  <div class="center">
+    <div id="anchor">成语接龙</div>
+    <div id="req">请接 <b>—</b> 字头</div>
+    <div class="inputrow">
+      <input id="guess" type="text" maxlength="8" placeholder="输入四字成语" autocomplete="off" />
+      <button class="submit" id="submitBtn">接！</button>
+    </div>
+    <div id="msg">用上一个成语的尾字，作下一个成语的首字。</div>
+    <div class="toolbar">
+      <button class="tool" id="hintBtn">提示 (3)</button>
+      <button class="tool" id="skipBtn">跳过 (2)</button>
+      <button class="tool" id="wrongBtn">错题本</button>
+      <button class="tool" id="restartBtn">重开</button>
+    </div>
+  </div>
+
+  <div id="wrong">
+    <div class="box">
+      <h2>📕 错题本</h2>
+      <div id="wrongList"><span style="color:var(--dim)">还没有错题，厉害！</span></div>
+      <button class="close" id="wrongClose">关闭</button>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <div class="box">
+      <h1>🀄 成语大作战</h1>
+      <p>接龙挑战：用上一个成语的<b>尾字</b>，作下一个成语的<b>首字</b>。<br/>
+         连击越长倍率越高，<b style="color:var(--gold)">黄金成语</b>暴击得 3 倍，段位从青铜一路打到宗师。<br/>
+         每日挑战同一套题，比拼当日最佳；错题自动归档，越玩越强。</p>
+      <button class="start" id="startBtn">接龙挑战</button>
+      <button class="ghost" id="dailyBtn">今日挑战</button>
+    </div>
+  </div>
+
+  <script src="juice.js"></script>
+  <script>
+  (function () {
+    if ('ontouchstart' in window) document.body.classList.add('touch');
+    const $ = id => document.getElementById(id);
+    const fx = $('fx'), fxc = fx.getContext('2d');
+    function sizeFx(){ fx.width=window.innerWidth; fx.height=window.innerHeight; }
+    sizeFx(); window.addEventListener('resize', sizeFx);
+
+    /* ---- 词库（内置常用成语，离线可用） ---- */
+    const IDIOMS = ['一鸣惊人','人山人海','海阔天空','空穴来风','风花雪月','月白风清','清心寡欲','欲罢不能',
+      '能屈能伸','伸张正义','义薄云天','天高地厚','厚德载物','物极必反','反客为主','意气风发','发愤图强',
+      '强词夺理','理直气壮','壮志凌云','云淡风轻','轻而易举','举一反三','三心二意','意气用事','事在人为',
+      '为所欲为','人定胜天','天经地义','义无反顾','顾全大局','局促不安','安然无恙','之乎者也','说一不二',
+      '二话不说','二龙戏珠','珠联璧合','合二为一','一帆风顺','顺水推舟','舟车劳顿','顿开茅塞','塞翁失马',
+      '马到成功','功亏一篑','功成名就','就事论事','事半功倍','程门立雪','雪中送炭','雪上加霜','山清水秀',
+      '秀色可餐','餐风宿水','水到渠成','成竹在胸','胸有成竹','竹报平安','安居乐业','业精于勤','勤能补拙',
+      '拙嘴笨舌','舌战群儒','群策群力','力不从心','心安理得','得心应手','手忙脚乱','乱七八糟','七上八下',
+      '下不为例','例行公事','事过境迁','迁善改过','过目不忘','忘恩负义','义正词严','严阵以待','待人接物',
+      '物美价廉','水落石出','出神入化','化险为夷','平易近人','人杰地灵','灵机一动','守株待兔','兔死狐悲',
+      '悲欢离合','合情合理','理屈词穷','穷途末路','路不拾遗','遗臭万年','年富力强','强人所难','难分难解',
+      '解甲归田','画龙点睛','龙飞凤舞','舞文弄墨','墨守成规','规行矩步','步步为营','井底之蛙','望梅止渴',
+      '对牛弹琴','琴棋书画','画蛇添足','足智多谋','谋事在人','成事在天','天作之合','合家欢乐','乐极生悲',
+      '悲喜交加','加官晋爵','百发百中','中流砥柱','柱石之坚','坚如磐石','石破天惊','惊天动地','地久天长',
+      '长驱直入','入木三分','分秒必争','争分夺秒','秒']
+      .filter(w => w.length === 4);
+    const SET = new Set(IDIOMS);
+    const MAP = {}; // 首字 -> [成语...]
+    for (const w of IDIOMS) (MAP[w[0]] = MAP[w[0]] || []).push(w);
+    // 稀有首字（可选作挑战字，越往后越常出现）
+    const RARE = Object.keys(MAP).filter(c => MAP[c].length <= 2);
+
+    const GOLD = 0.12; // 黄金成语概率（可变奖励）
+    let S = null;
+
+    function newState(daily) {
+      const today = new Date();
+      const key = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+      const start = daily ? IDIOMS[key % IDIOMS.length] : IDIOMS[(Math.random() * IDIOMS.length) | 0];
+      return {
+        running: true, over: false, daily: !!daily, dateKey: key,
+        score: 0, combo: 0, lives: 3, hints: 3, skips: 2,
+        anchor: start, required: start[3], challenge: false,
+        rank: '青铜', best: Juice.best(daily ? 'idiom_daily_' + key : 'idiom', 0).value,
+        wrong: Juice.load('idiom_wrong', [])
+      };
+    }
+
+    function syncHUD() {
+      $('score').textContent = S.score;
+      $('best').textContent = S.best;
+      $('lives').textContent = '♥'.repeat(Math.max(0, S.lives)) || '—';
+      $('combo').textContent = 'x' + S.combo;
+      $('rank').textContent = S.rank;
+      $('hintBtn').textContent = '提示 (' + S.hints + ')';
+      $('skipBtn').textContent = '跳过 (' + S.skips + ')';
+      $('hintBtn').disabled = S.hints <= 0;
+      $('skipBtn').disabled = S.skips <= 0;
+      const r = $('req');
+      r.className = S.challenge ? 'challenge' : '';
+      r.innerHTML = (S.challenge ? '挑战字 <b>' + S.required + '</b>' : '请接 <b>' + S.required + '</b> 字头');
+      $('anchor').textContent = S.anchor;
+    }
+
+    function rankCheck() {
+      const rk = Juice.rank(S.score);
+      if (rk !== S.rank) {
+        const up = ['青铜','白银','黄金','铂金','钻石','大师','宗师'].indexOf(rk) >
+          ['青铜','白银','黄金','铂金','钻石','大师','宗师'].indexOf(S.rank);
+        S.rank = rk;
+        if (up) { Juice.achievement('🎖 晋升 ' + rk + '！'); Juice.sfx('levelup'); Juice.flash('#02c076', 0.3); }
+      }
+    }
+
+    function submit() {
+      if (!S || !S.running || S.over) return;
+      const v = $('guess').value.trim().replace(/\s/g, '');
+      $('guess').value = '';
+      if (v.length !== 4) { fail('请输入四字成语'); return; }
+      if (!SET.has(v)) {
+        addWrong(v); fail('「' + v + '」不在词库中'); return;
+      }
+      if (v[0] !== S.required) { fail('需以「' + S.required + '」开头'); return; }
+      // 接龙成功
+      S.combo++;
+      let pts = 100 * (1 + Math.floor(S.combo / 5));
+      let gold = Math.random() < GOLD;
+      if (gold) pts *= 3;
+      S.score += pts;
+      const cx = window.innerWidth / 2, cy = window.innerHeight / 2 - 40;
+      Juice.sfx('pickup');
+      if (gold) {
+        Juice.burst(cx, cy, { color: '#f0b90b', n: 40, speed: 320 });
+        Juice.popup(cx, cy - 30, '黄金成语! +' + pts, '#f0b90b', { size: 26, big: true, life: 1.1 });
+        Juice.flash('#f0b90b', 0.35); Juice.achievement('🌟 黄金成语 +' + pts);
+      } else {
+        Juice.burst(cx, cy, { color: '#02c076', n: 14 });
+        Juice.popup(cx, cy - 30, '+' + pts + (S.combo > 1 ? '  x' + S.combo : ''), '#f0b90b', { size: 20 });
+        if (S.combo > 1 && S.combo % 5 === 0) { Juice.sfx('combo'); Juice.achievement('🔥 ' + S.combo + ' 连击！'); Juice.addTrauma(0.25); }
+      }
+      // 推进：下一个 required = 当前成语尾字；高连击时按概率出「稀有挑战字」
+      S.anchor = v;
+      if (S.combo >= 8 && RARE.length && Math.random() < Math.min(0.3, S.combo * 0.012)) {
+        S.required = RARE[(Math.random() * RARE.length) | 0]; S.challenge = true;
+      } else {
+        S.required = v[3]; S.challenge = false;
+      }
+      Juice.save('idiom', S.score > S.best ? S.score : S.best);
+      rankCheck();
+      syncHUD();
+    }
+
+    function fail(msg) {
+      S.combo = 0; S.lives--;
+      Juice.sfx('error');
+      Juice.addTrauma(0.35); Juice.flash('#f6465d', 0.3);
+      const cx = window.innerWidth / 2, cy = window.innerHeight / 2 - 40;
+      Juice.popup(cx, cy - 30, '✗ ' + msg, '#f6465d', { size: 16, life: 1.1 });
+      $('msg').textContent = msg; $('msg').className = 'bad';
+      if (S.lives <= 0) gameOver();
+      else syncHUD();
+    }
+
+    function addWrong(w) {
+      if (!S.wrong.includes(w)) { S.wrong.unshift(w); if (S.wrong.length > 30) S.wrong.pop(); Juice.save('idiom_wrong', S.wrong); }
+    }
+
+    function hint() {
+      if (!S || S.hints <= 0) return;
+      const opts = MAP[S.required];
+      if (!opts) { $('msg').textContent = '这个字头暂时没词，用「跳过」换一个'; $('msg').className = 'bad'; return; }
+      const pick = opts[(Math.random() * opts.length) | 0];
+      S.hints--; Juice.sfx('click');
+      $('msg').textContent = '提示：可接「' + pick + '」'; $('msg').className = 'good';
+      syncHUD();
+    }
+
+    function skip() {
+      if (!S || S.skips <= 0) return;
+      S.skips--; Juice.sfx('click');
+      const alt = IDIOMS[(Math.random() * IDIOMS.length) | 0];
+      S.anchor = alt; S.required = alt[3]; S.challenge = false;
+      $('msg').textContent = '已跳过，新锚点：' + alt; $('msg').className = '';
+      syncHUD();
+    }
+
+    function gameOver() {
+      S.over = true; S.running = false;
+      const key = S.daily ? 'idiom_daily_' + S.dateKey : 'idiom';
+      const b = Juice.best(key, S.score);
+      S.best = b.value;
+      if (b.isNew) { Juice.achievement('🏆 新纪录 ' + S.score + '！'); Juice.flash('#f0b90b', 0.4); }
+      Juice.sfx('lose');
+      $('overlay').style.display = 'flex';
+      $('overlay h1').textContent = '💥 接龙中断';
+      $('overlay p').innerHTML = (S.daily ? '【今日挑战】<br/>' : '') +
+        '得分 <b style="color:var(--gold)">' + S.score + '</b> · 段位 ' + S.rank +
+        '<br/>历史最佳 <b style="color:var(--gold)">' + b.value + '</b>' + (b.isNew ? '（新纪录!）' : '') +
+        '<br/>点击下方按钮再来一局。';
+      $('startBtn').textContent = '接龙挑战'; $('dailyBtn').textContent = '今日挑战';
+      // 把本局分数写回通用最佳
+      Juice.save('idiom', Math.max(Juice.load('idiom', 0), S.score));
+      syncHUD();
+    }
+
+    function start(daily) {
+      S = newState(daily);
+      $('overlay').style.display = 'none';
+      $('msg').textContent = '用上一个成语的尾字，作下一个成语的首字。'; $('msg').className = '';
+      syncHUD();
+      $('guess').focus();
+    }
+
+    /* ---- 特效循环（始终运行，菜单也有粒子） ---- */
+    let last = 0;
+    function fxLoop(ts) {
+      const dt = Math.min(0.05, (ts - last) || 0.016); last = ts;
+      Juice.update(dt);
+      fxc.clearRect(0, 0, fx.width, fx.height);
+      Juice.begin(fxc); Juice.mid(fxc); Juice.end(fxc);
+      requestAnimationFrame(fxLoop);
+    }
+    requestAnimationFrame(fxLoop);
+
+    /* ---- 绑定 ---- */
+    $('submitBtn').onclick = submit;
+    $('guess').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    $('hintBtn').onclick = hint;
+    $('skipBtn').onclick = skip;
+    $('restartBtn').onclick = () => start(S && S.daily);
+    $('wrongBtn').onclick = () => {
+      const list = $('wrongList');
+      const data = S ? S.wrong : Juice.load('idiom_wrong', []);
+      list.innerHTML = data.length ? data.map(w => '<span>' + w + '</span>').join('') :
+        '<span style="color:var(--dim)">还没有错题，厉害！</span>';
+      $('wrong').style.display = 'flex';
+    };
+    $('wrongClose').onclick = () => $('wrong').style.display = 'none';
+    $('startBtn').onclick = () => start(false);
+    $('dailyBtn').onclick = () => start(true);
+    $('muteBtn').onclick = () => { const m = Juice.toggleMute(); $('muteBtn').textContent = m ? '🔇' : '🔊'; };
+
+    syncHUD();
+  })();
+  </script>
+</body>
+</html>
