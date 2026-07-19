@@ -634,6 +634,58 @@
   // ---------- 绑定 ----------
   $('restart').onclick = function(){ $('overlay').classList.add('hidden'); newGame(); showReveal(); };
 
+  /* ==== 逻辑测试钩子（纯逻辑/状态访问，不触发动效与渲染） ==== */
+  window.__t = {
+    /* 常量 */
+    ROLES: ROLES,
+    ROLE_TEXT: ROLE_TEXT,
+    /* 工具 */
+    shuffle: shuffle,
+    livingIds: livingIds,
+    aliveRole: aliveRole,
+    livingNonWitch: livingNonWitch,
+    weightedPower: weightedPower,
+    causeText: causeText,
+    /* 流程 */
+    newGame: newGame,
+    kill: kill,
+    checkWin: checkWin,
+    aiVote: aiVote,
+    pickStatement: pickStatement,
+    /* 状态访问器 */
+    getG: function(){ return G; },
+    setG: function(v){ G = v; },
+    getPlayers: function(){ return G ? G.players : null; },
+    setPlayers: function(v){ if(G) G.players = v; },
+    getRound: function(){ return G ? G.round : 0; },
+    setRound: function(v){ if(G) G.round = v; },
+    getPhase: function(){ return G ? G.phaseText : ''; },
+    getOver: function(){ return G ? G.over : false; },
+    setOver: function(v){ if(G) G.over = v; },
+    getNightVictim: function(){ return G ? G.nightVictim : null; },
+    setNightVictim: function(v){ if(G) G.nightVictim = v; },
+    getNightSaved: function(){ return G ? G.nightSaved : null; },
+    setNightSaved: function(v){ if(G) G.nightSaved = v; },
+    getPoisonTarget: function(){ return G ? G.poisonTarget : null; },
+    setPoisonTarget: function(v){ if(G) G.poisonTarget = v; },
+    getWitchAntidote: function(){ return G ? G.witchAntidote : false; },
+    setWitchAntidote: function(v){ if(G) G.witchAntidote = v; },
+    getWitchPoison: function(){ return G ? G.witchPoison : false; },
+    setWitchPoison: function(v){ if(G) G.witchPoison = v; },
+    getHunterGun: function(){ return G ? G.hunterGun : false; },
+    setHunterGun: function(v){ if(G) G.hunterGun = v; },
+    getKnownWolves: function(){ return G ? G.knownWolves : null; },
+    setKnownWolves: function(v){ if(G) G.knownWolves = v; },
+    getLastNightDeaths: function(){ return G ? G.lastNightDeaths : null; },
+    getHunterNeedsShoot: function(){ return G ? G.hunterNeedsShoot : null; },
+    setHunterNeedsShoot: function(v){ if(G) G.hunterNeedsShoot = v; },
+    getPending: function(){ return G ? G.pending : null; },
+    setPending: function(v){ if(G) G.pending = v; },
+    getVotes: function(){ return G ? G.votes : null; },
+    setVotes: function(v){ if(G) G.votes = v; },
+    getHumanId: function(){ return G ? G.humanId : 0; }
+  };
+
   newGame();
   showReveal();
 })();
