@@ -1,11 +1,11 @@
 # 🎮 HTML5 游戏大厅 · Game Hub
 
 > 一个纯前端、零构建、暗色「金融终端」风格的 HTML5 游戏合集。
-> 23 款游戏 + 大厅 + 自动化测试套件，全部用原生 HTML/CSS/JS 写成，双击即玩。
+> 24 款游戏 + 大厅 + 自动化测试套件，全部用原生 HTML/CSS/JS 写成，双击即玩。
 
 ## ✨ 特性
 
-- **23 款游戏**，覆盖经典类型：益智 / 棋牌 / 动作 / 射击 / 竞速 / 解谜 / 多人竞技
+- **24 款游戏**，覆盖经典类型：益智 / 棋牌 / 动作 / 射击 / 竞速 / 解谜 / 多人竞技
 - **零依赖离线运行**：绝大多数游戏为单文件内联脚本，断网也能玩
 - **统一暗色终端风**：`#0a0e14` 背景、红涨绿跌配色（`#f6465d` / `#02c076` / `#f0b90b`）、等宽字体、三圆点标题栏
 - **移动端适配**：viewport + 触控事件 + 虚拟按键，手机可玩
@@ -56,8 +56,9 @@ cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
 | U | 格斗 | 1v1 对战 | [fighting.html](games/fighting.html) |
 | V | 赛车 | 竞速 | [racing.html](games/racing.html) |
 | W | 泡泡堂 | 多人竞技 | [bubblebob.html](games/bubblebob.html) |
+| X | 皇室战争 | 即时对战 | [royale.html](games/royale.html) |
 
-> ⚡ `cubecity`（Three.js）与 `battle`（PeerJS）需联网加载 CDN 资源；其余 21 款均为纯离线内联脚本。
+> ⚡ `cubecity`（Three.js）与 `battle`（PeerJS）需联网加载 CDN 资源；其余 22 款均为纯离线内联脚本。
 
 ## 🧪 测试
 
@@ -81,7 +82,7 @@ cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
 ├── games/
 │   ├── index.html            # 游戏大厅入口
 │   ├── 启动游戏大厅.bat        # 一键启动（双击）
-│   ├── 2048.html … bubblebob.html   # 23 款游戏
+│   ├── 2048.html … royale.html   # 24 款游戏
 │   └── tests/                # 自动化测试套件
 │       ├── test-runner.js    # CLI 静态检测
 │       ├── runner.html       # 浏览器运行测试

@@ -121,7 +121,7 @@
 <script>
 (function(){
   "use strict";
-  const T=40, GRAV=0.6, MOVE=3.3, JUMP=-11.5, MAXFALL=12;
+  const T=40, GRAV=0.6, MOVE=3.3, JUMP=-11.5, MAXFALL=12, JUMP_BUFFER=6;
   const CW=960, CH=560, STEP=1000/60;
 
   const cv=document.getElementById('game');
@@ -177,10 +177,12 @@
 
   function makeChar(type,color){
     return { type:type, color:color, w:26, h:34, x:0, y:0, vx:0, vy:0,
-             onGround:false, upPrev:false, atExit:false, in:input[type], startX:0, startY:0 };
+             onGround:false, upPrev:false, jumpBuf:0, atExit:false, in:input[type], startX:0, startY:0 };
   }
   const ice=makeChar('ice','#3aa0ff');
   const fire=makeChar('fire','#f6465d');
+
+  function setJumpBuf(who){ if(who==='ice') ice.jumpBuf=JUMP_BUFFER; else if(who==='fire') fire.jumpBuf=JUMP_BUFFER; }
 
   let grid=[], W=24, H=14;
   let doorOpen=false, score=0, currentLevel=0, state='play', flash=0;
@@ -225,8 +227,8 @@
     doorOpen=false;
     if(iceStart){ ice.startX=iceStart.x*T+(T-ice.w)/2; ice.startY=iceStart.y*T+(T-ice.h); }
     if(fireStart){ fire.startX=fireStart.x*T+(T-fire.w)/2; fire.startY=fireStart.y*T+(T-fire.h); }
-    ice.x=ice.startX; ice.y=ice.startY; ice.vx=0; ice.vy=0; ice.onGround=false; ice.upPrev=false; ice.atExit=false;
-    fire.x=fire.startX; fire.y=fire.startY; fire.vx=0; fire.vy=0; fire.onGround=false; fire.upPrev=false; fire.atExit=false;
+    ice.x=ice.startX; ice.y=ice.startY; ice.vx=0; ice.vy=0; ice.onGround=false; ice.upPrev=false; ice.jumpBuf=0; ice.atExit=false;
+    fire.x=fire.startX; fire.y=fire.startY; fire.vx=0; fire.vy=0; fire.onGround=false; fire.upPrev=false; fire.jumpBuf=0; fire.atExit=false;
     if(resetScore) score=0;
     state='play';
     hideOverlay();
@@ -239,7 +241,7 @@
   }
 
   function die(c){
-    c.x=c.startX; c.y=c.startY; c.vx=0; c.vy=0; c.onGround=false; c.atExit=false; c.upPrev=false;
+    c.x=c.startX; c.y=c.startY; c.vx=0; c.vy=0; c.onGround=false; c.atExit=false; c.upPrev=false; c.jumpBuf=0;
     flash=1;
   }
 
@@ -291,8 +293,10 @@
 
   function updateChar(c){
     c.vx=(c.in.right?MOVE:0)-(c.in.left?MOVE:0);
-    if(c.in.up && !c.upPrev && c.onGround){ c.vy=JUMP; c.onGround=false; }
+    const wantJump=(c.in.up||c.jumpBuf>0);
+    if(wantJump && !c.upPrev && c.onGround){ c.vy=JUMP; c.onGround=false; c.jumpBuf=0; }
     c.upPrev=c.in.up;
+    if(c.jumpBuf>0) c.jumpBuf--;
     c.vy+=GRAV; if(c.vy>MAXFALL) c.vy=MAXFALL;
     c.x+=c.vx; resolveX(c);
     c.y+=c.vy; c.onGround=false; resolveY(c);
@@ -426,7 +430,7 @@
   };
   window.addEventListener('keydown',function(e){
     const m=KEYMAP[e.code];
-    if(m){ input[m[0]][m[1]]=true; if(e.code.indexOf('Arrow')===0) e.preventDefault(); }
+    if(m){ input[m[0]][m[1]]=true; if(m[1]==='up') setJumpBuf(m[0]); if(e.code.indexOf('Arrow')===0) e.preventDefault(); }
   });
   window.addEventListener('keyup',function(e){
     const m=KEYMAP[e.code];
@@ -434,13 +438,21 @@
   });
   document.querySelectorAll('.kb').forEach(function(btn){
     const c=btn.dataset.c, d=btn.dataset.d;
-    const on=function(e){ e.preventDefault(); input[c][d]=true; btn.classList.add('on'); };
+    const on=function(e){ e.preventDefault(); input[c][d]=true; if(d==='up') setJumpBuf(c); btn.classList.add('on'); };
     const off=function(e){ e.preventDefault(); input[c][d]=false; btn.classList.remove('on'); };
     btn.addEventListener('pointerdown',on);
     btn.addEventListener('pointerup',off);
     btn.addEventListener('pointerleave',off);
     btn.addEventListener('pointercancel',off);
   });
+
+  /* 失焦/切后台时清空所有按键，避免漏掉 keyup 导致卡键、阻断后续跳跃 */
+  function clearInputs(){
+    for(const who in input) for(const k in input[who]) input[who][k]=false;
+    ice.upPrev=false; fire.upPrev=false; ice.jumpBuf=0; fire.jumpBuf=0;
+  }
+  window.addEventListener('blur', clearInputs);
+  document.addEventListener('visibilitychange', function(){ if(document.hidden) clearInputs(); });
 
   restartBtn.addEventListener('click',function(){ currentLevel=0; loadLevel(0,true); });
   ovBtn.addEventListener('click',function(){
