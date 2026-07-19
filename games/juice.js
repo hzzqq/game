@@ -28,6 +28,7 @@
   /* ---------- 粒子 ---------- */
   let parts = [];
   let rings = [];
+  let beams = [];
   J.burst = function (x, y, o) {
     o = o || {};
     const n = o.n || 12, color = o.color || '#f0b90b', spd = o.speed || 200,
@@ -48,6 +49,17 @@
       r0: o.r0 || 8,
       r1: o.r || o.r1 || 64,
       life: o.life || 0.45, max: o.life || 0.45,
+      color: o.color || '#f0b90b',
+      width: o.width || 3
+    });
+  };
+
+  /* ---------- 射线 / 光束（激光/闪电/连线攻击，纯视觉、opt-in） ---------- */
+  J.beam = function (x1, y1, x2, y2, o) {
+    o = o || {};
+    beams.push({
+      x1, y1, x2, y2,
+      life: o.life || 0.3, max: o.life || 0.3,
       color: o.color || '#f0b90b',
       width: o.width || 3
     });
@@ -75,6 +87,9 @@
     for (let i = rings.length - 1; i >= 0; i--) {
       const r = rings[i]; r.life -= dt; if (r.life <= 0) { rings.splice(i, 1); continue; }
     }
+    for (let i = beams.length - 1; i >= 0; i--) {
+      const b = beams[i]; b.life -= dt; if (b.life <= 0) { beams.splice(i, 1); continue; }
+    }
     for (let i = pops.length - 1; i >= 0; i--) {
       const p = pops[i]; p.life -= dt; if (p.life <= 0) { pops.splice(i, 1); continue; }
       p.y += p.vy * dt; p.vy *= 0.96;
@@ -93,6 +108,11 @@
       ctx.globalAlpha = Math.max(0, r.life / r.max);
       ctx.strokeStyle = r.color; ctx.lineWidth = r.width;
       ctx.beginPath(); ctx.arc(r.x, r.y, rad, 0, 7); ctx.stroke();
+    }
+    for (const b of beams) {
+      ctx.globalAlpha = Math.max(0, b.life / b.max);
+      ctx.strokeStyle = b.color; ctx.lineWidth = b.width * (0.4 + 0.6 * (b.life / b.max));
+      ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke();
     }
     ctx.globalAlpha = 1; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const p of pops) {

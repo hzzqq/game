@@ -208,6 +208,7 @@ function checkHits(att,def){
         Juice.sfx('hit'); Juice.addTrauma(0.25);
         Juice.burst(def.x, def.y+def.h*0.4, {color: def.isPlayer?COL.red:COL.green, n:10, speed:180});
         Juice.ring(def.x, def.y+def.h*0.4, {color: def.isPlayer?COL.red:COL.green, r1:54});
+        if(att.attackType==='special') Juice.beam(frontX, att.y+att.h*0.4, def.x, def.y+def.h*0.4, {color: att.isPlayer?COL.red:COL.green, width:5, life:0.3});
         Juice.popup(def.x, def.y-6, '-'+Math.round(dmg), '#f6465d', {size:16, big:true});
       }
     } else if(typeof Juice!=='undefined'){
