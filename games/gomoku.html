@@ -341,6 +341,18 @@
 
   reset();
   fit();
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    N, EMPTY, P, A,
+    reset, checkWin, doMove, placePlayer, undo, aiTurn,
+    setBoard(arr) { board = arr.slice(); },
+    getBoard() { return board.slice(); },
+    get gameOver() { return gameOver; },
+    get lastWin() { return lastWin; },
+    get current() { return current; },
+    set current(v) { current = v; }
+  };
 })();
 </script>
 </body>

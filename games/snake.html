@@ -308,6 +308,19 @@
 
   reset();
   raf = requestAnimationFrame(loop);
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    GRID,
+    reset, step, spawnFood, occupied, setDir,
+    setSnake(arr) { snake = arr.map(p => ({ x: p.x, y: p.y })); },
+    setFood(obj) { food = obj ? { x: obj.x, y: obj.y } : null; },
+    getSnake() { return snake.map(p => ({ x: p.x, y: p.y })); },
+    getFood() { return food ? { x: food.x, y: food.y } : null; },
+    getScore() { return score; },
+    getAlive() { return alive; },
+    getDir() { return { x: dir.x, y: dir.y }; }
+  };
 })();
 </script>
 </body>

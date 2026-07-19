@@ -204,6 +204,21 @@
   window.addEventListener('keydown',e=>{ if(e.key>='1'&&e.key<='9') place(+e.key); else if(e.key==='Backspace'||e.key==='Delete') erase(); else if(e.key==='h') hint(); });
 
   generate();
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    N, CLUES,
+    generate, valid, solve, countSolutions, isConflict, place,
+    setDifficulty(d) { difficulty = d; },
+    getSolution() { return solution.slice(); },
+    getBoard() { return board.slice(); },
+    setBoard(arr) { board = arr.slice(); },
+    getGiven() { return given.slice(); },
+    setGiven(arr) { given = arr.slice(); },
+    setSel(i) { sel = i; },
+    get mistakes() { return mistakes; },
+    get solved() { return solved; }
+  };
 })();
 </script>
 </body>

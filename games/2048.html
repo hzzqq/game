@@ -604,6 +604,23 @@
   try { best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0; } catch (e) { best = 0; }
   bestEl.textContent = best;
   newGame();
+
+  // 测试钩子（不影响正常玩法）：暴露纯逻辑 + 可控棋盘
+  window.__t = (function () {
+    const _origAdd = addRandomTile;
+    return {
+      newGame, move, movesAvailable,
+      setBoard(m) {
+        cells = m.map((row, r) => row.map((v, c) => v ? { id: ++tileId, value: v, r, c, isNew: false, justMerged: false, mergedThisMove: false } : null));
+        score = 0; over = false; won = false; paused = false; keepPlaying = false; mergedAway = [];
+      },
+      getBoard() { return cells.map(row => row.map(t => t ? t.value : 0)); },
+      get score() { return score; },
+      get over() { return over; },
+      get won() { return won; },
+      freezeSpawn(v) { addRandomTile = v ? function () {} : _origAdd; }
+    };
+  })();
 })();
 </script>
 </body>

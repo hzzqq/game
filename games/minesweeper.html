@@ -195,6 +195,7 @@
 
   function flood(i){
     if(open[i]||flag[i]) return;
+    if(grid[i]===-1) return;   // 防御：永不通过展开揭开地雷
     open[i]=true; revealedCount++;
     if(grid[i]>0) return;
     const r=Math.floor(i/C),c=i%C;
@@ -244,6 +245,27 @@
   window.addEventListener('contextmenu',e=>{ if(e.target.closest('#board')) e.preventDefault(); });
 
   generate();
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    DIFFS,
+    generate, flood, clickCell, toggleFlag, checkWin,
+    setDiff,
+    setDim(r, c, m) { R = r; C = c; M = m; },
+    setGrid(g) {
+      grid = g.slice();
+      open = new Array(R * C).fill(false);
+      flag = new Array(R * C).fill(false);
+      revealedCount = 0; flagCount = 0; started = true; dead = false; won = false;
+    },
+    getGrid() { return grid.slice(); },
+    getState() {
+      return {
+        open: open.slice(), flag: flag.slice(),
+        revealedCount, flagCount, dead, won, R, C, M
+      };
+    }
+  };
 })();
 </script>
 </body>
