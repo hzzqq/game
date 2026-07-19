@@ -743,6 +743,28 @@
     resetFighter(cpu, W - 130, -1);
     projectiles = []; floats = []; items = []; itemTimer = 5;
     updateHUD();
+
+    /* ---------- 测试钩子（非侵入，仅暴露纯函数 + 状态访问器） ---------- */
+    window.__t = {
+      makeFighter, resetFighter, clamp, atkActive, inRange,
+      startAttack, applyDamage, spawnProjectile, updateProjectiles,
+      resetItems, spawnItem, applyItem, updateItems,
+      addFloat, updateFloats,
+      separate, beginMatch, startRound, finishRound, endRoundKO, endRoundByTime,
+      getATK: function () { return ATK; },
+      getPlayer: function () { return player; }, setPlayer: function (v) { player = v; },
+      getCpu: function () { return cpu; }, setCpu: function (v) { cpu = v; },
+      getProjectiles: function () { return projectiles; }, setProjectiles: function (v) { projectiles = v; },
+      getFloats: function () { return floats; }, setFloats: function (v) { floats = v; },
+      getItems: function () { return items; }, setItems: function (v) { items = v; },
+      getItemTimer: function () { return itemTimer; }, setItemTimer: function (v) { itemTimer = v; },
+      getState: function () { return state; }, setState: function (v) { state = v; },
+      getPips: function () { return pips; },
+      getRoundNum: function () { return roundNum; },
+      getRoundTimer: function () { return roundTimer; },
+      getConstants: function () { return { W: W, H: H, GROUND: GROUND, JUMP_VY: JUMP_VY, GRAVITY: GRAVITY, WALK_SPEED: WALK_SPEED, DASH_SPEED: DASH_SPEED, ROUND_TIME: ROUND_TIME, COMBO_WINDOW: COMBO_WINDOW }; }
+    };
+
     requestAnimationFrame(loop);
   })();
   </script>
