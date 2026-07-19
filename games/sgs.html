@@ -120,6 +120,7 @@
   <div class="overlay" id="overlay"></div>
 
 <script src="input.js"></script>
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -272,6 +273,7 @@
   /* ===================== 伤害与死亡 ===================== */
   function dealDamage(p, amt, source){
     p.hp -= amt;
+    if(typeof Juice!=='undefined') Juice.sfx('hit');
     log(p.name + ' 受到 ' + amt + ' 点伤害' + (source?('（来自 '+source.name+'）'):''));
     if(p.hp<=0){ p.hp=0; die(p, source); }
   }
@@ -300,6 +302,11 @@
   function win(side, reason){
     gameOver = true; result = side; endReason = reason || '';
     log('🏆 胜利方：' + side);
+    if(typeof Juice!=='undefined'){
+      const humanWin = (result==='主公 + 忠臣');
+      if(humanWin){ Juice.sfx('win'); Juice.best('sgs',1); Juice.rank(1); Juice.achievement('主公获胜！'); }
+      else { Juice.sfx('lose'); Juice.best('sgs',1); Juice.rank(1); }
+    }
     render();
   }
 
@@ -344,6 +351,9 @@
     removeFromHand(p, card);
     discard.push(card);
     var t = card.type;
+    if(typeof Juice!=='undefined'){
+      if(t==='tao'||t==='weapon'||t==='armor'||t==='taoyuan') Juice.sfx('pickup');
+    }
     if(t==='sha'){
       log(p.name + ' 出【杀】 → ' + players[targetId].name);
       requireShan(players[targetId], true, null, function(){ dealDamage(players[targetId],1,p); });

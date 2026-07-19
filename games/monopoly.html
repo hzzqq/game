@@ -108,6 +108,7 @@
   </div></div>
 
 <script src="input.js"></script>
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -292,6 +293,7 @@
   function doRoll(){
     if(phase!=='roll') return;
     const p=current;
+    if(typeof Juice!=='undefined') Juice.sfx('click');
     if(p.inJail){
       if(p.isAI){
         if(p.jailCard>0){ p.jailCard--; p.inJail=false; p.jailTurns=0; log(p.name+' 使用出狱卡'); }
@@ -374,7 +376,7 @@
       '<div class="ap-btns"><button id="buyYes" class="btn ok"'+(can?'':' disabled')+'>购买</button>'+
       '<button id="buyNo" class="btn">跳过</button></div>',
       {
-        buyYes:function(){ if(p.cash>=t.price){ p.cash-=t.price; t.owner=p.id; log('你 购买 '+t.name+' ¥'+t.price); } finalizeTurn(p); },
+        buyYes:function(){ if(p.cash>=t.price){ p.cash-=t.price; t.owner=p.id; log('你 购买 '+t.name+' ¥'+t.price); if(typeof Juice!=='undefined'){ const i=board.indexOf(t); const cc=tileCenter(i,cssSize/11); Juice.sfx('pickup'); Juice.popup(cc.x,cc.y,'¥'+t.price,'#02c076',{size:14}); } } finalizeTurn(p); },
         buyNo:function(){ log('你 跳过购买 '+t.name); finalizeTurn(p); }
       });
   }
@@ -396,7 +398,7 @@
   }
 
   function aiBuy(p,t){
-    if(p.cash >= t.price + 80){ p.cash-=t.price; t.owner=p.id; log(p.name+' 购买 '+t.name+' ¥'+t.price); }
+    if(p.cash >= t.price + 80){ p.cash-=t.price; t.owner=p.id; log(p.name+' 购买 '+t.name+' ¥'+t.price); if(typeof Juice!=='undefined') Juice.sfx('pickup'); }
   }
   function aiUpgrade(p){
     let guard=0;
@@ -442,6 +444,7 @@
     p.alive=false;
     for(const t of board){ if(t.owner===p.id){ t.owner=null; t.houses=0; } }
     log(p.name+' 出局');
+    if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.5); Juice.flash('#f6465d',0.25); }
     dirty=true;
   }
 
@@ -486,6 +489,11 @@
       t.style.color = youWin ? '#02c076' : '#f6465d';
       x.textContent = youWin ? '你是最后的地产大亨。' : '你已出局，'+winner.name+' 笑到最后。';
     } else { t.textContent='平局'; t.style.color='#f0b90b'; x.textContent='无人生还。'; }
+    if(typeof Juice!=='undefined'){
+      if(winner && winner.id===0){ Juice.sfx('win'); Juice.flash('#02c076',0.28); Juice.addTrauma(0.6); const b=Juice.best('monopoly',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
+      else if(winner){ Juice.sfx('lose'); Juice.flash('#f6465d',0.3); Juice.addTrauma(0.6); }
+      else { Juice.sfx('click'); }
+    }
     ov.style.display='flex';
   }
   function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
@@ -542,6 +550,7 @@
     if(!cssSize) return;
     const size=cssSize, u=size/11;
     ctx.clearRect(0,0,size,size);
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
     for(let i=0;i<40;i++) drawTile(i,u);
     const groups={};
     for(const p of players){ if(!p.alive) continue; (groups[p.displayPos]=groups[p.displayPos]||[]).push(p); }
@@ -549,6 +558,7 @@
       const arr=groups[k], c=tileCenter(+k,u);
       arr.forEach(function(p,idx){ drawToken(c.x,c.y,idx,arr.length,p.color); });
     }
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
   function fit(){
@@ -561,6 +571,7 @@
 
   /* ---------- 主循环（断触修复：Input 缓冲 + 每帧 update） ---------- */
   function loop(){
+    var now=performance.now(); var dt=(now-(loop._last||now))/1000; loop._last=now; if(dt>0.05)dt=0.05; if(typeof Juice!=='undefined') Juice.update(dt);
     if(phase==='roll' && !current.isAI){
       if(Input.consume('start') || Input.consume('a')) doRoll();
     }

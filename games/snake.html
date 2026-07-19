@@ -84,6 +84,7 @@
   </div>
 
 <script src="input.js"></script>
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -170,10 +171,16 @@
     snake.unshift({x:nx,y:ny});
 
     if(food && nx===food.x && ny===food.y){
+      var fx = nx*CELL+CELL/2, fy = ny*CELL+CELL/2;
       score += 1;
+      Juice.sfx('pickup');
+      Juice.popup(fx, fy, '+1', '#02c076');
+      Juice.burst(fx, fy, {color:'#02c076', n:6, speed:140});
       if(score % 4 === 0 && level < 8){   // ramp speed, capped
         level += 1;
         stepMs = Math.max(60, 140 - level*10);
+        Juice.sfx('levelup');
+        Juice.achievement('加速 → '+(140/stepMs).toFixed(1)+'x');
       }
       if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
       spawnFood();
@@ -186,10 +193,15 @@
   function gameOver(){
     alive = false;
     if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
+    var rk = Juice.rank(score);
+    Juice.sfx('lose');
+    Juice.addTrauma(0.5);
+    Juice.flash('#f6465d', 0.35);
+    if(score > 0 && score >= best){ Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk); }
     updateHud();
     goScore.textContent = score;
     goBest.textContent = best;
-    goSub.textContent = (score>=best && score>0) ? 'NEW HIGH SCORE' : 'SESSION TERMINATED';
+    goSub.textContent = (score>=best && score>0) ? ('NEW HIGH SCORE · 段位 '+rk) : ('SESSION TERMINATED · 段位 '+rk);
     overlay.style.display = 'flex';
   }
 
@@ -197,6 +209,7 @@
     ctx.clearRect(0,0,cv.width,cv.height);
     ctx.fillStyle = '#0a0e14';
     ctx.fillRect(0,0,cv.width,cv.height);
+    Juice.begin(ctx);
 
     // grid lines
     ctx.strokeStyle = 'rgba(31,42,56,0.6)';
@@ -234,6 +247,9 @@
     }
     ctx.shadowBlur = 0;
 
+    Juice.mid(ctx);
+    Juice.end(ctx);
+
     if(paused && alive){
       ctx.fillStyle = 'rgba(10,14,20,0.7)';
       ctx.fillRect(0,0,cv.width,cv.height);
@@ -256,6 +272,8 @@
 
   function loop(t){
     raf = requestAnimationFrame(loop);
+    var dt = lastT ? Math.min(0.05,(t-lastT)/1000) : 0.016;
+    Juice.update(dt);
     readInput();
     if(!alive || paused){ lastT = t; draw(); if(typeof Input!=='undefined') Input.update(); return; }
     if(!lastT) lastT = t;

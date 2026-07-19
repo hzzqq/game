@@ -90,6 +90,7 @@
   </div>
 
 <script src="input.js"></script>
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -205,17 +206,23 @@
 
   function gameOver(){
     state = 'over';
-    if (Math.floor(distance) > best){
-      best = Math.floor(distance);
+    var dist = Math.floor(distance);
+    if (dist > best){
+      best = dist;
       try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){}
       hBest.textContent = best;
     }
     ovTitle.textContent = 'GAME OVER';
     ovTitle.style.color = 'var(--red)';
-    ovText.innerHTML = '本次里程 <b style="color:var(--gold)">' + Math.floor(distance) + '</b> M<br>' +
+    ovText.innerHTML = '本次里程 <b style="color:var(--gold)">' + dist + '</b> M<br>' +
                        '历史最佳 <b style="color:var(--red)">' + best + '</b> M<br><br>再来一局？';
     startBtn.textContent = '新局 (RESTART)';
     overlay.style.display = 'flex';
+    if (typeof Juice !== 'undefined'){
+      Juice.sfx('lose'); Juice.addTrauma(0.5); Juice.flash('#f6465d',0.4);
+      var b = Juice.best('racing', dist); var rk = Juice.rank(dist);
+      if (dist > 0 && b.isNew) Juice.achievement('🏆 新纪录 ' + dist + ' M！段位 ' + rk);
+    }
   }
 
   // ---- input ----
@@ -308,6 +315,11 @@
         hLives.textContent = lives;
         invuln = 1.4;
         shake = 14;
+        if (typeof Juice !== 'undefined'){
+          Juice.sfx('hit'); Juice.addTrauma(0.5); Juice.flash('#f6465d',0.25);
+          Juice.burst(player.x, player.y, { color:'#f6465d', n:14, speed:220 });
+          Juice.popup(player.x, player.y-30, '撞车!', '#f6465d', { size:18, big:true });
+        }
         // remove the offending car so it doesn't double-hit
         enemies.splice(i, 1);
         if (lives <= 0){
@@ -353,6 +365,7 @@
 
   function render(){
     ctx.clearRect(0, 0, W, H);
+    if (typeof Juice !== 'undefined') Juice.begin(ctx);
     ctx.save();
     if (shake > 0){
       var s = shake;
@@ -399,6 +412,7 @@
     }
 
     ctx.restore();
+    if (typeof Juice !== 'undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
   function updateHUD(){
@@ -408,7 +422,11 @@
   }
 
   // ---- loop ----
+  var prevFrameT = 0;
   function frame(now){
+    var dtJuice = prevFrameT ? Math.min(0.05, (now - prevFrameT) / 1000) : 0.016;
+    prevFrameT = now;
+    if (typeof Juice !== 'undefined') Juice.update(dtJuice);
     // 输入（共享输入层 input.js：失焦清键 + 快速点按缓冲）
     if (typeof Input !== 'undefined'){
       if (Input.pressed('left')) moveLane(-1);

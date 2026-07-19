@@ -125,6 +125,7 @@
   <div id="err"><div class="box"><h2>无法加载 PeerJS</h2><p>在线对战模式需要通过 CDN 加载 PeerJS 信令库，请确认网络连接后刷新。<br/>你仍可改用「本地双人」模式（纯离线）。</p></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="juice.js"></script>
   <script>
   (function(){
     // ============ 基础 ============
@@ -219,10 +220,11 @@
       }
     }
 
-    function fire(t, owner){
-      bullets.push({x:t.x+Math.cos(t.a)*(TANK_R+4), y:t.y+Math.sin(t.a)*(TANK_R+4),
-        vx:Math.cos(t.a)*BULLET_SPD, vy:Math.sin(t.a)*BULLET_SPD, owner});
-    }
+  function fire(t, owner){
+    bullets.push({x:t.x+Math.cos(t.a)*(TANK_R+4), y:t.y+Math.sin(t.a)*(TANK_R+4),
+      vx:Math.cos(t.a)*BULLET_SPD, vy:Math.sin(t.a)*BULLET_SPD, owner});
+    if(typeof Juice!=='undefined') Juice.sfx('shoot');
+  }
 
     function hitTank(b, t){ return Math.hypot(b.x-t.x, b.y-t.y) < TANK_R+BULLET_R; }
 
@@ -247,8 +249,8 @@
         b.x+=b.vx; b.y+=b.vy;
         if(b.x<0||b.x>W||b.y<0||b.y>H){ b.dead=true; continue; }
         for(const o of obstacles){ if(b.x>o.x&&b.x<o.x+o.w&&b.y>o.y&&b.y<o.y+o.h){ b.dead=true; } }
-        if(b.owner==='A'){ if(hitTank(b,tankB)){ tankB.hp-=DMG; b.dead=true; if(mode==='online'&&role==='host') sendState(); } }
-        else { if(hitTank(b,tankA)){ tankA.hp-=DMG; b.dead=true; if(mode==='online'&&role==='guest') sendState(); } }
+        if(b.owner==='A'){ if(hitTank(b,tankB)){ tankB.hp-=DMG; b.dead=true; if(mode==='online'&&role==='host') sendState(); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.3); Juice.burst(b.x,b.y,{color:'#02c076',n:10,speed:180}); } } }
+        else { if(hitTank(b,tankA)){ tankA.hp-=DMG; b.dead=true; if(mode==='online'&&role==='guest') sendState(); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.3); Juice.burst(b.x,b.y,{color:'#f6465d',n:10,speed:180}); } } }
       }
       bullets=bullets.filter(b=>!b.dead);
       if(mode==='online'){ myBullets=myBullets.filter(b=>!b.dead); remoteBullets=remoteBullets.filter(b=>!b.dead); }
@@ -257,15 +259,16 @@
     }
     let fireCd=0;
 
-    function endRound(winner){
-      if(over) return;
-      if(winner==='A') scoreA++; else scoreB++;
-      setStatus((winner==='A'?'红方 P1':'绿方 P2')+' 获胜本回合！');
-      over=true; setTimeout(()=>{
-        if(scoreA>=3||scoreB>=3){ setStatus((scoreA>scoreB?'红方 P1':'绿方 P2')+' 赢得比赛！点击返回大厅再战。'); return; }
-        resetPositions(); over=false; setStatus('');
-      }, 1600);
-    }
+  function endRound(winner){
+    if(over) return;
+    if(winner==='A') scoreA++; else scoreB++;
+    setStatus((winner==='A'?'红方 P1':'绿方 P2')+' 获胜本回合！');
+    if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.5); Juice.flash(winner==='A'?'#f6465d':'#02c076',0.25); }
+    over=true; setTimeout(()=>{
+      if(scoreA>=3||scoreB>=3){ setStatus((scoreA>scoreB?'红方 P1':'绿方 P2')+' 赢得比赛！点击返回大厅再战。'); if(typeof Juice!=='undefined'){ if(scoreA>scoreB){ Juice.sfx('win'); Juice.flash('#02c076',0.3); } else { Juice.sfx('lose'); Juice.flash('#f6465d',0.3); } Juice.addTrauma(0.7); } return; }
+      resetPositions(); over=false; setStatus('');
+    }, 1600);
+  }
     function resetPositions(){
       tankA.x=W*0.25;tankA.y=H*0.5;tankA.a=-Math.PI/2;tankA.hp=MAXHP;
       tankB.x=W*0.75;tankB.y=H*0.5;tankB.a=Math.PI/2;tankB.hp=MAXHP;
@@ -280,8 +283,9 @@
       ctx.fillStyle='#0a0e14'; ctx.fillRect(TANK_R-3,-3,TANK_R+6,6); // 炮管
       ctx.restore(); ctx.shadowBlur=0;
     }
-    function render(){
-      ctx.clearRect(0,0,W,H);
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
       // 网格底
       ctx.strokeStyle='rgba(31,42,56,.5)'; ctx.lineWidth=1;
       for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
@@ -302,15 +306,17 @@
       document.getElementById('hp2').style.width=Math.max(0,(mode==='online'&&remoteTank?remoteTank.hp:tankB.hp))+'%';
       document.getElementById('s1').textContent=scoreA;
       document.getElementById('s2').textContent=scoreB;
-    }
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
+  }
 
     // ============ 循环 ============
     let raf=null, last=0;
-    function loop(ts){
-      if(!running) return;
-      const dt=Math.min(40, ts-last)||16; last=ts;
-      if(!over) step(dt);
-      render();
+  function loop(ts){
+    if(!running) return;
+    const dt=Math.min(40, ts-last)||16; last=ts;
+    if(typeof Juice!=='undefined') Juice.update(dt/1000);
+    if(!over) step(dt);
+    render();
       if(mode==='online' && role==='host') sendState();
       raf=requestAnimationFrame(loop);
     }

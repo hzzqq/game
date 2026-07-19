@@ -279,6 +279,7 @@
   </div>
 
 <script src="input.js"></script>
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -489,6 +490,10 @@
       linesCleared += cleared;
       score += SCORE_TABLE[cleared] * level;
       level = Math.floor(linesCleared/10) + 1;
+      Juice.sfx(cleared>=4 ? 'win' : 'levelup');
+      Juice.addTrauma(0.15 + cleared*0.12);
+      Juice.popup(board.width/2, board.height/2-20, (cleared>=4?'TETRIS! ':'')+'+'+(SCORE_TABLE[cleared]*level), '#f0b90b', {size:22});
+      if(cleared>=4) Juice.achievement('⚡ TETRIS！一次消 4 行');
       if(level!==before){
         dropInterval = Math.max(80, 1000 - (level-1)*80);
       }
@@ -579,6 +584,7 @@
 
   function draw(){
     ctx.clearRect(0,0,board.width,board.height);
+    Juice.begin(ctx);
     drawGridLines();
 
     // 已落定方块
@@ -621,6 +627,8 @@
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     }
+    Juice.mid(ctx);
+    Juice.end(ctx);
   }
 
   function drawPreview(c, type){
@@ -666,6 +674,7 @@
     const dt = time - lastTime;
     lastTime = time;
     if (typeof Input !== 'undefined') applyInput(dt);
+    Juice.update(dt/1000);
     if(running && !paused && !gameOver){
       dropCounter += dt;
       if(dropCounter > dropInterval){
@@ -702,9 +711,15 @@
   function endGame(){
     gameOver = true;
     running = false;
+    Juice.sfx('lose');
+    Juice.addTrauma(0.6);
+    Juice.flash('#f6465d', 0.4);
+    const b = Juice.best('tetris', score);
+    const rk = Juice.rank(score);
+    if(b.isNew) Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk);
     overlayTitle.textContent = 'GAME OVER';
     overlayTitle.className = 'big red';
-    overlaySub.textContent = '按「重新开始」再来一局';
+    overlaySub.textContent = '按「重新开始」再来一局 · 段位 '+rk;
     overlay.classList.add('show');
   }
 

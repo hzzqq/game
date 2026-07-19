@@ -63,6 +63,7 @@ canvas{display:block;width:100%;height:auto;touch-action:none;image-rendering:pi
   </div>
   <div class="hint">A/D 或 ←/→ 移动 · J 拳 · K 腿 · L 必杀(耗气) · S/↓ 防御 · 三局两胜</div>
 </div>
+<script src="juice.js"></script>
 <script>
 (function(){
 "use strict";
@@ -114,6 +115,7 @@ function startAttack(f,type){
     f.meter-=A.cost; f.specialCd=A.cd;
   }
   f.attackType=type; f.attackTime=0; f.attacking=true; f.hasHit=false; f.state=type;
+  if(typeof Juice!=='undefined') Juice.sfx(type==='special'?'boom':(type==='kick'?'hit':'shoot'));
 }
 function doAttack(type){ if(phase==='fight') startAttack(player,type); }
 
@@ -191,6 +193,14 @@ function checkHits(att,def){
     if(!def.blocking){
       def.hitstunTime=A.hitstun; def.state='hitstun';
       def.attacking=false; def.attackType=null;
+      if(typeof Juice!=='undefined'){
+        Juice.sfx('hit'); Juice.addTrauma(0.25);
+        Juice.burst(def.x, def.y+def.h*0.4, {color: def.isPlayer?COL.red:COL.green, n:10, speed:180});
+        Juice.popup(def.x, def.y-6, '-'+Math.round(dmg), '#f6465d', {size:16, big:true});
+      }
+    } else if(typeof Juice!=='undefined'){
+      Juice.sfx('click');
+      Juice.burst(def.x, def.y+def.h*0.4, {color:COL.gold, n:6, speed:120});
     }
     att.meter=Math.min(100, att.meter+(def.blocking?0.5:1.5));
     att.flashTime=120; def.flashTime=120;
@@ -215,6 +225,11 @@ function checkRoundEnd(){
     if(isDraw){ roundWinnerText='DRAW'; }
     else if(ai.health<=0){ pWins++; roundWinnerText='ROUND WIN'; }
     else { aWins++; roundWinnerText='ROUND LOSS'; }
+    if(typeof Juice!=='undefined'){
+      if(isDraw){ Juice.sfx('lose'); }
+      else if(ai.health<=0){ Juice.sfx('win'); Juice.flash('#02c076',0.25); Juice.achievement('第'+round+'局 你赢了！'); }
+      else { Juice.sfx('lose'); Juice.addTrauma(0.4); Juice.flash('#f6465d',0.3); }
+    }
   }
 }
 function nextRound(){
@@ -307,18 +322,21 @@ function drawBanner(){
 }
 function draw(){
   ctx.fillStyle=COL.bg; ctx.fillRect(0,0,W,H);
+  if(typeof Juice!=='undefined') Juice.begin(ctx);
   drawGrid();
   ctx.strokeStyle=COL.border; ctx.lineWidth=2;
   ctx.beginPath(); ctx.moveTo(0,GROUND+10); ctx.lineTo(W,GROUND+10); ctx.stroke();
   drawFighter(player); drawFighter(ai);
   drawHUD();
   if(phase==='roundend') drawBanner();
+  if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
 }
 
 var last=performance.now();
 function loop(now){
   var realDt=now-last; last=now;
   if(realDt>50)realDt=50;
+  if(typeof Juice!=='undefined') Juice.update(realDt/1000);
   update(realDt);
   draw();
   requestAnimationFrame(loop);
@@ -329,6 +347,12 @@ function showOverlay(){
   var win=pWins>=2;
   document.getElementById('ovmsg').textContent = win?'你赢了 // YOU WIN':'你输了 // YOU LOSE';
   o.style.display='flex';
+  if(typeof Juice!=='undefined'){
+    Juice.sfx(win?'win':'lose');
+    if(win){ Juice.flash('#02c076',0.35); } else { Juice.addTrauma(0.5); Juice.flash('#f6465d',0.4); }
+    var b=Juice.best('fighting', pWins); var rk=Juice.rank(pWins);
+    if(win) Juice.achievement('🏆 你赢了！段位 '+rk);
+  }
 }
 function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
 function restart(){

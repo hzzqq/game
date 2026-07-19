@@ -104,6 +104,7 @@
     </div>
   </div>
 
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -244,7 +245,8 @@
       combo++;
       score += matches.length * 10 * combo;
       updateHUD();
-      if(combo >= 2){ comboEl.textContent = 'COMBO x' + combo + '!'; }
+      if(typeof Juice!=='undefined') Juice.sfx('pickup');
+      if(combo >= 2){ comboEl.textContent = 'COMBO x' + combo + '!'; if(typeof Juice!=='undefined') Juice.sfx('combo'); }
 
       matches.forEach(([r,c]) => cells[r][c].classList.add('clearing'));
       await delay(220);
@@ -280,6 +282,7 @@
     if(selected === null){
       selected = [r,c];
       setSel();
+      if(typeof Juice!=='undefined') Juice.sfx('click');
       return;
     }
     const sr = selected[0], sc = selected[1];
@@ -327,6 +330,7 @@
     finalScore.textContent = score;
     document.getElementById('finalMsg').textContent = '最终得分 // 已用 ' + START_MOVES + ' 步';
     overlay.style.display = 'flex';
+    if(typeof Juice!=='undefined'){ Juice.sfx('click'); const b=Juice.best('match3',score); Juice.rank(score); if(b.isNew) Juice.achievement('最佳分 '+score); }
   }
 
   function newGame(){

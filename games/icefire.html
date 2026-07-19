@@ -118,6 +118,7 @@
     <button class="act" id="ovBtn">下一关 ▸</button>
   </div></div>
 
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -243,6 +244,7 @@
   function die(c){
     c.x=c.startX; c.y=c.startY; c.vx=0; c.vy=0; c.onGround=false; c.atExit=false; c.upPrev=false; c.jumpBuf=0;
     flash=1;
+    if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.addTrauma(0.3); Juice.flash('#f6465d',0.3); }
   }
 
   function resolveX(c){
@@ -280,9 +282,11 @@
       for(let tx=left;tx<=right;tx++){
         if(ty<0||ty>=H||tx<0||tx>=W) continue;
         const code=grid[ty][tx];
-        if(code===4){ grid[ty][tx]=0; score+=10; updateHUD(); }
+        if(code===4){ grid[ty][tx]=0; score+=10; updateHUD();
+          if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(tx*T+T/2, ty*T, '+10', '#f0b90b', {size:14}); Juice.burst(tx*T+T/2, ty*T+T/2, {color:'#f0b90b',n:6,speed:140}); }
+        }
         else if(code===5){ c.atExit=true; }
-        else if(code===6){ doorOpen=true; }
+        else if(code===6){ doorOpen=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.achievement('机关启动 · 门已开'); } }
         else if(code===2 && c.type==='ice'){ die(c); return; }
         else if(code===3 && c.type==='fire'){ die(c); return; }
         else if(code===8 && c.type==='ice'){ die(c); return; }
@@ -315,9 +319,11 @@
   function completeLevel(){
     if(currentLevel<LEVELS.length-1){
       state='clear';
+      if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076',0.25); Juice.achievement('第 '+(currentLevel+1)+' 关通过！'); }
       showOverlay('关卡完成', 'LEVEL '+(currentLevel+1)+' CLEARED · 当前积分 '+score, '下一关 ▸');
     } else {
       state='win';
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',0.4); const b=Juice.best('icefire',score); const rk=Juice.rank(score); Juice.achievement('🏆 全部通关！积分 '+score+' · 段位 '+rk); }
       showOverlay('全部通关', 'YOU WIN · 总积分 '+score, '再玩一次');
     }
   }
@@ -414,6 +420,7 @@
   function render(){
     ctx.clearRect(0,0,CW,CH);
     ctx.fillStyle='#0a0e14'; ctx.fillRect(0,0,CW,CH);
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
     ctx.strokeStyle='rgba(31,42,56,0.5)'; ctx.lineWidth=1;
     for(let x=0;x<=W;x++){ ctx.beginPath(); ctx.moveTo(x*T,0); ctx.lineTo(x*T,H*T); ctx.stroke(); }
     for(let y=0;y<=H;y++){ ctx.beginPath(); ctx.moveTo(0,y*T); ctx.lineTo(W*T,y*T); ctx.stroke(); }
@@ -421,6 +428,7 @@
     drawChar(ice); drawChar(fire);
     if(flash>0.01){ ctx.fillStyle='rgba(246,70,93,'+(flash*0.35)+')'; ctx.fillRect(0,0,CW,CH); flash*=0.9; }
     else flash=0;
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
   /* ---------- input ---------- */
@@ -463,8 +471,10 @@
   /* ---------- main loop ---------- */
   let last=performance.now(), acc=0;
   function loop(now){
+    const fdt=(now-last)/1000 || 0.016;
     acc+=now-last; last=now;
     if(acc>200) acc=200;
+    if(typeof Juice!=='undefined') Juice.update(fdt);
     while(acc>=STEP){ step(); acc-=STEP; }
     render();
     requestAnimationFrame(loop);

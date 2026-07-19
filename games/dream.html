@@ -133,6 +133,7 @@
     </div>
   </div>
 
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -252,6 +253,7 @@
       hero.attackTimer = ATTACK_TIME;
       hero.attackCd = ATTACK_CD;
       hero.swingId++;
+      if(typeof Juice!=='undefined') Juice.sfx('shoot');
     }
   }
   function trySkill(){
@@ -263,6 +265,7 @@
       projectiles.push({ x:px, y:hero.y + 16, vx:hero.facing * 640, vy:0,
         r:9, dmg:SKILL_DMG, owner:'hero', color:'#f0b90b', life:2.2 });
       spawnParticles(px, hero.y + 16, 6, '#f0b90b');
+      if(typeof Juice!=='undefined') Juice.sfx('shoot');
     }
   }
 
@@ -326,6 +329,7 @@
     hero.vx = dir * 240;
     hero.vy = -260;
     spawnParticles(hero.x + hero.w/2, hero.y + hero.h/2, 8, '#f6465d');
+    if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.4); Juice.flash('#f6465d',0.25); }
     if(hero.hp <= 0){ hero.hp = 0; gameOver(); }
   }
 
@@ -334,10 +338,16 @@
     en.flash = 0.18;
     en.hx = knockDir * 130;
     spawnParticles(en.x + en.w/2, en.y + en.h/2, 7, '#f0b90b');
+    if(typeof Juice!=='undefined') Juice.sfx('hit');
     if(en.hp <= 0 && !en.dead){
       en.dead = true;
       score += en.score;
       spawnParticles(en.x + en.w/2, en.y + en.h/2, 14, '#02c076');
+      if(typeof Juice!=='undefined'){
+        Juice.sfx('boom'); Juice.addTrauma(0.18);
+        Juice.burst(en.x + en.w/2, en.y + en.h/2, { color:'#02c076', n:12, speed:200 });
+        Juice.popup(en.x + en.w/2, en.y - 6, '+'+en.score, '#02c076', { size:14 });
+      }
     }
   }
 
@@ -345,16 +355,21 @@
     boss.hp -= amount;
     boss.flash = 0.16;
     spawnParticles(boss.x + boss.w/2, boss.y + boss.h/2, 10, '#f0b90b');
+    if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.burst(boss.x + boss.w/2, boss.y + boss.h/2, { color:'#f0b90b', n:6, speed:140 }); }
     if(boss.hp <= 0){ boss.hp = 0; win(); }
   }
 
   function gameOver(){
     state = 'over';
+    if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.addTrauma(0.6); Juice.flash('#f6465d',0.45); }
     showOverlay('征战失败', '英雄陨落于妖魔之手。分数 ' + score, '重新 征战');
+    if(typeof Juice!=='undefined'){ var b=Juice.best('dream',score); var rk=Juice.rank(score); if(score>0 && b.isNew) Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk); }
   }
   function win(){
     state = 'win';
+    if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',0.4); }
     showOverlay('★ 关卡通关 ★', '牛魔王已被斩杀！最终分数 ' + score, '再来一局');
+    if(typeof Juice!=='undefined'){ var b=Juice.best('dream',score); var rk=Juice.rank(score); Juice.achievement('🏆 通关！分数 '+score+' · 段位 '+rk); }
   }
   function showOverlay(title, msg, btn){
     var ov = document.getElementById('overlay');
@@ -554,6 +569,7 @@
 
     drawBackground();
     if(state === 'menu') return;
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
 
     var gy = groundY();
     // 地面
@@ -591,6 +607,7 @@
       ctx.fillRect(pt.x - pt.size/2, pt.y - pt.size/2, pt.size, pt.size);
     }
     ctx.globalAlpha = 1;
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
   function drawBackground(){
@@ -715,6 +732,7 @@
     var dt = (t - lastT) / 1000;
     lastT = t;
     if(dt > 0.05) dt = 0.05; // 防跳帧卡顿
+    if(typeof Juice!=='undefined') Juice.update(dt);
     if(state === 'play') update(dt);
     draw();
     requestAnimationFrame(loop);

@@ -100,6 +100,7 @@
   </div>
 
 <script src="input.js"></script>
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -302,12 +303,16 @@
         if (d.type === 'power'){
           score += 50;
           frightTimer = 7 * 60; // ~7s at 60fps
+          Juice.sfx('pickup');
+          Juice.burst(d.c*TILE+TILE/2, d.r*TILE+TILE/2, {color:'#f0b90b', n:10, speed:160});
+          Juice.popup(d.c*TILE+TILE/2, d.r*TILE+TILE/2-6, '能量!', '#f0b90b');
           for (var k=0; k<ghosts.length; k++){
             ghosts[k].frightened = true;
             ghosts[k].eaten = false;
           }
         } else {
           score += 10;
+          Juice.popup(d.c*TILE+TILE/2, d.r*TILE+TILE/2-6, '+10', '#6b7785', {size:13});
         }
       }
     }
@@ -384,10 +389,17 @@
           g.eatTimer = 60; // respawn after ~1s
           score += 200;
           updateHUD();
+          Juice.sfx('boom');
+          Juice.addTrauma(0.3);
+          Juice.burst(g.x, g.y, {color:g.color, n:14, speed:200});
+          Juice.popup(g.x, g.y-10, '+200', '#f0b90b', {size:16});
         } else {
           // pac dies
           lives--;
           updateHUD();
+          Juice.sfx('hit');
+          Juice.addTrauma(0.5);
+          Juice.flash('#f6465d', 0.35);
           if (lives <= 0){ loseGame(); }
           else { resetPositions(); }
           return;
@@ -407,14 +419,19 @@
   }
   function showOverlay(isWin){
     overlay.style.display = 'flex';
+    Juice.sfx(isWin ? 'win' : 'lose');
+    var rk = Juice.rank(score);
+    var b = Juice.best('pacman', score);
     if (isWin){
       goTitle.textContent = 'YOU WIN';
       goTitle.className = 'win';
-      goSub.textContent = 'ALL DOTS CONSUMED';
+      goSub.textContent = 'ALL DOTS CONSUMED · 段位 '+rk;
+      if(b.isNew) Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk);
     } else {
       goTitle.textContent = 'GAME OVER';
       goTitle.className = 'lose';
-      goSub.textContent = 'SESSION TERMINATED';
+      goSub.textContent = 'SESSION TERMINATED · 段位 '+rk;
+      if(b.isNew) Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk);
     }
     goScore.textContent = score;
     goDots.textContent = Math.max(0, dotsLeft);
@@ -429,6 +446,7 @@
   // ---------- drawing ----------
   function draw(){
     ctx.clearRect(0,0,cv.width,cv.height);
+    Juice.begin(ctx);
     // walls
     for (var r=0; r<ROWS; r++){
       for (var c=0; c<COLS; c++){
@@ -457,6 +475,8 @@
     }
     drawPac();
     for (var k=0; k<ghosts.length; k++) drawGhost(ghosts[k]);
+    Juice.mid(ctx);
+    Juice.end(ctx);
   }
 
   function drawPac(){
@@ -513,6 +533,7 @@
 
   // ---------- loop ----------
   function loop(){
+    Juice.update(0.016);
     if (typeof Input !== 'undefined') readInput();
     if (running && !paused){
       var pt = tileOf(pac);

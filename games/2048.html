@@ -253,6 +253,7 @@
     <div class="hint">方向键 / WASD 移动 · 相同数字合并 · 目标 2048</div>
   </div>
 
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -472,6 +473,7 @@
           nextTile.justMerged = true;
           nextTile.mergedThisMove = true;
           score += nextTile.value;
+          if (typeof Juice !== 'undefined') Juice.sfx('pickup');
           if (nextTile.value === 2048) won = true;
           mergedAway.push(tile);
           moved = true;
@@ -487,6 +489,7 @@
     });
 
     if (moved) {
+      if (typeof Juice !== 'undefined') Juice.sfx('click');
       addRandomTile();
       render();
       updateScore();
@@ -533,12 +536,14 @@
   function hideOverlay() { overlay.classList.remove("show"); }
 
   function triggerWin() {
+    if (typeof Juice !== 'undefined') { Juice.sfx('win'); Juice.achievement('达成 2048！'); const b = Juice.best('2048', score); Juice.rank(score); if (b.isNew) Juice.achievement('新纪录 ' + score + '！'); }
     showOverlay("你赢了！", "已合成 2048 · 可继续挑战更高分", [
       { label: "继续", onClick: () => { keepPlaying = true; hideOverlay(); } },
       { label: "重新开始", primary: true, onClick: () => newGame() }
     ]);
   }
   function triggerOver() {
+    if (typeof Juice !== 'undefined') { Juice.sfx('lose'); const b = Juice.best('2048', score); Juice.rank(score); if (b.isNew) Juice.achievement('最佳分 ' + score); }
     showOverlay("游戏结束", "无可行移动 · 最终分数 " + score, [
       { label: "重新开始", primary: true, onClick: () => newGame() }
     ]);

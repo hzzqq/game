@@ -71,6 +71,7 @@
     <button class="act" id="ovBtn">再来一局</button>
   </div></div>
 
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -123,6 +124,7 @@
   function draw(){
     const S = cssSize;
     ctx.clearRect(0,0,S,S);
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
     // 网格
     ctx.strokeStyle = '#22303f';
     ctx.lineWidth = 1;
@@ -155,6 +157,7 @@
       ctx.lineTo(MARGIN + b[1]*STEP, MARGIN + b[0]*STEP);
       ctx.stroke();
     }
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
   function drawStone(r,c,color){
@@ -191,6 +194,7 @@
   function doMove(r,c,who){
     board[idx(r,c)] = who;
     history.push({r,c,who});
+    if(typeof Juice!=='undefined'){ Juice.sfx('click'); const sx=MARGIN+c*STEP, sy=MARGIN+r*STEP; Juice.burst(sx,sy,{color:who===P?RED:GREEN,n:6,speed:120}); }
     const line = checkWin(r,c,who);
     if(line){
       gameOver = true;
@@ -319,6 +323,11 @@
     document.getElementById('ovTitle').textContent = title;
     document.getElementById('ovTitle').style.color = (title.indexOf('你赢')>=0) ? GREEN : (title.indexOf('平')>=0 ? '#f0b90b' : RED);
     document.getElementById('ovText').textContent = text;
+    if(typeof Juice!=='undefined'){
+      if(title.indexOf('你赢')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('gomoku',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
+      else if(title.indexOf('平')>=0){ Juice.sfx('click'); }
+      else { Juice.sfx('lose'); Juice.flash(RED,0.3); Juice.addTrauma(0.5); }
+    }
     ov.style.display = 'flex';
   }
   function hideOverlay(){ document.getElementById('overlay').style.display = 'none'; }
@@ -341,6 +350,16 @@
 
   reset();
   fit();
+
+  // 持续驱动 juice 特效（落子/胜利后的粒子与震屏需要逐帧更新）
+  let _gLast = 0;
+  function fxLoop(ts){
+    const dt = Math.min(0.05, (ts - (_gLast||ts))/1000); _gLast = ts;
+    if(typeof Juice!=='undefined') Juice.update(dt);
+    draw();
+    requestAnimationFrame(fxLoop);
+  }
+  requestAnimationFrame(fxLoop);
 
   // 测试钩子（不影响正常玩法）
   window.__t = {

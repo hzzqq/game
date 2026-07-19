@@ -148,6 +148,7 @@
     </div>
   </div>
 
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -282,6 +283,7 @@
     };
     state.towers.push(tower);
     occupied.add(c + ',' + r);
+    if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.popup(t.x, t.y-18, '建塔', t.color, {size:13}); }
     updateStats();
   }
   function selectTower(t){
@@ -332,6 +334,7 @@
     state.spawnQueue = buildQueue(WAVES[state.waveIndex]);
     state.waveActive = true;
     state.waveTime = 0;
+    if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.popup(W/2, H/2-40, 'WAVE '+(state.waveIndex+1), '#f0b90b', {size:22, big:true}); }
     updateStartBtn();
   }
   function spawnEnemy(type){
@@ -371,6 +374,7 @@
       state.coins += e.reward;
       state.score += e.reward;
       beep(300, 0.05, 'square', 0.03);
+      if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.burst(e.x, e.y, {color:e.color, n:10, speed:180}); Juice.popup(e.x, e.y-10, '+'+e.reward, '#f0b90b', {size:13}); }
       updateStats();
     }
   }
@@ -421,6 +425,7 @@
         e.reached = true;
         state.lives--;
         updateStats();
+        if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.addTrauma(0.35); Juice.flash('#f6465d',0.3); }
         if(state.lives <= 0){ state.gameOver = true; showOverlay('LOSE'); }
       }
     }
@@ -468,6 +473,7 @@
   let hoverX = -1, hoverY = -1;
   function render(){
     ctx.clearRect(0, 0, W, H);
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
     // 背景网格
     ctx.strokeStyle = '#111824';
     ctx.lineWidth = 1;
@@ -541,6 +547,7 @@
       }
       ctx.globalAlpha = 1;
     }
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
   function drawCarrot(){
@@ -658,6 +665,12 @@
       msg.innerHTML = '萝卜被吃光了…<br/>坚持到第 ' + Math.min(state.waveIndex + 1, WAVES.length) + ' 波 · 得分 ' + state.score;
     }
     ov.classList.remove('hidden');
+    if(typeof Juice!=='undefined'){
+      const b = Juice.best('carrot', state.score); const rk = Juice.rank(state.score);
+      if(kind === 'WIN'){ Juice.sfx('win'); Juice.flash('#02c076',0.4); Juice.achievement('🏆 通关！得分 '+state.score+' · 段位 '+rk); }
+      else { Juice.sfx('lose'); Juice.addTrauma(0.5); Juice.flash('#f6465d',0.4); Juice.achievement('得分 '+state.score+' · 段位 '+rk); }
+      if(b.isNew && state.score>0) Juice.achievement('🏆 新纪录 '+state.score+'！段位 '+rk);
+    }
   }
   function hideOverlay(){ document.getElementById('overlay').classList.add('hidden'); }
 
@@ -733,6 +746,7 @@
     let dt = (now - lastTime) / 1000;
     lastTime = now;
     if(dt > 0.05) dt = 0.05;
+    if(typeof Juice!=='undefined') Juice.update(dt);
     if(state.running && !state.gameOver && !state.won) update(dt);
     render();
     refreshTowerInfoBtn();

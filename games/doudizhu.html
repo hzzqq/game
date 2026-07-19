@@ -132,6 +132,7 @@
     <button class="btn red" id="ovBtn">再来一局</button>
   </div></div>
 
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -514,6 +515,7 @@
     hands[idx]=hands[idx].filter(c=>!cards.includes(c));
     lastPlay={owner:idx, combo:combo, cards:cards};
     trickPlay[idx]=cards;
+    if(typeof Juice!=='undefined' && (combo.type==='bomb'||combo.type==='rocket')) Juice.sfx('boom');
     passes=0;
     selection.clear(); hintList=[]; hintIdx=-1;
     if(hands[idx].length===0){ endGame(idx); return; }
@@ -527,6 +529,7 @@
     const combo=getCombo(sel);
     if(!combo){ toast('不是合法牌型'); return; }
     if(lastPlay && !beatsCombo(combo, lastPlay.combo)){ toast('打不过上家，请重选或不出'); return; }
+    if(typeof Juice!=='undefined') Juice.sfx('click');
     doPlay(0, sel, combo);
   }
 
@@ -581,6 +584,11 @@
     $('ovTitle').style.color = landlordWon ? 'var(--red)' : 'var(--green)';
     $('ovText').textContent = sub;
     $('overlay').style.display='flex';
+    if(typeof Juice!=='undefined'){
+      const humanWin = (landlordIndex===0) ? landlordWon : !landlordWon;
+      if(humanWin){ Juice.sfx('win'); Juice.best('doudizhu',1); Juice.rank(1); Juice.achievement('斗地主胜利！'); }
+      else { Juice.sfx('lose'); Juice.best('doudizhu',1); Juice.rank(1); }
+    }
     render();
   }
 

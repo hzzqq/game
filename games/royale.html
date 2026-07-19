@@ -133,6 +133,7 @@
     </div>
   </div>
 
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -237,8 +238,8 @@
   }
   function deploy(side, key, x, y){
     const c = CARDS[key];
-    if(c.kind==='spell'){ castSpell(key, x, y, side); }
-    else { spawnUnit(key, x, y, side); beep(520, 0.05, 'triangle', 0.04); }
+    if(c.kind==='spell'){ castSpell(key, x, y, side); if(typeof Juice!=='undefined') Juice.sfx('boom'); }
+    else { spawnUnit(key, x, y, side); beep(520, 0.05, 'triangle', 0.04); if(typeof Juice!=='undefined'){ Juice.sfx('shoot'); Juice.popup(x, y, '部署', '#f6465d', {size:13}); } }
   }
 
   function damage(ent, dmg){
@@ -248,8 +249,10 @@
       if(ent.w){ // 塔被摧毁
         state.effects.push({type:'boom', x:ent.x, y:ent.y, age:0, life:0.5, r:Math.max(ent.w,ent.h)});
         beep(140, 0.25, 'square', 0.05);
+        if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.4); Juice.burst(ent.x, ent.y, {color:'#f0b90b', n:18, speed:200}); }
       } else {
         state.effects.push({type:'boom', x:ent.x, y:ent.y, age:0, life:0.3, r:ent.r*2});
+        if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.burst(ent.x, ent.y, {color:ent.color||'#e6edf3', n:12, speed:180}); }
       }
     }
   }
@@ -400,6 +403,7 @@
   // ---------- 渲染 ----------
   function render(){
     ctx.clearRect(0,0,W,H);
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
     // 背景网格
     ctx.strokeStyle = '#101824'; ctx.lineWidth = 1;
     for(let x=0;x<=W;x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
@@ -424,6 +428,7 @@
 
     // HUD 数字（canvas 上不需要 DOM 同步，DOM 单独更新）
     syncHud();
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
   function drawTower(t){
     const col = t.side==='me'? '#f6465d' : '#02c076';
@@ -533,12 +538,15 @@
     if(kind==='win'){
       title.textContent = '胜利 WIN'; title.className='ov-title win';
       msg.innerHTML = '敌方国王塔已摧毁！<br/>剩余己方塔 ' + aliveTowers('me').length + ' / 3';
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',0.28); Juice.addTrauma(0.6); const b=Juice.best('royale',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
     } else if(kind==='draw'){
       title.textContent = '平局 DRAW'; title.className='ov-title win';
       msg.innerHTML = '时间到 · 双方塔数相同！<br/>剩余己方塔 ' + aliveTowers('me').length + ' / 3';
+      if(typeof Juice!=='undefined') Juice.sfx('click');
     } else {
       title.textContent = '失败 LOSE'; title.className='ov-title lose';
       msg.innerHTML = '己方国王塔失守…<br/>剩余敌方塔 ' + aliveTowers('ai').length + ' / 3';
+      if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.flash('#f6465d',0.3); Juice.addTrauma(0.6); }
     }
     ov.classList.remove('hidden');
   }
@@ -567,6 +575,7 @@
   function loop(now){
     let dt = (now-lastTime)/1000; lastTime=now;
     if(dt>0.05) dt=0.05;
+    if(typeof Juice!=='undefined') Juice.update(dt);
     if(!state.over) update(dt);
     render();
     requestAnimationFrame(loop);

@@ -245,6 +245,7 @@
     <div class="footer">D F J K 对应四条轨道 · 触屏可点按对应轨道 · 音符到判定线时按键/点按 · 点开始解锁音频</div>
   </div>
 
+<script src="juice.js"></script>
 <script>
 "use strict";
 
@@ -534,6 +535,13 @@ function finish(){
   const col = rating==='S' ? '#f0b90b' : rating==='A' ? '#02c076' : rating==='B' ? '#e6edf3' : '#f6465d';
   document.getElementById('resRating').style.color = col;
   resultOverlay.classList.add('show');
+  if(typeof Juice!=='undefined'){
+    const b = Juice.best('rhythm', G.score); const rk = Juice.rank(G.score);
+    if(rating === 'S' || rating === 'A'){ Juice.sfx('win'); Juice.flash('#02c076',0.3); }
+    else { Juice.sfx('levelup'); }
+    const tag = (b.isNew && G.score>0) ? '🏆 新纪录 ' : '';
+    Juice.achievement(tag + '评级 '+rating+' · 分数 '+G.score.toLocaleString()+' · 段位 '+rk);
+  }
 }
 
 function hideResult(){ resultOverlay.classList.remove('show'); }
@@ -558,6 +566,7 @@ function judge(note, result){
   if(result === 'miss'){
     G.combo = 0; G.miss++;
     setJudgeText('MISS', '#6b7785');
+    if(typeof Juice!=='undefined'){ Juice.sfx('error'); }
   } else {
     G.combo++;
     if(G.combo > G.maxCombo) G.maxCombo = G.combo;
@@ -565,10 +574,12 @@ function judge(note, result){
       G.perfect++;
       G.score += 300 + G.combo * 3;
       setJudgeText('PERFECT', '#f0b90b');
+      if(typeof Juice!=='undefined'){ Juice.sfx('combo'); const lx=note.lane*LANE_W+LANE_W/2; Juice.burst(lx, JUDGE_Y, {color:'#f0b90b', n:8, speed:160}); }
     } else {
       G.good++;
       G.score += 100 + G.combo * 1;
       setJudgeText('GOOD', '#02c076');
+      if(typeof Juice!=='undefined'){ Juice.sfx('click'); const lx=note.lane*LANE_W+LANE_W/2; Juice.burst(lx, JUDGE_Y, {color:'#02c076', n:6, speed:140}); }
     }
     G.comboPopTime = now;
   }
@@ -624,6 +635,7 @@ function roundRect(x,y,w,h,r){
 
 function draw(now){
   ctx.clearRect(0,0,W,H);
+  if(typeof Juice!=='undefined') Juice.begin(ctx);
 
   // 轨道背景
   for(let i=0;i<4;i++){
@@ -712,10 +724,16 @@ function draw(now){
     ctx.restore();
     ctx.globalAlpha = 1;
   }
+  if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
 }
 
 /* ============== 主循环 ============== */
+let lastPerf = 0;
 function loop(){
+  const pnow = performance.now();
+  const dt = lastPerf ? Math.min(0.05, (pnow - lastPerf)/1000) : 0.016;
+  lastPerf = pnow;
+  if(typeof Juice!=='undefined') Juice.update(dt);
   const now = audioCtx ? audioCtx.currentTime : 0;
   if(G.playing) update(now);
   draw(now);

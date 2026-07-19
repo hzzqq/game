@@ -72,6 +72,7 @@
   </div>
 
 <script src="input.js"></script>
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -113,6 +114,7 @@
   // ---- game state ----
   var state = 'menu';        // menu | play | over
   var best = 0;
+  var milestone = 0;
   try { best = parseInt(localStorage.getItem('parkour_best')||'0',10) || 0; } catch(e){ best = 0; }
   bestEl.textContent = best;
 
@@ -134,6 +136,7 @@
     farScroll = 0;
     acc = 0;
     lastTime = 0;
+    milestone = 100;
   }
 
   var GRAV = 0.62;
@@ -144,6 +147,7 @@
       runner.vy = -11.2;
       runner.onGround = false;
       runner.jumps++;
+      if (typeof Juice !== 'undefined') Juice.sfx('shoot');
       spawnParticles(runner.x + runner.w/2, GROUND_Y, 6, false);
     }
   }
@@ -219,6 +223,11 @@
     farScroll += speed * 0.12;
     distance += speed * 0.1;
 
+    if (typeof Juice !== 'undefined' && distance >= milestone){
+      Juice.popup(runner.x, runner.y - runner.h - 22, milestone + 'm', '#f0b90b', { size:15 });
+      milestone += 100;
+    }
+
     // runner physics
     runner.vy += GRAV;
     runner.y += runner.vy;
@@ -262,6 +271,7 @@
 
   function draw(){
     ctx.clearRect(0,0,W,H);
+    if (typeof Juice !== 'undefined') Juice.begin(ctx);
     // background gradient
     var g = ctx.createLinearGradient(0,0,0,H);
     g.addColorStop(0,'#0b1019');
@@ -344,6 +354,7 @@
     ctx.fillStyle = 'rgba(107,119,133,0.6)';
     ctx.font = '12px monospace';
     ctx.fillText('AUTO-RUN', 16, GROUND_Y - 60);
+    if (typeof Juice !== 'undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
   function drawRunner(){
@@ -371,7 +382,11 @@
     ctx.fillRect(rx+rw-7, ry+5, 3, 3);
   }
 
+  var loopPrevT = 0;
   function loop(ts){
+    var fdt = loopPrevT ? Math.min(0.05, (ts - loopPrevT)/1000) : 0.016;
+    loopPrevT = ts;
+    if (typeof Juice !== 'undefined') Juice.update(fdt);
     // 输入（共享输入层 input.js：失焦清键 + 快速点按缓冲，修复断触）
     if (typeof Input !== 'undefined'){
       if (Input.pressed('a') || Input.pressed('up')) onAction();
@@ -401,6 +416,9 @@
   function gameOver(){
     state = 'over';
     spawnParticles(runner.x + runner.w/2, runner.y - runner.h/2, 22, true);
+    if (typeof Juice !== 'undefined'){
+      Juice.sfx('lose'); Juice.addTrauma(0.6); Juice.flash('#f6465d',0.4);
+    }
     // ensure particles drawn once
     draw();
     var d = Math.floor(distance);
@@ -417,6 +435,10 @@
       '<br>最佳 '+best+'<br>再来一局？';
     startBtn.textContent = '新局 / RETRY';
     overlay.style.display = 'flex';
+    if (typeof Juice !== 'undefined'){
+      var rk = Juice.rank(d);
+      if (d > 0 && nb) Juice.achievement('🏆 新纪录 '+d+'！段位 '+rk);
+    }
   }
 
   // ---- input ----

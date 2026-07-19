@@ -282,6 +282,7 @@ function doPong(p, tile, discarder){
   currentPlayer=p; drawnTile=null; selected=null; claimPhase=false; pendingDiscard=null;
   render();
   if(p===0){
+    if(typeof Juice!=='undefined') Juice.sfx('hit');
     msg('你碰了 — 请出牌');
   }else{
     setTimeout(function(){
@@ -302,12 +303,17 @@ function winGame(p, type){
   const human = (p===0);
   showOverlay((human?'你赢了':'玩家'+(p+1)+' 胜'), type==='自摸' ? '自摸 (self-draw)' : '点炮胡 (ron)');
   msg((human?'你胡了 ('+type+')':'玩家'+(p+1)+' 胡 ('+type+')'));
+  if(typeof Juice!=='undefined'){
+    if(human){ Juice.sfx('win'); Juice.best('mahjong',1); Juice.rank(1); Juice.achievement('胡牌！'); }
+    else { Juice.sfx('lose'); Juice.best('mahjong',1); Juice.rank(1); }
+  }
   render();
 }
 function drawGame(){
   over=true;
   showOverlay('流局 DRAW', '牌墙已空');
   msg('牌墙耗尽 — 流局');
+  if(typeof Juice!=='undefined') Juice.sfx('click');
   render();
 }
 
@@ -320,6 +326,7 @@ function humanDiscard(){
   removeTile(hands[0], t);
   drawnTile=null; selected=null; humanSelfWin=false;
   discards.push(t);
+  if(typeof Juice!=='undefined') Juice.sfx('click');
   render();
   resolveDiscard(t, 0);
 }

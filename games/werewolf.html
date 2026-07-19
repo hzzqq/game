@@ -158,6 +158,7 @@
 </div>
 
 <script src="input.js"></script>
+<script src="juice.js"></script>
 <script>
 (function(){
   'use strict';
@@ -354,6 +355,7 @@
     if(!p.alive) return;
     p.alive=false; p.cause=cause; p.revealed=true;
     log('☠ #'+p.seat+' '+p.name+' 出局（'+causeText(cause)+'）。', cause==='wolf'||cause==='poison'?'wolf':'good');
+    if(typeof Juice!=='undefined') Juice.sfx('hit');
     if(p.role==='hunter' && cause!=='poison' && G.hunterGun){
       G.hunterNeedsShoot = id;
     }
@@ -383,6 +385,10 @@
       '<button class="btn primary" id="ov-restart">重新开始</button>';
     $('overlay').classList.remove('hidden');
     $('ov-restart').onclick = function(){ $('overlay').classList.add('hidden'); newGame(); showReveal(); };
+    if(typeof Juice!=='undefined'){
+      if(win){ Juice.sfx('win'); Juice.best('werewolf',1); Juice.rank(1); Juice.achievement('阵营胜利！'); }
+      else { Juice.sfx('lose'); Juice.best('werewolf',1); Juice.rank(1); }
+    }
   }
 
   // ---------- 夜晚 ----------

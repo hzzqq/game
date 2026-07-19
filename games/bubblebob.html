@@ -118,6 +118,7 @@
       <div class="foot">WORKBUDDY · 软件工程实训 · 暗色金融终端风</div>
     </div>
   </div>
+<script src="juice.js"></script>
 <script>
 (function(){
 "use strict";
@@ -264,6 +265,8 @@ function placeBomb(p){
   if(bombAt(p.gx,p.gy)) return false;
   bombs.push({gx:p.gx, gy:p.gy, t:BOMB_FUSE, range:p.range, owner:p.id, exploded:false, passOwner:p.id});
   p.bombsActive++;
+  Juice.sfx('click');
+  Juice.popup(p.px, p.py-18, '💣', '#f0b90b', {size:18});
   return true;
 }
 
@@ -298,6 +301,12 @@ function explodeBomb(bomb){
   bombs=bombs.filter(b=>b!==bomb);
   const owner=players.find(p=>p.id===bomb.owner);
   if(owner) owner.bombsActive=Math.max(0,owner.bombsActive-1);
+  // 爆炸反馈（手感）
+  const cx=bomb.gx*TILE+TILE/2, cy=bomb.gy*TILE+TILE/2;
+  Juice.sfx('boom');
+  Juice.addTrauma(0.3);
+  Juice.burst(cx,cy,{color:'#f0b90b',n:14,speed:240});
+  for(const c of cells) Juice.burst(c.x*TILE+TILE/2, c.y*TILE+TILE/2, {color:'#f6465d',n:3,speed:120,life:0.3});
 }
 
 // ===================== 输入意图 =====================
@@ -487,7 +496,12 @@ function update(dt){
   for(const p of players){
     if(!p.alive) continue;
     const gx=Math.floor(p.px/TILE), gy=Math.floor(p.py/TILE);
-    if(explosionAt(gx,gy)){ p.alive=false; }
+    if(explosionAt(gx,gy)){
+      p.alive=false;
+      Juice.sfx('hit'); Juice.addTrauma(0.4);
+      Juice.burst(p.px,p.py,{color:p.color,n:16,speed:200});
+      Juice.popup(p.px,p.py-16,'💥','#f6465d',{size:18});
+    }
   }
   // 道具拾取（同一格可能有多个道具，全部拾取）
   for(const p of players){
@@ -501,6 +515,8 @@ function update(dt){
         else if(pu.type==='S') p.speed=Math.min(6.5,p.speed+0.5);
       }
       powerups=powerups.filter(pu=>!(pu.gx===gx && pu.gy===gy));
+      Juice.sfx('pickup');
+      Juice.popup(gx*TILE+TILE/2, gy*TILE+TILE/2-10, '+'+here[0].type, '#3aa0ff', {size:14});
     }
   }
   // 胜负
@@ -518,6 +534,7 @@ function update(dt){
 // ===================== 渲染 =====================
 function draw(){
   if(!ctx) return;
+  Juice.begin(ctx);
   ctx.clearRect(0,0,W,H);
   // 地板
   ctx.fillStyle='#0b1018'; ctx.fillRect(0,0,W,H);
@@ -565,6 +582,7 @@ function draw(){
     let ex=0,ey=0; if(p.dir){ex=p.dir.x*4;ey=p.dir.y*4;}
     ctx.beginPath(); ctx.arc(cx-6+ex,cy-4+ey,3,0,7); ctx.arc(cx+6+ex,cy-4+ey,3,0,7); ctx.fill();
   }
+  Juice.mid(ctx); Juice.end(ctx);
 }
 
 // ===================== HUD / 覆盖层 =====================
@@ -593,6 +611,24 @@ function showRoundOver(){
     m.textContent = lastWinner? `🏆 ${lastWinner.name} 获胜！` : '同归于尽，平局。';
     m.style.color = lastWinner? lastWinner.color : '';
   }
+  // 回合胜负反馈（留存）
+  const p1 = players.find(p=>p.id===0);
+  const p1score = p1? p1.score : 0;
+  if(lastWinner){
+    const won = lastWinner.id===0;
+    Juice.sfx(won?'win':'lose');
+    if(won){
+      Juice.addTrauma(0.3); Juice.flash('#02c076',0.25);
+      const b=Juice.best('bubblebob', p1score);
+      const rk=Juice.rank(p1score);
+      Juice.achievement('🏆 '+lastWinner.name+' 获胜！分数 '+p1score+' · 段位 '+rk);
+    } else {
+      Juice.addTrauma(0.5); Juice.flash('#f6465d',0.4);
+      Juice.achievement(lastWinner.name+' 获胜，再来一局！');
+    }
+  } else {
+    Juice.sfx('lose'); Juice.addTrauma(0.4); Juice.flash('#f6465d',0.3);
+  }
   showOverlay('roundover');
 }
 
@@ -600,6 +636,7 @@ function showRoundOver(){
 let lastT=0;
 function loop(ts){
   const dt=Math.min(0.05,(ts-lastT)/1000||0); lastT=ts;
+  Juice.update(dt);
   update(dt); draw();
   rafId=requestAnimationFrame(loop);
 }

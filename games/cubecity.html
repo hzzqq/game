@@ -78,6 +78,7 @@
     <p>本游戏通过 CDN 加载 Three.js 3D 引擎，需要联网才能运行。<br/>请确认网络连接后刷新页面。（其余小游戏为纯离线，不受影响）</p></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"></script>
+  <script src="juice.js"></script>
   <script>
   (function(){
     if (typeof THREE === 'undefined'){ document.getElementById('err').style.display='flex'; return; }
@@ -200,7 +201,7 @@
     function handleClick(c){
       const cur=cells[c.i][c.j];
       if(selected==='demolish'){
-        if(cur){ scene.remove(cur.mesh); money+=Math.floor(TYPES[cur.type].cost*0.5); cells[c.i][c.j]=null; updateHUD(); }
+        if(cur){ scene.remove(cur.mesh); money+=Math.floor(TYPES[cur.type].cost*0.5); cells[c.i][c.j]=null; updateHUD(); if(typeof Juice!=='undefined') Juice.sfx('click'); }
         return;
       }
       if(selected==='upgrade'){
@@ -217,6 +218,7 @@
         cur.mesh.geometry=new THREE.BoxGeometry(TILE*0.82, cur.h, TILE*0.82);
         cur.mesh.scale.y=0.001; // 重新生长动画
         updateHUD();
+        if(typeof Juice!=='undefined') Juice.sfx('pickup');
         return;
       }
       if(cur) return;
@@ -231,6 +233,7 @@
       scene.add(mesh);
       cells[c.i][c.j]={type:selected, level:1, h:t.h, mesh};
       updateHUD();
+      if(typeof Juice!=='undefined') Juice.sfx('pickup');
     }
 
     // 连片加成：同类型正交相邻成簇，size>=2 时每多一栋 +25% 收入/幸福
@@ -269,6 +272,7 @@
       const gain=Math.round(inc*(happiness/50));
       money+=gain; population=pop; incomePerSec=gain;
       score=Math.floor(money)+pop*5+Math.floor(happiness)*3;
+      if(typeof Juice!=='undefined') Juice.best('cubecity', score);
       updateHUD();
     }
 
@@ -297,12 +301,15 @@
     el('resetBtn').onclick=()=>{
       for(let i=0;i<GRID;i++) for(let j=0;j<GRID;j++){ if(cells[i][j]){ scene.remove(cells[i][j].mesh); cells[i][j]=null; } }
       money=1000; population=0; happiness=60; incomePerSec=0; score=0; updateHUD();
+      if(typeof Juice!=='undefined') Juice.sfx('click');
     };
 
     const clock=new THREE.Clock();
     function animate(){
       requestAnimationFrame(animate);
-      const dt=clock.getDelta(); acc+=dt;
+      const dt=clock.getDelta();
+      if(typeof Juice!=='undefined') Juice.update(dt);
+      acc+=dt;
       while(acc>=1){ acc-=1; applyEconomy(); }
       for(let i=0;i<GRID;i++) for(let j=0;j<GRID;j++){
         const b=cells[i][j]; if(!b) continue; const m=b.mesh;

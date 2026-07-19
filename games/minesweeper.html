@@ -80,6 +80,7 @@
 
   <div id="overlay"><div class="box"><h2 id="ovTitle">💥 踩雷了</h2><p id="ovText"></p><button class="act" id="ovBtn">再来一局</button></div></div>
 
+<script src="juice.js"></script>
 <script>
 (function(){
   const boardEl=document.getElementById('board');
@@ -169,9 +170,11 @@
     if(dead||won||open[i]) return;
     if(flagMode){ toggleFlag(i); return; }
     if(flag[i]) return;
+    if(typeof Juice!=='undefined') Juice.sfx('click');
     if(!started){ started=true; startTimer(); generate(i); }
     if(grid[i]===-1){ // 踩雷
       open[i]=true; dead=true; stopTimer();
+      if(typeof Juice!=='undefined') Juice.sfx('boom');
       // 揭示所有雷
       for(let k=0;k<R*C;k++) if(grid[k]===-1) open[k]=true;
       document.getElementById('face').textContent='💀';
@@ -220,6 +223,10 @@
     document.getElementById('ovTitle').style.color = won? 'var(--green)':'var(--red)';
     document.getElementById('ovText').textContent=text;
     document.getElementById('overlay').style.display='flex';
+    if(typeof Juice!=='undefined'){
+      if(won){ Juice.sfx('win'); Juice.achievement('扫雷通关 · '+diff+' · '+timer+'s'); }
+      else { Juice.sfx('lose'); }
+    }
   }
 
   document.getElementById('newBtn').onclick=()=>generate();

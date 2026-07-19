@@ -159,6 +159,7 @@
   </div>
 
   <script src="input.js"></script>
+  <script src="juice.js"></script>
   <script>
   (function () {
     'use strict';
@@ -249,6 +250,7 @@
       f.atkCool = d.recover;
       if (type === 'c') f.energy -= d.cost;
       if (type !== 'c') sfxWhoosh();
+      if (typeof Juice !== 'undefined') { if (type === 'a') Juice.sfx('shoot'); else if (type === 'b') Juice.sfx('hit'); else Juice.sfx('boom'); }
     }
 
     function applyDamage(att, def, base, opts) {
@@ -275,6 +277,7 @@
         blocked ? '#6b7785' : (att === player ? '#f6465d' : '#02c076'));
       if (att.combo > 1 && !blocked) addFloat(att.x, att.y - 132, 'COMBO ×' + att.combo, '#f0b90b');
       sfxHit(blocked);
+      if (typeof Juice !== 'undefined') { Juice.sfx('hit'); Juice.addTrauma(blocked ? 0.15 : 0.35); Juice.burst(def.x, def.y - 46, { color: blocked ? '#6b7785' : (att === player ? '#f6465d' : '#02c076'), n: blocked ? 6 : 12, speed: 180 }); }
     }
 
     // ---- projectiles ----
@@ -311,6 +314,7 @@
       else if (it.type === 'energy') { f.energy = Math.min(100, f.energy + 50); addFloat(f.x, f.y - 112, '+EN', '#f0b90b'); }
       else { f.buffTime = 8000; addFloat(f.x, f.y - 112, 'BUFF', '#f0b90b'); }
       sfxItem();
+      if (typeof Juice !== 'undefined') Juice.burst(f.x, f.y - 46, { color: '#02c076', n: 8, speed: 140 });
     }
     function updateItems(dt) {
       itemTimer -= dt;
@@ -663,15 +667,17 @@
         ctx.fillText(bannerText, W / 2, H / 2); ctx.restore();
       }
     }
-    function draw() {
-      drawBackground();
-      items.forEach(drawItem);
-      drawFighter(cpu);
-      drawFighter(player);
-      projectiles.forEach(drawProj);
-      floats.forEach(drawFloat);
-      drawCenter();
-    }
+  function draw() {
+    drawBackground();
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
+    items.forEach(drawItem);
+    drawFighter(cpu);
+    drawFighter(player);
+    projectiles.forEach(drawProj);
+    floats.forEach(drawFloat);
+    drawCenter();
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
+  }
 
     // ---- overlays helpers ----
     var startOv = document.getElementById('startOv');
@@ -686,6 +692,10 @@
       matchTitle.textContent = youWin ? 'YOU WIN' : 'CPU WINS';
       matchTitle.style.color = youWin ? '#02c076' : '#f6465d';
       matchSub.textContent = '回合 ' + pips.p + ' : ' + pips.c;
+      if (typeof Juice !== 'undefined') {
+        if (youWin) { Juice.sfx('win'); Juice.flash('#02c076', 0.3); Juice.addTrauma(0.7); var b = Juice.best('fight', 1); Juice.rank(1); if (b.isNew) Juice.achievement('新纪录！'); }
+        else { Juice.sfx('lose'); Juice.flash('#f6465d', 0.32); Juice.addTrauma(0.7); }
+      }
       show(matchOv);
     }
 
@@ -716,6 +726,7 @@
       var dt = (ts - last) / 1000; last = ts;
       if (dt > 0.05) dt = 0.05;
       if (dt < 0) dt = 0;
+      if (typeof Juice !== 'undefined') Juice.update(dt);
       step(dt);
       draw();
       Input.update();

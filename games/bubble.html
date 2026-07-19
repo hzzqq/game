@@ -95,6 +95,7 @@
 </div>
 
 <script src="input.js"></script>
+<script src="juice.js"></script>
 <script>
 (function () {
   "use strict";
@@ -232,6 +233,7 @@
       color: current
     };
     shots++;
+    if(typeof Juice!=='undefined') Juice.sfx('shoot');
     current = next;
     pickNext();
     updateHud();
@@ -302,12 +304,20 @@
     // match group
     var group = floodSameColor(r, c, placedColor);
     if (group.length >= 3) {
+      var matchCenter = null;
       for (var i = 0; i < group.length; i++) {
         var gr = group[i][0], gc = group[i][1];
         spawnFx(gr, gc, placedColor);
         grid[gr][gc] = -1;
+        if (!matchCenter) matchCenter = cellCenter(gr, gc);
       }
       score += group.length * 10;
+      if (typeof Juice !== 'undefined') {
+        Juice.sfx('boom');
+        Juice.addTrauma(0.18);
+        Juice.burst(matchCenter.x, matchCenter.y, { color: COLORS[placedColor], n: 10, speed: 180 });
+        Juice.popup(matchCenter.x, matchCenter.y - 10, '+' + (group.length * 10), COLORS[placedColor], { size: 16 });
+      }
       dropDisconnected();
     }
 
@@ -387,6 +397,12 @@
     ovTitle.style.color = win ? "var(--green)" : "var(--red)";
     ovText.textContent = win ? ("盘面清空 · 得分 " + score) : "泡泡触底 · 得分 " + score;
     overlay.classList.add("show");
+    if (typeof Juice !== 'undefined') {
+      Juice.sfx(win ? 'win' : 'lose');
+      if (win) { Juice.flash('#02c076', 0.3); } else { Juice.addTrauma(0.5); Juice.flash('#f6465d', 0.4); }
+      var b = Juice.best('bubble', score); var rk = Juice.rank(score);
+      if (score > 0 && b.isNew) Juice.achievement('🏆 新纪录 ' + score + '！段位 ' + rk);
+    }
   }
 
   // ---- Effects ----
@@ -452,6 +468,7 @@
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
+    if (typeof Juice !== 'undefined') Juice.begin(ctx);
 
     // bottom lose line
     ctx.strokeStyle = "rgba(246,70,93,0.5)";
@@ -520,10 +537,15 @@
       ctx.fill();
       ctx.globalAlpha = 1;
     }
+    if (typeof Juice !== 'undefined') { Juice.mid(ctx); Juice.end(ctx); }
   }
 
-  function loop() {
+  var lastT = 0;
+  function loop(ts) {
+    var dt = ts ? Math.min(0.05, (ts - lastT) / 1000 || 0) : 0.016;
+    lastT = ts || 0;
     if (typeof Input !== 'undefined') { applyInput(); Input.update(); }
+    if (typeof Juice !== 'undefined') Juice.update(dt);
     update();
     draw();
     requestAnimationFrame(loop);

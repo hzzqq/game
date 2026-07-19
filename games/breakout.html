@@ -100,6 +100,7 @@
   </div>
 
 <script src="input.js"></script>
+<script src="juice.js"></script>
 <script>
 (function(){
   "use strict";
@@ -282,6 +283,7 @@
           score += br.points;
           if(score>high){ high=score; saveHigh(); }
           spawnParticles(cx, cy);
+          if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.burst(cx,cy,{color:br.color,n:6,speed:140}); Juice.popup(cx, cy-8, '+'+br.points, br.color, {size:13}); }
           if(cx===br.x || cx===br.x+br.w) b.vx=-b.vx; else b.vy=-b.vy;
           maybeDrop(br.x+br.w/2, br.y+br.h/2);
           break;
@@ -292,7 +294,14 @@
     }
     if(balls.length===0){
       lives--; shakeTime=350;
-      if(lives<=0){ setState('gameover'); }
+      if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.addTrauma(0.4); Juice.flash('#f6465d',0.3); }
+      if(lives<=0){
+        setState('gameover');
+        if(typeof Juice!=='undefined'){
+          const b=Juice.best('breakout',score); const rk=Juice.rank(score);
+          if(b.isNew) Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk);
+        }
+      }
       else { resetBall(); setState('ready'); }
     }
   }
@@ -303,7 +312,9 @@
       p.y += p.vy;
       if(p.y+p.h>=paddle.y && p.y<=paddle.y+paddle.h &&
          p.x+p.w>=paddle.x && p.x<=paddle.x+paddle.w){
-        applyPower(p.type); powerups.splice(i,1); continue;
+        applyPower(p.type); powerups.splice(i,1);
+        if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(p.x+p.w/2, p.y-8, '道具', C.green, {size:13}); }
+        continue;
       }
       if(p.y>H){ powerups.splice(i,1); }
     }
@@ -345,6 +356,7 @@
       if(state==='playing' && bricks.every(b=>!b.alive)){
         setState('levelcomplete');
         levelClearTime = now + 1600;
+        if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076',0.2); Juice.achievement('第 '+level+' 关 通过 ✓'); }
       }
     } else if(state==='levelcomplete'){
       updateParticles();
@@ -488,6 +500,7 @@
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,W,H);
     ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
     let sx=0, sy=0;
     if(shakeTime>0){
       const m = (shakeTime/350)*8;
@@ -503,6 +516,7 @@
     drawParticles();
     ctx.restore();
     drawOverlay();
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
   // ---- 主循环（固定步长）----
@@ -511,6 +525,7 @@
     now = t;
     let f = t - last; last = t;
     if(f>200) f=200;
+    if (typeof Juice !== 'undefined') Juice.update(f/1000);
     if (typeof Input !== 'undefined') {
       if (Input.pressed('a')) primaryAction();   // 空格
       if (Input.pressed('pause')) togglePause();  // P

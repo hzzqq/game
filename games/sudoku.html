@@ -84,6 +84,7 @@
 
   <div id="overlay"><div class="box"><h2>🎉 完成！</h2><p id="ovText"></p><button class="act" id="ovBtn">再来一局</button></div></div>
 
+<script src="juice.js"></script>
 <script>
 (function(){
   const boardEl=document.getElementById('board');
@@ -171,7 +172,8 @@
     if(board[sel]===v){ board[sel]=0; }
     else {
       board[sel]=v;
-      if(v!==solution[sel]){ mistakes++; }
+      if(v!==solution[sel]){ mistakes++; if(typeof Juice!=='undefined') Juice.sfx('error'); }
+      else { if(typeof Juice!=='undefined') Juice.sfx('click'); }
     }
     checkWin(); render(); updateMeta();
   }
@@ -180,7 +182,8 @@
   function checkWin(){
     if(board.every((v,i)=>v===solution[i])){ solved=true; stopTimer();
       document.getElementById('overlay').style.display='flex';
-      document.getElementById('ovText').textContent='用时 '+fmt(timer)+' · 错误 '+mistakes+' 次'; }
+      document.getElementById('ovText').textContent='用时 '+fmt(timer)+' · 错误 '+mistakes+' 次';
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('数独完成 · 难度 '+difficulty+' · '+fmt(timer)); } }
   }
 
   function startTimer(){ stopTimer(); timerId=setInterval(()=>{ timer++; document.getElementById('time').textContent=fmt(timer); },1000); }

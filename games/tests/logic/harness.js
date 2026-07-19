@@ -86,6 +86,16 @@ function makeSandbox() {
     setInterval: () => 0,
     clearInterval: () => {},
     performance: { now: () => Date.now() },
+    // Juice 桩：游戏内联脚本在 boot 阶段可能引用 Juice（render 包裹 / sfx / best），
+    // 这里提供 no-op 实现，确保逻辑单测只测纯逻辑、不依赖 juice.js 真实加载。
+    Juice: {
+      update() {}, begin() {}, mid() {}, end() {},
+      sfx() {}, burst() {}, popup() {}, flash() {}, addTrauma() {}, shake() {},
+      setMuted() {}, toggleMute() { return false; },
+      best(k, v) { return { isNew: false, value: v || 0 }; },
+      rank() { return '青铜'; },
+      achievement() {}, save() {}, load(k, d) { return d; },
+    },
     Math, JSON, Date, parseInt, parseFloat, isNaN, Array, Object, String, Number, Boolean,
     Audio: function () { return { play() {}, pause() {}, addEventListener() {} }; },
     AudioContext: function () { return { createOscillator: () => ({ connect() {}, start() {}, stop() {}, frequency: {} }), createGain: () => ({ connect() {}, gain: {} }), destination: {}, currentTime: 0 }; },
