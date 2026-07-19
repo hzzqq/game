@@ -37,6 +37,7 @@ const FILES = {
   'pacman.html':    { name:'吃豆人 Pac-Man',      offline:true },
   'gomoku.html':    { name:'五子棋 Gomoku',       offline:true },
   'bubblebob.html': { name:'泡泡堂 BubbleBob',    offline:true },
+  'whack.html':     { name:'打地鼠 Whack',        offline:true },
 };
 
 let totalPass=0, totalFail=0;
