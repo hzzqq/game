@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // CONNECT-4</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+    linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,
+    var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px}
+  .titlebar{width:min(560px,96vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:14px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .bar{width:min(560px,96vw);display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;justify-content:space-between}
+  .turn{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--dim)}
+  .turn .stone{width:14px;height:14px;border-radius:50%;box-shadow:0 0 8px currentColor}
+  .turn .stone.r{background:var(--red);color:var(--red)}
+  .turn .stone.g{background:var(--green);color:var(--green);display:none}
+  .turn.r .stone.r{display:inline-block}.turn.r .stone.g{display:none}
+  .turn.g .stone.r{display:none}.turn.g .stone.g{display:inline-block}
+  .turn b{color:var(--text)}
+  .act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px}
+  .act:hover{border-color:var(--dim)}
+  .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+  #wrap{width:min(560px,96vw);position:relative}
+  canvas{width:100%;height:auto;display:block;background:#0d1320;border:1px solid var(--border);border-radius:10px;touch-action:manipulation;cursor:pointer}
+  #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.9)}
+  #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;text-align:center;min-width:240px}
+  #overlay h2{font-size:22px;margin-bottom:12px;letter-spacing:1px}
+  #overlay p{color:var(--dim);font-size:13px;margin-bottom:16px}
+  #overlay .act{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 26px;font-family:inherit;cursor:pointer;border-radius:8px}
+  .foot{width:min(560px,96vw);color:var(--dim);font-size:11px;text-align:center;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>CONNECT-4</b> · 四子棋</span>
+  </div>
+  <div class="bar">
+    <div class="turn r" id="turn"><span class="stone r"></span><span class="stone g"></span>当前: <b id="turnText">红方</b></div>
+    <div style="display:flex;gap:8px">
+      <button class="act gold" id="newBtn">新局</button>
+    </div>
+  </div>
+  <div id="wrap"><canvas id="cv"></canvas></div>
+  <div class="foot">规则: 红方先手，轮流点列顶端落子，横/竖/斜任意方向连成 4 子即胜。双人热座对战。</div>
+  <div id="overlay"><div class="box">
+    <h2 id="ovTitle">游戏结束</h2>
+    <p id="ovText"></p>
+    <button class="act" id="ovBtn">再来一局</button>
+  </div></div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const COLS = 7, ROWS = 6;
+  const EMPTY = 0, R = 1, G = 2;
+  const RED = '#f6465d', GREEN = '#02c076';
+
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const wrap = document.getElementById('wrap');
+
+  let board, current, gameOver, lastWin;
+  let cssW = 0, MARGIN = 0, CELL = 0, RADIUS = 0;
+  let dropAnim = null; // {col,row,color,t}
+  let animating = false;
+
+  function reset(){
+    board = [];
+    for(let r=0;r<ROWS;r++){ const row=[]; for(let c=0;c<COLS;c++) row.push(EMPTY); board.push(row); }
+    current = R; gameOver = false; lastWin = null; dropAnim = null; animating = false;
+    setTurn(); hideOverlay(); draw();
+  }
+
+  function setTurn(){
+    const t = document.getElementById('turn');
+    const txt = document.getElementById('turnText');
+    if(current === R){ t.className='turn r'; txt.textContent='红方'; }
+    else { t.className='turn g'; txt.textContent='绿方'; }
+  }
+
+  function fit(){
+    cssW = wrap.clientWidth;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(cssW*dpr);
+    const h = cssW * ROWS/COLS;
+    canvas.height = Math.round(h*dpr);
+    canvas.style.height = h+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    MARGIN = cssW*0.03;
+    CELL = (cssW - MARGIN*2)/COLS;
+    RADIUS = CELL*0.40;
+    draw();
+  }
+
+  function cellCenter(r,c){
+    return { x: MARGIN + c*CELL + CELL/2, y: MARGIN + r*CELL + CELL/2 };
+  }
+
+  function draw(){
+    const W = cssW;
+    const H = cssW * ROWS/COLS;
+    ctx.clearRect(0,0,W,H);
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
+    // 棋盘底板
+    ctx.fillStyle = '#13202e';
+    roundRect(ctx, MARGIN, MARGIN, CELL*COLS, CELL*ROWS, 8); ctx.fill();
+    // 洞
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      const p = cellCenter(r,c);
+      ctx.fillStyle = '#0a1118';
+      ctx.beginPath(); ctx.arc(p.x, p.y, RADIUS, 0, Math.PI*2); ctx.fill();
+    }
+    // 已落子
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      const v = board[r][c];
+      if(v !== EMPTY) drawDisc(cellCenter(r,c).x, cellCenter(r,c).y, v===R?RED:GREEN);
+    }
+    // 胜利连线
+    if(lastWin){
+      ctx.strokeStyle = '#f0b90b'; ctx.lineWidth = Math.max(3, RADIUS*0.5); ctx.lineCap='round';
+      const a = lastWin[0], b = lastWin[lastWin.length-1];
+      const pa = cellCenter(a[0],a[1]), pb = cellCenter(b[0],b[1]);
+      ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+    }
+    // 下落动画中的棋子
+    if(dropAnim){
+      const p = cellCenter(dropAnim.row, dropAnim.col);
+      const startY = MARGIN - CELL*0.2;
+      const y = startY + (p.y - startY)*easeOut(dropAnim.t);
+      drawDisc(p.x, y, dropAnim.color===R?RED:GREEN);
+    }
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
+  }
+
+  function drawDisc(x,y,color){
+    const g = ctx.createRadialGradient(x-RADIUS*0.3, y-RADIUS*0.3, RADIUS*0.1, x, y, RADIUS);
+    g.addColorStop(0, lighten(color,0.4)); g.addColorStop(1, color);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, RADIUS, 0, Math.PI*2); ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.stroke();
+  }
+
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+
+  function lighten(hex, amt){
+    const n = parseInt(hex.slice(1),16);
+    let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+    r=Math.min(255,Math.round(r+(255-r)*amt)); g=Math.min(255,Math.round(g+(255-g)*amt)); b=Math.min(255,Math.round(b+(255-b)*amt));
+    return 'rgb('+r+','+g+','+b+')';
+  }
+  function easeOut(t){ return 1-Math.pow(1-t,3); }
+
+  /* ---------- 落子 ---------- */
+  function dropAt(col){
+    if(gameOver || animating) return;
+    // 找该列最底部空位
+    let row = -1;
+    for(let r=ROWS-1;r>=0;r--){ if(board[r][col]===EMPTY){ row=r; break; } }
+    if(row < 0) return; // 列满
+    animating = true;
+    dropAnim = { col, row, color: current, t: 0 };
+    if(typeof Juice!=='undefined') Juice.sfx('click');
+  }
+
+  function commitDrop(){
+    const {col,row,color} = dropAnim;
+    board[row][col] = color;
+    const p = cellCenter(row,col);
+    if(typeof Juice!=='undefined') Juice.burst(p.x, p.y, {color: color===R?RED:GREEN, n:7, speed:150});
+    dropAnim = null; animating = false;
+    const line = checkWin(row,col,color);
+    if(line){
+      gameOver = true; lastWin = line; draw();
+      const redWin = (color===R);
+      endGame(redWin ? '红方胜利！' : '绿方胜利！',
+              redWin ? '红方连成四子，终端判定胜利。' : '绿方连成四子，再接再厉。');
+      return;
+    }
+    // 平局：棋盘满
+    let full = true;
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(board[r][c]===EMPTY){ full=false; break; }
+    if(full){ gameOver=true; endGame('平局','棋盘已满，势均力敌。'); return; }
+    current = (current===R)?G:R;
+    setTurn(); draw();
+  }
+
+  function checkWin(r,c,who){
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    for(const [dr,dc] of dirs){
+      const line = [[r,c]]; let cnt=1;
+      let rr=r+dr, cc=c+dc;
+      while(rr>=0&&rr<ROWS&&cc>=0&&cc<COLS&&board[rr][cc]===who){ cnt++; line.push([rr,cc]); rr+=dr; cc+=dc; }
+      rr=r-dr; cc=c-dc;
+      while(rr>=0&&rr<ROWS&&cc>=0&&cc<COLS&&board[rr][cc]===who){ cnt++; line.unshift([rr,cc]); rr-=dr; cc-=dc; }
+      if(cnt>=4) return line;
+    }
+    return null;
+  }
+
+  function endGame(title, text){
+    const ov = document.getElementById('overlay');
+    document.getElementById('ovTitle').textContent = title;
+    document.getElementById('ovTitle').style.color = (title.indexOf('红')>=0)?RED:(title.indexOf('平')>=0?'#f0b90b':GREEN);
+    document.getElementById('ovText').textContent = text;
+    if(typeof Juice!=='undefined'){
+      if(title.indexOf('红')>=0){ Juice.sfx('win'); Juice.flash(RED,0.28); Juice.addTrauma(0.5); const b=Juice.best('connect4',1); Juice.rank(1); if(b.isNew) Juice.achievement('红方新纪录！'); }
+      else if(title.indexOf('绿')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('connect4',2); Juice.rank(2); if(b.isNew) Juice.achievement('绿方新纪录！'); }
+      else { Juice.sfx('click'); }
+    }
+    ov.style.display='flex';
+  }
+  function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
+
+  /* ---------- 输入 ---------- */
+  canvas.addEventListener('click', function(e){
+    if(animating || gameOver) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const col = Math.floor((x - MARGIN)/CELL);
+    if(col<0||col>=COLS) return;
+    dropAt(col);
+  });
+
+  document.getElementById('newBtn').onclick = reset;
+  document.getElementById('ovBtn').onclick = reset;
+  window.addEventListener('resize', fit);
+
+  reset(); fit();
+
+  let _gLast = 0;
+  function fxLoop(ts){
+    const dt = Math.min(0.05, (ts - (_gLast||ts))/1000); _gLast = ts;
+    if(typeof Juice!=='undefined') Juice.update(dt);
+    if(animating && dropAnim){
+      dropAnim.t += dt/0.22;
+      if(dropAnim.t >= 1){ dropAnim.t = 1; commitDrop(); }
+    }
+    draw();
+    requestAnimationFrame(fxLoop);
+  }
+  requestAnimationFrame(fxLoop);
+
+  window.__t = {
+    COLS, ROWS, EMPTY, R, G,
+    reset, checkWin, dropAt, commitDrop,
+    setBoard(b){ board = b.map(function(row){ return row.slice(); }); },
+    getBoard(){ return board.map(function(row){ return row.slice(); }); },
+    get gameOver(){ return gameOver; },
+    get current(){ return current; },
+    set current(v){ current = v; },
+    get animating(){ return animating; },
+    cellCenter
+  };
+})();
+</script>
+</body>
+</html>

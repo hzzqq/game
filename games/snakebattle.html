@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // SNAKE BATTLE</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+    linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,
+    var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px}
+  .titlebar{width:min(560px,96vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:14px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .bar{width:min(560px,96vw);display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;justify-content:space-between}
+  .score{display:flex;gap:14px;font-size:14px;color:var(--dim);align-items:center}
+  .score .r{color:var(--red)}.score .g{color:var(--green)}
+  .score b{color:var(--text)}
+  .dead{opacity:.4;text-decoration:line-through}
+  .act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px}
+  .act:hover{border-color:var(--dim)}
+  .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+  #wrap{width:min(560px,96vw);position:relative}
+  canvas{width:100%;height:auto;display:block;background:#0a0f17;border:1px solid var(--border);border-radius:10px;touch-action:none}
+  #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.9)}
+  #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;text-align:center;min-width:260px}
+  #overlay h2{font-size:22px;margin-bottom:12px;letter-spacing:1px}
+  #overlay p{color:var(--dim);font-size:13px;margin-bottom:16px}
+  #overlay .act{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 26px;font-family:inherit;cursor:pointer;border-radius:8px}
+  .foot{width:min(560px,96vw);color:var(--dim);font-size:11px;text-align:center;margin-top:10px;line-height:1.6}
+  .kbd{display:inline-block;border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--text);font-size:11px}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>SNAKE BATTLE</b> · 贪吃蛇对战</span>
+  </div>
+  <div class="bar">
+    <div class="score">
+      <span class="r">P1 红 <b id="sc1">3</b></span>
+      <span class="g">P2 绿 <b id="sc2">3</b></span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="act gold" id="startBtn">开始 / 暂停</button>
+      <button class="act" id="newBtn">新局</button>
+    </div>
+  </div>
+  <div id="wrap"><canvas id="cv"></canvas></div>
+  <div class="foot">
+    P1 红 <span class="kbd">W A S D</span> &nbsp;·&nbsp; P2 绿 <span class="kbd">↑ ↓ ← →</span> &nbsp;·&nbsp; 吃金豆变长，撞墙/撞身/互撞即淘汰，最后存活者胜
+  </div>
+  <div id="overlay"><div class="box">
+    <h2 id="ovTitle">准备就绪</h2>
+    <p id="ovText">按「开始 / 暂停」或空格开战</p>
+    <button class="act" id="ovBtn">开始</button>
+  </div></div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const GRID = 21;
+  const RED = '#f6465d', GREEN = '#02c076', GOLD = '#f0b90b';
+  const STEP = 0.11; // 每步间隔(秒)
+
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const wrap = document.getElementById('wrap');
+
+  let cssW = 0, CELL = 0, MARGIN = 0;
+  let snakes, food, running, gameOver, acc, pulse;
+
+  function makeSnake(player, startX, dir){
+    const body = [];
+    for(let i=0;i<3;i++) body.push({ x: startX - i*dir.x, y: 10 - i*dir.y });
+    return { player, body, dir:{x:dir.x,y:dir.y}, pending:{x:dir.x,y:dir.y}, alive:true, len:3 };
+  }
+
+  function reset(){
+    snakes = [ makeSnake(1, 5, {x:1,y:0}), makeSnake(2, GRID-6, {x:-1,y:0}) ];
+    running = false; gameOver = false; acc = 0; pulse = 0;
+    spawnFood();
+    hideOverlay();
+    document.getElementById('ovTitle').textContent = '准备就绪';
+    document.getElementById('ovText').textContent = '按「开始 / 暂停」或空格开战';
+    updateScore(); draw();
+  }
+
+  function spawnFood(){
+    const occ = {};
+    for(const s of snakes) for(const seg of s.body) occ[seg.x+','+seg.y] = 1;
+    let cells = [];
+    for(let x=0;x<GRID;x++) for(let y=0;y<GRID;y++) if(!occ[x+','+y]) cells.push({x,y});
+    food = cells.length ? cells[(Math.random()*cells.length)|0] : {x:10,y:10};
+  }
+
+  function fit(){
+    cssW = wrap.clientWidth;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(cssW*dpr);
+    canvas.height = Math.round(cssW*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    MARGIN = cssW*0.015;
+    CELL = (cssW - MARGIN*2)/GRID;
+    draw();
+  }
+
+  function updateScore(){
+    document.getElementById('sc1').textContent = snakes[0].len;
+    document.getElementById('sc2').textContent = snakes[1].len;
+    const s1 = document.getElementById('sc1').parentNode, s2 = document.getElementById('sc2').parentNode;
+    s1.classList.toggle('dead', !snakes[0].alive);
+    s2.classList.toggle('dead', !snakes[1].alive);
+  }
+
+  function cellRect(x,y){
+    return { x: MARGIN + x*CELL, y: MARGIN + y*CELL, s: CELL };
+  }
+
+  function draw(){
+    const W = cssW;
+    ctx.clearRect(0,0,W,W);
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
+    // 网格
+    ctx.strokeStyle = 'rgba(40,55,72,.35)'; ctx.lineWidth = 1;
+    for(let i=0;i<=GRID;i++){
+      const p = MARGIN + i*CELL;
+      ctx.beginPath(); ctx.moveTo(MARGIN,p); ctx.lineTo(W-MARGIN,p); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p,MARGIN); ctx.lineTo(p,W-MARGIN); ctx.stroke();
+    }
+    // 食物
+    const fr = cellRect(food.x, food.y);
+    const ps = 0.5 + 0.5*Math.sin(pulse*6);
+    ctx.fillStyle = GOLD;
+    ctx.shadowColor = GOLD; ctx.shadowBlur = 10*ps;
+    roundRect(ctx, fr.x+CELL*0.22, fr.y+CELL*0.22, fr.s*0.56, fr.s*0.56, 3); ctx.fill();
+    ctx.shadowBlur = 0;
+    // 蛇
+    for(const s of snakes){
+      const col = s.player===1?RED:GREEN;
+      for(let i=s.body.length-1;i>=0;i--){
+        const seg = s.body[i];
+        const r = cellRect(seg.x, seg.y);
+        const isHead = (i===0);
+        ctx.fillStyle = isHead ? lighten(col,0.35) : col;
+        if(!s.alive) ctx.globalAlpha = 0.4;
+        roundRect(ctx, r.x+1, r.y+1, r.s-2, r.s-2, 3); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
+  }
+
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+  function lighten(hex, amt){
+    const n = parseInt(hex.slice(1),16);
+    let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+    r=Math.min(255,Math.round(r+(255-r)*amt)); g=Math.min(255,Math.round(g+(255-g)*amt)); b=Math.min(255,Math.round(b+(255-b)*amt));
+    return 'rgb('+r+','+g+','+b+')';
+  }
+
+  function opposite(a,b){ return a.x===-b.x && a.y===-b.y; }
+
+  function setDir(player, dx, dy){
+    const s = snakes[player-1];
+    if(!s.alive) return;
+    const cand = {x:dx,y:dy};
+    if(opposite(cand, s.dir)) return;
+    s.pending = cand;
+  }
+
+  function tick(){
+    for(const s of snakes){ if(s.alive) s.dir = s.pending; }
+    const heads = snakes.map(s => s.alive ? {x:s.body[0].x+s.dir.x, y:s.body[0].y+s.dir.y} : null);
+    const dead = [false,false];
+    for(let i=0;i<2;i++){
+      if(!snakes[i].alive) continue;
+      const h = heads[i];
+      if(h.x<0||h.y<0||h.x>=GRID||h.y>=GRID){ dead[i]=true; continue; }
+      for(let k=1;k<snakes[i].body.length;k++){ if(snakes[i].body[k].x===h.x&&snakes[i].body[k].y===h.y){ dead[i]=true; break; } }
+      if(dead[i]) continue;
+      const o=i^1;
+      if(snakes[o].alive){
+        for(let k=0;k<snakes[o].body.length;k++){ if(snakes[o].body[k].x===h.x&&snakes[o].body[k].y===h.y){ dead[i]=true; break; } }
+      }
+      if(dead[i]) continue;
+      if(snakes[o].alive && heads[o] && heads[o].x===h.x && heads[o].y===h.y){ dead[i]=true; dead[o]=true; }
+    }
+    for(let i=0;i<2;i++){
+      if(!snakes[i].alive || dead[i]) continue;
+      const h = heads[i];
+      const ate = (h.x===food.x && h.y===food.y);
+      snakes[i].body.unshift({x:h.x,y:h.y});
+      if(ate){ snakes[i].len++; spawnFood();
+        if(typeof Juice!=='undefined'){ const r=cellRect(h.x,h.y); Juice.sfx('pickup'); Juice.burst(r.x+CELL/2, r.y+CELL/2, {color:GOLD,n:8,speed:140}); }
+      } else snakes[i].body.pop();
+    }
+    for(let i=0;i<2;i++) if(dead[i]){
+      snakes[i].alive=false;
+      if(typeof Juice!=='undefined'){ const r=cellRect(snakes[i].body[0].x,snakes[i].body[0].y); Juice.burst(r.x+CELL/2,r.y+CELL/2,{color:snakes[i].player===1?RED:GREEN,n:14,speed:200}); Juice.addTrauma(0.4); }
+    }
+    updateScore();
+    const alive = snakes.filter(s=>s.alive);
+    if(alive.length<=1){ endGame(); }
+  }
+
+  function endGame(){
+    gameOver = true; running = false;
+    const a1 = snakes[0].alive, a2 = snakes[1].alive;
+    let title, sub, col;
+    if(a1 && !a2){ title='P1 红方胜利！'; sub='绿方已被淘汰，红方存活。'; col=RED; }
+    else if(a2 && !a1){ title='P2 绿方胜利！'; sub='红方已被淘汰，绿方存活。'; col=GREEN; }
+    else { title='同归于尽 · 平局'; sub='双方同时出局。'; col=GOLD; }
+    const ov=document.getElementById('overlay');
+    document.getElementById('ovTitle').textContent=title;
+    document.getElementById('ovTitle').style.color=col;
+    document.getElementById('ovText').textContent=sub;
+    if(typeof Juice!=='undefined'){
+      if(a1&&!a2){ Juice.sfx('win'); Juice.flash(RED,0.3); Juice.addTrauma(0.6); const b=Juice.best('snakebattle',snakes[0].len); Juice.rank(snakes[0].len); if(b.isNew) Juice.achievement('红方最长 '+snakes[0].len); }
+      else if(a2&&!a1){ Juice.sfx('win'); Juice.flash(GREEN,0.3); Juice.addTrauma(0.6); const b=Juice.best('snakebattle',snakes[1].len); Juice.rank(snakes[1].len); if(b.isNew) Juice.achievement('绿方最长 '+snakes[1].len); }
+      else { Juice.sfx('boom'); Juice.flash('#f0b90b',0.25); Juice.addTrauma(0.6); }
+    }
+    ov.style.display='flex';
+  }
+  function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
+
+  function toggle(){ if(gameOver) return; running=!running; if(running) hideOverlay(); }
+
+  document.addEventListener('keydown', function(e){
+    const k = e.key.toLowerCase();
+    if(k===' '||e.code==='Space'){ e.preventDefault(); if(gameOver) reset(); else toggle(); return; }
+    if(k==='w') setDir(1,0,-1); else if(k==='s') setDir(1,0,1); else if(k==='a') setDir(1,-1,0); else if(k==='d') setDir(1,1,0);
+    if(e.key==='ArrowUp') setDir(2,0,-1); else if(e.key==='ArrowDown') setDir(2,0,1); else if(e.key==='ArrowLeft') setDir(2,-1,0); else if(e.key==='ArrowRight') setDir(2,1,0);
+  });
+
+  document.getElementById('startBtn').onclick = toggle;
+  document.getElementById('newBtn').onclick = reset;
+  document.getElementById('ovBtn').onclick = function(){ reset(); toggle(); };
+  window.addEventListener('resize', fit);
+
+  reset(); fit();
+
+  let _gLast = 0;
+  function fxLoop(ts){
+    const dt = Math.min(0.05,(ts-(_gLast||ts))/1000); _gLast=ts;
+    if(typeof Juice!=='undefined') Juice.update(dt);
+    pulse += dt;
+    if(running && !gameOver){
+      acc += dt;
+      while(acc >= STEP){ acc -= STEP; tick(); if(gameOver) break; }
+    }
+    draw();
+    requestAnimationFrame(fxLoop);
+  }
+  requestAnimationFrame(fxLoop);
+
+  window.__t = {
+    GRID, RED, GREEN, GOLD, STEP,
+    reset, tick, setDir, spawnFood, toggle,
+    getState(){ return {
+      running, gameOver,
+      p1:{alive:snakes[0].alive, len:snakes[0].len, head:snakes[0].body[0]},
+      p2:{alive:snakes[1].alive, len:snakes[1].len, head:snakes[1].body[0]},
+      food:{x:food.x,y:food.y}
+    }; },
+    get running(){ return running; }
+  };
+})();
+</script>
+</body>
+</html>

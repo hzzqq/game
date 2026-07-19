@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // REVERSI</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+    linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,
+    var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px}
+  .titlebar{width:min(560px,96vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:14px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .bar{width:min(560px,96vw);display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;justify-content:space-between}
+  .turn{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--dim)}
+  .turn .stone{width:14px;height:14px;border-radius:50%;box-shadow:0 0 8px currentColor}
+  .turn .stone.r{background:var(--red);color:var(--red)}
+  .turn .stone.g{background:var(--green);color:var(--green);display:none}
+  .turn.r .stone.r{display:inline-block}.turn.r .stone.g{display:none}
+  .turn.g .stone.r{display:none}.turn.g .stone.g{display:inline-block}
+  .turn b{color:var(--text)}
+  .score{display:flex;gap:14px;font-size:13px;color:var(--dim)}
+  .score b{color:var(--text)}
+  .acts{display:flex;gap:8px}
+  .act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px}
+  .act:hover{border-color:var(--dim)}
+  .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+  .act.on{background:var(--red);color:#0a0e14;border-color:var(--red)}
+  #wrap{width:min(560px,96vw);position:relative}
+  canvas{width:100%;height:auto;display:block;background:#0d1320;border:1px solid var(--border);border-radius:10px;touch-action:manipulation;cursor:pointer}
+  #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.9)}
+  #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;text-align:center;min-width:240px}
+  #overlay h2{font-size:22px;margin-bottom:12px;letter-spacing:1px}
+  #overlay p{color:var(--dim);font-size:13px;margin-bottom:16px}
+  #overlay .act{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 26px;font-family:inherit;cursor:pointer;border-radius:8px}
+  .foot{width:min(560px,96vw);color:var(--dim);font-size:11px;text-align:center;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>REVERSI</b> · 黑白棋</span>
+  </div>
+  <div class="bar">
+    <div class="turn r" id="turn"><span class="stone r"></span><span class="stone g"></span>当前: <b id="turnText">红方</b></div>
+    <div class="score"><span>红 <b id="scR">2</b></span><span>绿 <b id="scG">2</b></span></div>
+    <div class="acts">
+      <button class="act" id="modeBtn">对手: 双人</button>
+      <button class="act gold" id="undoBtn">悔棋</button>
+      <button class="act" id="newBtn">新局</button>
+    </div>
+  </div>
+  <div id="wrap"><canvas id="cv"></canvas></div>
+  <div class="foot">规则: 落子必须夹住对方棋子并翻面，无子可翻则跳过，终局子多者胜。双人热座 + 可选 AI。</div>
+  <div id="overlay"><div class="box">
+    <h2 id="ovTitle">游戏结束</h2>
+    <p id="ovText"></p>
+    <button class="act" id="ovBtn">再来一局</button>
+  </div></div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const N = 8;
+  const EMPTY = 0, R = 1, G = 2;
+  const RED = '#f6465d', GREEN = '#02c076';
+  const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const wrap = document.getElementById('wrap');
+
+  let board, current, gameOver, mode, history, passed;
+  let cssW = 0, MARGIN = 0, CELL = 0, RADIUS = 0;
+
+  function reset(){
+    board = [];
+    for(let r=0;r<N;r++){ const row=[]; for(let c=0;c<N;c++) row.push(EMPTY); board.push(row); }
+    board[3][3]=G; board[3][4]=R; board[4][3]=R; board[4][4]=G;
+    current = R; gameOver = false; mode = 'pvp'; passed = false; history = [];
+    document.getElementById('modeBtn').textContent = '对手: 双人';
+    document.getElementById('modeBtn').classList.remove('on');
+    setTurn(); hideOverlay(); updateScore(); draw();
+  }
+
+  function setTurn(){
+    const t = document.getElementById('turn');
+    const txt = document.getElementById('turnText');
+    if(current === R){ t.className='turn r'; txt.textContent='红方'; }
+    else { t.className='turn g'; txt.textContent='绿方'; }
+  }
+
+  function updateScore(){
+    let r=0,g=0;
+    for(let i=0;i<N;i++) for(let j=0;j<N;j++){ if(board[i][j]===R) r++; else if(board[i][j]===G) g++; }
+    document.getElementById('scR').textContent = r;
+    document.getElementById('scG').textContent = g;
+    return {r,g};
+  }
+
+  function fit(){
+    cssW = wrap.clientWidth;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(cssW*dpr);
+    canvas.height = Math.round(cssW*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    MARGIN = cssW*0.025;
+    CELL = (cssW - MARGIN*2)/N;
+    RADIUS = CELL*0.40;
+    draw();
+  }
+
+  function inB(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
+  function cellCenter(r,c){ return { x: MARGIN + c*CELL + CELL/2, y: MARGIN + r*CELL + CELL/2 }; }
+
+  function flipsFor(r,c,who){
+    if(board[r][c]!==EMPTY) return [];
+    const opp = who===R?G:R;
+    let total = [];
+    for(const [dr,dc] of DIRS){
+      let rr=r+dr, cc=c+dc; const line=[];
+      while(inB(rr,cc) && board[rr][cc]===opp){ line.push([rr,cc]); rr+=dr; cc+=dc; }
+      if(line.length>0 && inB(rr,cc) && board[rr][cc]===who){ total = total.concat(line); }
+    }
+    return total;
+  }
+
+  function legalMoves(who){
+    const out=[];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(board[r][c]!==EMPTY) continue;
+      if(flipsFor(r,c,who).length>0) out.push([r,c]);
+    }
+    return out;
+  }
+
+  function draw(){
+    const W = cssW;
+    ctx.clearRect(0,0,W,W);
+    if(typeof Juice!=='undefined') Juice.begin(ctx);
+    // 网格
+    ctx.strokeStyle = '#22303f'; ctx.lineWidth = 1;
+    for(let i=0;i<=N;i++){
+      const p = MARGIN + i*CELL;
+      ctx.beginPath(); ctx.moveTo(MARGIN, p); ctx.lineTo(W-MARGIN, p); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p, MARGIN); ctx.lineTo(p, W-MARGIN); ctx.stroke();
+    }
+    // 合法步提示
+    if(!gameOver){
+      const moves = legalMoves(current);
+      for(const [r,c] of moves){
+        const p = cellCenter(r,c);
+        ctx.fillStyle = (current===R?'rgba(246,70,93,.32)':'rgba(2,192,118,.32)');
+        ctx.beginPath(); ctx.arc(p.x, p.y, RADIUS*0.28, 0, Math.PI*2); ctx.fill();
+      }
+    }
+    // 棋子
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const v = board[r][c];
+      if(v!==EMPTY){
+        const p = cellCenter(r,c);
+        const col = v===R?RED:GREEN;
+        const g = ctx.createRadialGradient(p.x-RADIUS*0.3, p.y-RADIUS*0.3, RADIUS*0.1, p.x, p.y, RADIUS);
+        g.addColorStop(0, lighten(col,0.4)); g.addColorStop(1, col);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, RADIUS, 0, Math.PI*2); ctx.fill();
+        ctx.lineWidth=1; ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.stroke();
+      }
+    }
+    if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
+  }
+
+  function lighten(hex, amt){
+    const n = parseInt(hex.slice(1),16);
+    let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+    r=Math.min(255,Math.round(r+(255-r)*amt)); g=Math.min(255,Math.round(g+(255-g)*amt)); b=Math.min(255,Math.round(b+(255-b)*amt));
+    return 'rgb('+r+','+g+','+b+')';
+  }
+
+  function place(r,c,who){
+    const flips = flipsFor(r,c,who);
+    if(flips.length===0) return false;
+    board[r][c] = who;
+    const col = who===R?RED:GREEN;
+    const p = cellCenter(r,c);
+    if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.burst(p.x,p.y,{color:col,n:6,speed:130}); }
+    for(const [fr,fc] of flips){
+      board[fr][fc] = who;
+      const fp = cellCenter(fr,fc);
+      if(typeof Juice!=='undefined') Juice.burst(fp.x,fp.y,{color:col,n:3,speed:90,life:0.4});
+    }
+    return true;
+  }
+
+  function step(r,c,who){
+    history.push(board.map(function(row){ return row.slice(); }));
+    place(r,c,who);
+    passed = false;
+    current = (who===R)?G:R;
+    // 跳手处理
+    let guard=0;
+    while(legalMoves(current).length===0 && guard<2){
+      if(legalMoves(current===R?G:R).length===0){ endGame(); return; }
+      // 当前方无步，跳过
+      if(typeof Juice!=='undefined') Juice.sfx('error');
+      passed = true;
+      current = (current===R)?G:R;
+      guard++;
+    }
+    setTurn(); updateScore(); draw();
+    if(!gameOver && mode==='ai' && current===G){ setTimeout(aiTurn, 360); }
+  }
+
+  function aiTurn(){
+    if(gameOver) return;
+    const moves = legalMoves(G);
+    if(moves.length===0) return;
+    // 评估：优先角、避免边危、最大化翻子
+    let best=null, bestVal=-1e9;
+    for(const [r,c] of moves){
+      const val = evalMove(r,c);
+      if(val>bestVal){ bestVal=val; best=[r,c]; }
+    }
+    step(best[0], best[1], G);
+  }
+
+  function evalMove(r,c){
+    const flips = flipsFor(r,c,G).length;
+    let v = flips*10;
+    if((r===0||r===N-1)&&(c===0||c===N-1)) v += 40;       // 角
+    else if(r===0||r===N-1||c===0||c===N-1) v -= (r===0||r===N-1)&&(c===1||c===N-2)?12:6; // 边危
+    return v + Math.random()*3;
+  }
+
+  function endGame(){
+    gameOver = true;
+    const s = updateScore();
+    let title, sub, col;
+    if(s.r>s.g){ title='红方胜利！'; sub='红 '+s.r+' : '+s.g+' 绿'; col=RED; }
+    else if(s.g>s.r){ title='绿方胜利！'; sub='绿 '+s.g+' : '+s.r+' 红'; col=GREEN; }
+    else { title='平局'; sub=s.r+' : '+s.g; col='#f0b90b'; }
+    const ov=document.getElementById('overlay');
+    document.getElementById('ovTitle').textContent=title;
+    document.getElementById('ovTitle').style.color=col;
+    document.getElementById('ovText').textContent=sub;
+    if(typeof Juice!=='undefined'){
+      if(s.r>s.g){ Juice.sfx('win'); Juice.flash(RED,0.26); Juice.addTrauma(0.45); const b=Juice.best('reversi',s.r); Juice.rank(s.r); if(b.isNew) Juice.achievement('红方新高 '+s.r+' 子'); }
+      else if(s.g>s.r){ Juice.sfx('win'); Juice.flash(GREEN,0.26); Juice.addTrauma(0.45); const b=Juice.best('reversi',s.g); Juice.rank(s.g); if(b.isNew) Juice.achievement('绿方新高 '+s.g+' 子'); }
+      else { Juice.sfx('click'); }
+    }
+    ov.style.display='flex';
+  }
+  function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
+
+  function undo(){
+    if(gameOver) hideOverlay();
+    if(history.length===0) return;
+    board = history.pop();
+    current = (current===R)?G:R;
+    if(mode==='ai' && current===G && history.length){ board = history.pop(); current=R; }
+    gameOver=false; setTurn(); updateScore(); draw();
+  }
+
+  canvas.addEventListener('click', function(e){
+    if(gameOver) return;
+    if(mode==='ai' && current===G) return; // AI 思考中
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX-rect.left, y = e.clientY-rect.top;
+    const c = Math.floor((x-MARGIN)/CELL), r = Math.floor((y-MARGIN)/CELL);
+    if(!inB(r,c)) return;
+    if(flipsFor(r,c,current).length===0) return;
+    step(r,c,current);
+  });
+
+  document.getElementById('newBtn').onclick = reset;
+  document.getElementById('ovBtn').onclick = reset;
+  document.getElementById('undoBtn').onclick = undo;
+  document.getElementById('modeBtn').onclick = function(){
+    mode = (mode==='pvp')?'ai':'pvp';
+    this.textContent = '对手: '+(mode==='ai'?'AI':'双人');
+    this.classList.toggle('on', mode==='ai');
+    if(mode==='ai' && current===G && !gameOver) setTimeout(aiTurn, 300);
+  };
+  window.addEventListener('resize', fit);
+
+  reset(); fit();
+
+  let _gLast = 0;
+  function fxLoop(ts){
+    const dt = Math.min(0.05,(ts-(_gLast||ts))/1000); _gLast=ts;
+    if(typeof Juice!=='undefined') Juice.update(dt);
+    draw();
+    requestAnimationFrame(fxLoop);
+  }
+  requestAnimationFrame(fxLoop);
+
+  window.__t = {
+    N, EMPTY, R, G, DIRS,
+    reset, legalMoves, flipsFor, place, step, undo,
+    setBoard(b){ board = b.map(function(row){ return row.slice(); }); },
+    getBoard(){ return board.map(function(row){ return row.slice(); }); },
+    get current(){ return current; }, set current(v){ current=v; },
+    get gameOver(){ return gameOver; },
+    get mode(){ return mode; }, set mode(v){ mode=v; },
+    score(){ return updateScore(); }
+  };
+})();
+</script>
+</body>
+</html>
