@@ -824,7 +824,7 @@ mp3Input.addEventListener('change', async (e)=>{
     startGame(buf);
     startBtn.textContent = '重新开始';
   }catch(err){
-    alert('音频解码失败：' + err.message);
+    console.warn('音频解码失败：', err); startBtn.textContent = '开始';
   }
 });
 

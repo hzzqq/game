@@ -147,7 +147,7 @@
 
   // ---- game state ----
   var state = 'menu'; // menu | playing | paused | over
-  var best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0;
+  var best = 0; try { best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; } catch(e){}
   hBest.textContent = best;
 
   var player, enemies, worldSpeed, distance, lives, spawnTimer, lastTime, dashOffset, invuln, shake;
@@ -206,7 +206,7 @@
     state = 'over';
     if (Math.floor(distance) > best){
       best = Math.floor(distance);
-      localStorage.setItem(BEST_KEY, String(best));
+      try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){}
       hBest.textContent = best;
     }
     ovTitle.textContent = 'GAME OVER';

@@ -107,7 +107,7 @@
   var snake, dir, nextDir, food, score, best, alive, paused, level;
   var stepMs, acc, lastT, raf;
 
-  best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0;
+  try { best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; } catch(e) { best = 0; }
   bestEl.textContent = best;
 
   function reset(){
@@ -174,7 +174,7 @@
         level += 1;
         stepMs = Math.max(60, 140 - level*10);
       }
-      if(score > best){ best = score; localStorage.setItem(BEST_KEY, String(best)); }
+      if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
       spawnFood();
       updateHud();
     } else {
@@ -184,7 +184,7 @@
 
   function gameOver(){
     alive = false;
-    if(score > best){ best = score; localStorage.setItem(BEST_KEY, String(best)); }
+    if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
     updateHud();
     goScore.textContent = score;
     goBest.textContent = best;

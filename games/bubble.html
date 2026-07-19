@@ -133,7 +133,7 @@
   var score, best, shots, state;
   var popFx;         // particle effects
 
-  best = parseInt(localStorage.getItem("bubble_best") || "0", 10) || 0;
+  try { best = parseInt(localStorage.getItem("bubble_best") || "0", 10) || 0; } catch(e) { best = 0; }
   bestEl.textContent = best;
 
   function evenCols(r) { return (r % 2 === 0) ? COLS : COLS - 1; }
@@ -217,7 +217,7 @@
   function updateHud() {
     scoreEl.textContent = score;
     shotsEl.textContent = shots;
-    if (score > best) { best = score; bestEl.textContent = best; localStorage.setItem("bubble_best", String(best)); }
+    if (score > best) { best = score; bestEl.textContent = best; try { localStorage.setItem("bubble_best", String(best)); } catch(e){} }
   }
 
   // ---- Firing ----
