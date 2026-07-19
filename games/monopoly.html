@@ -608,11 +608,16 @@
   requestAnimationFrame(loop);
 
   // 测试钩子（不影响正常玩法）
-  window.__mp = {
+  window.__mp = window.__t = {
     get players(){ return players; }, get board(){ return board; },
     get phase(){ return phase; }, get current(){ return current; },
+    get currentPlayerIdx(){ return currentPlayerIdx; },
+    get logArr(){ return logArr; },
     doRoll, reset,
-    setCash(id,v){ players[id].cash=v; }
+    setCash(id,v){ players[id].cash=v; },
+    // 纯函数
+    rand, houseLabel, houseCostOf, playerById, aliveCount, countOwned,
+    nextIdx, cornerType, sendToJail, makePlayers, makeBoard
   };
 })();
 </script>
