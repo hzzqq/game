@@ -71,7 +71,7 @@
     <button class="act gold" id="newBtn">↻ 新局</button>
   </div>
 
-  <div id="tip">方向键 / WASD 转向 · 空格 / P 暂停 · 手机滑动转向 · 撞墙或撞到自己即结束</div>
+  <div id="tip">方向键 / WASD 转向 · 空格 / P 暂停 · 手机滑动转向 · 吃 ⚡加速 / 🛡护盾 / 💎宝石 · 撞墙或撞到自己即结束</div>
 
   <div id="overlay">
     <div class="box">
@@ -107,7 +107,10 @@
   var BEST_KEY = 'term_snake_best';
 
   var snake, dir, nextDir, food, score, best, alive, paused, level;
+  var powerups=[], boostUntil=0, shieldUntil=0;
   var stepMs, acc, lastT, raf;
+
+  function nowMs(){ return (typeof performance!=='undefined' && performance.now) ? performance.now() : 0; }
 
   try { best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; } catch(e) { best = 0; }
   bestEl.textContent = best;
@@ -123,6 +126,9 @@
     lastT = 0;
     alive = true;
     paused = false;
+    powerups = [];
+    boostUntil = 0;
+    shieldUntil = 0;
     spawnFood();
     overlay.style.display = 'none';
     pauseBtn.textContent = '⏸ 暂停 (空格)';
@@ -149,6 +155,43 @@
     }
     if(free.length===0){ food=null; return; }   // win-ish: board full
     food = free[Math.floor(Math.random()*free.length)];
+    if(Math.random() < 0.18) spawnPowerup();
+  }
+
+  // 在空格随机掉落一个道具（最多同时存在 2 个，不与食物/蛇身重叠）
+  function spawnPowerup(){
+    if(powerups.length >= 2) return;
+    var free = [];
+    for(var y=0;y<GRID;y++){
+      for(var x=0;x<GRID;x++){
+        if(!occupied(x,y) && !(food && food.x===x && food.y===y)) free.push({x:x,y:y});
+      }
+    }
+    if(free.length===0) return;
+    var cell = free[Math.floor(Math.random()*free.length)];
+    var types = ['speed','shield','gem'];
+    powerups.push({ x:cell.x, y:cell.y, type:types[Math.floor(Math.random()*types.length)] });
+  }
+
+  // 拾取道具：返回 true 表示蛇身应增长一格（仅宝石）
+  function applyPower(type, x, y){
+    var px = x*CELL+CELL/2, py = y*CELL+CELL/2;
+    if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.burst(px, py, {color:'#f0b90b', n:8, speed:160}); }
+    if(type==='speed'){
+      boostUntil = nowMs() + 5000;
+      if(typeof Juice!=='undefined'){ Juice.popup(px, py, '⚡', '#f6465d', {size:16}); Juice.achievement('⚡ 加速 5s'); }
+      return false;
+    } else if(type==='shield'){
+      shieldUntil = nowMs() + 4000;
+      if(typeof Juice!=='undefined'){ Juice.popup(px, py, '🛡', '#02c076', {size:16}); Juice.achievement('🛡 护盾 4s'); }
+      return false;
+    } else { // gem：大幅加分并增长
+      score += 5;
+      if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
+      if(typeof Juice!=='undefined') Juice.popup(px, py, '+5', '#f0b90b', {size:16});
+      updateHud();
+      return true;
+    }
   }
 
   function setDir(nx,ny){
@@ -162,17 +205,32 @@
     var head = snake[0];
     var nx = head.x + dir.x;
     var ny = head.y + dir.y;
+    var ghost = nowMs() < shieldUntil;   // 护盾：可穿墙 + 穿身
 
-    // wall = game over, no wrap
-    if(nx<0 || ny<0 || nx>=GRID || ny>=GRID){ return gameOver(); }
-    // self collision
-    if(occupied(nx,ny)){ return gameOver(); }
+    // wall：护盾状态下环绕穿过，否则结束
+    if(nx<0 || ny<0 || nx>=GRID || ny>=GRID){
+      if(ghost){ nx=(nx+GRID)%GRID; ny=(ny+GRID)%GRID; }
+      else return gameOver();
+    }
+    // self collision：护盾状态下允许穿过自身
+    if(occupied(nx,ny) && !ghost){ return gameOver(); }
 
     snake.unshift({x:nx,y:ny});
+
+    // 道具拾取
+    var ate = false;
+    for(var pi=powerups.length-1; pi>=0; pi--){
+      if(powerups[pi].x===nx && powerups[pi].y===ny){
+        if(applyPower(powerups[pi].type, nx, ny)) ate = true;
+        powerups.splice(pi,1);
+        break;
+      }
+    }
 
     if(food && nx===food.x && ny===food.y){
       var fx = nx*CELL+CELL/2, fy = ny*CELL+CELL/2;
       score += 1;
+      ate = true;
       Juice.sfx('pickup');
       Juice.popup(fx, fy, '+1', '#02c076');
       Juice.burst(fx, fy, {color:'#02c076', n:6, speed:140});
@@ -185,9 +243,8 @@
       if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
       spawnFood();
       updateHud();
-    } else {
-      snake.pop();
     }
+    if(!ate) snake.pop();
   }
 
   function gameOver(){
@@ -231,6 +288,27 @@
       ctx.restore();
     }
 
+    // 道具（带辉光 + 符号）
+    for(var k=0;k<powerups.length;k++){
+      var p = powerups[k];
+      var pcol = p.type==='speed' ? '#f6465d' : (p.type==='shield' ? '#02c076' : '#f0b90b');
+      var psym = p.type==='speed' ? '⚡' : (p.type==='shield' ? '🛡' : '💎');
+      ctx.save();
+      ctx.shadowColor = pcol; ctx.shadowBlur = 12; ctx.fillStyle = pcol;
+      roundRect(p.x*CELL+3, p.y*CELL+3, CELL-6, CELL-6, 4);
+      ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#0a0e14';
+      ctx.font = 'bold 12px JetBrains Mono, monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(psym, p.x*CELL+CELL/2, p.y*CELL+CELL/2+1);
+    }
+
+    // 当前激活的增益（左上角）
+    var by = 8;
+    if(nowMs() < boostUntil){ drawBuff('⚡', '#f6465d', by); by += 20; }
+    if(nowMs() < shieldUntil){ drawBuff('🛡', '#02c076', by); by += 20; }
+
     // snake body (green) + head (red)
     for(var j=snake.length-1;j>=0;j--){
       var s = snake[j];
@@ -270,6 +348,15 @@
     ctx.closePath();
   }
 
+  function drawBuff(sym, col, y){
+    ctx.save();
+    ctx.fillStyle = col;
+    ctx.font = 'bold 14px JetBrains Mono, monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(sym, 8, y);
+    ctx.restore();
+  }
+
   function loop(t){
     raf = requestAnimationFrame(loop);
     var dt = lastT ? Math.min(0.05,(t-lastT)/1000) : 0.016;
@@ -279,8 +366,9 @@
     if(!lastT) lastT = t;
     acc += (t - lastT);
     lastT = t;
-    while(acc >= stepMs){
-      acc -= stepMs;
+    var ms = (nowMs() < boostUntil) ? Math.max(45, stepMs*0.55) : stepMs;
+    while(acc >= ms){
+      acc -= ms;
       step();
       if(!alive) break;
     }
@@ -338,13 +426,17 @@
   // 测试钩子（不影响正常玩法）
   window.__t = {
     GRID,
-    reset, step, spawnFood, occupied, setDir,
+    reset, step, spawnFood, spawnPowerup, applyPower, occupied, setDir, nowMs,
     setSnake(arr) { snake = arr.map(p => ({ x: p.x, y: p.y })); },
     setFood(obj) { food = obj ? { x: obj.x, y: obj.y } : null; },
+    setPowerups(arr) { powerups = (arr||[]).map(p => ({ x:p.x, y:p.y, type:p.type })); },
+    getPowerups() { return powerups.map(p => ({ x:p.x, y:p.y, type:p.type })); },
     getSnake() { return snake.map(p => ({ x: p.x, y: p.y })); },
     getFood() { return food ? { x: food.x, y: food.y } : null; },
     getScore() { return score; },
     getAlive() { return alive; },
+    getBoost() { return nowMs() < boostUntil; },
+    getShield() { return nowMs() < shieldUntil; },
     getDir() { return { x: dir.x, y: dir.y }; }
   };
 })();

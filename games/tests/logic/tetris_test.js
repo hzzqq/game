@@ -1,4 +1,4 @@
-// 俄罗斯方块 纯逻辑单测：碰撞/旋转/消行
+// 俄罗斯方块 纯逻辑单测：碰撞/旋转/消行 + 道具系统（bomb/slow/shield/charge）
 const H = require('./harness');
 const { t } = H.loadGame('../tetris.html');
 
@@ -32,9 +32,10 @@ H.eq('俄罗斯 rotateCW', t.rotateCW([[1,2],[3,4]]), [[3,1],[4,2]]);
   H.ok('俄罗斯 makePiece O y=0', p.y === 0);
 })();
 
-// 8) clearLines 消底行 + 计分 + 底行清空
+// 8) clearLines 消底行 + 计分 + 底行清空 + 充能+1
 (() => {
-  t.startGame(); // 重置 score=0 lines=0 level=1
+  t.startGame(); // 重置 score=0 lines=0 level=1 charges=0
+  H.eq('俄罗斯 初始充能=0', t.getCharges(), 0);
   const g = t.getGrid();
   for(let c=0;c<t.COLS;c++) g[t.ROWS-1][c] = '#x';
   t.setGrid(g);
@@ -45,4 +46,38 @@ H.eq('俄罗斯 rotateCW', t.rotateCW([[1,2],[3,4]]), [[3,1],[4,2]]);
   let bottomNull = true;
   for(let c=0;c<t.COLS;c++) if(g2[t.ROWS-1][c] !== null) bottomNull = false;
   H.ok('俄罗斯 clearLines 底行已清空', bottomNull);
+  H.eq('俄罗斯 clearLines 充能+1', t.getCharges(), 1);
+})();
+
+// 9) 道具-炸弹：有方块时清掉最底行，无方块时返回 false
+(() => {
+  t.startGame();
+  const g = t.getGrid();
+  for(let c=0;c<t.COLS;c++) g[t.ROWS-1][c] = '#x';
+  t.setGrid(g);
+  const okBomb = t.usePower('bomb');
+  H.ok('俄罗斯 炸弹清底行=true', okBomb === true);
+  const g2 = t.getGrid();
+  let bottomNull = true;
+  for(let c=0;c<t.COLS;c++) if(g2[t.ROWS-1][c] !== null) bottomNull = false;
+  H.ok('俄罗斯 炸弹后底行清空', bottomNull);
+})();
+
+// 10) 道具-护盾：usePower('shield') 后 getShield()=true
+(() => {
+  t.startGame();
+  H.ok('俄罗斯 初始无护盾', t.getShield() === false);
+  t.usePower('shield');
+  H.ok('俄罗斯 护盾就绪 getShield=true', t.getShield() === true);
+})();
+
+// 11) 道具-缓速/充能门槛：usePower 不依赖充能（直接调用），addCharge 累加并封顶 3
+(() => {
+  t.startGame();
+  t.addCharge(2);
+  H.eq('俄罗斯 addCharge(2)=2', t.getCharges(), 2);
+  t.addCharge(5);
+  H.eq('俄罗斯 充能封顶=3', t.getCharges(), 3);
+  t.usePower('slow'); // 不应抛错
+  H.ok('俄罗斯 缓速调用无异常', true);
 })();

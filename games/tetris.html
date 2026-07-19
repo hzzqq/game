@@ -258,10 +258,18 @@
           <div class="label">HOLD</div>
           <canvas class="preview-canvas" id="holdCanvas" width="120" height="120"></canvas>
         </div>
+        <div class="card">
+          <div class="label">道具 CHARGE</div>
+          <div class="value" id="puVal" style="font-size:18px">0</div>
+          <div class="mini">
+            <span style="color:var(--text2);font-size:10px">1💥 2❄ 3🛡</span>
+            <span id="puShield" style="font-size:10px;color:var(--green)"></span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="footer">←→ 移动 · ↑ 旋转 · ↓ 软降 · 空格 硬降 · C Hold · P 暂停</div>
+    <div class="footer">←→ 移动 · ↑ 旋转 · ↓ 软降 · 空格 硬降 · C Hold · P 暂停 · 1/2/3 道具</div>
 
     <div class="touch-controls" id="touchControls">
       <div class="tc-row">
@@ -274,6 +282,11 @@
         <button type="button" class="tc-btn primary" data-action="a" aria-label="硬降">⤓</button>
         <button type="button" class="tc-btn" data-action="c" aria-label="Hold">H</button>
         <button type="button" class="tc-btn" data-action="pause" aria-label="暂停">⏸</button>
+      </div>
+      <div class="tc-row">
+        <button type="button" class="tc-btn" data-action="pu1" aria-label="炸弹">💥</button>
+        <button type="button" class="tc-btn" data-action="pu2" aria-label="缓速">❄</button>
+        <button type="button" class="tc-btn" data-action="pu3" aria-label="护盾">🛡</button>
       </div>
     </div>
   </div>
@@ -326,6 +339,7 @@
 
   // ====== 游戏状态 ======
   let grid, current, nextType, holdType, holdUsed, bag;
+  let charges=0, slowUntil=0, shieldCharge=false;
   let score, level, linesCleared, dropInterval, dropCounter, lastTime;
   let paused, gameOver, running;
   let particles = [];
@@ -464,6 +478,16 @@
         const x = current.x + j;
         const y = current.y + i;
         if(y<0){
+          if(shieldCharge){           // 护盾救场：清除顶部 2 行并继续
+            shieldCharge = false;
+            grid.splice(0,2);
+            for(let k=0;k<2;k++) grid.push(new Array(COLS).fill(null));
+            if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076',0.25); Juice.achievement('🛡 护盾救场！'); }
+            updateHud();
+            clearLines();
+            spawn();
+            return;
+          }
           endGame();
           return;
         }
@@ -486,6 +510,7 @@
       }
     }
     if(cleared>0){
+      charges = Math.min(3, charges + cleared);   // 消行积攒道具充能
       const before = level;
       linesCleared += cleared;
       score += SCORE_TABLE[cleared] * level;
@@ -517,6 +542,31 @@
     }
     holdUsed = true;
     drawHold();
+  }
+
+  // ====== 道具系统（消行积攒充能，按键释放）======
+  function usePower(type){
+    if(type==='bomb'){
+      // 炸弹：清除最底部有方块的整行
+      let target = -1;
+      for(let r=ROWS-1;r>=0;r--){ if(grid[r].some(c=>c!==null)){ target=r; break; } }
+      if(target<0) return false;
+      spawnParticles(target);
+      grid.splice(target,1);
+      grid.unshift(new Array(COLS).fill(null));
+      score += 50; updateHud();
+      if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.25); Juice.flash('#f6465d',0.2); Juice.achievement('💥 炸弹清行！'); }
+      return true;
+    } else if(type==='slow'){
+      slowUntil = performance.now() + 12000;
+      if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.achievement('❄ 缓速 12s'); }
+      return true;
+    } else if(type==='shield'){
+      shieldCharge = true;
+      if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.achievement('🛡 护盾已就绪'); }
+      return true;
+    }
+    return false;
   }
 
   // ====== 粒子特效 ======
@@ -667,6 +717,8 @@
     scoreVal.textContent = score;
     levelVal.textContent = level;
     linesVal.textContent = linesCleared;
+    const puVal = document.getElementById('puVal'); if(puVal) puVal.textContent = charges;
+    const puShield = document.getElementById('puShield'); if(puShield) puShield.textContent = shieldCharge ? '🛡就绪' : '';
   }
 
   // ====== 主循环 ======
@@ -677,7 +729,8 @@
     Juice.update(dt/1000);
     if(running && !paused && !gameOver){
       dropCounter += dt;
-      if(dropCounter > dropInterval){
+      const iv = (performance.now() < slowUntil) ? dropInterval*2 : dropInterval;
+      if(dropCounter > iv){
         if(!collides(current,0,1)){
           current.y += 1;
         } else {
@@ -700,6 +753,7 @@
     dropInterval = 1000; dropCounter = 0; lastTime = performance.now();
     holdType = null; holdUsed = false;
     particles = [];
+    charges = 0; slowUntil = 0; shieldCharge = false;
     paused = false; gameOver = false; running = true;
     overlay.classList.remove('show');
     pauseBtn.textContent = '暂停';
@@ -740,7 +794,7 @@
 
   // ====== 输入（共享输入层 input.js：失焦清键 + 快速点按缓冲，修复断触）======
   if (typeof Input !== 'undefined') {
-    Input.init({ keymap: { 'KeyP':'pause' } });
+    Input.init({ keymap: { 'KeyP':'pause', 'Digit1':'pu1', 'Digit2':'pu2', 'Digit3':'pu3' } });
   }
   let hMoveCd = 0, sMoveCd = 0; // DAS / 软降重复计时（秒）
   function applyInput(dt){
@@ -764,6 +818,10 @@
     if (Input.pressed('up')) rotate();
     if (Input.pressed('a')) hardDrop();
     if (Input.pressed('c') || Input.pressed('dash')) hold();
+    // 道具释放（需有充能）
+    if (Input.pressed('pu1') && charges>0){ charges--; usePower('bomb'); updateHud(); }
+    if (Input.pressed('pu2') && charges>0){ charges--; usePower('slow'); updateHud(); }
+    if (Input.pressed('pu3') && charges>0){ charges--; usePower('shield'); updateHud(); }
   }
 
   restartBtn.addEventListener('click', startGame);
@@ -777,7 +835,7 @@
   if (typeof window !== 'undefined') {
     window.__t = {
       ROWS, COLS, SHAPES, SCORE_TABLE,
-      collides, rotateCW, clearLines, makePiece, emptyGrid,
+      collides, rotateCW, clearLines, makePiece, emptyGrid, usePower,
       getGrid: () => grid,
       setGrid(g){ grid = g; },
       getCurrent: () => current,
@@ -785,6 +843,9 @@
       getScore: () => score,
       getLines: () => linesCleared,
       getLevel: () => level,
+      getCharges: () => charges,
+      addCharge(n){ charges = Math.min(3, charges + (n||1)); },
+      getShield: () => shieldCharge,
       startGame
     };
   }

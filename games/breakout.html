@@ -95,7 +95,7 @@
     </div>
     <div class="stage">
       <canvas id="game" width="780" height="540"></canvas>
-      <div class="hint">鼠标 / ←→ / 触屏拖动 移动挡板 · 接住掉落道具 · 打碎所有砖块过关</div>
+      <div class="hint">鼠标 / ←→ / 触屏拖动 移动挡板 · 接住掉落道具（宽/多/慢/♥/炸）· 打碎所有砖块过关</div>
     </div>
   </div>
 
@@ -213,7 +213,7 @@
   // ---- 道具 ----
   function maybeDrop(x,y){
     if(Math.random()<0.16){
-      const types=['wide','multi','slow'];
+      const types=['wide','multi','slow','heart','bomb'];
       const t = types[(Math.random()*types.length)|0];
       powerups.push({ x:x-9, y:y-9, w:18, h:18, vy:1.7, type:t });
     }
@@ -233,6 +233,23 @@
         extra.push({ x:b.x, y:b.y, r:b.r, vx:-b.vx, vy:b.vy, stuck:false });
       }
       for(const e of extra){ if(balls.length<6) balls.push(e); }
+    } else if(t==='heart'){
+      lives = Math.min(5, lives+1);
+      if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076',0.2); Juice.popup(W/2, paddle.y-30, '+♥', C.green, {size:18}); }
+    } else if(t==='bomb'){
+      // 清屏：清除最底部 2 行砖块
+      const rowsSet = new Set();
+      for(const br of bricks){ if(br.alive) rowsSet.add(Math.round(br.y)); }
+      const rowsArr = [...rowsSet].sort((a,b)=>b-a).slice(0,2);
+      let cleared = 0;
+      for(const br of bricks){
+        if(br.alive && rowsArr.includes(Math.round(br.y))){
+          br.alive = false; score += br.points; cleared++;
+          spawnParticles(br.x+br.w/2, br.y+br.h/2);
+        }
+      }
+      if(cleared){ if(score>high){ high=score; saveHigh(); } }
+      if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.3); Juice.flash('#f6465d',0.25); Juice.achievement('💥 炸弹清屏！'); }
     }
   }
 
@@ -443,8 +460,8 @@
   }
 
   function drawPowerups(){
-    const style = { wide:C.green, multi:C.red, slow:C.gold };
-    const label = { wide:'宽', multi:'多', slow:'慢' };
+    const style = { wide:C.green, multi:C.red, slow:C.gold, heart:'#ff5f56', bomb:C.gold };
+    const label = { wide:'宽', multi:'多', slow:'慢', heart:'♥', bomb:'炸' };
     for(const p of powerups){
       ctx.save();
       ctx.fillStyle = style[p.type];
