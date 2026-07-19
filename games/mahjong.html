@@ -419,6 +419,14 @@ function hideOverlay(){ const o=document.getElementById('overlay'); if(o) o.styl
   btn('btnWin').addEventListener('click', humanWinClick);
   btn('btnPass').addEventListener('click', humanPassClick);
   btn('btnNew').addEventListener('click', newGame);
+
+  /* ---------- 测试钩子（非侵入，仅暴露纯函数） ---------- */
+  window.__t = {
+    buildWall, shuffle, countTile, removeTile,
+    canFormMelds, canWin, mostIsolated,
+    tileLabel, tileClass
+  };
+
   newGame();
 })();
 </script>
