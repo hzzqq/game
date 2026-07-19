@@ -172,6 +172,7 @@
     }
 
     function syncHUD() {
+      if (!S) return;
       $('score').textContent = S.score;
       $('best').textContent = S.best;
       $('lives').textContent = '♥'.repeat(Math.max(0, S.lives)) || '—';
@@ -326,6 +327,19 @@
     $('muteBtn').onclick = () => { const m = Juice.toggleMute(); $('muteBtn').textContent = m ? '🔇' : '🔊'; };
 
     syncHUD();
+
+    // ---- 纯逻辑（供测试） ----
+    function chainOk(prev, next){ return next[0] === prev[3]; }
+    function comboPts(combo){ return 100 * (1 + Math.floor(combo / 5)); }
+
+    // ---- 测试钩子 ----
+    window.__t = {
+      chainOk: chainOk, comboPts: comboPts, newState: newState, rankCheck: rankCheck,
+      getIDIOMS: function(){ return IDIOMS.slice(); },
+      hasIdiom: function(w){ return SET.has(w); },
+      getS: function(){ return S ? JSON.parse(JSON.stringify(S)) : null; },
+      setS: function(v){ S = v; }
+    };
   })();
   </script>
 </body>
