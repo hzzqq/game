@@ -653,6 +653,61 @@
   window.endPlay = endPlay;
   window.handleResponse = handleResponse;
 
+  /* ==== 逻辑测试钩子（纯逻辑/状态访问，不触发动效与渲染） ==== */
+  window.__t = {
+    /* 配置表 */
+    CARD_META: CARD_META,
+    ROLE_NAME: ROLE_NAME,
+    /* 工具 */
+    rand: rand, shuffle: shuffle,
+    findCard: findCard, countCard: countCard,
+    removeOneType: removeOneType, removeFromHand: removeFromHand,
+    aliveOthers: aliveOthers, shaLimit: shaLimit, busy: busy,
+    /* 牌堆 */
+    buildDeck: buildDeck, drawCards: drawCards,
+    /* 玩家 */
+    mkPlayer: mkPlayer, newGame: newGame,
+    /* 回合 */
+    nextAlive: nextAlive,
+    /* 伤害/死亡/胜负 */
+    dealDamage: dealDamage, die: die, checkWin: checkWin,
+    /* 响应 */
+    requireShan: requireShan, handleResponse: handleResponse,
+    /* 出牌核心 */
+    doPlay: doPlay, resolveDuel: resolveDuel, resolveWanjian: resolveWanjian,
+    /* AI */
+    bestAttackTarget: bestAttackTarget, someoneHurt: someoneHurt,
+    decideAiAction: decideAiAction, performAiAction: performAiAction,
+    autoDiscard: autoDiscard,
+    /* 交互判断 */
+    isTargetable: isTargetable,
+    /* 状态访问器 */
+    getPlayers: function(){ return players; },
+    setPlayers: function(v){ players = v; },
+    getDeck: function(){ return deck; },
+    setDeck: function(v){ deck = v; },
+    getDiscard: function(){ return discard; },
+    setDiscard: function(v){ discard = v; },
+    getCurrent: function(){ return current; },
+    setCurrent: function(v){ current = v; },
+    getPhase: function(){ return phase; },
+    setPhase: function(v){ phase = v; },
+    getSelCard: function(){ return selCard; },
+    setSelCard: function(v){ selCard = v; },
+    getSelTarget: function(){ return selTarget; },
+    setSelTarget: function(v){ selTarget = v; },
+    getPendingResponse: function(){ return pendingResponse; },
+    setPendingResponse: function(v){ pendingResponse = v; },
+    getGameOver: function(){ return gameOver; },
+    setGameOver: function(v){ gameOver = v; },
+    getResult: function(){ return result; },
+    getShaPlayedThisTurn: function(){ return shaPlayedThisTurn; },
+    setShaPlayedThisTurn: function(v){ shaPlayedThisTurn = v; },
+    getDiscardMode: function(){ return discardMode; },
+    setDiscardMode: function(v){ discardMode = v; },
+    getLogLines: function(){ return logLines; }
+  };
+
   newGame();
 })();
 </script>
