@@ -265,19 +265,20 @@
 
     <div class="touch-controls" id="touchControls">
       <div class="tc-row">
-        <button type="button" class="tc-btn" data-key="ArrowLeft" aria-label="左移">←</button>
-        <button type="button" class="tc-btn" data-key="ArrowRight" aria-label="右移">→</button>
-        <button type="button" class="tc-btn" data-key="ArrowUp" aria-label="旋转">↑</button>
-        <button type="button" class="tc-btn" data-key="ArrowDown" aria-label="软降">↓</button>
+        <button type="button" class="tc-btn" data-action="left" aria-label="左移">←</button>
+        <button type="button" class="tc-btn" data-action="right" aria-label="右移">→</button>
+        <button type="button" class="tc-btn" data-action="up" aria-label="旋转">↑</button>
+        <button type="button" class="tc-btn" data-action="down" aria-label="软降">↓</button>
       </div>
       <div class="tc-row">
-        <button type="button" class="tc-btn primary" data-key=" " aria-label="硬降">⤓</button>
-        <button type="button" class="tc-btn" data-key="c" aria-label="Hold">H</button>
-        <button type="button" class="tc-btn" data-key="p" aria-label="暂停">⏸</button>
+        <button type="button" class="tc-btn primary" data-action="a" aria-label="硬降">⤓</button>
+        <button type="button" class="tc-btn" data-action="c" aria-label="Hold">H</button>
+        <button type="button" class="tc-btn" data-action="pause" aria-label="暂停">⏸</button>
       </div>
     </div>
   </div>
 
+<script src="input.js"></script>
 <script>
 (function(){
   "use strict";
@@ -664,6 +665,7 @@
   function tick(time){
     const dt = time - lastTime;
     lastTime = time;
+    if (typeof Input !== 'undefined') applyInput(dt);
     if(running && !paused && !gameOver){
       dropCounter += dt;
       if(dropCounter > dropInterval){
@@ -677,6 +679,7 @@
     }
     if(running) updateParticles(dt);
     draw();
+    if(typeof Input!=='undefined') Input.update();
     requestAnimationFrame(tick);
   }
 
@@ -720,20 +723,33 @@
     }
   }
 
-  // ====== 输入 ======
-  document.addEventListener('keydown', function(e){
-    if(gameOver) return;
-    if(e.key==='p'||e.key==='P'){ togglePause(); e.preventDefault(); return; }
-    if(paused) return;
-    switch(e.key){
-      case 'ArrowLeft': move(-1); e.preventDefault(); break;
-      case 'ArrowRight': move(1); e.preventDefault(); break;
-      case 'ArrowUp': rotate(); e.preventDefault(); break;
-      case 'ArrowDown': softDrop(); e.preventDefault(); break;
-      case ' ': hardDrop(); e.preventDefault(); break;
-      case 'c': case 'C': case 'Shift': hold(); e.preventDefault(); break;
-    }
-  });
+  // ====== 输入（共享输入层 input.js：失焦清键 + 快速点按缓冲，修复断触）======
+  if (typeof Input !== 'undefined') {
+    Input.init({ keymap: { 'KeyP':'pause' } });
+  }
+  let hMoveCd = 0, sMoveCd = 0; // DAS / 软降重复计时（秒）
+  function applyInput(dt){
+    if (typeof Input === 'undefined') return;
+    const sec = dt/1000;
+    if (Input.pressed('pause')) togglePause();
+    if (gameOver || paused) return;
+    // 水平移动（含 DAS 自动重复）
+    hMoveCd -= sec;
+    if (Input.down('left') && !Input.down('right')) {
+      if (hMoveCd <= 0) { move(-1); hMoveCd = 0.11; }
+    } else if (Input.down('right') && !Input.down('left')) {
+      if (hMoveCd <= 0) { move(1); hMoveCd = 0.11; }
+    } else { hMoveCd = 0; }
+    // 软降（按住重复）
+    sMoveCd -= sec;
+    if (Input.down('down')) {
+      if (sMoveCd <= 0) { softDrop(); sMoveCd = 0.04; }
+    } else { sMoveCd = 0; }
+    // 边沿动作
+    if (Input.pressed('up')) rotate();
+    if (Input.pressed('a')) hardDrop();
+    if (Input.pressed('c') || Input.pressed('dash')) hold();
+  }
 
   restartBtn.addEventListener('click', startGame);
   pauseBtn.addEventListener('click', togglePause);
@@ -761,36 +777,13 @@
 </script>
 
 <script>
-// ====== 触屏输入：派发等价的合成键盘事件，完全复用现有 keydown 逻辑 ======
+// ====== 触屏输入：走共享输入层 input.js 的虚拟按钮（自动处理按下/抬起/取消，杜绝卡键）======
 (function(){
   "use strict";
+  if (typeof Input === 'undefined') return;
   var controls = document.getElementById('touchControls');
   if(!controls) return;
-  var REPEAT_KEYS = { ArrowLeft:1, ArrowRight:1, ArrowDown:1 }; // 长按自动重复
-
-  function fire(key){
-    document.dispatchEvent(new KeyboardEvent('keydown', { key:key, bubbles:true }));
-  }
-
-  Array.prototype.forEach.call(controls.querySelectorAll('.tc-btn'), function(btn){
-    var key = btn.getAttribute('data-key');
-    var timer = null;
-    btn.addEventListener('pointerdown', function(e){
-      e.preventDefault();
-      fire(key);
-      if(REPEAT_KEYS[key]){
-        // 初次延迟后开始自动重复，模拟 DAS
-        timer = setInterval(function(){ fire(key); }, 110);
-      }
-    });
-    function stop(){
-      if(timer){ clearInterval(timer); timer = null; }
-    }
-    btn.addEventListener('pointerup', stop);
-    btn.addEventListener('pointerleave', stop);
-    btn.addEventListener('pointercancel', stop);
-    btn.addEventListener('contextmenu', function(e){ e.preventDefault(); });
-  });
+  Input.bindVirtualButtons(controls);
 })();
 </script>
 </body>

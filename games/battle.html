@@ -169,6 +169,9 @@
     // ============ 输入 ============
     window.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true; if([ ' ','arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase()))e.preventDefault();});
     window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+    // 失焦 / 切后台清空按键，根治「卡键」断触（双人共用 keys，故仅做兜底、不改逻辑）
+    window.addEventListener('blur', ()=>{ for(const k in keys) keys[k]=false; });
+    document.addEventListener('visibilitychange', ()=>{ if(document.hidden){ for(const k in keys) keys[k]=false; } });
 
     // 触屏摇杆
     const joy=document.getElementById('joy'), knob=document.getElementById('knob'), fireBtn=document.getElementById('fire');

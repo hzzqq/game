@@ -76,10 +76,10 @@
   </div>
 
   <div class="pad">
-    <button class="pu" data-dir="up">▲</button>
-    <button class="pl" data-dir="left">◀</button>
-    <button class="pr" data-dir="right">▶</button>
-    <button class="pd" data-dir="down">▼</button>
+    <button class="pu" data-action="up">▲</button>
+    <button class="pl" data-action="left">◀</button>
+    <button class="pr" data-action="right">▶</button>
+    <button class="pd" data-action="down">▼</button>
   </div>
 
   <div class="bar">
@@ -99,6 +99,7 @@
     </div>
   </div>
 
+<script src="input.js"></script>
 <script>
 (function(){
   "use strict";
@@ -512,6 +513,7 @@
 
   // ---------- loop ----------
   function loop(){
+    if (typeof Input !== 'undefined') readInput();
     if (running && !paused){
       var pt = tileOf(pac);
       movePac();
@@ -525,32 +527,31 @@
       }
     }
     draw();
+    if (typeof Input !== 'undefined') Input.update();
     requestAnimationFrame(loop);
   }
 
-  // ---------- input ----------
+  // ---------- input（共享输入层 input.js：失焦清键，修复断触）----------
+  if (typeof Input !== 'undefined') {
+    Input.init({ keymap: { 'Space':'pause', 'KeyP':'pause' } });
+  }
   function setDir(dx, dy){
     if (!pac) return;
     pac.want = {x:dx, y:dy};
   }
-  var keymap = {
-    'ArrowUp':[0,-1], 'ArrowDown':[0,1], 'ArrowLeft':[-1,0], 'ArrowRight':[1,0],
-    'w':[0,-1], 's':[0,1], 'a':[-1,0], 'd':[1,0],
-    'W':[0,-1], 'S':[0,1], 'A':[-1,0], 'D':[1,0]
-  };
-  window.addEventListener('keydown', function(e){
-    if (keymap[e.key]){ setDir(keymap[e.key][0], keymap[e.key][1]); e.preventDefault(); }
-    else if (e.key === ' ' || e.key === 'p' || e.key === 'P'){ togglePause(); e.preventDefault(); }
-  });
-
-  // d-pad
-  var padBtns = document.querySelectorAll('.pad button');
-  for (var b=0; b<padBtns.length; b++){
-    (function(btn){
-      var dir = btn.getAttribute('data-dir');
-      var map = {up:[0,-1], down:[0,1], left:[-1,0], right:[1,0]};
-      btn.addEventListener('click', function(){ setDir(map[dir][0], map[dir][1]); });
-    })(padBtns[b]);
+  function readInput(){
+    if (typeof Input === 'undefined') return;
+    if (Input.pressed('pause')) togglePause();
+    if (running && !paused && pac){
+      if(Input.pressed('up')) setDir(0,-1);
+      else if(Input.pressed('down')) setDir(0,1);
+      else if(Input.pressed('left')) setDir(-1,0);
+      else if(Input.pressed('right')) setDir(1,0);
+    }
+  }
+  // d-pad：走 input.js 虚拟按钮
+  if (typeof Input !== 'undefined') {
+    Input.bindVirtualButtons(document.querySelector('.pad'));
   }
 
   // swipe

@@ -87,6 +87,7 @@
   </div>
 
   <script src="juice.js"></script>
+  <script src="input.js"></script>
   <script>
   (function(){
     if('ontouchstart' in window) document.body.classList.add('touch');
@@ -101,17 +102,11 @@
     let bullets=[], enemies=[], eBullets=[], particles=[], drops=[];
     let lastShoot=0;
     let score=0, level=1, spawnT=0, boss=null, bossNext=1200, running=false, paused=false, over=false;
-    const keys={};
     const DROP={power:{c:'#f0b90b',g:'P'},life:{c:'#02c076',g:'♥'},shield:{c:'#3aa0ff',g:'S'},rapid:{c:'#ff8a96',g:'R'},bomb:{c:'#f6465d',g:'B'},heal:{c:'#7CFC00',g:'+'}};
 
-    // ===== 输入 =====
-    window.addEventListener('keydown',e=>{
-      const k=e.key.toLowerCase();
-      keys[k]=true;
-      if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
-      if(k==='p') togglePause();
-    });
-    window.addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+    // ===== 输入（接入共享输入层 input.js，根治断触 / 失焦卡键）=====
+    if(typeof Input!=='undefined') Input.init({keymap:{'KeyP':'pause'}});
+    const I=(typeof Input!=='undefined')?Input:null;
 
     // 触屏拖拽移动
     let dragId=null;
@@ -175,10 +170,11 @@
     function update(dt){
       // 玩家移动
       let dx=0,dy=0;
-      if(keys['a']||keys['arrowleft'])dx-=1; if(keys['d']||keys['arrowright'])dx+=1;
-      if(keys['w']||keys['arrowup'])dy-=1; if(keys['s']||keys['arrowdown'])dy+=1;
+      if(I){
+        if(I.down('left'))dx-=1; if(I.down('right'))dx+=1;
+        if(I.down('up'))dy-=1; if(I.down('down'))dy+=1;
+      }
       if(dx||dy){ const l=Math.hypot(dx,dy); player.x+=dx/l*player.speed*dt; player.y+=dy/l*player.speed*dt; }
-      else if(!dragId){ /* 触屏拖拽已在事件中设置位置 */ }
       player.x=Math.max(player.r,Math.min(W-player.r,player.x));
       player.y=Math.max(player.r+50,Math.min(H-player.r,player.y));
       if(player.invuln>0) player.invuln-=dt;
@@ -409,8 +405,10 @@
       if(!running) return;
       const dt=Math.min(0.05,(ts-last)||0.016); last=ts;
       Juice.update(dt);
+      if(I && I.pressed('pause')) togglePause();
       if(!paused && !over) update(dt);
       render();
+      if(I) I.update();
       raf=requestAnimationFrame(loop);
     }
 

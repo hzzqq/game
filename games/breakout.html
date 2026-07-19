@@ -99,6 +99,7 @@
     </div>
   </div>
 
+<script src="input.js"></script>
 <script>
 (function(){
   "use strict";
@@ -323,10 +324,12 @@
       paddle.w = paddle.baseW;
       paddle.x = clamp(cx - paddle.w/2, 0, W-paddle.w);
     }
-    // 挡板移动
+    // 挡板移动（共享输入层 input.js，失焦自动清键）
     if(state==='playing' || state==='ready'){
-      if(keyLeft) paddle.x -= 7;
-      if(keyRight) paddle.x += 7;
+      const L = (typeof Input!=='undefined') ? Input.down('left') : keyLeft;
+      const R = (typeof Input!=='undefined') ? Input.down('right') : keyRight;
+      if(L) paddle.x -= 7;
+      if(R) paddle.x += 7;
       paddle.x = clamp(paddle.x, 0, W-paddle.w);
     }
     // 待发射球跟随挡板
@@ -508,6 +511,11 @@
     now = t;
     let f = t - last; last = t;
     if(f>200) f=200;
+    if (typeof Input !== 'undefined') {
+      if (Input.pressed('a')) primaryAction();   // 空格
+      if (Input.pressed('pause')) togglePause();  // P
+      Input.update();
+    }
     acc += f;
     let steps=0;
     while(acc>=STEP && steps<5){ update(); acc-=STEP; steps++; }
@@ -534,40 +542,26 @@
     if(e.touches && e.touches.length){ touchToCanvas(e.touches[0].clientX); }
     e.preventDefault(); // 阻止触屏滚动/缩放干扰
   }, { passive:false });
-  canvas.addEventListener('click', function(){
+  canvas.addEventListener('click', primaryAction);
+  // ---- 输入（共享输入层 input.js：失焦清键 + 快速点按缓冲，修复断触）----
+  if (typeof Input !== 'undefined') {
+    Input.init({ keymap: { 'KeyP':'pause' } });
+  }
+  function primaryAction(){
     if(state==='menu'||state==='gameover') startGame();
     else if(state==='ready') launch();
     else if(state==='levelcomplete'){ level++; buildLevel(); resetBall(); setState('ready'); }
-  });
-  window.addEventListener('keydown', function(e){
-    if(e.key==='ArrowLeft') keyLeft=true;
-    if(e.key==='ArrowRight') keyRight=true;
-    if(e.key===' '){
-      e.preventDefault();
-      if(state==='menu'||state==='gameover') startGame();
-      else if(state==='ready') launch();
-      else if(state==='levelcomplete'){ level++; buildLevel(); resetBall(); setState('ready'); }
-    }
-    if(e.key==='p'||e.key==='P'){
-      if(state==='playing') setState('paused');
-      else if(state==='paused') setState('playing');
-    }
-  });
-  window.addEventListener('keyup', function(e){
-    if(e.key==='ArrowLeft') keyLeft=false;
-    if(e.key==='ArrowRight') keyRight=false;
-  });
-
-  startBtn.addEventListener('click', function(){
-    if(state==='menu'||state==='gameover') startGame();
-    else if(state==='ready') launch();
-    else if(state==='levelcomplete'){ level++; buildLevel(); resetBall(); setState('ready'); }
-    else if(state==='playing'||state==='paused') startGame();
-  });
-  pauseBtn.addEventListener('click', function(){
+  }
+  function togglePause(){
     if(state==='playing') setState('paused');
     else if(state==='paused') setState('playing');
+  }
+
+  startBtn.addEventListener('click', function(){
+    if(state==='playing'||state==='paused') startGame();
+    else primaryAction();
   });
+  pauseBtn.addEventListener('click', togglePause);
 
   // ---- 启动 ----
   buildLevel(); // 仅为初始化（菜单态不显示）

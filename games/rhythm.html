@@ -750,6 +750,9 @@ window.addEventListener('keyup', (e)=>{
     refreshLaneActive();
   }
 });
+// 失焦 / 切后台清空轨道激活，根治「长押卡住 / 卡键」断触
+window.addEventListener('blur', function(){ for(let i=0;i<keyActive.length;i++) keyActive[i]=false; refreshLaneActive(); });
+document.addEventListener('visibilitychange', function(){ if(document.hidden){ for(let i=0;i<keyActive.length;i++) keyActive[i]=false; refreshLaneActive(); } });
 
 /* ---- 触屏多点触控 ---- */
 /* touchLanes: 触摸点 identifier -> 当前所在轨道 */

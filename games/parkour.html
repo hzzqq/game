@@ -71,6 +71,7 @@
     </div>
   </div>
 
+<script src="input.js"></script>
 <script>
 (function(){
   "use strict";
@@ -371,12 +372,19 @@
   }
 
   function loop(ts){
-    if (state !== 'play'){ return; }
-    if (!lastTime) lastTime = ts;
-    var dt = (ts - lastTime) / 16.6667;
-    lastTime = ts;
-    if (dt > 3) dt = 3; // clamp
-    update(dt);
+    // 输入（共享输入层 input.js：失焦清键 + 快速点按缓冲，修复断触）
+    if (typeof Input !== 'undefined'){
+      if (Input.pressed('a') || Input.pressed('up')) onAction();
+      if (state === 'play') runner.ducking = Input.down('down');
+      Input.update();
+    }
+    if (state === 'play'){
+      if (!lastTime) lastTime = ts;
+      var dt = (ts - lastTime) / 16.6667;
+      lastTime = ts;
+      if (dt > 3) dt = 3; // clamp
+      update(dt);
+    }
     draw();
     distEl.textContent = Math.floor(distance);
     spdEl.textContent = (speed/baseSpeed).toFixed(1) + 'x';
@@ -388,7 +396,6 @@
     state = 'play';
     overlay.style.display = 'none';
     lastTime = 0;
-    requestAnimationFrame(loop);
   }
 
   function gameOver(){
@@ -422,18 +429,8 @@
     if (e && e.preventDefault) e.preventDefault();
   }
 
-  window.addEventListener('keydown', function(e){
-    if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' '){
-      onAction(e);
-    } else if (e.code === 'ArrowDown' || e.key === 's' || e.key === 'S'){
-      if (state === 'play') runner.ducking = true;
-    }
-  });
-  window.addEventListener('keyup', function(e){
-    if (e.code === 'ArrowDown' || e.key === 's' || e.key === 'S'){
-      runner.ducking = false;
-    }
-  });
+  // 键盘走共享输入层 input.js（失焦清键 + 快速点按缓冲）
+  if (typeof Input !== 'undefined') { Input.init(); }
 
   // tap / touch on screen
   stage.addEventListener('pointerdown', function(e){
@@ -448,10 +445,10 @@
 
   startBtn.addEventListener('click', function(e){ e.stopPropagation(); startGame(); });
 
-  // initial idle render
+  // 初始并常驻主循环（菜单/结算态也轮询输入以支持键盘开始/重开）
   reset();
   state = 'menu';
-  draw();
+  requestAnimationFrame(loop);
 })();
 </script>
 </body>

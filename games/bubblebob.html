@@ -633,13 +633,16 @@ function bindUI(){
   });
   const nr=document.getElementById('nextRound'); if(nr) nr.addEventListener('click',nextRound);
   const ng=document.getElementById('newGame'); if(ng) ng.addEventListener('click',()=>startGame(mode));
-  // 键盘
+  // 键盘（维持原有多玩家按键集合）
   window.addEventListener('keydown',e=>{
     if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
     keys.add(e.code);
     if(e.code==='KeyP'){ /* 暂停切换可扩展 */ }
   });
   window.addEventListener('keyup',e=>keys.delete(e.code));
+  // 失焦 / 切到后台时清空按键集合，避免 keyup 丢失导致“卡键”（断触根因之一）
+  window.addEventListener('blur', ()=>keys.clear());
+  if(document.addEventListener) document.addEventListener('visibilitychange', ()=>{ if(document.hidden) keys.clear(); });
   // 触屏（P1）
   const touch=document.getElementById('touch');
   if(touch){

@@ -357,6 +357,7 @@ window.addEventListener('keyup',function(e){
   }
 });
 window.addEventListener('blur',function(){ held.left=false; held.right=false; held.block=false; });
+document.addEventListener('visibilitychange',function(){ if(document.hidden){ held.left=false; held.right=false; held.block=false; } });
 
 function press(act){
   switch(act){

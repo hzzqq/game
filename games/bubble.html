@@ -94,6 +94,7 @@
   <div class="hint">移动瞄准 · 点击/空格发射 · ←→ 旋转 · 三连同色消除</div>
 </div>
 
+<script src="input.js"></script>
 <script>
 (function () {
   "use strict";
@@ -522,9 +523,17 @@
   }
 
   function loop() {
+    if (typeof Input !== 'undefined') { applyInput(); Input.update(); }
     update();
     draw();
     requestAnimationFrame(loop);
+  }
+
+  function applyInput(){
+    if (typeof Input === 'undefined') return;
+    if (Input.down('left')) { aimAngle -= 0.06; clampAim(); }
+    if (Input.down('right')) { aimAngle += 0.06; clampAim(); }
+    if (Input.pressed('a')) { if (state === 'playing') fire(); }
   }
 
   // ---- Input ----
@@ -569,12 +578,8 @@
     setAimFromPoint(p.x, p.y);
   }, { passive: false });
 
-  window.addEventListener("keydown", function (e) {
-    if (state !== "playing") return;
-    if (e.key === "ArrowLeft") { aimAngle -= 0.06; clampAim(); }
-    else if (e.key === "ArrowRight") { aimAngle += 0.06; clampAim(); }
-    else if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); fire(); }
-  });
+  // 键盘走共享输入层 input.js（失焦清键 + 按住连续瞄准，修复断触）
+  if (typeof Input !== 'undefined') { Input.init(); }
 
   function clampAim() {
     if (aimAngle > -0.12) aimAngle = -0.12;

@@ -89,6 +89,7 @@
     </div>
   </div>
 
+<script src="input.js"></script>
 <script>
 (function(){
   "use strict";
@@ -226,16 +227,8 @@
     player.lane = nl;
   }
 
-  window.addEventListener('keydown', function(e){
-    var k = e.key;
-    if (k === 'ArrowLeft' || k === 'a' || k === 'A'){ moveLane(-1); e.preventDefault(); }
-    else if (k === 'ArrowRight' || k === 'd' || k === 'D'){ moveLane(1); e.preventDefault(); }
-    else if (k === ' ' || k === 'Enter'){
-      if (state === 'menu' || state === 'over'){ startGame(); }
-      else if (state === 'playing'){ togglePause(); }
-      e.preventDefault();
-    }
-  });
+  // 键盘走共享输入层 input.js（失焦清键 + 快速点按缓冲，修复断触）
+  if (typeof Input !== 'undefined') { Input.init(); }
 
   startBtn.addEventListener('click', function(){
     if (state === 'playing' || state === 'paused') return;
@@ -416,6 +409,16 @@
 
   // ---- loop ----
   function frame(now){
+    // 输入（共享输入层 input.js：失焦清键 + 快速点按缓冲）
+    if (typeof Input !== 'undefined'){
+      if (Input.pressed('left')) moveLane(-1);
+      if (Input.pressed('right')) moveLane(1);
+      if (Input.pressed('a') || Input.pressed('start')){
+        if (state === 'menu' || state === 'over') startGame();
+        else if (state === 'playing' || state === 'paused') togglePause();
+      }
+      Input.update();
+    }
     if (state === 'playing'){
       var dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
