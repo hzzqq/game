@@ -67,6 +67,9 @@ function makeSandbox() {
     cancelAnimationFrame: () => {},
     location: { href: '' },
     devicePixelRatio: 1,
+    innerWidth: 800,
+    innerHeight: 600,
+    ontouchstart: undefined,
   };
   const sandbox = {
     console,

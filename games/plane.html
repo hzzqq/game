@@ -430,6 +430,57 @@
     document.getElementById('muteBtn').onclick=()=>{ const m=Juice.toggleMute(); document.getElementById('muteBtn').textContent=m?'🔇':'🔊'; };
     window.addEventListener('resize',()=>{ W=window.innerWidth; H=window.innerHeight; cv.width=W; cv.height=H; });
 
+    /* ==== 逻辑测试钩子（纯逻辑/状态访问，不触发动效与渲染） ==== */
+    window.__t = {
+      /* 表 */
+      DROP: DROP,
+      /* 工具 */
+      rnd: rnd,
+      firePattern: firePattern,
+      spawnParticles: spawnParticles,
+      /* 生成 */
+      spawnEnemy: spawnEnemy,
+      spawnBoss: spawnBoss,
+      maybeDrop: maybeDrop,
+      /* 道具/伤害/生命 */
+      applyDrop: applyDrop,
+      hitPlayer: hitPlayer,
+      loseLife: loseLife,
+      /* 流程 */
+      start: start,
+      update: update,
+      /* 状态访问器 */
+      getPlayer: function(){ return player; },
+      getBullets: function(){ return bullets; },
+      setBullets: function(v){ bullets = v; },
+      getEnemies: function(){ return enemies; },
+      setEnemies: function(v){ enemies = v; },
+      getEBullets: function(){ return eBullets; },
+      setEBullets: function(v){ eBullets = v; },
+      getDrops: function(){ return drops; },
+      setDrops: function(v){ drops = v; },
+      getParticles: function(){ return particles; },
+      setParticles: function(v){ particles = v; },
+      getScore: function(){ return score; },
+      setScore: function(v){ score = v; },
+      getLevel: function(){ return level; },
+      setLevel: function(v){ level = v; },
+      getBoss: function(){ return boss; },
+      setBoss: function(v){ boss = v; },
+      getRunning: function(){ return running; },
+      setRunning: function(v){ running = v; },
+      getOver: function(){ return over; },
+      setOver: function(v){ over = v; },
+      getPaused: function(){ return paused; },
+      setPaused: function(v){ paused = v; },
+      getBossNext: function(){ return bossNext; },
+      setBossNext: function(v){ bossNext = v; },
+      getSpawnT: function(){ return spawnT; },
+      setSpawnT: function(v){ spawnT = v; },
+      getW: function(){ return W; },
+      getH: function(){ return H; }
+    };
+
     // 初始渲染一帧（菜单背景）
     render();
   })();
