@@ -414,6 +414,25 @@
   // 初始
   state='menu';
   document.getElementById('besttxt').textContent=Juice.load('best_gun',0);
+
+  /* ---------- 测试钩子（非侵入，仅暴露纯函数 + 状态访问器） ---------- */
+  window.__t = {
+    reset, nextWave, spawnEnemy, fire, doDash, dropItem, spawnItem,
+    nearestEnemy, killEnemy, hurtPlayer, applyItem, startGame,
+    getWEAPONS: function(){ return WEAPONS; },
+    getITEMS: function(){ return ITEMS; },
+    getCRATE: function(){ return CRATE; },
+    getPlayer: function(){ return player; }, setPlayer: function(v){ player = v; },
+    getEnemies: function(){ return enemies; }, setEnemies: function(v){ enemies = v; },
+    getBullets: function(){ return bullets; }, setBullets: function(v){ bullets = v; },
+    getItems: function(){ return items; }, setItems: function(v){ items = v; },
+    getState: function(){ return state; }, setState: function(v){ state = v; },
+    getScore: function(){ return score; }, setScore: function(v){ score = v; },
+    getWave: function(){ return wave; }, setWave: function(v){ wave = v; },
+    getCombo: function(){ return combo; }, setCombo: function(v){ combo = v; },
+    getW: function(){ return W; }, getH: function(){ return H; }
+  };
+
   requestAnimationFrame(frame);
 })();
 </script>
