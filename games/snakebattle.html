@@ -40,6 +40,13 @@
   #overlay .act{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 26px;font-family:inherit;cursor:pointer;border-radius:8px}
   .foot{width:min(560px,96vw);color:var(--dim);font-size:11px;text-align:center;margin-top:10px;line-height:1.6}
   .kbd{display:inline-block;border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--text);font-size:11px}
+  #pad{position:fixed;right:16px;bottom:16px;z-index:8;width:156px;height:156px;display:none;touch-action:none;user-select:none;-webkit-user-select:none}
+  #pad.show{display:block}
+  #pad .pc{position:absolute;width:50px;height:50px;border:1px solid var(--border);border-radius:12px;
+    background:rgba(18,24,33,.9);color:var(--text);font-size:22px;display:flex;align-items:center;justify-content:center;
+    backdrop-filter:blur(4px);touch-action:none}
+  #pad .pc:active{background:rgba(246,70,93,.28)}
+  #pad .up{left:53px;top:0}#pad .down{left:53px;bottom:0}#pad .left{left:0;top:53px}#pad .right{left:106px;top:53px}
 </style>
 </head>
 <body>
@@ -52,14 +59,22 @@
       <span class="r">P1 红 <b id="sc1">3</b></span>
       <span class="g">P2 绿 <b id="sc2">3</b></span>
     </div>
-    <div style="display:flex;gap:8px">
+    <div class="ctrlrow" style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="act gold" id="startBtn">开始 / 暂停</button>
       <button class="act" id="newBtn">新局</button>
+      <button class="act" id="aiBtn">VS AI: 开</button>
+      <button class="act" id="ctrlBtn">控制 P1</button>
     </div>
   </div>
   <div id="wrap"><canvas id="cv"></canvas></div>
+  <div id="pad">
+    <div class="pc up" data-dx="0" data-dy="-1">▲</div>
+    <div class="pc down" data-dx="0" data-dy="1">▼</div>
+    <div class="pc left" data-dx="-1" data-dy="0">◀</div>
+    <div class="pc right" data-dx="1" data-dy="0">▶</div>
+  </div>
   <div class="foot">
-    P1 红 <span class="kbd">W A S D</span> &nbsp;·&nbsp; P2 绿 <span class="kbd">↑ ↓ ← →</span> &nbsp;·&nbsp; 吃金豆变长，撞墙/撞身/互撞即淘汰，最后存活者胜
+    P1 红 <span class="kbd">W A S D</span> &nbsp;·&nbsp; P2 绿 <span class="kbd">↑ ↓ ← →</span> &nbsp;·&nbsp; 吃金豆变长，撞墙/撞身/互撞即淘汰，最后存活者胜 &nbsp;·&nbsp; 手机端右下角有虚拟方向键
   </div>
   <div id="overlay"><div class="box">
     <h2 id="ovTitle">准备就绪</h2>
@@ -81,15 +96,18 @@
 
   let cssW = 0, CELL = 0, MARGIN = 0;
   let snakes, food, running, gameOver, acc, pulse;
+  const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints>0) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+  let vsAI = IS_TOUCH, dpadTarget = 1;
 
   function makeSnake(player, startX, dir){
     const body = [];
     for(let i=0;i<3;i++) body.push({ x: startX - i*dir.x, y: 10 - i*dir.y });
-    return { player, body, dir:{x:dir.x,y:dir.y}, pending:{x:dir.x,y:dir.y}, alive:true, len:3 };
+    return { player, body, dir:{x:dir.x,y:dir.y}, pending:{x:dir.x,y:dir.y}, alive:true, len:3, ai:false };
   }
 
   function reset(){
     snakes = [ makeSnake(1, 5, {x:1,y:0}), makeSnake(2, GRID-6, {x:-1,y:0}) ];
+    syncAI();
     running = false; gameOver = false; acc = 0; pulse = 0;
     spawnFood();
     hideOverlay();
@@ -185,7 +203,29 @@
     s.pending = cand;
   }
 
+  function syncAI(){
+    if(!snakes) return;
+    snakes[0].ai = vsAI && dpadTarget!==1;
+    snakes[1].ai = vsAI && dpadTarget!==2;
+  }
+  function aiThink(player){
+    const s = snakes[player-1];
+    if(!s.alive) return;
+    const dirs=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+    const cands=dirs.filter(d=>!opposite(d,s.dir));
+    const occ=(x,y)=>{
+      if(x<0||y<0||x>=GRID||y>=GRID) return true;
+      for(const sn of snakes){ if(!sn.alive) continue; for(const seg of sn.body){ if(seg.x===x&&seg.y===y) return true; } }
+      return false;
+    };
+    const safe=cands.filter(d=>!occ(s.body[0].x+d.x, s.body[0].y+d.y));
+    if(!safe.length) return;
+    safe.sort((a,b)=> (Math.abs(s.body[0].x+a.x-food.x)+Math.abs(s.body[0].y+a.y-food.y)) - (Math.abs(s.body[0].x+b.x-food.x)+Math.abs(s.body[0].y+b.y-food.y)) );
+    s.pending=safe[0];
+  }
+
   function tick(){
+    for(let i=0;i<2;i++){ if(snakes[i].ai && snakes[i].alive) aiThink(i+1); }
     for(const s of snakes){ if(s.alive) s.dir = s.pending; }
     const heads = snakes.map(s => s.alive ? {x:s.body[0].x+s.dir.x, y:s.body[0].y+s.dir.y} : null);
     const dead = [false,false];
@@ -253,6 +293,23 @@
   document.getElementById('newBtn').onclick = reset;
   document.getElementById('ovBtn').onclick = function(){ reset(); toggle(); };
   window.addEventListener('resize', fit);
+
+  // 触屏虚拟方向键 + 控制开关
+  const pad = document.getElementById('pad');
+  if(IS_TOUCH) pad.classList.add('show');
+  pad.querySelectorAll('.pc').forEach(function(btn){
+    const dx=+btn.dataset.dx, dy=+btn.dataset.dy;
+    const fire=function(e){ e.preventDefault(); setDir(dpadTarget, dx, dy); };
+    btn.addEventListener('pointerdown', fire);
+    btn.addEventListener('touchstart', fire, {passive:false});
+    btn.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  });
+  const aiBtn=document.getElementById('aiBtn');
+  const ctrlBtn=document.getElementById('ctrlBtn');
+  function refreshLabels(){ aiBtn.textContent='VS AI: '+(vsAI?'开':'关'); ctrlBtn.textContent='控制 P'+(dpadTarget===1?'1':'2'); ctrlBtn.style.display = vsAI?'none':'inline-block'; }
+  aiBtn.onclick=function(){ vsAI=!vsAI; syncAI(); refreshLabels(); };
+  ctrlBtn.onclick=function(){ dpadTarget = dpadTarget===1?2:1; syncAI(); refreshLabels(); };
+  refreshLabels();
 
   reset(); fit();
 
