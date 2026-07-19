@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // MONOPOLY</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#0f141c; --panel2:#131a24; --border:rgba(31,42,56,.8);
+    --text:#d7e0ea; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --blue:#3aa0ff; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),
+    linear-gradient(0deg, rgba(255,255,255,.02) 1px, transparent 1px) 0 0/100% 3px,
+    var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:16px 12px}
+  .titlebar{width:min(960px,96vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+
+  .bar{width:min(960px,96vw);display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap}
+  .turn{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--dim)}
+  .turn .td{width:14px;height:14px;border-radius:50%;box-shadow:0 0 8px currentColor}
+  .turn b{color:var(--text)}
+  .dice{font-size:13px;color:var(--gold);border:1px solid var(--border);border-radius:8px;padding:4px 10px}
+  .act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px}
+  .act:hover{border-color:var(--dim)}
+  .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+
+  .wrap{width:min(960px,96vw);display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+  .boardCol{width:min(92vw,600px);display:flex;flex-direction:column;gap:12px}
+  #boardWrap{width:100%;aspect-ratio:1;position:relative}
+  canvas{width:100%;height:100%;display:block;background:#0d1320;border:1px solid var(--border);border-radius:10px;touch-action:manipulation}
+
+  .roll{width:100%;padding:16px;font-size:19px;font-weight:700;border:none;border-radius:12px;cursor:pointer;
+    background:linear-gradient(180deg,#f6465d,#c9354a);color:#0a0e14;font-family:inherit;letter-spacing:1px;
+    box-shadow:0 4px 16px rgba(246,70,93,.3)}
+  .roll:active{transform:translateY(1px)}
+
+  .action{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-height:20px}
+  .ap-title{font-size:14px;color:var(--text);margin-bottom:4px}
+  .ap-sub{font-size:12px;color:var(--dim);margin-bottom:10px}
+  .ap-btns{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px}
+  .btn.ok{background:var(--green);color:#0a0e14;border:none;font-weight:700}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+
+  .sideCol{width:min(92vw,340px);display:flex;flex-direction:column;gap:12px}
+  .players{display:flex;flex-direction:column;gap:8px}
+  .pc{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:9px 12px}
+  .pc.dead{opacity:.45}
+  .pc-name{font-size:13px;display:flex;align-items:center;gap:6px}
+  .dotc{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .pc-cash{font-size:15px;color:var(--gold);margin:3px 0}
+  .pc-prop{font-size:11px;color:var(--dim);line-height:1.5}
+  .out{color:var(--red);font-size:11px}
+  .jn{font-size:11px}
+
+  .logbox{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px;height:240px;overflow-y:auto;font-size:11.5px;line-height:1.7}
+  .logbox .li{color:var(--dim);border-bottom:1px dashed rgba(31,42,56,.5);padding:2px 0}
+  .foot{width:min(960px,96vw);color:var(--dim);font-size:11px;text-align:center;margin-top:12px;line-height:1.6}
+
+  #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.92)}
+  #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;text-align:center;min-width:260px}
+  #overlay h2{font-size:22px;margin-bottom:12px;letter-spacing:1px}
+  #overlay p{color:var(--dim);font-size:13px;margin-bottom:16px}
+  #overlay .act{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 26px;font-family:inherit;cursor:pointer;border-radius:8px}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>MONOPOLY</b> · 大富翁</span>
+  </div>
+
+  <div class="bar">
+    <div class="turn"><span class="td" id="turnDot"></span>当前: <b id="turnText">你</b></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="dice" id="dice">🎲 —</span>
+      <button class="act gold" id="restartBtn">重开</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="boardCol">
+      <div id="boardWrap"><canvas id="cv"></canvas></div>
+      <button class="roll" id="rollBtn" data-action="start">🎲 掷骰子</button>
+      <div class="action" id="actionPanel"></div>
+    </div>
+    <div class="sideCol">
+      <div class="players" id="players"></div>
+      <div class="logbox" id="logBox"></div>
+    </div>
+  </div>
+
+  <div class="foot">规则: 你(红) vs 3个AI。经过/停在起点领 ¥200；空地可买；他人地产付租金（随房屋递增）；车站/公司按持有数收费；机会/命运抽道具卡。入狱后双骰或交¥50或满3回合出狱。破产出局，最后存活者胜。掷骰：点击按钮 / 按 A 或 Enter。</div>
+
+  <div id="overlay"><div class="box">
+    <h2 id="ovTitle">游戏结束</h2>
+    <p id="ovText"></p>
+    <button class="act" id="ovBtn">再来一局</button>
+  </div></div>
+
+<script src="input.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 棋盘数据 ---------- */
+  const TILES = [
+    {type:'go',name:'起点'},
+    {type:'property',name:'旧城路',group:'brown',price:60},
+    {type:'chance',name:'机会'},
+    {type:'property',name:'河畔街',group:'brown',price:60},
+    {type:'tax',name:'所得税',amount:200},
+    {type:'railroad',name:'北站',price:200},
+    {type:'property',name:'海滨道',group:'blueL',price:100},
+    {type:'chest',name:'命运'},
+    {type:'property',name:'湖景路',group:'blueL',price:100},
+    {type:'property',name:'松园',group:'blueL',price:120},
+    {type:'jail',name:'入狱'},
+    {type:'property',name:'红枫街',group:'pink',price:120},
+    {type:'utility',name:'电力公司',price:150},
+    {type:'property',name:'玫瑰路',group:'pink',price:120},
+    {type:'property',name:'樱花园',group:'pink',price:140},
+    {type:'railroad',name:'南站',price:200},
+    {type:'property',name:'橙市路',group:'orange',price:140},
+    {type:'chance',name:'机会'},
+    {type:'property',name:'金桔街',group:'orange',price:140},
+    {type:'property',name:'落日道',group:'orange',price:160},
+    {type:'freeparking',name:'免费停车'},
+    {type:'property',name:'红楼路',group:'red',price:180},
+    {type:'chest',name:'命运'},
+    {type:'property',name:'赤焰街',group:'red',price:180},
+    {type:'property',name:'烈焰道',group:'red',price:200},
+    {type:'railroad',name:'西站',price:200},
+    {type:'property',name:'黄沙路',group:'yellow',price:200},
+    {type:'property',name:'金沙街',group:'yellow',price:200},
+    {type:'chance',name:'机会'},
+    {type:'property',name:'金辉道',group:'yellow',price:220},
+    {type:'gotojail',name:'探监→入狱'},
+    {type:'property',name:'绿林路',group:'green',price:220},
+    {type:'property',name:'翠湖街',group:'green',price:220},
+    {type:'utility',name:'水务公司',price:150},
+    {type:'property',name:'青松道',group:'green',price:240},
+    {type:'railroad',name:'东站',price:200},
+    {type:'chest',name:'命运'},
+    {type:'property',name:'蓝湾路',group:'blue',price:300},
+    {type:'chance',name:'机会'},
+    {type:'property',name:'深蓝道',group:'blue',price:350},
+  ];
+
+  const GROUPS = {
+    brown:{c:'#9c6b3f',name:'棕'}, blueL:{c:'#7ec8e3',name:'浅蓝'}, pink:{c:'#d6579b',name:'粉'},
+    orange:{c:'#e2893a',name:'橙'}, red:{c:'#e04b4b',name:'红'}, yellow:{c:'#e6c84a',name:'黄'},
+    green:{c:'#3aa05a',name:'绿'}, blue:{c:'#3a6ad6',name:'深蓝'}
+  };
+
+  const RENT_FACTOR = [1,5,15,45,80,125]; // 空地/1/2/3/4栋/旅馆
+  const RAIL_RENT = [0,25,50,100,200];
+  const SALARY = 200;
+
+  const CARD_TYPES = [
+    'jail','jail',
+    'dividend','dividend','dividend',
+    'crash','crash',
+    'freehouse','freehouse',
+    'rentfree','rentfree',
+    'reroll','reroll','reroll'
+  ];
+  const CARD_INFO = {
+    jail:{emoji:'🎫',name:'出狱卡'},
+    dividend:{emoji:'💰',name:'分红'},
+    crash:{emoji:'📉',name:'股市大跌'},
+    freehouse:{emoji:'🏠',name:'免费建屋'},
+    rentfree:{emoji:'🛡',name:'免租券'},
+    reroll:{emoji:'🎲',name:'再掷一次'}
+  };
+
+  /* ---------- 状态 ---------- */
+  let players, board, currentPlayerIdx, current, phase, logArr, lastRoll, dirty, cssSize, aiTimer;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const boardWrap = document.getElementById('boardWrap');
+  const rollBtn = document.getElementById('rollBtn');
+  const actionPanel = document.getElementById('actionPanel');
+  const playersEl = document.getElementById('players');
+  const logEl = document.getElementById('logBox');
+  const turnText = document.getElementById('turnText');
+  const turnDot = document.getElementById('turnDot');
+  const diceEl = document.getElementById('dice');
+
+  function rand(){ return 1 + Math.floor(Math.random()*6); }
+  function houseLabel(n){ if(n===0) return '空地'; if(n>=5) return '旅馆'; return n+'栋'; }
+  function houseCostOf(t){ return Math.round(t.price/2); }
+  function playerById(id){ return players[id]; }
+  function aliveCount(){ let n=0; for(const p of players) if(p.alive) n++; return n; }
+  function countOwned(ownerId, type){ let n=0; for(const t of board) if(t.owner===ownerId && t.type===type) n++; return n; }
+
+  function makePlayers(){
+    return [
+      {id:0,name:'你',color:'#f6465d',isAI:false},
+      {id:1,name:'AI·绿',color:'#02c076',isAI:true},
+      {id:2,name:'AI·蓝',color:'#3aa0ff',isAI:true},
+      {id:3,name:'AI·金',color:'#f0b90b',isAI:true},
+    ].map(o=>(Object.assign(o,{cash:1500,pos:0,displayPos:0,inJail:false,jailTurns:0,jailCard:0,rentFree:0,extraRoll:false,alive:true})));
+  }
+  function makeBoard(){
+    return TILES.map(t=>{
+      const o={type:t.type,name:t.name};
+      if(t.group) o.group=t.group;
+      if(t.price!=null) o.price=t.price;
+      if(t.type==='property') o.baseRent=Math.max(4,Math.round(t.price/4));
+      else o.baseRent=0;
+      if(t.amount!=null) o.amount=t.amount;
+      o.owner=null; o.houses=0;
+      return o;
+    });
+  }
+
+  /* ---------- 日志 / UI ---------- */
+  function log(m){ logArr.push(m); if(logArr.length>80) logArr.shift(); dirty=true; }
+  function setDice(d1,d2){ diceEl.textContent='🎲 '+d1+' + '+d2+' = '+(d1+d2); }
+  function clearAction(){ actionPanel.innerHTML=''; }
+
+  function setAction(html, handlers){
+    actionPanel.innerHTML = html;
+    for(const k in handlers){ const el=actionPanel.querySelector('#'+k); if(el) el.addEventListener('click', handlers[k]); }
+  }
+
+  function renderPlayers(){
+    let h='';
+    for(const p of players){
+      if(!p.alive){
+        h+='<div class="pc dead"><div class="pc-name"><span class="dotc" style="background:'+p.color+'"></span>'+p.name+' <span class="out">出局</span></div><div class="pc-cash">—</div></div>';
+        continue;
+      }
+      const props = board.filter(t=>t.owner===p.id);
+      const propStr = props.length ? props.map(t=> t.name + (t.type==='property'&&t.houses>0 ? '('+houseLabel(t.houses)+')' : '')).join('、') : '无';
+      h+='<div class="pc"><div class="pc-name"><span class="dotc" style="background:'+p.color+'"></span>'+p.name+(p.inJail?' <span class="jn">🔒</span>':'')+'</div>'
+        +'<div class="pc-cash">¥'+p.cash+(p.jailCard? ' 🎫'+p.jailCard:'')+(p.rentFree? ' 🛡'+p.rentFree:'')+'</div>'
+        +'<div class="pc-prop">'+propStr+'</div></div>';
+    }
+    playersEl.innerHTML=h;
+  }
+  function renderLog(){
+    logEl.innerHTML = logArr.slice(-50).map(m=>'<div class="li">'+m+'</div>').join('');
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function updatePanels(){ renderPlayers(); renderLog(); dirty=false; }
+
+  function updateTurnUI(){
+    turnText.textContent = current.name;
+    turnDot.style.background = current.color;
+    turnDot.style.color = current.color;
+    const showRoll = (phase==='roll' && !current.isAI);
+    rollBtn.style.display = showRoll ? 'block' : 'none';
+    if(showRoll && current.inJail){ renderJailOptions(current); }
+    else if(showRoll){ clearAction(); }
+  }
+
+  function renderJailOptions(p){
+    const opts = [];
+    if(p.jailCard>0) opts.push('<button id="useCard" class="btn ok">🎫 用出狱卡 ('+p.jailCard+')</button>');
+    if(p.cash>=50) opts.push('<button id="payBail" class="btn">💸 交¥50出狱</button>');
+    setAction('<div class="ap-title">🔒 你在监狱</div><div class="ap-sub">可花¥50或用出狱卡离开，也可掷骰尝试双骰出狱</div><div class="ap-btns">'+opts.join('')+'</div>',{
+      useCard:function(){ p.jailCard--; p.inJail=false; p.jailTurns=0; log('你 使用出狱卡'); updateTurnUI(); },
+      payBail:function(){ charge(p,50,null,false); p.inJail=false; p.jailTurns=0; log('你 交¥50出狱'); updateTurnUI(); }
+    });
+  }
+
+  /* ---------- 流程 ---------- */
+  function nextIdx(i){ let n=i; do{ n=(n+1)%4; }while(!players[n].alive); return n; }
+  function advance(){ currentPlayerIdx=nextIdx(currentPlayerIdx); current=players[currentPlayerIdx]; }
+
+  function beginTurn(){
+    if(aliveCount()<=1){ endGame(); return; }
+    if(!current.alive) advance();
+    phase='roll';
+    updateTurnUI();
+    if(current.isAI) scheduleAI();
+    dirty=true;
+  }
+  function scheduleAI(){ if(aiTimer) clearTimeout(aiTimer); aiTimer=setTimeout(function(){ if(phase==='roll' && current.isAI) doRoll(); }, 750); }
+
+  function doRoll(){
+    if(phase!=='roll') return;
+    const p=current;
+    if(p.inJail){
+      if(p.isAI){
+        if(p.jailCard>0){ p.jailCard--; p.inJail=false; p.jailTurns=0; log(p.name+' 使用出狱卡'); }
+        else if(p.cash>=50){ charge(p,50,null,false); p.inJail=false; p.jailTurns=0; log(p.name+' 交¥50出狱'); }
+        else if(p.jailTurns>=3){ charge(p,50,null,false); p.inJail=false; p.jailTurns=0; log(p.name+' 拘押期满交¥50'); }
+        else {
+          const d1=rand(),d2=rand(); setDice(d1,d2); lastRoll=d1+d2;
+          if(d1===d2){ p.inJail=false; p.jailTurns=0; log(p.name+' 掷出双骰出狱'); animateMove(p,d1+d2,afterMove); return; }
+          p.jailTurns++; log(p.name+' 未掷出双骰，继续拘留'); endTurn(); return;
+        }
+      } else {
+        if(p.inJail){
+          const d1=rand(),d2=rand(); setDice(d1,d2); lastRoll=d1+d2;
+          if(d1===d2){ p.inJail=false; p.jailTurns=0; log('你 掷出双骰，出狱！'); animateMove(p,d1+d2,afterMove); return; }
+          p.jailTurns++;
+          if(p.jailTurns>=3){ charge(p,50,null,false); p.inJail=false; p.jailTurns=0; log('拘押满3回合，交¥50出狱'); animateMove(p,d1+d2,afterMove); return; }
+          log('未掷出双骰，继续拘留'); endTurn(); return;
+        }
+      }
+    }
+    const d1=rand(),d2=rand(); setDice(d1,d2); lastRoll=d1+d2;
+    phase='moving';
+    animateMove(p, d1+d2, afterMove);
+  }
+
+  function animateMove(p, steps, done){
+    phase='moving';
+    let remaining=steps, passedGo=false;
+    function step(){
+      if(remaining<=0){
+        if(passedGo){ p.cash+=SALARY; log(p.name+' 经过起点，领薪 ¥'+SALARY); }
+        done(p);
+        return;
+      }
+      p.pos=(p.pos+1)%40;
+      if(p.pos===0) passedGo=true;
+      p.displayPos=p.pos;
+      remaining--;
+      drawBoard();
+      aiTimer=setTimeout(step, 110);
+    }
+    step();
+  }
+
+  function afterMove(p){
+    if(phase==='over') return;
+    resolveLanding(p);
+  }
+
+  function resolveLanding(p){
+    const t=board[p.pos];
+    switch(t.type){
+      case 'go': log(p.name+' 回到起点'); break;
+      case 'freeparking': log(p.name+' 免费停车'); break;
+      case 'jail': log(p.name+' 探监（仅参观）'); break;
+      case 'gotojail': sendToJail(p); log(p.name+' 被送进监狱'); break;
+      case 'tax': { const amt=t.amount; log(p.name+' 缴纳所得税 ¥'+amt); charge(p,amt,null,false); break; }
+      case 'chance': case 'chest': drawCard(p); break;
+      case 'property': case 'railroad': case 'utility':
+        if(t.owner===null){
+          if(p.isAI){ aiBuy(p,t); }
+          else { showBuyPanel(p,t); return; }
+        } else if(t.owner===p.id){
+          if(p.isAI){ aiUpgrade(p); }
+          else { showUpgradePanel(p,t); return; }
+        } else {
+          payRent(p,t);
+        }
+        break;
+    }
+    finalizeTurn(p);
+  }
+
+  function showBuyPanel(p,t){
+    phase='action';
+    const can = p.cash>=t.price;
+    setAction(
+      '<div class="ap-title">'+t.name+' · '+GROUPS[t.group].name+'组</div>'+
+      '<div class="ap-sub">售价 ¥'+t.price+' ｜ 你的现金 ¥'+p.cash+'</div>'+
+      '<div class="ap-btns"><button id="buyYes" class="btn ok"'+(can?'':' disabled')+'>购买</button>'+
+      '<button id="buyNo" class="btn">跳过</button></div>',
+      {
+        buyYes:function(){ if(p.cash>=t.price){ p.cash-=t.price; t.owner=p.id; log('你 购买 '+t.name+' ¥'+t.price); } finalizeTurn(p); },
+        buyNo:function(){ log('你 跳过购买 '+t.name); finalizeTurn(p); }
+      });
+  }
+
+  function showUpgradePanel(p,t){
+    const cost=houseCostOf(t);
+    const can = p.cash>=cost && t.houses<5;
+    if(!can){ finalizeTurn(p); return; }
+    phase='action';
+    setAction(
+      '<div class="ap-title">'+t.name+' 当前 '+houseLabel(t.houses)+'</div>'+
+      '<div class="ap-sub">升级花费 ¥'+cost+' ｜ 现金 ¥'+p.cash+'</div>'+
+      '<div class="ap-btns"><button id="upYes" class="btn ok">升级 (¥'+cost+')</button>'+
+      '<button id="upNo" class="btn">跳过</button></div>',
+      {
+        upYes:function(){ if(p.cash>=cost){ p.cash-=cost; t.houses++; log('你 升级 '+t.name+' → '+houseLabel(t.houses)); } finalizeTurn(p); },
+        upNo:function(){ finalizeTurn(p); }
+      });
+  }
+
+  function aiBuy(p,t){
+    if(p.cash >= t.price + 80){ p.cash-=t.price; t.owner=p.id; log(p.name+' 购买 '+t.name+' ¥'+t.price); }
+  }
+  function aiUpgrade(p){
+    let guard=0;
+    while(p.cash>600 && guard<6){
+      let best=null;
+      for(const t of board){ if(t.type==='property'&&t.owner===p.id&&t.houses<5){ const c=houseCostOf(t); if(c<=p.cash-150){ if(!best||t.baseRent>best.baseRent) best=t; } } }
+      if(!best) break;
+      p.cash-=houseCostOf(best); best.houses++; log(p.name+' 升级 '+best.name+' → '+houseLabel(best.houses));
+      guard++;
+    }
+  }
+
+  function payRent(p,t){
+    const owner=playerById(t.owner);
+    if(t.type==='railroad'){
+      const amt=RAIL_RENT[countOwned(t.owner,'railroad')];
+      log(p.name+' 付车站租金 ¥'+amt+' 给 '+owner.name);
+      charge(p,amt,owner,true);
+    } else if(t.type==='utility'){
+      const cnt=countOwned(t.owner,'utility');
+      const amt=lastRoll*(cnt>=2?10:4);
+      log(p.name+' 付公司租金 ¥'+amt+' 给 '+owner.name);
+      charge(p,amt,owner,true);
+    } else {
+      const amt=t.baseRent*RENT_FACTOR[t.houses];
+      log(p.name+' 付地产租金 ¥'+amt+' 给 '+owner.name);
+      charge(p,amt,owner,true);
+    }
+  }
+
+  function charge(p, amount, creditor, isRent){
+    if(isRent && p.rentFree>0 && amount>0){ p.rentFree--; log(p.name+' 使用免租券，免去 ¥'+amount); amount=0; }
+    if(amount<=0) return;
+    if(p.cash>=amount){ p.cash-=amount; if(creditor) creditor.cash+=amount; }
+    else {
+      const paid=p.cash; p.cash=0; if(creditor) creditor.cash+=paid;
+      log(p.name+' 现金不足，破产！');
+      bankrupt(p,creditor);
+    }
+  }
+
+  function bankrupt(p,creditor){
+    p.alive=false;
+    for(const t of board){ if(t.owner===p.id){ t.owner=null; t.houses=0; } }
+    log(p.name+' 出局');
+    dirty=true;
+  }
+
+  function sendToJail(p){ p.pos=10; p.displayPos=10; p.inJail=true; p.jailTurns=0; }
+
+  function drawCard(p){
+    const type=CARD_TYPES[Math.floor(Math.random()*CARD_TYPES.length)];
+    log(p.name+' 抽到 '+CARD_INFO[type].emoji+' '+CARD_INFO[type].name);
+    applyCard(p,type);
+  }
+  function applyCard(p,type){
+    switch(type){
+      case 'jail': p.jailCard++; break;
+      case 'dividend': p.cash+=200; break;
+      case 'crash': charge(p,150,null,false); break;
+      case 'rentfree': p.rentFree++; break;
+      case 'reroll': p.extraRoll=true; break;
+      case 'freehouse': {
+        let tgt=null;
+        for(const t of board){ if(t.type==='property'&&t.owner===p.id&&t.houses<5){ if(!tgt||t.baseRent>tgt.baseRent) tgt=t; } }
+        if(tgt){ tgt.houses++; log(p.name+' 免费建屋于 '+tgt.name); } else { log(p.name+' 无地产可建屋'); }
+        break;
+      }
+    }
+  }
+
+  function finalizeTurn(p){
+    if(phase==='over') return;
+    if(p.extraRoll){ p.extraRoll=false; beginTurn(); }
+    else { advance(); beginTurn(); }
+  }
+  function endTurn(){ if(phase==='over') return; advance(); beginTurn(); }
+
+  function endGame(){
+    phase='over';
+    let winner=null; for(const pl of players) if(pl.alive) winner=pl;
+    const ov=document.getElementById('overlay');
+    const t=document.getElementById('ovTitle'), x=document.getElementById('ovText');
+    if(winner){
+      const youWin = (winner.id===0);
+      t.textContent = youWin ? '🏆 你赢了！' : '💀 '+winner.name+' 获胜';
+      t.style.color = youWin ? '#02c076' : '#f6465d';
+      x.textContent = youWin ? '你是最后的地产大亨。' : '你已出局，'+winner.name+' 笑到最后。';
+    } else { t.textContent='平局'; t.style.color='#f0b90b'; x.textContent='无人生还。'; }
+    ov.style.display='flex';
+  }
+  function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
+
+  /* ---------- 画布 ---------- */
+  function tileCenter(i,u){
+    let col,row;
+    if(i<=9){ col=10-i; row=10; }
+    else if(i<=19){ col=0; row=20-i; }
+    else if(i<=29){ col=i-20; row=0; }
+    else { col=10; row=i-30; }
+    return { x: col*u + u/2, y: row*u + u/2 };
+  }
+  function rr(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+  function cornerType(t){ return t.type==='go'||t.type==='jail'||t.type==='freeparking'||t.type==='gotojail'; }
+
+  function drawTile(i,u){
+    const c=tileCenter(i,u); const t=board[i];
+    const w=u*0.92, h=u*0.92, x0=c.x-w/2, y0=c.y-h/2;
+    ctx.fillStyle = cornerType(t) ? '#0c121b' : '#0f141c';
+    rr(x0,y0,w,h,3); ctx.fill();
+    ctx.strokeStyle='rgba(31,42,56,.8)'; ctx.lineWidth=1; rr(x0,y0,w,h,3); ctx.stroke();
+    if(t.type==='property' && t.group){ ctx.fillStyle=GROUPS[t.group].c; rr(x0+1,y0+1,w-2,h*0.22,2); ctx.fill(); }
+    ctx.fillStyle='#d7e0ea';
+    ctx.font=Math.max(7,Math.round(u*0.11))+'px monospace';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(t.name, c.x, c.y - h*0.14);
+    ctx.fillStyle='#6b7785';
+    ctx.font=Math.max(6,Math.round(u*0.085))+'px monospace';
+    if(t.type==='property'||t.type==='railroad'||t.type==='utility'){ ctx.fillText('¥'+t.price, c.x, c.y + h*0.20); }
+    else { ctx.fillText(t.name, c.x, c.y + h*0.20); }
+    if(t.type==='property' && t.houses>0){ ctx.fillStyle='#f0b90b'; ctx.fillText(houseLabel(t.houses), c.x, c.y + h*0.40); }
+  }
+  function drawToken(cx,cy,idx,n,color){
+    const u=cssSize/11, off=u*0.15; let dx=0,dy=0;
+    if(n===1){ dx=0; dy=0; }
+    else if(n===2){ dx=(idx===0?-1:1)*off; dy=0; }
+    else if(n===3){ dx=(idx-1)*off; dy=(idx===1?0:-off); }
+    else { dx=((idx%2)?1:-1)*off; dy=(idx<2?-1:1)*off; }
+    const r=u*0.13;
+    ctx.beginPath(); ctx.arc(cx+dx,cy+dy,r,0,Math.PI*2);
+    ctx.fillStyle=color; ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.stroke();
+  }
+  function drawBoard(){
+    if(!cssSize) return;
+    const size=cssSize, u=size/11;
+    ctx.clearRect(0,0,size,size);
+    for(let i=0;i<40;i++) drawTile(i,u);
+    const groups={};
+    for(const p of players){ if(!p.alive) continue; (groups[p.displayPos]=groups[p.displayPos]||[]).push(p); }
+    for(const k in groups){
+      const arr=groups[k], c=tileCenter(+k,u);
+      arr.forEach(function(p,idx){ drawToken(c.x,c.y,idx,arr.length,p.color); });
+    }
+  }
+
+  function fit(){
+    const w=boardWrap.clientWidth; cssSize=w;
+    const dpr=window.devicePixelRatio||1;
+    canvas.width=Math.round(w*dpr); canvas.height=Math.round(w*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    drawBoard();
+  }
+
+  /* ---------- 主循环（断触修复：Input 缓冲 + 每帧 update） ---------- */
+  function loop(){
+    if(phase==='roll' && !current.isAI){
+      if(Input.consume('start') || Input.consume('a')) doRoll();
+    }
+    Input.update();
+    drawBoard();
+    if(dirty) updatePanels();
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- 初始化 / 重开 ---------- */
+  function reset(){
+    if(aiTimer) clearTimeout(aiTimer);
+    players=makePlayers();
+    board=makeBoard();
+    currentPlayerIdx=0; current=players[0];
+    phase='roll'; logArr=[]; lastRoll=0;
+    setDice(0,0);
+    hideOverlay();
+    clearAction();
+    fit();
+    updateTurnUI();
+    updatePanels();
+    log('游戏开始，每位玩家 ¥1500。你先手，按 A / Enter 或点击掷骰。');
+    if(current.isAI) scheduleAI();
+  }
+
+  document.getElementById('restartBtn').onclick=reset;
+  document.getElementById('ovBtn').onclick=reset;
+  window.addEventListener('resize', fit);
+
+  Input.init({ preventDefault:['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'], keymap:{KeyA:'a'} });
+  Input.bindVirtualButtons(document);
+  reset();
+  requestAnimationFrame(loop);
+
+  // 测试钩子（不影响正常玩法）
+  window.__mp = {
+    get players(){ return players; }, get board(){ return board; },
+    get phase(){ return phase; }, get current(){ return current; },
+    doRoll, reset,
+    setCash(id,v){ players[id].cash=v; }
+  };
+})();
+</script>
+</body>
+</html>

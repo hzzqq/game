@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 狼人杀 WEREWOLF</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#0f141c; --panel2:#131a24; --border:rgba(31,42,56,.8);
+    --text:#d7e0ea; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(246,70,93,.08), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.02) 1px, transparent 1px) 0 0/100% 3px,
+      var(--bg);
+    color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding:14px;
+  }
+  .window{
+    width:min(560px,100%);
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:0 0 40px rgba(0,0,0,.6), 0 0 0 1px rgba(246,70,93,.08);
+    overflow:hidden;
+  }
+  .titlebar{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 14px;
+    background:linear-gradient(180deg,#16202c,#10161f);
+    border-bottom:1px solid var(--border);
+  }
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
+    padding:8px 14px; border-bottom:1px solid var(--border); background:var(--panel2);
+    font-size:12px;
+  }
+  .topbar .seg{display:flex; align-items:center; gap:6px; color:var(--dim)}
+  .topbar .seg b{color:var(--text)}
+  .topbar .phase{color:var(--gold); letter-spacing:1px}
+  .topbar .role{color:var(--gold)}
+  .topbar .items{display:flex; gap:6px}
+  .topbar .it{font-size:11px; padding:1px 6px; border:1px solid var(--border); border-radius:6px; color:var(--dim)}
+  .topbar .it.on{color:var(--green); border-color:rgba(2,192,118,.5)}
+  .topbar .it.off{color:var(--red); border-color:rgba(246,70,93,.4); text-decoration:line-through; opacity:.7}
+  .btn{
+    background:var(--panel2); color:var(--text); border:1px solid var(--border);
+    border-radius:8px; padding:7px 12px; font-family:inherit; font-size:12px; cursor:pointer;
+    transition:.15s ease; letter-spacing:1px;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:linear-gradient(180deg,#16202c,#10161f); border-color:var(--gold); color:var(--gold)}
+  .btn:disabled{opacity:.35; cursor:not-allowed}
+  .body{padding:14px}
+  .seats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  @media(max-width:480px){.seats{grid-template-columns:repeat(2,1fr)}}
+  .seat{
+    background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+    padding:8px 10px; position:relative; transition:.15s ease;
+  }
+  .seat.me{border-color:rgba(240,185,11,.55)}
+  .seat.dead{opacity:.45; filter:grayscale(.6)}
+  .seat .num{font-size:11px; color:var(--dim)}
+  .seat .nm{font-size:14px; margin:2px 0 4px; letter-spacing:1px}
+  .seat .st{font-size:11px}
+  .seat .st.alive{color:var(--green)}
+  .seat .st.dead{color:var(--red)}
+  .seat .role{display:inline-block; min-width:20px; text-align:center; font-size:12px; font-weight:bold; padding:1px 6px; border-radius:6px; border:1px solid var(--border); color:var(--dim)}
+  .seat .role.q{color:var(--dim)}
+  .seat .role.wolf{color:var(--red); border-color:rgba(246,70,93,.5); background:rgba(246,70,93,.08)}
+  .seat .role.good{color:var(--green); border-color:rgba(2,192,118,.5)}
+  .seat .role.pow{color:var(--gold); border-color:rgba(240,185,11,.5)}
+  .seat .tag{position:absolute; top:6px; right:6px; font-size:10px; color:var(--red)}
+  .action{
+    margin:12px 0; min-height:56px; padding:10px 12px; border:1px solid var(--border);
+    border-radius:8px; background:var(--panel2);
+  }
+  .action .act-title{font-size:13px; color:var(--gold); margin-bottom:8px; letter-spacing:1px}
+  .action .hint{color:var(--dim); font-size:12px; line-height:1.6}
+  .seat-row{display:flex; flex-wrap:wrap; gap:6px}
+  .seat-btn{
+    background:var(--panel); color:var(--text); border:1px solid var(--border);
+    border-radius:7px; padding:8px 12px; font-family:inherit; font-size:13px; cursor:pointer; transition:.15s;
+  }
+  .seat-btn:hover{border-color:var(--gold); color:var(--gold)}
+  .seat-btn:active{transform:translateY(1px)}
+  .item-row{display:flex; flex-wrap:wrap; gap:6px}
+  .item-btn{
+    background:var(--panel); color:var(--text); border:1px solid var(--border);
+    border-radius:7px; padding:8px 12px; font-family:inherit; font-size:13px; cursor:pointer; transition:.15s;
+  }
+  .item-btn:hover:not(:disabled){border-color:var(--gold); color:var(--gold)}
+  .item-btn:disabled{opacity:.35; cursor:not-allowed}
+  .log{
+    height:200px; overflow-y:auto; background:var(--bg); border:1px solid var(--border);
+    border-radius:8px; padding:10px; font-size:12px; line-height:1.7;
+  }
+  .log-line{color:var(--text); white-space:pre-wrap}
+  .log-line.wolf{color:var(--red)}
+  .log-line.good{color:var(--green)}
+  .log-line.gold{color:var(--gold)}
+  .log-line.dim{color:var(--dim)}
+  .foot{display:flex; justify-content:flex-end; margin-top:10px}
+  .overlay{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(10,14,20,.86); backdrop-filter:blur(2px); z-index:5;
+  }
+  .overlay.hidden{display:none}
+  .ov-box{
+    width:min(440px,90%); text-align:center; padding:26px 28px; border:1px solid var(--border);
+    border-radius:12px; background:var(--panel); box-shadow:0 0 30px rgba(0,0,0,.6);
+  }
+  .ov-title{font-size:26px; letter-spacing:3px; margin-bottom:8px}
+  .ov-title.win{color:var(--green); text-shadow:0 0 18px rgba(2,192,118,.5)}
+  .ov-title.lose{color:var(--red); text-shadow:0 0 18px rgba(246,70,93,.5)}
+  .ov-msg{color:var(--dim); font-size:13px; margin-bottom:14px; line-height:1.7}
+  .ov-role{font-size:15px; color:var(--gold); margin-bottom:14px; letter-spacing:1px}
+  .ov-list{font-size:12px; color:var(--dim); line-height:1.8; margin-bottom:16px; text-align:left}
+  .ov-list .w{color:var(--red)} .ov-list .g{color:var(--green)}
+  .stage{position:relative}
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>狼人杀</b> WEREWOLF</span>
+  </div>
+  <div class="topbar">
+    <span class="seg">回合 <b id="t-round">1</b></span>
+    <span class="seg phase" id="t-phase">准备</span>
+    <span class="seg">身份 <b class="role" id="t-role">—</b></span>
+    <span class="seg items" id="t-items"></span>
+  </div>
+  <div class="body">
+    <div class="stage">
+      <div class="seats" id="seats"></div>
+      <div class="action" id="action">
+        <div class="hint">系统初始化…</div>
+      </div>
+      <div class="log" id="log"></div>
+      <div class="foot"><button class="btn" id="restart">重新开始</button></div>
+      <div class="overlay" id="overlay">
+        <div class="ov-box" id="ov-box"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="input.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  // ---------- 共享输入层（断触修复）----------
+  if(window.Input && typeof window.Input.init==='function'){ Input.init({}); }
+  (function loop(){ if(window.Input && Input.update) Input.update(); requestAnimationFrame(loop); })();
+
+  // ---------- 常量 ----------
+  var ROLES = ['wolf','villager','villager','seer','witch','hunter'];
+  var ROLE_TEXT = {wolf:'狼', villager:'民', seer:'预', witch:'巫', hunter:'猎'};
+  var AI_NAMES = ['BOT·甲','BOT·乙','BOT·丙','BOT·丁','BOT·戊'];
+  var TOKEN = 0;
+
+  var G = null;
+
+  // ---------- 工具 ----------
+  function $(id){ return document.getElementById(id); }
+  function wait(ms, fn){
+    var t = G ? G.token : 0;
+    setTimeout(function(){ if(G && G.token===t) fn(); }, ms);
+  }
+  function shuffle(a){
+    for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var x=a[i]; a[i]=a[j]; a[j]=x; }
+    return a;
+  }
+  function livingIds(){ return G.players.filter(function(p){return p.alive;}).map(function(p){return p.id;}); }
+  function aliveRole(role){ for(var i=0;i<G.players.length;i++){ var p=G.players[i]; if(p.role===role&&p.alive) return p; } return null; }
+  function livingNonWitch(){ return livingIds().filter(function(id){ return G.players[id].role!=='witch'; }); }
+  function weightedPower(ids){
+    if(!ids.length) return null;
+    var weights = ids.map(function(id){ var r=G.players[id].role; return (r==='seer'||r==='witch'||r==='hunter')?3:1; });
+    var sum = weights.reduce(function(a,b){return a+b;},0);
+    var r = Math.random()*sum;
+    for(var i=0;i<ids.length;i++){ r-=weights[i]; if(r<=0) return ids[i]; }
+    return ids[ids.length-1];
+  }
+
+  // ---------- 日志 ----------
+  function log(msg, cls){
+    var el = $('log');
+    var div = document.createElement('div');
+    div.className = 'log-line' + (cls? ' '+cls : '');
+    div.textContent = '› ' + msg;
+    el.appendChild(div);
+    while(el.children.length>220) el.removeChild(el.firstChild);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  // ---------- 新游戏 ----------
+  function newGame(){
+    TOKEN++;
+    G = {
+      token: TOKEN,
+      players: [],
+      round: 1,
+      phaseText: '准备',
+      nightVictim: null,
+      nightSaved: null,
+      poisonTarget: null,
+      witchAntidote: true,
+      witchPoison: true,
+      hunterGun: true,
+      knownWolves: [],          // 人类预言家已确认的狼人 id
+      lastNightDeaths: [],
+      hunterNeedsShoot: null,
+      pending: null,
+      over: false,
+      humanId: 0
+    };
+    var roles = shuffle(ROLES.slice());
+    for(var i=0;i<6;i++){
+      G.players.push({
+        id:i, seat:i+1,
+        name: i===0 ? '你' : AI_NAMES[i-1],
+        isHuman: i===0,
+        role: roles[i],
+        alive:true, revealed:false, cause:null, suspected:false
+      });
+    }
+    $('log').innerHTML = '';
+    renderSeats(); renderTop(); renderAction();
+  }
+
+  // ---------- 渲染 ----------
+  function roleBadge(role, isWolf){
+    var cls = role==='wolf' ? 'wolf' : (role==='seer'||role==='witch'||role==='hunter' ? 'pow' : 'good');
+    return '<span class="role '+cls+'">'+ROLE_TEXT[role]+'</span>';
+  }
+  function renderSeats(){
+    var wrap = $('seats'); wrap.innerHTML='';
+    G.players.forEach(function(p){
+      var card = document.createElement('div');
+      card.className = 'seat' + (p.alive?'':' dead') + (p.isHuman?' me':'');
+      var roleHtml = '<span class="role q">?</span>';
+      if(p.isHuman && !G.over) roleHtml = roleBadge(p.role, p.role==='wolf'); // 自己已知
+      else if(p.revealed || G.over) roleHtml = roleBadge(p.role, p.role==='wolf');
+      var st = p.alive ? '<span class="st alive">存活</span>' : '<span class="st dead">出局</span>';
+      var tag = '';
+      if(p.suspected && p.isHuman===false && !p.revealed && !G.over) tag = '<span class="tag">狼?</span>';
+      if(p.revealed && p.role==='wolf' && p.cause) tag = '<span class="tag">'+causeText(p.cause)+'</span>';
+      card.innerHTML =
+        '<div class="num">席位 #'+p.seat+'</div>'+
+        '<div class="nm">'+p.name+'</div>'+
+        '<div>'+roleHtml+' '+st+'</div>'+
+        tag;
+      wrap.appendChild(card);
+    });
+  }
+  function causeText(c){ return c==='wolf'?'遇袭':c==='poison'?'毒杀':c==='gun'?'枪决':'投票'; }
+  function renderTop(){
+    $('t-round').textContent = G.round;
+    $('t-phase').textContent = G.phaseText;
+    var me = G.players[G.humanId];
+    $('t-role').textContent = (me.role==='wolf'?'狼人':me.role==='seer'?'预言家':me.role==='witch'?'女巫':me.role==='hunter'?'猎人':'村民');
+    var items = $('t-items'); items.innerHTML='';
+    function it(label, on){
+      var s=document.createElement('span');
+      s.className='it '+(on?'on':'off');
+      s.textContent=label+(on?'✓':'✕');
+      items.appendChild(s);
+    }
+    it('解药', G.witchAntidote);
+    it('毒药', G.witchPoison);
+    it('猎枪', G.hunterGun);
+  }
+  function renderAction(){
+    var el = $('action'); el.innerHTML='';
+    var p = G.pending;
+    if(G.over){ el.innerHTML='<div class="hint">游戏结束。点击「重新开始」再来一局。</div>'; return; }
+    if(!p){
+      var me = G.players[G.humanId];
+      var hint = me.alive ? '系统结算中，请稍候…' : '你已出局，正在观战…';
+      el.innerHTML = '<div class="hint">'+hint+'</div>';
+      return;
+    }
+    if(p.type==='witch'){ renderWitchAction(p, el); return; }
+    if(p.type==='witchPoison'){ renderSeatChoice(p, el); return; }
+    renderSeatChoice(p, el);
+  }
+  function renderSeatChoice(p, el){
+    var title = document.createElement('div'); title.className='act-title'; title.textContent=p.title; el.appendChild(title);
+    if(p.note){ var n=document.createElement('div'); n.className='hint'; n.style.marginBottom='8px'; n.textContent=p.note; el.appendChild(n); }
+    var row=document.createElement('div'); row.className='seat-row';
+    p.choices.forEach(function(id){
+      var b=document.createElement('button'); b.className='seat-btn';
+      b.textContent='#'+G.players[id].seat+' '+G.players[id].name;
+      b.onclick=function(){
+        var cb=p.cb; G.pending=null; renderAction(); renderSeats();
+        if(cb) cb(id);
+      };
+      row.appendChild(b);
+    });
+    el.appendChild(row);
+  }
+  function renderWitchAction(p, el){
+    var title=document.createElement('div'); title.className='act-title'; title.textContent=p.title; el.appendChild(title);
+    var note=document.createElement('div'); note.className='hint'; note.style.marginBottom='8px';
+    note.textContent = p.victimName ? ('今夜倒下的是：'+p.victimName) : '今夜平安，无人倒下。';
+    el.appendChild(note);
+    var row=document.createElement('div'); row.className='item-row';
+    var bA=document.createElement('button'); bA.className='item-btn'; bA.textContent='使用解药';
+    bA.disabled = !p.antidote;
+    bA.onclick=function(){
+      G.nightSaved = G.nightVictim; G.witchAntidote=false;
+      log('女巫使用解药，救下了 '+p.victimName+'。', 'good');
+      G.pending=null; renderAction(); renderTop();
+      if(p.cb) p.cb();
+    };
+    var bP=document.createElement('button'); bP.className='item-btn'; bP.textContent='使用毒药';
+    bP.disabled = !p.poison;
+    bP.onclick=function(){
+      G.pending={ type:'witchPoison', title:'选择毒杀目标', choices: livingNonWitch(),
+        cb:function(id){ G.poisonTarget=id; G.witchPoison=false;
+          log('女巫使用毒药，毒杀了 #'+G.players[id].seat+' '+G.players[id].name+'。', 'wolf');
+          G.pending=null; renderAction(); renderTop();
+          if(p.cb) p.cb();
+        } };
+      renderAction();
+    };
+    var bN=document.createElement('button'); bN.className='item-btn'; bN.textContent='不使用';
+    bN.onclick=function(){
+      log('女巫选择不使用道具。', 'dim');
+      G.pending=null; renderAction();
+      if(p.cb) p.cb();
+    };
+    row.appendChild(bA); row.appendChild(bP); row.appendChild(bN);
+    el.appendChild(row);
+  }
+
+  // ---------- 死亡 / 胜负 ----------
+  function kill(id, cause){
+    var p = G.players[id];
+    if(!p.alive) return;
+    p.alive=false; p.cause=cause; p.revealed=true;
+    log('☠ #'+p.seat+' '+p.name+' 出局（'+causeText(cause)+'）。', cause==='wolf'||cause==='poison'?'wolf':'good');
+    if(p.role==='hunter' && cause!=='poison' && G.hunterGun){
+      G.hunterNeedsShoot = id;
+    }
+    renderSeats();
+  }
+  function checkWin(){
+    var wolves=0, non=0;
+    G.players.forEach(function(p){ if(p.alive){ if(p.role==='wolf') wolves++; else non++; } });
+    if(wolves===0){ endGame('good'); return true; }
+    if(wolves>=non){ endGame('wolf'); return true; }
+    return false;
+  }
+  function endGame(faction){
+    G.over=true; G.pending=null;
+    var me = G.players[G.humanId];
+    var humanFaction = (me.role==='wolf') ? 'wolf' : 'good';
+    var win = (faction===humanFaction);
+    renderTop(); renderSeats(); renderAction();
+    var listHtml = G.players.map(function(p){
+      var isW = p.role==='wolf';
+      return '<div><span class="'+(isW?'w':'g')+'">#'+p.seat+' '+p.name+' · '+(isW?'狼人':p.role==='seer'?'预言家':p.role==='witch'?'女巫':p.role==='hunter'?'猎人':'村民')+'</span></div>';
+    }).join('');
+    $('ov-box').innerHTML =
+      '<div class="ov-title '+(win?'win':'lose')+'">'+(win?'胜  利':'失  败')+'</div>'+
+      '<div class="ov-msg">'+(faction==='wolf'?'狼人阵营获胜。':'好人阵营获胜。')+'</div>'+
+      '<div class="ov-list">'+listHtml+'</div>'+
+      '<button class="btn primary" id="ov-restart">重新开始</button>';
+    $('overlay').classList.remove('hidden');
+    $('ov-restart').onclick = function(){ $('overlay').classList.add('hidden'); newGame(); showReveal(); };
+  }
+
+  // ---------- 夜晚 ----------
+  function startNight(){
+    if(G.over) return;
+    G.phaseText='黑夜'; renderTop();
+    log('=== 第 '+G.round+' 夜 ===', 'gold');
+    log('天黑请闭眼…', 'dim');
+    wait(900, wolfStep);
+  }
+  function wolfStep(){
+    if(G.over) return;
+    var wolf = aliveRole('wolf');
+    if(!wolf){ wait(400, seerStep); return; }
+    if(wolf.isHuman){
+      G.pending = { type:'wolf', title:'狼人行动：选择今夜袭击目标',
+        choices: livingIds().filter(function(id){return G.players[id].role!=='wolf';}),
+        note:'你将杀死一名非狼人玩家。',
+        cb:function(id){ G.nightVictim=id; log('你（狼人）选择袭击 #'+G.players[id].seat+' '+G.players[id].name+'。', 'wolf'); wait(500, seerStep); } };
+      renderAction();
+    } else {
+      var t = weightedPower(livingIds().filter(function(id){return G.players[id].role!=='wolf';}));
+      G.nightVictim = t;
+      log('狼人选择袭击了 #'+G.players[t].seat+' '+G.players[t].name+'。', 'wolf');
+      wait(800, seerStep);
+    }
+  }
+  function seerStep(){
+    if(G.over) return;
+    var seer = aliveRole('seer');
+    if(!seer){ wait(300, witchStep); return; }
+    if(seer.isHuman){
+      G.pending = { type:'seer', title:'预言家行动：选择查验目标',
+        choices: livingIds(),
+        note:'查验后你将知道对方是否为狼人。',
+        cb:function(id){
+          var isW = G.players[id].role==='wolf';
+          if(isW){ G.knownWolves.push(id); G.players[id].suspected=true; }
+          log('你查验 #'+G.players[id].seat+' '+G.players[id].name+'：'+(isW?'【狼人】':'【好人】'), isW?'wolf':'good');
+          renderSeats(); wait(500, witchStep);
+        } };
+      renderAction();
+    } else {
+      var cands = livingIds().filter(function(id){return id!==seer.id;});
+      var t = cands[Math.floor(Math.random()*cands.length)];
+      var isW = G.players[t].role==='wolf';
+      if(isW) G.knownWolves.push(t);
+      log('预言家在暗中完成查验。', 'dim');
+      wait(700, witchStep);
+    }
+  }
+  function witchStep(){
+    if(G.over) return;
+    var witch = aliveRole('witch');
+    if(!witch){ wait(300, endNight); return; }
+    if(witch.isHuman){
+      G.pending = { type:'witch', title:'女巫行动：选择道具',
+        antidote: G.witchAntidote && G.nightVictim!=null,
+        poison: G.witchPoison,
+        victimName: G.nightVictim!=null ? ('#'+G.players[G.nightVictim].seat+' '+G.players[G.nightVictim].name) : null,
+        cb: function(){ wait(300, endNight); } };
+      renderAction();
+    } else {
+      aiWitch();
+      wait(600, endNight);
+    }
+  }
+  function aiWitch(){
+    var witch = aliveRole('witch');
+    var used=false;
+    if(G.witchAntidote && G.nightVictim!=null){
+      // 若女巫自己遇袭，更倾向自救
+      var prob = (G.nightVictim===witch.id) ? 0.8 : 0.55;
+      if(Math.random()<prob){
+        G.nightSaved = G.nightVictim; G.witchAntidote=false; used=true;
+        log('女巫使用了解药。', 'good');
+      }
+    }
+    if(!used && G.witchPoison && Math.random()<0.22){
+      var cands = livingNonWitch();
+      if(cands.length){
+        var t = cands[Math.floor(Math.random()*cands.length)];
+        G.poisonTarget = t; G.witchPoison=false;
+        log('女巫使用了毒药，毒杀了 #'+G.players[t].seat+' '+G.players[t].name+'。', 'wolf');
+      }
+    }
+  }
+  function endNight(){
+    if(G.over) return;
+    var deaths=[];
+    if(G.nightVictim!=null && G.nightVictim!==G.nightSaved){
+      kill(G.nightVictim,'wolf'); deaths.push(G.nightVictim);
+    }
+    if(G.poisonTarget!=null){
+      kill(G.poisonTarget,'poison'); deaths.push(G.poisonTarget);
+    }
+    G.lastNightDeaths = deaths;
+    G.nightVictim=null; G.nightSaved=null; G.poisonTarget=null;
+    wait(700, dayStart);
+  }
+
+  // ---------- 白天 ----------
+  function dayStart(){
+    if(G.over) return;
+    G.phaseText='白天'; renderTop();
+    log('=== 第 '+G.round+' 天 天亮了 ===', 'gold');
+    if(G.lastNightDeaths.length===0) log('昨晚是平安夜，无人死亡。', 'good');
+    else G.lastNightDeaths.forEach(function(id){ log('#'+G.players[id].seat+' '+G.players[id].name+' 在夜里倒下了。', 'wolf'); });
+    // 猎人开枪（夜晚致死）
+    hunterPhase(function(){ wait(400, dayStatements); });
+  }
+  function dayStatements(){
+    if(G.over) return;
+    G.phaseText='白天 · 发言'; renderTop();
+    var alive = G.players.filter(function(p){return p.alive;});
+    alive.forEach(function(p){
+      if(p.isHuman) return;
+      var target = alive[Math.floor(Math.random()*alive.length)];
+      var line = pickStatement(p, target);
+      log('#'+p.seat+' '+p.name+'：'+line, 'dim');
+    });
+    wait(1100, dayVote);
+  }
+  function pickStatement(speaker, target){
+    var pool = [
+      '我觉得 #'+target.seat+' 有点可疑。',
+      '昨晚的信息太少了，先观望。',
+      '我是好人，请相信我。',
+      '建议投出最可疑的人。',
+      '别急着投票，再想想。',
+      '狼人一定混在人群里。',
+      '#'+target.seat+' 昨晚太安静了，值得怀疑。'
+    ];
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+  function dayVote(){
+    if(G.over) return;
+    G.phaseText='白天 · 投票'; renderTop();
+    G.votes = {};
+    var me = G.players[G.humanId];
+    if(me.alive){
+      G.pending = { type:'vote', title:'投票：选择你要放逐的玩家',
+        choices: livingIds().filter(function(id){return id!==G.humanId;}),
+        note:'得票最多者将被放逐（平票无人出局）。',
+        cb:function(id){ G.votes[G.humanId]=id; log('你投票给了 #'+G.players[id].seat+' '+G.players[id].name+'。', 'gold'); tallyVotes(); } };
+      renderAction();
+    } else {
+      wait(400, tallyVotes);
+    }
+  }
+  function aiVote(p){
+    var alive = livingIds().filter(function(id){return id!==p.id;});
+    if(alive.length===0) return p.id;
+    if(p.role==='wolf'){
+      var cands = alive.filter(function(id){return G.players[id].role!=='wolf';});
+      if(!cands.length) cands=alive;
+      return weightedPower(cands);
+    }
+    if(p.role==='seer'){
+      var kw = G.knownWolves.filter(function(id){return G.players[id].alive && id!==p.id;});
+      if(kw.length) return kw[Math.floor(Math.random()*kw.length)];
+    }
+    return alive[Math.floor(Math.random()*alive.length)];
+  }
+  function tallyVotes(){
+    if(G.over) return;
+    livingIds().forEach(function(id){ if(!G.players[id].isHuman) G.votes[id]=aiVote(G.players[id]); });
+    var counts={};
+    Object.keys(G.votes).forEach(function(v){
+      var t=G.votes[v]; counts[t]=(counts[t]||0)+1;
+    });
+    var parts=[];
+    Object.keys(counts).forEach(function(t){ parts.push('#'+G.players[t].seat+' ×'+counts[t]); });
+    log('投票结果：'+(parts.length?parts.join('，'):'无人投票')+'.', 'gold');
+    var max=-1, maxIds=[];
+    Object.keys(counts).forEach(function(t){
+      var c=counts[t];
+      if(c>max){ max=c; maxIds=[parseInt(t,10)]; }
+      else if(c===max){ maxIds.push(parseInt(t,10)); }
+    });
+    if(maxIds.length===1){ eliminate(maxIds[0]); }
+    else { log('平票，无人出局。', 'dim'); afterVote(); }
+  }
+  function eliminate(id){
+    log('#'+G.players[id].seat+' '+G.players[id].name+' 被放逐。', 'wolf');
+    kill(id,'vote');
+    if(G.hunterNeedsShoot!=null){ hunterPhase(afterVote); }
+    else afterVote();
+  }
+  function afterVote(){
+    if(checkWin()) return;
+    // 进入下一夜
+    G.round++; renderTop();
+    wait(900, startNight);
+  }
+
+  // ---------- 猎人开枪 ----------
+  function hunterPhase(cont){
+    if(G.over) return;
+    var shooterId = G.hunterNeedsShoot;
+    if(shooterId==null){ cont(); return; }
+    G.hunterNeedsShoot=null; G.hunterGun=false; renderTop();
+    var shooter = G.players[shooterId];
+    log('💥 猎人 #'+shooter.seat+' '+shooter.name+' 发动技能「开枪」！', 'gold');
+    if(shooter.isHuman){
+      G.pending = { type:'hunter', title:'猎人开枪：选择枪决目标',
+        choices: livingIds().filter(function(id){return id!==shooterId;}),
+        note:'你死亡（非毒杀）可开枪带走一人。',
+        cb:function(id){ kill(id,'gun'); log('你开枪击中了 #'+G.players[id].seat+' '+G.players[id].name+'。', 'wolf'); finishHunter(cont); } };
+      renderAction();
+    } else {
+      var cands = livingIds().filter(function(id){return id!==shooterId;});
+      var t = cands.length ? cands[Math.floor(Math.random()*cands.length)] : null;
+      if(t!=null){ kill(t,'gun'); log('猎人开枪击中了 #'+G.players[t].seat+' '+G.players[t].name+'。', 'wolf'); }
+      wait(700, function(){ finishHunter(cont); });
+    }
+  }
+  function finishHunter(cont){
+    if(checkWin()) return;
+    cont();
+  }
+
+  // ---------- 开场 / 重开 ----------
+  function showReveal(){
+    var me = G.players[G.humanId];
+    var roleName = me.role==='wolf'?'狼人':me.role==='seer'?'预言家':me.role==='witch'?'女巫':me.role==='hunter'?'猎人':'村民';
+    var desc = {
+      wolf:'每晚与狼同伴（本局仅你一只狼）袭击一名玩家。',
+      villager:'没有特殊能力，靠发言与投票找出狼人。',
+      seer:'每晚可查验一名玩家是否为狼人。',
+      witch:'拥有一瓶解药（救今夜死者）与一瓶毒药（杀一人），各限一次。',
+      hunter:'被放逐或遇袭死亡时可开枪带走一人（被毒杀则不能开枪）。'
+    }[me.role];
+    $('ov-box').innerHTML =
+      '<div class="ov-title" style="color:var(--gold)">你的身份</div>'+
+      '<div class="ov-role">'+roleName+'</div>'+
+      '<div class="ov-msg" style="text-align:left">'+desc+'<br><br>场上共 6 人：1 狼人 / 2 村民 / 1 预言家 / 1 女巫 / 1 猎人。<br>狼人消灭所有好人即胜；好人放逐所有狼人即胜。</div>'+
+      '<button class="btn primary" id="ov-start">进入游戏</button>';
+    $('overlay').classList.remove('hidden');
+    $('ov-start').onclick = function(){ $('overlay').classList.add('hidden'); startNight(); };
+  }
+
+  // ---------- 绑定 ----------
+  $('restart').onclick = function(){ $('overlay').classList.add('hidden'); newGame(); showReveal(); };
+
+  newGame();
+  showReveal();
+})();
+</script>
+</body>
+</html>

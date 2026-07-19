@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>飞行棋 · Aero Chess</title>
+<script src="input.js"></script>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#0f141c; --panel2:#131a24; --line:rgba(31,42,56,.8);
+    --red:#f6465d; --green:#02c076; --blue:#3aa0ff; --gold:#f0b90b;
+    --txt:#d7e0ea; --dim:#7d8a99;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--txt);
+    font-family:"Cascadia Code",Consolas,Menlo,monospace;
+    display:flex; flex-direction:column; align-items:center;
+    -webkit-tap-highlight-color:transparent; user-select:none;
+  }
+  .titlebar{width:min(94vw,620px);display:flex;align-items:center;gap:8px;padding:10px 4px 6px}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .dot.r{background:var(--red)}.dot.y{background:var(--gold)}.dot.g{background:var(--green)}
+  .titlebar h1{font-size:15px;font-weight:600;letter-spacing:.5px}
+  .titlebar .sub{margin-left:auto;color:var(--dim);font-size:11px}
+  .hud{width:min(94vw,620px);display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+  .pill{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px}
+  .pill b{color:var(--gold)}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 12px;font-family:inherit;font-size:13px;cursor:pointer}
+  .btn:hover{border-color:var(--gold)}
+  .btn:active{transform:translateY(1px)}
+  #diceBtn{background:var(--gold);color:#0a0e14;font-weight:700;border-color:var(--gold)}
+  .wrap{width:min(94vw,620px);display:flex;gap:10px;flex-wrap:wrap}
+  canvas{background:var(--panel);border:1px solid var(--line);border-radius:12px;touch-action:none;max-width:100%}
+  .side{flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px}
+  .pcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px}
+  .pcard.cur{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+  .pcard .nm{display:flex;align-items:center;gap:6px;font-weight:600}
+  .swatch{width:10px;height:10px;border-radius:3px}
+  .pcard .prog{color:var(--dim);margin-top:3px}
+  .log{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;font-size:11px;height:140px;overflow:auto;line-height:1.5}
+  .log .i{color:var(--gold)}.log .d{color:var(--dim)}
+  .overlay{position:fixed;inset:0;background:rgba(5,8,12,.86);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20}
+  .overlay h2{font-size:24px}
+  .overlay p{color:var(--dim);font-size:13px;text-align:center;max-width:340px;line-height:1.6}
+  .hidden{display:none!important}
+  .toast{position:fixed;left:50%;top:40%;transform:translateX(-50%);background:var(--gold);color:#0a0e14;padding:8px 16px;border-radius:20px;font-weight:700;font-size:14px;z-index:30;opacity:0;transition:opacity .25s, top .25s;pointer-events:none}
+  .toast.show{opacity:1;top:34%}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <h1>飞行棋 · AERO CHESS</h1>
+    <span class="sub" id="phaseTxt">掷骰开始</span>
+  </div>
+  <div class="hud">
+    <div class="pill">回合 <b id="turnTxt">红</b></div>
+    <div class="pill">骰子 <b id="diceTxt">-</b></div>
+    <div class="pill">再掷 <b id="extraTxt">0</b></div>
+    <button class="btn" id="diceBtn" data-action="start">🎲 掷骰子</button>
+    <button class="btn" id="restartBtn">重开</button>
+  </div>
+  <div class="wrap">
+    <canvas id="cv" width="560" height="560"></canvas>
+    <div class="side">
+      <div class="pcard" id="pc0"><div class="nm"><span class="swatch" style="background:var(--red)"></span>红（你）</div><div class="prog">归港 0/4</div></div>
+      <div class="pcard" id="pc1"><div class="nm"><span class="swatch" style="background:var(--green)"></span>绿（AI）</div><div class="prog">归港 0/4</div></div>
+      <div class="pcard" id="pc2"><div class="nm"><span class="swatch" style="background:var(--blue)"></span>蓝（AI）</div><div class="prog">归港 0/4</div></div>
+      <div class="pcard" id="pc3"><div class="nm"><span class="swatch" style="background:var(--gold)"></span>金（AI）</div><div class="prog">归港 0/4</div></div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+  <div class="overlay" id="overlay">
+    <h2>飞行棋</h2>
+    <p>你执 <b style="color:var(--red)">红</b>，掷出 6 才能起飞。沿轨道绕圈，踩中对手飞机把它打回机场，4 架全部进港即胜。轨道上的 <b style="color:var(--gold)">道具格</b> 会触发随机道具。按「🎲 掷骰子」或 A / 回车开始。</p>
+    <button class="btn" id="startBtn" data-action="start">开始游戏</button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  Input.init({preventDefault:['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']});
+  var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  var W=cv.width, H=cv.height, cx=W/2, cy=H/2;
+  var COL={0:'#f6465d',1:'#02c076',2:'#3aa0ff',3:'#f0b90b'};
+  var NAME=['红（你）','绿（AI）','蓝（AI）','金（AI）'];
+  var START=[0,13,26,39];                 // 各色起飞格(主轨道索引)
+  var SAFE=new Set([0,13,26,39,8,21,34,47]);
+  var ITEMCELL=new Set([4,17,30,43]);     // 道具格
+  var N=52, HOMELEN=6, WIN=50+HOMELEN;    // 主轨道0..50 + 进港51..56(56=终点)
+  var players=[], cur=0, dice=0, extra=0, phase='menu', winner=-1, anim=0, toastT=0;
+
+  function angleOf(i){ return -Math.PI/2 + i*(2*Math.PI/N); }
+  function cellPos(i){ var a=angleOf(i), rx=W/2-46, ry=H/2-46; return [cx+rx*Math.cos(a), cy+ry*Math.sin(a)]; }
+  function homePos(c,k){ var a=angleOf(START[c]), rx=(W/2-46)*(0.70-k*0.115), ry=(H/2-46)*(0.70-k*0.115); return [cx+rx*Math.cos(a), cy+ry*Math.sin(a)]; }
+
+  function mainIndexOf(p,prog){ return ((START[p]+prog)%N+N)%N; }
+  function planeXY(p,prog){
+    if(prog<0) return basePos(p,prog);
+    if(prog<=50) return cellPos(mainIndexOf(p,prog));
+    return homePos(p, prog-51);
+  }
+  function basePos(p,prog){
+    var a=angleOf(START[p])+Math.PI, rx=(W/2-46)*0.30, ry=(H/2-46)*0.30;
+    var ox=cx+rx*Math.cos(a), oy=cy+ry*Math.sin(a);
+    var offs=[[ -10,-10],[10,-10],[-10,10],[10,10]];
+    return [ox+offs[prog+1][0], oy+offs[prog+1][1]];
+  }
+
+  function newGame(){
+    players=[];
+    for(var c=0;c<4;c++){
+      var planes=[];
+      for(var k=0;k<4;k++) planes.push({state:'base',prog:-1,k:k});
+      players.push({color:c,planes:planes,shield:false,done:0});
+    }
+    cur=0; dice=0; extra=0; winner=-1; phase='idle';
+    log('新对局开始，红方先手。','d');
+    hideOverlay(); refresh();
+  }
+
+  function log(msg,cls){ var el=document.getElementById('log'); var d=document.createElement('div'); d.className=cls||''; d.textContent='› '+msg; el.appendChild(d); el.scrollTop=el.scrollHeight; }
+  function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); toastT=1.1; }
+
+  function movablePlanes(c, d){
+    var ps=players[c].planes, out=[];
+    for(var i=0;i<4;i++){
+      var pl=ps[i];
+      if(pl.state==='done') continue;
+      if(pl.state==='base'){ if(d===6) out.push(i); continue; }
+      var np=pl.prog+d;
+      if(np>WIN) np=WIN-(np-WIN);     // 终点反弹
+      out.push(i);
+    }
+    return out;
+  }
+
+  function doMove(c,i,d){
+    var pl=players[c].planes[i];
+    if(pl.state==='base'){ pl.state='track'; pl.prog=0; }
+    else {
+      var np=pl.prog+d;
+      if(np>WIN) np=WIN-(np-WIN);
+      pl.prog=np;
+      if(np===WIN){ pl.state='done'; players[c].done++; log(NAME[c]+' 一架归港！('+players[c].done+'/4)','i'); }
+      else if(np>50) pl.state='home';
+    }
+    // 道具格
+    if(pl.state==='track' && ITEMCELL.has(mainIndexOf(c,pl.prog))) drawItem(c,i);
+    // 吃子
+    if(pl.state==='track'){
+      var m=mainIndexOf(c,pl.prog);
+      if(!SAFE.has(m)){
+        for(var o=0;o<4;o++){ if(o===c) continue;
+          var ops=players[o].planes;
+          for(var j=0;j<4;j++){ var op=ops[j];
+            if(op.state==='track' && mainIndexOf(o,op.prog)===m){
+              if(players[o].shield){ players[o].shield=false; log(NAME[o]+' 护盾抵挡了撞击！','d'); }
+              else { op.state='base'; op.prog=-1; log(NAME[c]+' 击落了 '+NAME[o]+' 的飞机！','i'); }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  var ITEMS=[
+    {e:'🚀 前进3',fn:function(c,i){ if(players[c].planes[i].state!=='base'){ doMoveRaw(c,i,3); } }},
+    {e:'⏪ 后退2',fn:function(c,i){ var pl=players[c].planes[i]; if(pl.state==='track'||pl.state==='home'){ pl.prog=Math.max(0,pl.prog-2); if(pl.prog<=50)pl.state='track'; else pl.state='home'; } }},
+    {e:'🔄 交换',fn:function(c,i){ var tgt=findRivalOnTrack(c); if(tgt){ var a=planeProg(c,i), b=planeProg(tgt.c,tgt.i); setProg(c,i,b); setProg(tgt.c,tgt.i,a); log(NAME[c]+' 与 '+NAME[tgt.c]+' 交换了位置！','i'); } }},
+    {e:'🛡 护盾',fn:function(c,i){ players[c].shield=true; log(NAME[c]+' 获得护盾（下次撞击免疫）','i'); }},
+    {e:'🎲 再掷',fn:function(c,i){ extra++; log(NAME[c]+' 获得额外投掷！','i'); }}
+  ];
+  function planeProg(c,i){ return players[c].planes[i].prog; }
+  function setProg(c,i,v){ var pl=players[c].planes[i]; pl.prog=v; if(v<0)pl.state='base'; else if(v<=50)pl.state='track'; else if(v<WIN)pl.state='home'; else {pl.state='done';players[c].done++;} }
+  function doMoveRaw(c,i,d){ var pl=players[c].planes[i]; if(pl.state==='base')return; var np=pl.prog+d; if(np>WIN)np=WIN-(np-WIN); pl.prog=np; if(np>50)pl.state='home'; if(np===WIN){pl.state='done';players[c].done++;} }
+  function findRivalOnTrack(c){ for(var o=0;o<4;o++){ if(o===c)continue; for(var j=0;j<4;j++){ if(players[o].planes[j].state==='track') return {c:o,i:j}; } } return null; }
+  function drawItem(c,i){ var it=ITEMS[Math.floor(Math.random()*ITEMS.length)]; toast(it.e); log(NAME[c]+' 触发道具：'+it.e,'i'); it.fn(c,i); }
+
+  function rollDice(){
+    if(phase!=='idle') return;
+    dice=1+Math.floor(Math.random()*6);
+    document.getElementById('diceTxt').textContent=dice;
+    phase='act';
+    var mv=movablePlanes(cur,dice);
+    if(mv.length===0){ log(NAME[cur]+' 无子可动','d'); endTurn(); return; }
+    if(players[cur].color!==0){ // AI
+      aiPickAndMove(cur,dice,mv);
+    } else {
+      if(mv.length===1){ doMove(cur,mv[0],dice); postMove(cur); }
+      else { log('请点击你的飞机移动（骰子 '+dice+'）','i'); pending=mv; }
+    }
+  }
+  var pending=null;
+  function postMove(c){
+    if(players[c].done===4){ winner=c; phase='over'; showOverlay(); return; }
+    if(dice===6){ extra++; document.getElementById('extraTxt').textContent=extra; phase='idle'; pending=null; refresh(); return; }
+    endTurn();
+  }
+  function endTurn(){
+    pending=null;
+    if(extra>0){ extra--; document.getElementById('extraTxt').textContent=extra; phase='idle'; refresh(); return; }
+    cur=(cur+1)%4;
+    phase='idle';
+    document.getElementById('turnTxt').textContent=NAME[cur].split('（')[0];
+    document.getElementById('diceTxt').textContent='-';
+    refresh();
+    if(players[cur].color!==0){ setTimeout(rollDice,520); }
+  }
+
+  function aiPickAndMove(c,d,mv){
+    var best=-1, score=-1;
+    for(var x=0;x<mv.length;x++){
+      var i=mv[x], pl=players[c].planes[i];
+      var np = pl.state==='base'?0 : (function(){var t=pl.prog+d; if(t>WIN)t=WIN-(t-WIN); return t;})();
+      var s=0;
+      if(np===WIN) s=1000;
+      else if(pl.state==='base') s=500;
+      else {
+        s=np;
+        if(np<=50){ var m=((START[c]+np)%N+N)%N; if(!SAFE.has(m)){ for(var o=0;o<4;o++){ if(o===c)continue; for(var j=0;j<4;j++){ if(players[o].planes[j].state==='track' && ((START[o]+players[o].planes[j].prog)%N+N)%N===m){ s+=300; } } } } }
+        if(ITEMCELL.has(((START[c]+np)%N+N)%N)) s+=80;
+      }
+      if(s>score){score=s;best=i;}
+    }
+    log(NAME[c]+' 投掷 '+d,'d');
+    doMove(c,best,d);
+    setTimeout(function(){ postMove(c); }, 380);
+  }
+
+  // 点击选择飞机
+  cv.addEventListener('click',function(e){
+    if(phase!=='act'||players[cur].color!==0||!pending) return;
+    var r=cv.getBoundingClientRect();
+    var mx=(e.clientX-r.left)*(W/r.width), my=(e.clientY-r.top)*(H/r.height);
+    for(var x=0;x<pending.length;x++){
+      var i=pending[x], pl=players[0].planes[i];
+      var p=planeXY(0,pl.prog);
+      if(Math.hypot(mx-p[0],my-p[1])<20){ doMove(0,i,dice); postMove(0); return; }
+    }
+  });
+
+  function showOverlay(){
+    var ov=document.getElementById('overlay'); ov.classList.remove('hidden');
+    ov.querySelector('h2').textContent = winner===0?'🏆 你赢了！':'💥 '+NAME[winner].split('（')[0]+' 获胜';
+    ov.querySelector('p').textContent='红 归港 '+players[0].done+'/4 · 绿 '+players[1].done+'/4 · 蓝 '+players[2].done+'/4 · 金 '+players[3].done+'/4';
+    document.getElementById('startBtn').textContent='再来一局';
+  }
+  function hideOverlay(){ document.getElementById('overlay').classList.add('hidden'); }
+
+  // 渲染
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    // 轨道
+    for(var i=0;i<N;i++){
+      var p=cellPos(i);
+      var isStart=START.indexOf(i)>=0, isSafe=SAFE.has(i), isItem=ITEMCELL.has(i);
+      ctx.beginPath(); ctx.arc(p[0],p[1],13,0,7);
+      ctx.fillStyle = isItem?'#1c2330':(isStart?'#16202c':'#10161f');
+      ctx.fill(); ctx.lineWidth=1; ctx.strokeStyle= isSafe?'#f0b90b':'rgba(31,42,56,.9)'; ctx.stroke();
+      if(isItem){ ctx.fillStyle='#f0b90b'; ctx.font='13px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🎁',p[0],p[1]); }
+      else if(isStart){ ctx.fillStyle=COL[[0,1,2,3].find(c=>START[c]===i)]; ctx.beginPath(); ctx.arc(p[0],p[1],5,0,7); ctx.fill(); }
+    }
+    // 进港通道
+    for(var c=0;c<4;c++){
+      for(var k=0;k<HOMELEN;k++){ var hp=homePos(c,k); ctx.beginPath(); ctx.arc(hp[0],hp[1],11,0,7); ctx.fillStyle='#10161f'; ctx.fill(); ctx.strokeStyle=COL[c]; ctx.lineWidth=1.5; ctx.stroke(); }
+    }
+    // 中心
+    ctx.beginPath(); ctx.arc(cx,cy,26,0,7); ctx.fillStyle='#16202c'; ctx.fill(); ctx.strokeStyle='#f0b90b'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#f0b90b'; ctx.font='bold 12px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('终',cx,cy);
+    // 飞机
+    for(var cc=0;cc<4;cc++){
+      for(var ii=0;ii<4;ii++){ var pl=players[cc].planes[ii]; if(pl.state==='done')continue;
+        var pos=planeXY(cc,pl.prog);
+        var sel=(cc===0&&pending&&pending.indexOf(ii)>=0);
+        ctx.beginPath(); ctx.arc(pos[0],pos[1], sel?11:9,0,7);
+        ctx.fillStyle=COL[cc]; ctx.fill();
+        if(sel){ ctx.lineWidth=2; ctx.strokeStyle='#fff'; ctx.stroke(); }
+        ctx.fillStyle='#0a0e14'; ctx.font='bold 10px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText((ii+1),pos[0],pos[1]);
+      }
+    }
+    if(players[cur]&&players[cur].shield){ /* 护盾提示在侧栏 */ }
+  }
+  function refresh(){
+    for(var c=0;c<4;c++){
+      var el=document.getElementById('pc'+c);
+      el.className='pcard'+(c===cur&&phase!=='menu'&&phase!=='over'?' cur':'');
+      el.querySelector('.prog').textContent='归港 '+players[c].done+'/4'+(players[c].shield?' · 🛡':'');
+    }
+  }
+
+  // 输入：骰子 / 开始
+  function loop(){
+    if(phase==='menu'){ if(Input.consume('start')) newGame(); }
+    else if(phase!=='over'){ if(Input.consume('start')) rollDice(); }
+    if(toastT>0){ toastT-=0.016; if(toastT<=0) document.getElementById('toast').classList.remove('show'); }
+    render(); refresh();
+    Input.update();
+    requestAnimationFrame(loop);
+  }
+  document.getElementById('diceBtn').addEventListener('click',function(){ if(phase==='menu')newGame(); else rollDice(); });
+  document.getElementById('restartBtn').addEventListener('click',newGame);
+  document.getElementById('startBtn').addEventListener('click',newGame);
+  Input.bindVirtualButtons(document);
+  // 初始渲染
+  for(var c=0;c<4;c++){ var ps=[]; for(var k=0;k<4;k++) ps.push({state:'base',prog:-1,k:k}); players.push({color:c,planes:ps,shield:false,done:0}); }
+  loop();
+})();
+</script>
+</body>
+</html>

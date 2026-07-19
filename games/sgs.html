@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // SANGUOSHA</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#0f141c; --panel2:#131a24; --border:rgba(31,42,56,.8);
+    --text:#d7e0ea; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+      radial-gradient(1100px 600px at 50% -10%, rgba(246,70,93,.07), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.02) 1px, transparent 1px) 0 0/100% 3px,
+      var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:14px 10px;min-height:100%}
+  .window{width:min(780px,98vw);background:var(--panel);border:1px solid var(--border);
+    border-radius:12px;box-shadow:0 0 40px rgba(0,0,0,.6);overflow:hidden}
+  .titlebar{display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border-bottom:1px solid var(--border)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--gold)}
+
+  .status{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:8px 14px;background:var(--panel2);border-bottom:1px solid var(--border);font-size:12px;color:var(--dim)}
+  .status b{color:var(--text)}
+  .status .you{color:var(--gold)}
+
+  .players{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px}
+  @media(max-width:560px){.players{grid-template-columns:repeat(2,1fr)}}
+  .pavatar{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:9px 8px;
+    text-align:center;cursor:default;transition:.12s;position:relative;min-height:96px}
+  .pavatar.cur{border-color:var(--gold);box-shadow:0 0 12px rgba(240,185,11,.25)}
+  .pavatar.dead{opacity:.4}
+  .pavatar.targetable{cursor:pointer;border-color:var(--red);box-shadow:0 0 12px rgba(246,70,93,.35)}
+  .pavatar.targetable:hover{transform:translateY(-2px)}
+  .pname{font-size:13px;color:var(--text);font-weight:700}
+  .prole{font-size:11px;margin:3px 0;padding:1px 0;border-radius:4px}
+  .prole.lord{color:var(--gold);background:rgba(240,185,11,.12)}
+  .prole.loyal{color:var(--green);background:rgba(2,192,118,.12)}
+  .prole.rebel{color:var(--red);background:rgba(246,70,93,.12)}
+  .prole.spy{color:var(--text);background:rgba(255,255,255,.06)}
+  .php{font-size:14px;letter-spacing:1px;color:var(--red);margin-top:2px}
+  .php .empty{color:var(--dim)}
+  .pHand{font-size:11px;color:var(--dim);margin-top:4px}
+  .pequip{font-size:14px;margin-top:3px}
+
+  .hint{padding:8px 14px;font-size:12px;color:var(--gold);background:var(--panel);
+    border-top:1px solid var(--border);border-bottom:1px solid var(--border);min-height:34px;line-height:1.5}
+  .logwrap{padding:8px 12px;background:var(--bg)}
+  .log{height:130px;overflow-y:auto;font-size:12px;line-height:1.55;color:var(--dim);
+    border:1px solid var(--border);border-radius:6px;padding:8px 10px;background:#080b10}
+  .log .me{color:var(--gold)}
+
+  .handwrap{padding:10px 12px}
+  .handlabel{font-size:12px;color:var(--dim);margin-bottom:6px}
+  #hand{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:78px}
+  .card{width:clamp(46px,13vw,58px);aspect-ratio:5/7;background:var(--panel2);
+    border:1px solid var(--border);border-radius:7px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;user-select:none;touch-action:manipulation;color:var(--text);font-size:14px;font-weight:700;
+    transition:transform .08s, box-shadow .12s;padding:2px;text-align:center}
+  .card.red{color:var(--red);border-color:rgba(246,70,93,.45)}
+  .card.green{color:var(--green);border-color:rgba(2,192,118,.45)}
+  .card.gold{color:var(--gold);border-color:rgba(240,185,11,.5)}
+  .card.sel{transform:translateY(-12px);box-shadow:0 0 12px rgba(246,70,93,.6);border-color:var(--red)}
+  .card.dis{opacity:.4;cursor:not-allowed}
+
+  .controls{display:flex;gap:8px;justify-content:center;padding:4px 12px 14px;flex-wrap:wrap}
+  .btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;
+    padding:11px 16px;cursor:pointer;font-family:inherit;font-size:13px;touch-action:manipulation}
+  .btn:hover{border-color:var(--dim)}
+  .btn.red{color:var(--red);border-color:rgba(246,70,93,.4)}
+  .btn.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+  .btn.green{color:var(--green);border-color:rgba(2,192,118,.4)}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+
+  .response{display:none;gap:10px;align-items:center;justify-content:center;padding:10px 12px;
+    background:rgba(246,70,93,.08);border-top:1px solid var(--border)}
+  .response .rmsg{font-size:13px;color:var(--red)}
+
+  .foot{font-size:11px;color:var(--dim);text-align:center;padding:8px 12px 14px;line-height:1.6;border-top:1px solid var(--border)}
+
+  .overlay{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.92)}
+  .overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:28px 36px;text-align:center;max-width:90vw}
+  .overlay h2{font-size:26px;margin-bottom:12px;letter-spacing:1px}
+  .overlay p{color:var(--dim);font-size:13px;margin-bottom:18px;line-height:1.6}
+  .overlay .win{color:var(--gold)}
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="t">TERMINAL // <b>三国杀</b> SANGUOSHA</span>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="players" id="players"></div>
+    <div class="hint" id="hint"></div>
+    <div class="logwrap"><div class="log" id="log"></div></div>
+    <div class="handwrap">
+      <div class="handlabel">你的手牌 <span id="handcount"></span></div>
+      <div id="hand"></div>
+    </div>
+    <div class="controls">
+      <button class="btn gold" id="btnEnd" onclick="endPlay()">结束出牌</button>
+      <button class="btn green" id="btnConfirm" onclick="confirmPlay()">确认</button>
+      <button class="btn" id="btnCancel" onclick="cancelSel()">取消</button>
+      <button class="btn red" onclick="newGame()">重开</button>
+    </div>
+    <div class="response" id="response"></div>
+    <div class="foot">规则：你=主公(4血)。消灭全部反贼+内奸即胜；反贼杀主公即胜；内奸最后存活即胜。<br/>
+      杀→需闪否则掉1血 · 闪→受击响应 · 桃→回血 · 装备→被动加成 · 锦囊→即时效果</div>
+  </div>
+  <div class="overlay" id="overlay"></div>
+
+<script src="input.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ===================== 配置与数据 ===================== */
+  var CARD_META = {
+    sha:    {name:'杀',     cls:'red',  needTarget:'enemy'},
+    shan:   {name:'闪',     cls:'',     needTarget:'none', playable:false},
+    tao:    {name:'桃',     cls:'green',needTarget:'any'},
+    weapon: {name:'武器',   cls:'gold', needTarget:'self'},
+    armor:  {name:'防具',   cls:'gold', needTarget:'self'},
+    juedou: {name:'决斗',   cls:'red',  needTarget:'enemy'},
+    guohe:  {name:'过河拆桥',cls:'',    needTarget:'enemy'},
+    shandian:{name:'闪电',  cls:'gold', needTarget:'none'},
+    wanjian:{name:'万箭齐发',cls:'red', needTarget:'none'},
+    taoyuan:{name:'桃园结义',cls:'green',needTarget:'none'}
+  };
+
+  var ROLE_NAME = {lord:'主公', loyal:'忠臣', rebel:'反贼', spy:'内奸'};
+
+  /* ===================== 全局状态 ===================== */
+  var players = [];
+  var deck = [], discard = [];
+  var current = null, phase = 'play';
+  var selCard = -1, selTarget = -1;
+  var pendingResponse = null;
+  var logLines = [];
+  var gameOver = false, result = '', endReason = '';
+  var shaPlayedThisTurn = 0;
+  var discardMode = false;
+  var instruction = '';
+  var cardSeq = 0;
+
+  /* ===================== 工具函数 ===================== */
+  function rand(n){ return Math.floor(Math.random()*n); }
+  function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=rand(i+1); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function log(msg){ logLines.push(msg); if(logLines.length>240) logLines.shift(); }
+
+  function findCard(p,type){ for(var i=0;i<p.hand.length;i++){ if(p.hand[i].type===type) return p.hand[i]; } return null; }
+  function countCard(p,type){ var n=0; for(var i=0;i<p.hand.length;i++){ if(p.hand[i].type===type) n++; } return n; }
+  function removeOneType(p,type){ for(var i=0;i<p.hand.length;i++){ if(p.hand[i].type===type){ return p.hand.splice(i,1)[0]; } } return null; }
+  function removeFromHand(p,card){ var ix=p.hand.indexOf(card); if(ix>=0) p.hand.splice(ix,1); }
+  function aliveOthers(p){ return players.filter(function(x){ return !x.dead && x!==p; }); }
+  function shaLimit(p){ return p.equip.weapon ? 2 : 1; }
+  function busy(){ return pendingResponse!==null || (current!==null && !players[current].isHuman); }
+
+  /* ===================== 牌堆 ===================== */
+  function buildDeck(){
+    var plan = [
+      ['sha',14],['shan',8],['tao',5],
+      ['weapon',3],['armor',3],
+      ['juedou',3],['guohe',3],['shandian',2],['wanjian',3],['taoyuan',2]
+    ];
+    var arr = [];
+    for(var i=0;i<plan.length;i++){
+      for(var k=0;k<plan[i][1];k++){ arr.push({id:++cardSeq, type:plan[i][0]}); }
+    }
+    return shuffle(arr);
+  }
+  function drawCards(p,n){
+    for(var i=0;i<n;i++){
+      if(deck.length===0){
+        if(discard.length===0) break;
+        deck = shuffle(discard); discard = [];
+        log('（牌堆耗尽，弃牌堆洗回）');
+      }
+      p.hand.push(deck.pop());
+    }
+  }
+
+  /* ===================== 初始化 ===================== */
+  function mkPlayer(id,name,role,hp,isHuman){
+    return {id:id,name:name,role:role,hp:hp,maxHp:hp,hand:[],
+      equip:{weapon:false,armor:false},armorBlock:false,dead:false,isHuman:isHuman};
+  }
+  function newGame(){
+    players = [];
+    players.push(mkPlayer(0,'你（主公）','lord',4,true));
+    var roles = shuffle(['loyal','rebel','spy']);
+    var hps = {loyal:3, rebel:3, spy:4};
+    var names = ['AI·甲','AI·乙','AI·丙'];
+    for(var i=1;i<=3;i++){
+      players.push(mkPlayer(i, names[i-1], roles[i-1], hps[roles[i-1]], false));
+    }
+    deck = buildDeck(); discard = [];
+    players.forEach(function(p){ drawCards(p,4); });
+    logLines = []; gameOver=false; result=''; endReason='';
+    pendingResponse=null; selCard=-1; selTarget=-1; discardMode=false; phase='play';
+    log('======== 新对局开始 ========');
+    log('你的身份：主公（4血）。消灭所有反贼与内奸即获胜。');
+    render();
+    startTurn(0);
+  }
+
+  /* ===================== 回合流程 ===================== */
+  function startTurn(idx){
+    if(gameOver) return;
+    current = idx;
+    var p = players[idx];
+    p.armorBlock = p.equip.armor;   // 防具每回合刷新一次格挡
+    shaPlayedThisTurn = 0;
+    phase = 'draw';
+    drawCards(p,2);
+    log('—— ' + p.name + (p.isHuman?'（你）':'') + ' 的回合 · 摸牌2张 ——');
+    render();
+    if(p.isHuman){ phase='play'; updateInstruction(); render(); }
+    else { phase='ai'; setTimeout(aiStep, 750); }
+  }
+
+  function endTurn(){
+    var p = players[current];
+    phase = 'discard';
+    if(p.hand.length > p.hp){
+      if(p.isHuman){
+        discardMode = true;
+        instruction = '弃牌阶段：点击手牌弃至 ' + p.hp + ' 张（当前 ' + p.hand.length + ' 张）。';
+        render(); return;
+      } else {
+        autoDiscard(p);
+      }
+    }
+    render();
+    advance();
+  }
+
+  function autoDiscard(p){
+    var need = p.hand.length - p.hp;
+    if(need<=0) return;
+    var pri = {sha:5, tao:5, juedou:4, guohe:4, wanjian:4, shandian:4, taoyuan:4, weapon:3, armor:3, shan:1};
+    var sorted = p.hand.slice().sort(function(a,b){ return pri[a.type]-pri[b.type]; });
+    for(var k=0;k<need;k++){
+      var c = sorted[k]; var ix = p.hand.indexOf(c);
+      if(ix>=0){ p.hand.splice(ix,1); discard.push(c); }
+    }
+    log(p.name + ' 弃牌 ' + need + ' 张');
+  }
+
+  function nextAlive(idx){
+    var n = players.length;
+    for(var k=1;k<=n;k++){ var j=(idx+k)%n; if(!players[j].dead) return j; }
+    return -1;
+  }
+  function advance(){
+    var nx = nextAlive(current);
+    if(nx<0 || gameOver) return;
+    startTurn(nx);
+  }
+
+  /* ===================== 伤害与死亡 ===================== */
+  function dealDamage(p, amt, source){
+    p.hp -= amt;
+    log(p.name + ' 受到 ' + amt + ' 点伤害' + (source?('（来自 '+source.name+'）'):''));
+    if(p.hp<=0){ p.hp=0; die(p, source); }
+  }
+  function die(p, source){
+    if(p.dead) return;
+    p.dead = true; p.hp = 0;
+    log('💀 ' + p.name + ' 阵亡，身份揭晓：' + ROLE_NAME[p.role]);
+    checkWin();
+  }
+
+  function checkWin(){
+    if(gameOver) return;
+    var alive = players.filter(function(x){ return !x.dead; });
+    var lord = players[0];
+    if(lord.dead){
+      var others = alive.filter(function(x){ return x!==lord; });
+      if(others.length===1 && others[0].role==='spy'){ win('内奸', '内奸笑到了最后！'); }
+      else { win('反贼', '主公已亡，反贼阵营获胜。'); }
+      return;
+    }
+    var rebels = alive.filter(function(x){ return x.role==='rebel'; });
+    var spies = alive.filter(function(x){ return x.role==='spy'; });
+    if(rebels.length===0 && spies.length===0){ win('主公 + 忠臣', '反贼与内奸尽数消灭！'); return; }
+    if(alive.length===1 && alive[0].role==='spy'){ win('内奸', '内奸是最后的幸存者！'); return; }
+  }
+  function win(side, reason){
+    gameOver = true; result = side; endReason = reason || '';
+    log('🏆 胜利方：' + side);
+    render();
+  }
+
+  /* ===================== 响应（人类受击） ===================== */
+  function requireShan(player, allowArmor, onDodge, onHit){
+    if(allowArmor && player.equip.armor && player.armorBlock){
+      player.armorBlock = false;
+      log(player.name + ' 的【防具】格挡了这次攻击');
+      return;
+    }
+    if(player.isHuman){
+      if(gameOver) return;
+      pendingResponse = {
+        player:player,
+        label:'杀',
+        onDodge:function(){
+          var s = findCard(player,'shan');
+          if(s){ removeFromHand(player,s); discard.push(s); log(player.name + ' 出【闪】'); }
+          if(onDodge) onDodge();
+        },
+        onHit:function(){ if(onHit) onHit(); }
+      };
+      render();
+      return;
+    }
+    var s = findCard(player,'shan');
+    if(s){ removeFromHand(player,s); discard.push(s); log(player.name + ' 出【闪】'); if(onDodge) onDodge(); }
+    else { if(onHit) onHit(); }
+  }
+
+  function handleResponse(dodge){
+    if(!pendingResponse || gameOver) return;
+    var pr = pendingResponse; pendingResponse = null;
+    if(dodge){ if(pr.onDodge) pr.onDodge(); }
+    else { if(pr.onHit) pr.onHit(); }
+    render();
+    if(!gameOver && !players[current].isHuman){ aiStep(); }
+  }
+
+  /* ===================== 出牌核心 ===================== */
+  function doPlay(p, card, targetId){
+    removeFromHand(p, card);
+    discard.push(card);
+    var t = card.type;
+    if(t==='sha'){
+      log(p.name + ' 出【杀】 → ' + players[targetId].name);
+      requireShan(players[targetId], true, null, function(){ dealDamage(players[targetId],1,p); });
+    } else if(t==='tao'){
+      var tgt = players[targetId];
+      if(tgt.hp < tgt.maxHp){ tgt.hp++; log(p.name + ' 对 ' + tgt.name + ' 使用【桃】，恢复 1 点'); }
+      else log(p.name + ' 的【桃】对 ' + tgt.name + ' 无效（满血）');
+    } else if(t==='weapon'){
+      p.equip.weapon = true; log(p.name + ' 装备【武器】（每回合可多出一杀）');
+    } else if(t==='armor'){
+      p.equip.armor = true; p.armorBlock = true; log(p.name + ' 装备【防具】（每回合格挡 1 次伤害）');
+    } else if(t==='juedou'){
+      log(p.name + ' 对 ' + players[targetId].name + ' 使用【决斗】');
+      resolveDuel(p, players[targetId]);
+    } else if(t==='guohe'){
+      var tg = players[targetId];
+      if(tg.hand.length>0){
+        var c = tg.hand[rand(tg.hand.length)];
+        removeFromHand(tg,c); discard.push(c);
+        log(p.name + '【过河拆桥】弃掉 ' + tg.name + ' 的【' + CARD_META[c.type].name + '】');
+      } else log(p.name + ' 的【过河拆桥】落空（' + tg.name + ' 无手牌）');
+    } else if(t==='shandian'){
+      var others = aliveOthers(p);
+      if(others.length){
+        var v = others[rand(others.length)];
+        log(p.name + ' 使用【闪电】，随机劈中 ' + v.name);
+        dealDamage(v, 2, p);
+      } else log(p.name + ' 的【闪电】落空');
+    } else if(t==='wanjian'){
+      log(p.name + ' 使用【万箭齐发】');
+      resolveWanjian(p);
+    } else if(t==='taoyuan'){
+      log(p.name + ' 使用【桃园结义】，全场恢复 1 点');
+      players.forEach(function(x){ if(!x.dead && x.hp<x.maxHp) x.hp++; });
+    }
+  }
+
+  function resolveDuel(A, B){
+    var ca = countCard(A,'sha'), cb = countCard(B,'sha');
+    var consume = Math.min(ca, cb);
+    for(var i=0;i<consume;i++){ removeOneType(A,'sha'); removeOneType(B,'sha'); }
+    if(ca >= cb){
+      if(cb===0) log(B.name + ' 无【杀】可出');
+      log('【决斗】' + B.name + ' 落败，受到 1 点伤害');
+      dealDamage(B, 1, A);
+    } else {
+      log('【决斗】' + A.name + ' 落败，受到 1 点伤害');
+      dealDamage(A, 1, B);
+    }
+  }
+
+  function resolveWanjian(caster){
+    var others = aliveOthers(caster);
+    var humanTarget = null;
+    others.forEach(function(t){
+      if(t.isHuman) humanTarget = t;
+      else {
+        var s = findCard(t,'shan');
+        if(s){ removeFromHand(t,s); discard.push(s); log(t.name + ' 出【闪】'); }
+        else { log(t.name + ' 受到 1 点伤害'); dealDamage(t, 1, caster); }
+      }
+    });
+    if(gameOver) return;
+    if(humanTarget){
+      pendingResponse = {
+        player:humanTarget,
+        label:'万箭齐发',
+        onDodge:function(){ log(humanTarget.name + ' 出【闪】'); },
+        onHit:function(){ log(humanTarget.name + ' 受到 1 点伤害'); dealDamage(humanTarget,1,caster); }
+      };
+      render();
+    }
+  }
+
+  /* ===================== AI ===================== */
+  function bestAttackTarget(p){
+    if((p.role==='rebel' || p.role==='spy') && !players[0].dead) return players[0];
+    var enemies = aliveOthers(p).filter(function(x){ return x.id!==0; });
+    if(enemies.length===0) return null;
+    enemies.sort(function(a,b){ return a.hp-b.hp; });
+    return enemies[0];
+  }
+  function someoneHurt(){ return players.some(function(x){ return !x.dead && x.hp<x.maxHp; }); }
+
+  function decideAiAction(p){
+    if(p.hp < p.maxHp){
+      var tao = findCard(p,'tao');
+      if(tao) return {k:'tao', card:tao, target:p};
+    }
+    var w = findCard(p,'weapon'); if(w && !p.equip.weapon) return {k:'equip', card:w};
+    var a = findCard(p,'armor');  if(a && !p.equip.armor)  return {k:'equip', card:a};
+    var ty = findCard(p,'taoyuan'); if(ty && someoneHurt()) return {k:'taoyuan', card:ty};
+    if(shaPlayedThisTurn < shaLimit(p)){
+      var sha = findCard(p,'sha');
+      var tgt = bestAttackTarget(p);
+      if(sha && tgt) return {k:'sha', card:sha, target:tgt};
+    }
+    var wj = findCard(p,'wanjian'); if(wj && aliveOthers(p).length) return {k:'wanjian', card:wj};
+    var jd = findCard(p,'juedou'); var et = bestAttackTarget(p); if(jd && et) return {k:'juedou', card:jd, target:et};
+    var gh = findCard(p,'guohe');  var dt = bestAttackTarget(p); if(gh && dt) return {k:'guohe', card:gh, target:dt};
+    var sd = findCard(p,'shandian'); if(sd && (p.role==='rebel'||p.role==='spy')) return {k:'shandian', card:sd};
+    return null;
+  }
+
+  function performAiAction(p, act){
+    if(act.k==='tao'){ doPlay(p, act.card, act.target.id); return; }
+    if(act.k==='equip'){ doPlay(p, act.card, p.id); return; }
+    if(act.k==='sha'){ doPlay(p, act.card, act.target.id); shaPlayedThisTurn++; return; }
+    if(act.k==='juedou'){ doPlay(p, act.card, act.target.id); return; }
+    if(act.k==='guohe'){ doPlay(p, act.card, act.target.id); return; }
+    if(act.k==='wanjian'){ doPlay(p, act.card, -1); return; }
+    if(act.k==='shandian'){ doPlay(p, act.card, -1); return; }
+    if(act.k==='taoyuan'){ doPlay(p, act.card, -1); return; }
+  }
+
+  function aiStep(){
+    if(gameOver) return;
+    var p = players[current];
+    if(!p || p.dead){ advance(); return; }
+    var act = decideAiAction(p);
+    if(!act){ endTurn(); return; }
+    performAiAction(p, act);
+    if(pendingResponse) return;   // 等待人类响应
+    setTimeout(aiStep, 650);
+  }
+
+  /* ===================== 人类交互 ===================== */
+  function isTargetable(id){
+    if(phase!=='play' || discardMode || selCard<0) return false;
+    var card = players[0].hand[selCard];
+    var meta = CARD_META[card.type];
+    if(meta.needTarget!=='enemy' && meta.needTarget!=='any') return false;
+    if(players[id].dead) return false;
+    if(meta.needTarget==='enemy' && id===0) return false;
+    return true;
+  }
+
+  function onCardClick(i){
+    if(gameOver) return;
+    if(discardMode){ discardHuman(i); return; }
+    if(busy()) return;
+    if(!(phase==='play' && players[0].isHuman && !players[0].dead)) return;
+    var card = players[0].hand[i];
+    var meta = CARD_META[card.type];
+    if(meta.playable===false){
+      instruction = '【闪】只能在受到攻击时打出，不能作为主动牌。';
+      render(); return;
+    }
+    if(card.type==='sha' && shaPlayedThisTurn>=shaLimit(players[0])){
+      instruction = '本回合【杀】次数已用完。';
+      render(); return;
+    }
+    if(selCard===i){ selCard=-1; selTarget=-1; }
+    else { selCard=i; selTarget=-1; }
+    updateInstruction(); render();
+  }
+
+  function onAvatarClick(id){
+    if(phase!=='play' || discardMode || selCard<0) return;
+    if(!isTargetable(id)){
+      instruction = '该目标不可选（已阵亡 / 不可指向自己 / 无需目标）。';
+      render(); return;
+    }
+    selTarget = id; updateInstruction(); render();
+  }
+
+  function confirmPlay(){
+    if(!(phase==='play' && players[0].isHuman && !players[0].dead)) return;
+    if(selCard<0) return;
+    var card = players[0].hand[selCard];
+    var meta = CARD_META[card.type];
+    if((meta.needTarget==='enemy' || meta.needTarget==='any') && selTarget<0){
+      instruction = '请先点击一名角色作为目标。'; render(); return;
+    }
+    if(card.type==='sha' && shaPlayedThisTurn>=shaLimit(players[0])){
+      instruction = '本回合【杀】次数已用完。'; render(); return;
+    }
+    var tid = (meta.needTarget==='self') ? 0 : (meta.needTarget==='none' ? -1 : selTarget);
+    doPlay(players[0], card, tid);
+    if(card.type==='sha') shaPlayedThisTurn++;
+    selCard=-1; selTarget=-1; updateInstruction(); render();
+  }
+
+  function cancelSel(){
+    selCard=-1; selTarget=-1; updateInstruction(); render();
+  }
+
+  function endPlay(){
+    if(!(phase==='play' && players[0].isHuman && !players[0].dead)) return;
+    selCard=-1; selTarget=-1; discardMode=false;
+    endTurn();
+  }
+
+  function discardHuman(i){
+    var p = players[0];
+    var c = p.hand.splice(i,1)[0];
+    discard.push(c);
+    log('你弃掉【' + CARD_META[c.type].name + '】');
+    selCard=-1; selTarget=-1;
+    if(p.hand.length <= p.hp){ discardMode=false; render(); advance(); }
+    else { render(); }
+  }
+
+  function updateInstruction(){
+    if(phase!=='play'){ instruction=''; return; }
+    if(selCard<0){ instruction='点击你的手牌选择要打出的牌（【闪】只能在受击时打出）。'; return; }
+    var meta = CARD_META[players[0].hand[selCard].type];
+    if(meta.needTarget==='none') instruction = '已选【' + meta.name + '】：点击「确认」立即发动（无需目标）。';
+    else if(meta.needTarget==='self') instruction = '已选【' + meta.name + '】：点击「确认」装备到自己。';
+    else if(meta.needTarget==='enemy') instruction = '已选【' + meta.name + '】：点击一名敌方角色作目标，再点「确认」。';
+    else instruction = '已选【' + meta.name + '】：点击一名角色（含自己）作目标，再点「确认」。';
+  }
+
+  /* ===================== 渲染 ===================== */
+  function heartStr(p){
+    var s='';
+    for(var i=0;i<p.maxHp;i++){ s += (i<p.hp) ? '♥' : '<span class="empty">♡</span>'; }
+    return s;
+  }
+  function playerHTML(p){
+    var roleTxt = p.isHuman ? ROLE_NAME[p.role] : (p.dead ? ROLE_NAME[p.role] : '❓ 隐藏');
+    var cls = 'pavatar' + (current===p.id?' cur':'') + (p.dead?' dead':'');
+    if(isTargetable(p.id)) cls += ' targetable';
+    var handInfo = p.isHuman ? '' : ('<div class="pHand">手牌 ' + p.hand.length + '</div>');
+    var equip = (p.equip.weapon?'🗡':'') + (p.equip.armor?'🛡':'');
+    return '<div class="' + cls + '" onclick="onAvatarClick(' + p.id + ')">' +
+      '<div class="pname">' + esc(p.name) + '</div>' +
+      '<div class="prole ' + p.role + '">' + roleTxt + '</div>' +
+      '<div class="php">' + heartStr(p) + '</div>' +
+      handInfo +
+      (equip ? '<div class="pequip">' + equip + '</div>' : '') +
+      '</div>';
+  }
+  function handHTML(){
+    return players[0].hand.map(function(c,i){
+      var meta = CARD_META[c.type];
+      var sel = selCard===i ? ' sel' : '';
+      var dis = (meta.playable===false) ? ' dis' : '';
+      if(c.type==='sha' && shaPlayedThisTurn>=shaLimit(players[0])) dis += ' dis';
+      return '<div class="card ' + meta.cls + sel + dis + '" onclick="onCardClick(' + i + ')"><div>' + meta.name + '</div></div>';
+    }).join('');
+  }
+  function render(){
+    var p = players[current];
+    var phTxt = phase==='play' ? '出牌阶段' : phase==='ai' ? 'AI 行动中' :
+                phase==='discard' ? '弃牌阶段' : '—';
+    document.getElementById('status').innerHTML =
+      '<span>回合：<b>' + (p?esc(p.name):'-') + '</b> · 阶段：' + phTxt + '</span>' +
+      '<span>牌堆：<b>' + deck.length + '</b> · 弃牌：' + discard.length + '</span>' +
+      '<span class="you">你的 HP ' + players[0].hp + '/' + players[0].maxHp + '</span>';
+
+    document.getElementById('players').innerHTML = players.map(playerHTML).join('');
+    document.getElementById('hint').textContent = instruction;
+    document.getElementById('hand').innerHTML = players[0].dead ? '' : handHTML();
+    document.getElementById('handcount').textContent = players[0].dead ? '' : ('（' + players[0].hand.length + ' 张 / 上限 ' + players[0].hp + '）');
+
+    var logEl = document.getElementById('log');
+    logEl.innerHTML = logLines.map(function(l){ return esc(l); }).join('<br>');
+    logEl.scrollTop = logEl.scrollHeight;
+
+    document.getElementById('btnEnd').disabled = !(phase==='play' && players[0].isHuman && !players[0].dead && !gameOver);
+    document.getElementById('btnConfirm').disabled = !(phase==='play' && selCard>=0 && !gameOver);
+    document.getElementById('btnCancel').disabled = !(selCard>=0);
+
+    var rEl = document.getElementById('response');
+    if(pendingResponse){
+      rEl.style.display = 'flex';
+      var pr = pendingResponse;
+      var hasShan = findCard(pr.player,'shan');
+      rEl.innerHTML = '<span class="rmsg">⚡ ' + esc(pr.player.name) + ' 受到【' + pr.label + '】！请响应：</span>' +
+        '<button class="btn green" onclick="handleResponse(true)"' + (hasShan?'':' disabled') + '>出【闪】</button>' +
+        '<button class="btn red" onclick="handleResponse(false)">承受伤害</button>';
+    } else { rEl.style.display = 'none'; }
+
+    var oEl = document.getElementById('overlay');
+    if(gameOver){
+      oEl.style.display = 'flex';
+      oEl.innerHTML = '<div class="box"><h2 class="win">对局结束</h2>' +
+        '<p>胜利方：<b class="win">' + esc(result) + '</b></p>' +
+        '<p>' + esc(endReason) + '</p>' +
+        '<button class="btn gold" onclick="newGame()">再来一局</button></div>';
+    } else { oEl.style.display = 'none'; }
+  }
+
+  /* ===================== 共享输入层（断触修复） ===================== */
+  if(window.Input && typeof Input.init==='function'){
+    Input.init({});
+    (function loop(){ Input.update(); requestAnimationFrame(loop); })();
+  }
+
+  /* 暴露给内联 onclick */
+  window.newGame = newGame;
+  window.onCardClick = onCardClick;
+  window.onAvatarClick = onAvatarClick;
+  window.confirmPlay = confirmPlay;
+  window.cancelSel = cancelSel;
+  window.endPlay = endPlay;
+  window.handleResponse = handleResponse;
+
+  newGame();
+})();
+</script>
+</body>
+</html>
