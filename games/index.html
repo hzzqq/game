@@ -66,6 +66,7 @@
   }
   .search:focus{ border-color:var(--red); box-shadow:0 0 0 2px rgba(246,70,93,.15); }
   .search::placeholder{ color:var(--dim); }
+  a.card.played::after{content:'●';position:absolute;top:10px;left:10px;color:var(--green);font-size:9px;text-shadow:0 0 6px rgba(2,192,118,.7);z-index:2}
   .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:18px}
   @media(max-width:680px){.grid{grid-template-columns:1fr}}
   a.card{
@@ -115,6 +116,7 @@
         <button class="chip" data-f="solo">单人</button>
         <button class="chip gold" data-f="multi">多人 <span class="badge">+5 NEW</span></button>
         <button class="chip" data-f="net">联机</button>
+        <button class="chip" data-f="recent">最近</button>
         <input id="search" class="search" type="text" placeholder="🔍 搜索游戏名 / 关键词…" autocomplete="off">
         <span class="count" id="count"></span>
       </div>
@@ -385,11 +387,22 @@
       var countEl = document.getElementById('count');
       var search = document.getElementById('search');
       var curF = 'all', curQ = '';
+      var RECENT_KEY = 'hub_recent';
+      var recent = [];
+      try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch(e) { recent = []; }
+      function pushRecent(href){
+        recent = recent.filter(function(h){ return h !== href; });
+        recent.unshift(href);
+        if (recent.length > 8) recent = recent.slice(0, 8);
+        try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch(e) {}
+      }
       function apply(){
         var n = 0, q = curQ.trim().toLowerCase();
         cards.forEach(function(c){
-          var byCat = (curF==='all') || (c.getAttribute('data-cat')===curF);
+          var f = curF;
+          var byCat = (f==='all') ? true : (f==='recent' ? recent.indexOf(c.getAttribute('href'))>=0 : c.getAttribute('data-cat')===f);
           var byQ = !q || (c.textContent||'').toLowerCase().indexOf(q) >= 0;
+          if(recent.indexOf(c.getAttribute('href'))>=0) c.classList.add('played'); else c.classList.remove('played');
           if(byCat && byQ){ c.classList.remove('hide'); n++; } else { c.classList.add('hide'); }
         });
         if(countEl) countEl.textContent = '显示 '+n+' 款';
@@ -402,6 +415,7 @@
         });
       });
       if(search){ search.addEventListener('input', function(){ curQ = search.value; apply(); }); }
+      cards.forEach(function(c){ c.addEventListener('click', function(){ pushRecent(c.getAttribute('href')); }); });
       apply();
       var tc = document.getElementById('totCount');
       if(tc) tc.textContent = '共 '+cards.length+' 款游戏';
