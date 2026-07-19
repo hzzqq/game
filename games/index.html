@@ -118,6 +118,7 @@
         <button class="chip" data-f="net">联机</button>
         <button class="chip" data-f="recent">最近</button>
         <input id="search" class="search" type="text" placeholder="🔍 搜索游戏名 / 关键词…" autocomplete="off">
+        <button class="chip" id="rnd" title="随机玩一款">🎲 随机</button>
         <span class="count" id="count"></span>
       </div>
       <div class="grid">
@@ -416,6 +417,15 @@
       });
       if(search){ search.addEventListener('input', function(){ curQ = search.value; apply(); }); }
       cards.forEach(function(c){ c.addEventListener('click', function(){ pushRecent(c.getAttribute('href')); }); });
+      var rnd = document.getElementById('rnd');
+      if(rnd){ rnd.addEventListener('click', function(){
+        var vis = cards.filter(function(c){ return !c.classList.contains('hide'); });
+        if(vis.length){ var pick = vis[Math.floor(Math.random()*vis.length)]; pushRecent(pick.getAttribute('href')); location.href = pick.getAttribute('href'); }
+      }); }
+      document.addEventListener('keydown', function(e){
+        if(e.key==='/' && document.activeElement!==search){ e.preventDefault(); search.focus(); }
+        if(e.key==='Escape' && document.activeElement===search){ search.value=''; curQ=''; apply(); search.blur(); }
+      });
       apply();
       var tc = document.getElementById('totCount');
       if(tc) tc.textContent = '共 '+cards.length+' 款游戏';
