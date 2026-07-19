@@ -381,6 +381,54 @@
 
     window.addEventListener('resize', ()=>{ /* 简单处理：不重排，仅更新画布尺寸上限 */
       cv.width=window.innerWidth; cv.height=window.innerHeight; });
+
+    /* ==== 逻辑测试钩子（纯逻辑/状态访问，不触发动效与渲染） ==== */
+    window.__t = {
+      /* 常量 */
+      BULLET_R: BULLET_R, TANK_R: TANK_R, BULLET_SPD: BULLET_SPD,
+      FIRE_CD: FIRE_CD, DMG: DMG, MAXHP: MAXHP,
+      /* 数据 */
+      obstacles: obstacles,
+      /* 工具 */
+      rnd: rnd,
+      /* 物理/战斗 */
+      moveTank: moveTank,
+      fire: fire,
+      hitTank: hitTank,
+      step: step,
+      endRound: endRound,
+      resetPositions: resetPositions,
+      gatherInput: gatherInput,
+      /* 状态访问器 */
+      getTankA: function(){ return tankA; },
+      getTankB: function(){ return tankB; },
+      getBullets: function(){ return bullets; },
+      setBullets: function(v){ bullets = v; },
+      getScoreA: function(){ return scoreA; },
+      setScoreA: function(v){ scoreA = v; },
+      getScoreB: function(){ return scoreB; },
+      setScoreB: function(v){ scoreB = v; },
+      getMode: function(){ return mode; },
+      setMode: function(v){ mode = v; },
+      getRole: function(){ return role; },
+      setRole: function(v){ role = v; },
+      getRunning: function(){ return running; },
+      setRunning: function(v){ running = v; },
+      getOver: function(){ return over; },
+      setOver: function(v){ over = v; },
+      getFireCd: function(){ return fireCd; },
+      setFireCd: function(v){ fireCd = v; },
+      getKeys: function(){ return keys; },
+      setKeys: function(v){ for(const k in keys) delete keys[k]; for(const k in v) keys[k]=v[k]; },
+      getMyBullets: function(){ return myBullets; },
+      setMyBullets: function(v){ myBullets = v; },
+      getRemoteBullets: function(){ return remoteBullets; },
+      setRemoteBullets: function(v){ remoteBullets = v; },
+      getRemoteTank: function(){ return remoteTank; },
+      setRemoteTank: function(v){ remoteTank = v; },
+      getW: function(){ return W; },
+      getH: function(){ return H; }
+    };
   })();
   </script>
 </body>
