@@ -60,6 +60,7 @@ canvas{display:block;width:100%;height:auto;touch-action:none;image-rendering:pi
     <button class="btn" data-action="punch">拳 J</button>
     <button class="btn" data-action="kick">腿 K</button>
     <button class="btn act" data-action="special">必杀 L</button>
+    <button class="btn act" data-action="berserk">狂暴 U</button>
   </div>
   <div class="hint">A/D 或 ←/→ 移动 · J 拳 · K 腿 · L 必杀(耗气) · S/↓ 防御 · 三局两胜</div>
 </div>
@@ -84,12 +85,14 @@ var ATTACKS={
 function makeFighter(isPlayer){
   return {isPlayer:isPlayer,x:0,y:GROUND-80,w:38,h:80,facing:1,
     health:100,maxHealth:100,meter:0,specialCd:0,
+    rage:0,berserkTimer:0,
     state:'idle',attacking:false,attackType:null,attackTime:0,hasHit:false,
     hitstunTime:0,blocking:false,flashTime:0,
     aiTimer:0,aiMoveDir:0,aiMoveUntil:0,blockUntil:0};
 }
 function resetFighter(f,x){
   f.x=x; f.y=GROUND-f.h; f.health=100; f.meter=0; f.specialCd=0;
+  f.rage=0; f.berserkTimer=0;
   f.state='idle'; f.attacking=false; f.attackType=null; f.attackTime=0;
   f.hasHit=false; f.hitstunTime=0; f.blocking=false; f.flashTime=0;
   f.aiTimer=0; f.aiMoveDir=0; f.aiMoveUntil=0; f.blockUntil=0;
@@ -117,7 +120,14 @@ function startAttack(f,type){
   f.attackType=type; f.attackTime=0; f.attacking=true; f.hasHit=false; f.state=type;
   if(typeof Juice!=='undefined') Juice.sfx(type==='special'?'boom':(type==='kick'?'hit':'shoot'));
 }
+function triggerBerserk(f){
+  if(f.berserkTimer>0 || f.rage < 100) return false;
+  f.rage = 0; f.berserkTimer = 5;
+  if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#f0b90b',0.3); Juice.burst(f.x, f.y+f.h*0.4, {color:'#f0b90b', n:16, speed:220}); Juice.achievement('狂暴 BERSERK!'); }
+  return true;
+}
 function doAttack(type){ if(phase==='fight') startAttack(player,type); }
+function doBerserk(){ if(phase==='fight') triggerBerserk(player); }
 
 function handlePlayerInput(){
   var p=player;
@@ -167,6 +177,7 @@ function updateFighter(f,realDt){
     if(f.hitstunTime<=0){ f.hitstunTime=0; f.state='idle'; }
   }
   if(f.specialCd>0) f.specialCd-=realDt;
+  if(f.berserkTimer>0) f.berserkTimer-=realDt;
   if(f.meter<100) f.meter=Math.min(100, f.meter+0.04*(realDt/16.6667));
   if(f.attacking){
     f.attackTime+=realDt;
@@ -186,7 +197,7 @@ function checkHits(att,def){
   var o={x:def.x-def.w/2, y:def.y, w:def.w, h:def.h};
   if(rectsOverlap(hb,o)){
     att.hasHit=true;
-    var dmg=A.dmg;
+    var dmg=A.dmg * (att.berserkTimer>0 ? 1.5 : 1);
     if(def.blocking) dmg*=0.15;
     def.health=Math.max(0, def.health-dmg);
     def.x += att.facing*A.kb;
@@ -203,6 +214,8 @@ function checkHits(att,def){
       Juice.burst(def.x, def.y+def.h*0.4, {color:COL.gold, n:6, speed:120});
     }
     att.meter=Math.min(100, att.meter+(def.blocking?0.5:1.5));
+    att.rage=Math.min(100, att.rage+(def.blocking?1:4));
+    if(!def.blocking) def.rage=Math.min(100, def.rage+2);
     att.flashTime=120; def.flashTime=120;
   }
 }
@@ -269,6 +282,12 @@ function drawFighter(f){
   ctx.beginPath(); ctx.arc(x, top-10, 12, 0, Math.PI*2); ctx.fill();
   ctx.fillRect(x-w/2, top+h*0.62, w*0.4, h*0.38);
   ctx.fillRect(x+w/2-w*0.4, top+h*0.62, w*0.4, h*0.38);
+  if(f.berserkTimer>0){
+    ctx.save();
+    ctx.strokeStyle='#f0b90b'; ctx.lineWidth=3; ctx.globalAlpha=0.55+0.45*Math.sin(performance.now()*0.02);
+    ctx.strokeRect(x-w/2-6, top-18, w+12, h+22);
+    ctx.restore();
+  }
   ctx.fillStyle='#0a0e14';
   var ex = f.facing>0? x+3 : x-7;
   ctx.fillRect(ex, top-13, 4, 4);
@@ -309,6 +328,8 @@ function drawHUD(){
   drawBar(20,18,300,18, player.health/player.maxHealth, COL.red, 'YOU', false);
   drawBar(W-20-300,18,300,18, ai.health/ai.maxHealth, COL.green, 'AI', true);
   drawBar(20,42,200,8, player.meter/100, COL.gold, '', false);
+  drawBar(20,52,200,5, player.rage/100, player.berserkTimer>0?COL.red:COL.gold, '', false);
+  drawBar(W-20-200,52,200,5, ai.rage/100, ai.berserkTimer>0?COL.red:COL.gold, '', true);
   drawPips();
   ctx.fillStyle=COL.dim; ctx.font='12px monospace'; ctx.textAlign='center';
   ctx.fillText('ROUND '+round+' / BEST OF 3', W/2, 26);
@@ -369,6 +390,7 @@ window.addEventListener('keydown',function(e){
     case 'j': case 'J': if(!e.repeat) doAttack('punch'); break;
     case 'k': case 'K': if(!e.repeat) doAttack('kick'); break;
     case 'l': case 'L': if(!e.repeat) doAttack('special'); break;
+    case 'u': case 'U': if(!e.repeat) doBerserk(); break;
     default: return;
   }
   if(['ArrowLeft','ArrowRight','ArrowDown',' '].indexOf(e.key)>=0) e.preventDefault();
@@ -391,6 +413,7 @@ function press(act){
     case 'punch': doAttack('punch'); break;
     case 'kick': doAttack('kick'); break;
     case 'special': doAttack('special'); break;
+    case 'berserk': doBerserk(); break;
   }
 }
 function release(act){
@@ -409,6 +432,14 @@ for(var b=0;b<btns.length;b++){
   })(btns[b]);
 }
 document.getElementById('restart').addEventListener('click',restart);
+
+  window.__t = {
+    player, ai, triggerBerserk,
+    getRage(f){ return f.rage; },
+    setRage(f,v){ f.rage=v; },
+    isBerserk(f){ return f.berserkTimer>0; },
+    getPhase(){ return phase; }
+  };
 
 resetFighter(player,200); resetFighter(ai,600);
 requestAnimationFrame(loop);

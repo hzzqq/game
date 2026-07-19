@@ -29,14 +29,14 @@
   let parts = [];
   J.burst = function (x, y, o) {
     o = o || {};
-    const n = o.n || 10, color = o.color || '#f0b90b', spd = o.speed || 190,
-      life = o.life || 0.6, g = o.g == null ? 240 : o.g, sz = o.size || 0;
+    const n = o.n || 12, color = o.color || '#f0b90b', spd = o.speed || 200,
+      life = o.life || 0.65, g = o.g == null ? 220 : o.g, sz = o.size || 0;
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, v = spd * (0.4 + Math.random() * 0.8);
-      parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life, max: life,
+      const a = Math.random() * Math.PI * 2, v = spd * (0.4 + Math.random() * 0.85);
+      parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - spd * 0.15, life, max: life,
         color, size: sz || (2 + Math.random() * 3) });
     }
-    if (parts.length > 700) parts.splice(0, parts.length - 700);
+    if (parts.length > 900) parts.splice(0, parts.length - 900);
   };
 
   /* ---------- 浮动文字（伤害/得分/提示） ---------- */

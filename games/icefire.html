@@ -152,7 +152,8 @@
         "....GG....GG....GG..GG..",
         ".IF.W.....L..........EE.",
         "####w#####l#############"
-      ]
+      ],
+      powerups:[ {x:3,y:11,type:'shield'}, {x:18,y:11,type:'star'} ]
     },
     { name:'L2',
       rows:[
@@ -170,7 +171,8 @@
         "...GG...GG..#GG....GG...",
         ".IF.W.S.L...D...L...EE..",
         "####w###l#######l#######"
-      ]
+      ],
+      powerups:[ {x:10,y:11,type:'shield'}, {x:17,y:11,type:'star'} ]
     }
   ];
 
@@ -178,7 +180,8 @@
 
   function makeChar(type,color){
     return { type:type, color:color, w:26, h:34, x:0, y:0, vx:0, vy:0,
-             onGround:false, upPrev:false, jumpBuf:0, atExit:false, in:input[type], startX:0, startY:0 };
+             onGround:false, upPrev:false, jumpBuf:0, atExit:false, in:input[type], startX:0, startY:0,
+             shield:0, starTimer:0, shieldGrace:0 };
   }
   const ice=makeChar('ice','#3aa0ff');
   const fire=makeChar('fire','#f6465d');
@@ -188,6 +191,7 @@
   let grid=[], W=24, H=14;
   let doorOpen=false, score=0, currentLevel=0, state='play', flash=0;
   let iceStart=null, fireStart=null;
+  let powerups = [];
 
   function solid(tx,ty){
     if(tx<0||tx>=W) return true;
@@ -230,6 +234,12 @@
     if(fireStart){ fire.startX=fireStart.x*T+(T-fire.w)/2; fire.startY=fireStart.y*T+(T-fire.h); }
     ice.x=ice.startX; ice.y=ice.startY; ice.vx=0; ice.vy=0; ice.onGround=false; ice.upPrev=false; ice.jumpBuf=0; ice.atExit=false;
     fire.x=fire.startX; fire.y=fire.startY; fire.vx=0; fire.vy=0; fire.onGround=false; fire.upPrev=false; fire.jumpBuf=0; fire.atExit=false;
+    ice.shield=0; ice.starTimer=0; ice.shieldGrace=0;
+    fire.shield=0; fire.starTimer=0; fire.shieldGrace=0;
+    powerups = [];
+    if(L.powerups){
+      for(const p of L.powerups){ powerups.push({ type:p.type, x:p.x*T+T/2, y:p.y*T+T/2, dead:false }); }
+    }
     if(resetScore) score=0;
     state='play';
     hideOverlay();
@@ -242,6 +252,12 @@
   }
 
   function die(c){
+    if(c.shield > 0 && c.shieldGrace <= 0){
+      c.shield--; c.shieldGrace = 1.2;
+      flash = 1;
+      if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(c.x+c.w/2, c.y, '护盾抵消!', '#3aa0ff', {size:14}); Juice.burst(c.x+c.w/2, c.y+c.h/2, {color:'#3aa0ff', n:10, speed:160}); }
+      return;
+    }
     c.x=c.startX; c.y=c.startY; c.vx=0; c.vy=0; c.onGround=false; c.atExit=false; c.upPrev=false; c.jumpBuf=0;
     flash=1;
     if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.addTrauma(0.3); Juice.flash('#f6465d',0.3); }
@@ -282,8 +298,8 @@
       for(let tx=left;tx<=right;tx++){
         if(ty<0||ty>=H||tx<0||tx>=W) continue;
         const code=grid[ty][tx];
-        if(code===4){ grid[ty][tx]=0; score+=10; updateHUD();
-          if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(tx*T+T/2, ty*T, '+10', '#f0b90b', {size:14}); Juice.burst(tx*T+T/2, ty*T+T/2, {color:'#f0b90b',n:6,speed:140}); }
+        if(code===4){ grid[ty][tx]=0; const g=c.starTimer>0?20:10; score+=g; updateHUD();
+          if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(tx*T+T/2, ty*T, '+'+g, '#f0b90b', {size:14}); Juice.burst(tx*T+T/2, ty*T+T/2, {color:'#f0b90b',n:6,speed:140}); }
         }
         else if(code===5){ c.atExit=true; }
         else if(code===6){ doorOpen=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.achievement('机关启动 · 门已开'); } }
@@ -297,6 +313,8 @@
 
   function updateChar(c){
     c.vx=(c.in.right?MOVE:0)-(c.in.left?MOVE:0);
+    if(c.shieldGrace>0) c.shieldGrace -= STEP/1000;
+    if(c.starTimer>0) c.starTimer -= STEP/1000;
     const wantJump=(c.in.up||c.jumpBuf>0);
     if(wantJump && !c.upPrev && c.onGround){ c.vy=JUMP; c.onGround=false; c.jumpBuf=0; }
     c.upPrev=c.in.up;
@@ -306,6 +324,15 @@
     c.y+=c.vy; c.onGround=false; resolveY(c);
     c.atExit=false;
     checkTiles(c);
+    // 道具拾取
+    for(const p of powerups){
+      if(p.dead) continue;
+      if(c.x < p.x+14 && c.x+c.w > p.x-14 && c.y < p.y+14 && c.y+c.h > p.y-14){
+        p.dead = true;
+        if(p.type==='shield'){ c.shield = (c.shield||0)+1; if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(p.x, p.y-10, '护盾!', '#3aa0ff', {size:14}); } }
+        else { c.starTimer = 8; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.popup(p.x, p.y-10, '得分x2!', '#f0b90b', {size:14}); } }
+      }
+    }
     if(c.y>CH+60) die(c);
   }
 
@@ -406,6 +433,20 @@
     }
   }
 
+  function drawPowerup(p){
+    const bob = Math.sin(performance.now()*0.005 + p.x) * 4;
+    const col = p.type==='shield' ? '#3aa0ff' : '#f0b90b';
+    const icon = p.type==='shield' ? '🛡' : '⭐';
+    ctx.save();
+    ctx.translate(p.x, p.y + bob);
+    ctx.shadowBlur = 12; ctx.shadowColor = col;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#0a0e14';
+    ctx.font = 'bold 14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(icon, 0, 1);
+    ctx.restore();
+  }
   function drawChar(c){
     ctx.fillStyle=c.color;
     roundRect(c.x,c.y,c.w,c.h,6); ctx.fill();
@@ -425,6 +466,7 @@
     for(let x=0;x<=W;x++){ ctx.beginPath(); ctx.moveTo(x*T,0); ctx.lineTo(x*T,H*T); ctx.stroke(); }
     for(let y=0;y<=H;y++){ ctx.beginPath(); ctx.moveTo(0,y*T); ctx.lineTo(W*T,y*T); ctx.stroke(); }
     for(let y=0;y<H;y++) for(let x=0;x<W;x++) drawTile(x,y,grid[y][x]);
+    for(const p of powerups) drawPowerup(p);
     drawChar(ice); drawChar(fire);
     if(flash>0.01){ ctx.fillStyle='rgba(246,70,93,'+(flash*0.35)+')'; ctx.fillRect(0,0,CW,CH); flash*=0.9; }
     else flash=0;
@@ -482,6 +524,23 @@
 
   loadLevel(0,true);
   requestAnimationFrame(loop);
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    getScore(){ return score; },
+    setScore(v){ score=v; },
+    getPowerups(){ return powerups.length; },
+    spawnPowerup(type, x, y){ powerups.push({ type, x:x||200, y:y||200, dead:false }); },
+    collectAll(){
+      for(const p of powerups){ p.dead=true;
+        if(p.type==='shield'){ ice.shield++; fire.shield++; }
+        else { ice.starTimer=8; fire.starTimer=8; }
+      }
+      powerups=[];
+    },
+    ice, fire,
+    dieShielded(c){ die(c); }
+  };
 })();
 </script>
 </body>

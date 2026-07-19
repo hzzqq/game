@@ -179,7 +179,7 @@
 
   // ============ 状态 ============
   var state = 'menu'; // menu | play | win | over
-  var hero, enemies, projectiles, particles, boss;
+  var hero, enemies, projectiles, particles, boss, pickups = [], heroRage = 0;
   var cameraX = 0;
   var score = 0;
   var lastT = 0;
@@ -223,6 +223,8 @@
     }
     projectiles = [];
     particles = [];
+    pickups = [];
+    heroRage = 0;
     boss = {
       x:3960, y:0, w:120, h:140, hp:680, maxhp:680,
       spd:70, dmg:20, active:false, flash:0,
@@ -348,6 +350,12 @@
         Juice.burst(en.x + en.w/2, en.y + en.h/2, { color:'#02c076', n:12, speed:200 });
         Juice.popup(en.x + en.w/2, en.y - 6, '+'+en.score, '#02c076', { size:14 });
       }
+      // 击杀掉落道具
+      if(Math.random() < 0.35){
+        var pr = Math.random();
+        var ptype = pr < 0.45 ? 'heal' : (pr < 0.8 ? 'mana' : 'rage');
+        pickups.push({ type:ptype, x:en.x + en.w/2, y:en.y + en.h/2, vy:-60, life:9, dead:false });
+      }
     }
   }
 
@@ -410,6 +418,7 @@
     hero.skillCd = Math.max(0, hero.skillCd - dt);
     hero.mana = Math.min(hero.maxmana, hero.mana + 9 * dt);
     if(hero.attackTimer > 0) hero.attackTimer -= dt;
+    heroRage = Math.max(0, heroRage - dt);
 
     // 攻击输入（按住可连击，受 CD 限制）
     if((keys['j'] || touchAttack)) tryAttack();
@@ -423,12 +432,12 @@
         if(en.dead || en.lastSwing === hero.swingId) continue;
         if(aabb(mr, en)){
           en.lastSwing = hero.swingId;
-          damageEnemy(en, MELEE_DMG, hero.facing);
+          damageEnemy(en, MELEE_DMG * (heroRage > 0 ? 1.5 : 1), hero.facing);
         }
       }
       if(boss.active && boss.lastSwing !== hero.swingId && aabb(mr, boss)){
         boss.lastSwing = hero.swingId;
-        damageBoss(MELEE_DMG);
+        damageBoss(MELEE_DMG * (heroRage > 0 ? 1.5 : 1));
       }
     }
 
@@ -499,7 +508,7 @@
       for(bi=0;bi<projectiles.length;bi++){
         var p = projectiles[bi];
         if(p.owner === 'hero' && !p.dead && aabb({x:p.x-p.r,y:p.y-p.r,w:p.r*2,h:p.r*2}, boss)){
-          p.dead = true; damageBoss(p.dmg);
+          p.dead = true; damageBoss(p.dmg * (heroRage > 0 ? 1.5 : 1));
         }
       }
     }
@@ -526,6 +535,22 @@
       pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vy += 600 * dt; pt.life -= dt;
     }
     particles = particles.filter(function(p){ return p.life > 0; });
+
+    // 道具拾取（英雄走过即拾）
+    for(var pk=0; pk<pickups.length; pk++){
+      var pp = pickups[pk];
+      if(pp.dead) continue;
+      pp.vy += 600 * dt; pp.y += pp.vy * dt; pp.life -= dt;
+      if(pp.life <= 0){ pp.dead = true; continue; }
+      if(aabb({x:hero.x,y:hero.y,w:hero.w,h:hero.h}, {x:pp.x-12,y:pp.y-12,w:24,h:24})){
+        pp.dead = true;
+        if(pp.type === 'heal'){ hero.hp = Math.min(hero.maxhp, hero.hp+25); if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(hero.x+hero.w/2, hero.y-6, '+25 HP', '#02c076', {size:14}); } }
+        else if(pp.type === 'mana'){ hero.mana = Math.min(hero.maxmana, hero.mana+30); if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(hero.x+hero.w/2, hero.y-6, '+30 MP', '#3aa0ff', {size:14}); } }
+        else { heroRage = 5; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.burst(hero.x+hero.w/2, hero.y+hero.h/2, {color:'#f0b90b',n:14,speed:200}); Juice.popup(hero.x+hero.w/2, hero.y-6, '狂暴!', '#f0b90b', {size:14,big:true}); } }
+        updateHUD();
+      }
+    }
+    pickups = pickups.filter(function(p){ return !p.dead; });
 
     // 相机
     var target = clamp(hero.x + hero.w/2 - W * 0.4, 0, Math.max(0, WORLD_W - W));
@@ -595,6 +620,8 @@
     }
     // BOSS
     if(boss.active && boss.hp > 0) drawBoss();
+    // 道具
+    for(var pk2=0; pk2<pickups.length; pk2++) drawPickup(pickups[pk2]);
     // 弹幕
     for(var p=0;p<projectiles.length;p++) drawProjectile(projectiles[p]);
     // 英雄
@@ -678,6 +705,19 @@
     ctx.restore();
   }
 
+  function drawPickup(pp){
+    var col = pp.type === 'heal' ? '#02c076' : (pp.type === 'mana' ? '#3aa0ff' : '#f0b90b');
+    var icon = pp.type === 'heal' ? '💚' : (pp.type === 'mana' ? '🔵' : '⭐');
+    ctx.save();
+    ctx.translate(pp.x - cameraX, pp.y);
+    ctx.shadowBlur = 12; ctx.shadowColor = col;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#0a0e14';
+    ctx.font = 'bold 12px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(icon, 0, 1);
+    ctx.restore();
+  }
   function drawProjectile(p){
     var sx = p.x - cameraX;
     ctx.save();
@@ -738,6 +778,25 @@
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    getHero(){ return hero; },
+    getRage(){ return heroRage; },
+    setRage(v){ heroRage = v; },
+    getPickups(){ return pickups.length; },
+    spawnPickup(type, x, y){ pickups.push({ type, x:x||hero.x+40, y:y||hero.y+20, vy:-60, life:9, dead:false }); },
+    collectAll(){
+      for(var i=0;i<pickups.length;i++){ var pp=pickups[i]; pp.dead=true;
+        if(pp.type==='heal') hero.hp=Math.min(hero.maxhp,hero.hp+25);
+        else if(pp.type==='mana') hero.mana=Math.min(hero.maxmana,hero.mana+30);
+        else heroRage=5;
+      }
+      pickups=[];
+    },
+    start(){ initGame(); },
+    getState(){ return state; }
+  };
 })();
 </script>
 </body>

@@ -206,6 +206,7 @@
           <div class="hud-item"><div class="hud-label">分数 SCORE</div><div class="hud-val" id="score">0</div></div>
           <div class="hud-item"><div class="hud-label">连击 COMBO</div><div class="hud-val gold" id="combo">0</div></div>
           <div class="hud-item"><div class="hud-label">准确率 ACC</div><div class="hud-val" id="acc">100.00%</div></div>
+          <div class="hud-item"><div class="hud-label">护盾 SHIELD</div><div class="hud-val gold" id="shield">0</div></div>
         </div>
         <div class="stage">
           <canvas id="game" width="360" height="560"></canvas>
@@ -446,6 +447,7 @@ function resetState(){
   G.perfect=0; G.good=0; G.miss=0; G.totalJudged=0;
   G.effects=[]; G.comboPopTime=0;
   G.laneActive=[false,false,false,false];
+  G.shield=0; G.shieldCharge=0;
   G.playing=false;
   if(G.schedulerId){ clearInterval(G.schedulerId); G.schedulerId=null; }
   if(G.mp3Source){ try{ G.mp3Source.stop(); }catch(e){} G.mp3Source=null; }
@@ -562,8 +564,16 @@ function judge(note, result){
   note.judged = true;
   note.result = result;
   G.totalJudged++;
-  const now = audioCtx.currentTime;
+  const now = audioCtx ? audioCtx.currentTime : 0;
   if(result === 'miss'){
+    if(G.shield > 0){
+      G.shield--;
+      setJudgeText('BLOCK!', '#3aa0ff');
+      if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.burst(note.lane*LANE_W+LANE_W/2, JUDGE_Y, {color:'#3aa0ff', n:8, speed:160}); }
+      G.effects.push({lane:note.lane, type:'block', time:now});
+      updateHUD();
+      return;
+    }
     G.combo = 0; G.miss++;
     setJudgeText('MISS', '#6b7785');
     if(typeof Juice!=='undefined'){ Juice.sfx('error'); }
@@ -575,6 +585,9 @@ function judge(note, result){
       G.score += 300 + G.combo * 3;
       setJudgeText('PERFECT', '#f0b90b');
       if(typeof Juice!=='undefined'){ Juice.sfx('combo'); const lx=note.lane*LANE_W+LANE_W/2; Juice.burst(lx, JUDGE_Y, {color:'#f0b90b', n:8, speed:160}); }
+      // 连击充能护盾
+      G.shieldCharge = (G.shieldCharge||0) + 1;
+      if(G.shieldCharge >= 20 && G.shield < 3){ G.shield++; G.shieldCharge = 0; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.achievement('🛡 护盾 +1'); } }
     } else {
       G.good++;
       G.score += 100 + G.combo * 1;
@@ -617,6 +630,7 @@ function updateHUD(){
   scoreEl.textContent = G.score.toLocaleString();
   comboEl.textContent = G.combo;
   accEl.textContent = computeAccuracy().toFixed(2) + '%';
+  document.getElementById('shield').textContent = G.shield;
   cntPEl.textContent = G.perfect;
   cntGEl.textContent = G.good;
   cntMEl.textContent = G.miss;
@@ -848,6 +862,18 @@ mp3Input.addEventListener('change', async (e)=>{
     console.warn('音频解码失败：', err); startBtn.textContent = '开始';
   }
 });
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    G,
+    setShield(v){ G.shield = v; updateHUD(); },
+    getShield(){ return G.shield; },
+    judgeNote(note, result){ judge(note, result); },
+    firstUnjudged(lane){
+      for(const n of G.notes){ if((lane==null || n.lane===lane) && !n.judged) return n; }
+      return null;
+    }
+  };
 
 updateHUD();
 </script>

@@ -180,6 +180,8 @@
     state.units = [];
     state.towers = [].concat(makeTowers('me'), makeTowers('ai'));
     state.effects = [];
+    state.loot = [];
+    state.rage = { me:0, ai:0 };
     state.elixirMe = 5; state.elixirAi = 5;
     state.deckMe = DECK.slice(); state.deckAi = DECK.slice();
     state.selCard = null;
@@ -253,6 +255,12 @@
       } else {
         state.effects.push({type:'boom', x:ent.x, y:ent.y, age:0, life:0.3, r:ent.r*2});
         if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.burst(ent.x, ent.y, {color:ent.color||'#e6edf3', n:12, speed:180}); }
+        // 击杀掉落战利品（能量或狂暴），归击杀方所有
+        if(Math.random() < 0.4){
+          const side = ent.side==='me' ? 'ai' : 'me';
+          const type = Math.random() < 0.28 ? 'rage' : 'energy';
+          state.loot.push({ side, type, x:ent.x, y:ent.y, age:0, done:false });
+        }
       }
     }
   }
@@ -348,11 +356,13 @@
       const tgt = nearest(u, pool);
       if(!tgt) continue;
       const d = (tgt.w? distToRect(u.x,u.y,tgt) : Math.hypot(tgt.x-u.x, tgt.y-u.y));
+      const rage = state.rage[u.side] > 0;
       if(d > u.range){
         const dx=tgt.x-u.x, dy=tgt.y-u.y, m=Math.hypot(dx,dy)||1;
-        u.x += dx/m*u.speed*dt; u.y += dy/m*u.speed*dt;
+        const spd = u.speed * (rage?1.5:1);
+        u.x += dx/m*spd*dt; u.y += dy/m*spd*dt;
       } else if(u.cd <= 0){
-        damage(tgt, u.dmg);
+        damage(tgt, u.dmg * (rage?1.5:1));
         state.effects.push({type:'hit', x:tgt.x, y:tgt.y, age:0, life:0.15, r:6, color:u.color});
         u.cd = u.atk;
       }
@@ -374,6 +384,25 @@
 
     // 特效
     for(const ef of state.effects) ef.age += dt;
+
+    // 战利品（击杀掉落，短时后归属方拾取）
+    for(const lo of state.loot){
+      lo.age += dt;
+      if(lo.age >= 0.9 && !lo.done){
+        lo.done = true;
+        if(lo.type === 'energy'){
+          if(lo.side==='me') state.elixirMe = Math.min(10, state.elixirMe + 2);
+          else state.elixirAi = Math.min(10, state.elixirAi + 2);
+          if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(lo.x, lo.y, '+2 圣水', '#c04bff', {size:13}); }
+        } else {
+          state.rage[lo.side] = 4;
+          if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.burst(lo.x, lo.y, {color:'#f0b90b', n:12, speed:200}); Juice.popup(lo.x, lo.y, '狂暴!', '#f0b90b', {size:15, big:true}); }
+        }
+      }
+    }
+    state.loot = state.loot.filter(lo => !lo.done);
+    // 狂暴计时
+    for(const s of ['me','ai']) if(state.rage[s] > 0) state.rage[s] = Math.max(0, state.rage[s] - dt);
 
     // 清理
     state.units = state.units.filter(u=>!u.dead);
@@ -423,6 +452,8 @@
     for(const t of state.towers) drawTower(t);
     // 单位
     for(const u of state.units) drawUnit(u);
+    // 战利品
+    for(const lo of state.loot) drawLoot(lo);
     // 特效
     for(const ef of state.effects) drawEffect(ef);
 
@@ -457,6 +488,18 @@
     ctx.fillStyle = '#1f2a38'; ctx.fillRect(cx-w/2, y, w, 4);
     ctx.fillStyle = r>0.5? '#02c076' : (r>0.25? '#f0b90b' : '#f6465d');
     ctx.fillRect(cx-w/2, y, w*r, 4);
+  }
+  function drawLoot(lo){
+    const bob = Math.sin((lo.age||0)*6 + lo.x*0.1) * 3;
+    const col = lo.type==='energy' ? '#c04bff' : '#f0b90b';
+    ctx.save();
+    ctx.translate(lo.x, lo.y + bob);
+    ctx.shadowBlur = 12; ctx.shadowColor = col;
+    ctx.fillStyle = col; ctx.fillRect(-7,-7,14,14);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0a0e14'; ctx.font='bold 11px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(lo.type==='energy' ? '⚡' : '🔥', 0, 0);
+    ctx.restore();
   }
   function drawEffect(ef){
     const k = ef.age/ef.life;
@@ -583,6 +626,27 @@
 
   resetState();
   requestAnimationFrame(loop);
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    state, deploy,
+    spawnLoot(side, type, x, y){ state.loot.push({ side, type, x: x||W/2, y: y||H/2, age:0, done:false }); },
+    stepLoot(dt){
+      for(const lo of state.loot){
+        lo.age += dt;
+        if(lo.age >= 0.9 && !lo.done){
+          lo.done = true;
+          if(lo.type==='energy'){ if(lo.side==='me') state.elixirMe=Math.min(10,state.elixirMe+2); else state.elixirAi=Math.min(10,state.elixirAi+2); }
+          else { state.rage[lo.side] = 4; }
+        }
+      }
+      state.loot = state.loot.filter(l => !l.done);
+    },
+    getLoot(){ return state.loot.length; },
+    getRage(side){ return state.rage[side]; },
+    getElixir(side){ return side==='me' ? state.elixirMe : state.elixirAi; },
+    setElixir(side, v){ if(side==='me') state.elixirMe=v; else state.elixirAi=v; }
+  };
 })();
 </script>
 </body>

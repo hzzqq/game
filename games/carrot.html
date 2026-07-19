@@ -235,6 +235,8 @@
     state.towers = [];
     state.projectiles = [];
     state.effects = [];
+    state.pickups = [];
+    state.energyTimer = 0;
     state.selectedType = null;
     state.selectedTower = null;
     state.gameOver = false;
@@ -375,6 +377,12 @@
       state.score += e.reward;
       beep(300, 0.05, 'square', 0.03);
       if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.burst(e.x, e.y, {color:e.color, n:10, speed:180}); Juice.popup(e.x, e.y-10, '+'+e.reward, '#f0b90b', {size:13}); }
+      // 击杀掉落道具
+      if(Math.random() < 0.32){
+        const r = Math.random();
+        const type = r < 0.6 ? 'coin' : (r < 0.8 ? 'energy' : 'shield');
+        state.pickups.push({ type, x:e.x, y:e.y, age:0, done:false });
+      }
       updateStats();
     }
   }
@@ -432,12 +440,26 @@
 
     // 炮塔开火
     for(const t of state.towers){
-      t.cooldown -= dt * 1000;
+      t.cooldown -= dt * 1000 * (state.energyTimer > 0 ? 1.4 : 1);
       if(t.cooldown <= 0){
         const target = findTarget(t);
         if(target){ fire(t, target); t.cooldown = t.cooldownMax; }
       }
     }
+
+    // 掉落道具（短时后自动拾取）
+    for(const pk of state.pickups){
+      pk.age += dt;
+      if(pk.age >= 1.0 && !pk.done){
+        pk.done = true;
+        if(pk.type === 'coin'){ state.coins += 20; if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(pk.x, pk.y, '+20 💰', '#f0b90b', {size:13}); } }
+        else if(pk.type === 'energy'){ state.energyTimer = 5; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.burst(pk.x, pk.y, {color:'#3aa0ff', n:12, speed:200}); Juice.popup(pk.x, pk.y, '全图加速!', '#3aa0ff', {size:14, big:true}); } }
+        else { state.lives += 1; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.burst(pk.x, pk.y, {color:'#02c076', n:12, speed:200}); Juice.popup(pk.x, pk.y, '+1 🥕', '#02c076', {size:14, big:true}); } }
+        updateStats();
+      }
+    }
+    state.pickups = state.pickups.filter(pk => !pk.done);
+    if(state.energyTimer > 0) state.energyTimer = Math.max(0, state.energyTimer - dt);
 
     // 投射物
     for(const p of state.projectiles){
@@ -528,6 +550,9 @@
     // 敌人
     for(const e of state.enemies) drawEnemy(e);
 
+    // 掉落道具
+    for(const pk of state.pickups) drawPickup(pk);
+
     // 投射物
     for(const p of state.projectiles){
       ctx.fillStyle = p.color;
@@ -592,6 +617,22 @@
     ctx.restore();
   }
 
+  function drawPickup(pk){
+    const bob = Math.sin(pk.age * 5 + pk.x * 0.1) * 3;
+    const map = { coin:'#f0b90b', energy:'#3aa0ff', shield:'#02c076' };
+    const icon = { coin:'💰', energy:'⚡', shield:'🛡' };
+    const col = map[pk.type];
+    ctx.save();
+    ctx.translate(pk.x, pk.y + bob);
+    ctx.shadowBlur = 12; ctx.shadowColor = col;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0a0e14';
+    ctx.font = 'bold 12px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(icon[pk.type], 0, 1);
+    ctx.restore();
+  }
   function drawEnemy(e){
     ctx.save();
     ctx.fillStyle = e.color;
@@ -755,6 +796,29 @@
 
   resetState();
   requestAnimationFrame(loop);
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    state,
+    spawnPickup(type, x, y){ state.pickups.push({ type, x:x||300, y:y||220, age:0, done:false }); },
+    agePickups(dt){
+      for(const pk of state.pickups){
+        pk.age += dt;
+        if(pk.age >= 1.0 && !pk.done){
+          pk.done = true;
+          if(pk.type==='coin'){ state.coins += 20; }
+          else if(pk.type==='energy'){ state.energyTimer = 5; }
+          else { state.lives += 1; }
+        }
+      }
+      state.pickups = state.pickups.filter(p => !p.done);
+      if(state.energyTimer > 0) state.energyTimer = Math.max(0, state.energyTimer - dt);
+    },
+    getPickups(){ return state.pickups.length; },
+    getEnergy(){ return state.energyTimer; },
+    getLives(){ return state.lives; },
+    getCoins(){ return state.coins; }
+  };
 })();
 </script>
 </body>
