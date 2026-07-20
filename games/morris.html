@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 直棋</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(440px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(440px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:var(--panel);padding:12px;border:1px solid var(--border);border-radius:10px;width:min(360px,92vw);margin:0 auto}
+  .cell{aspect-ratio:1/1;background:#0e141d;border:2px solid #1a2230;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:26px;font-weight:700;color:var(--text)}
+  .cell.sel{box-shadow:0 0 0 3px var(--gold)}
+  .cell.b{color:var(--red)} .cell.w{color:var(--green)}
+  .controls{display:flex;gap:8px;margin-top:10px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(440px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>直棋</b> MORRIS</span></div>
+  <div class="wrap">
+    <div class="hud"><span>阶段 PHASE · <span class="st" id="phase">布子</span></span><span>轮到 TURN · <span class="st" id="turn">黑</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+    <div class="msg" id="msg">每人 3 子：先轮流布子，布满后上下左右滑动。先连成一线（横/竖/斜）者胜。</div>
+  </div>
+  <div class="foot">三子棋（Three Men's Morris）：3×3 棋盘，各 3 子，连线即胜，是九子棋的简化前身。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const N=3, NEED=3;
+  let board, turn, placed, phase, over, winner, sel;
+  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn='b'; placed={b:0,w:0}; phase='place'; over=false; winner=null; sel=null; }
+  function adj(r,c){ const out=[]; if(r>0)out.push([r-1,c]); if(r<N-1)out.push([r+1,c]); if(c>0)out.push([r,c-1]); if(c<N-1)out.push([r,c+1]); return out; }
+  function lineWin(color){
+    for(let r=0;r<N;r++){ let ok=true; for(let c=0;c<N;c++) if(board[r][c]!==color){ok=false;break;} if(ok) return true; }
+    for(let c=0;c<N;c++){ let ok=true; for(let r=0;r<N;r++) if(board[r][c]!==color){ok=false;break;} if(ok) return true; }
+    if(board[0][0]===color&&board[1][1]===color&&board[2][2]===color) return true;
+    if(board[0][2]===color&&board[1][1]===color&&board[2][0]===color) return true;
+    return false;
+  }
+  function place(r,c){
+    if(over||phase!=='place') return false;
+    if(board[r][c]!==null) return false;
+    if(placed[turn]>=NEED) return false;
+    board[r][c]=turn; placed[turn]++;
+    if(placed.b>=NEED&&placed.w>=NEED) phase='move';
+    const col=turn;
+    if(lineWin(col)){ over=true; winner=col; return true; }
+    turn = turn==='b'?'w':'b';
+    return true;
+  }
+  function move(fr,fc,tr,tc){
+    if(over||phase!=='move') return false;
+    if(board[fr][fc]!==turn) return false;
+    if(board[tr][tc]!==null) return false;
+    const ok=adj(fr,fc).some(([ar,ac])=>ar===tr&&ac===tc);
+    if(!ok) return false;
+    board[tr][tc]=turn; board[fr][fc]=null;
+    const col=turn;
+    if(lineWin(col)){ over=true; winner=col; return true; }
+    turn = turn==='b'?'w':'b';
+    return true;
+  }
+  function getBoard(){ return board.map(r=>r.slice()); }
+  function getTurn(){ return turn; }
+  function getPhase(){ return phase; }
+  function isOver(){ return over; }
+  function getWinner(){ return winner; }
+  function setBoard(b,t,p){ board=b.map(r=>r.slice()); turn=t||'b'; phase=p||'place'; over=false; winner=null; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let cellEls=[];
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(!bd) return; bd.innerHTML=''; cellEls=[];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const el=document.createElement('div'); el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>{ if(over) return;
+        if(phase==='place'){ place(r,c); }
+        else { if(sel){ if(move(sel[0],sel[1],r,c)) sel=null; else if(board[r][c]===turn) sel=[r,c]; else sel=null; } else if(board[r][c]===turn) sel=[r,c]; }
+        render();
+      });
+      bd.appendChild(el); cellEls.push(el);
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    cellEls.forEach((el,i)=>{ const r=Math.floor(i/N),c=i%N; const v=board[r][c]; el.textContent=v?(v==='b'?'●':'○'):''; el.className='cell'+(v?' '+v:'')+(sel&&sel[0]===r&&sel[1]===c?' sel':''); });
+    const ph=$('phase'),t=$('turn'),msg=$('msg');
+    if(ph) ph.textContent=phase==='place'?'布子':'走子';
+    if(t) t.textContent=turn==='b'?'黑':'白';
+    if(msg){ if(over){ msg.className='msg win'; msg.textContent='🏁 '+(winner==='b'?'黑':'白')+' 连线获胜！'; } else msg.className='msg'; }
+  }
+  function bindUI(){ if(typeof document==='undefined') return; const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); render(); }; }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ N, NEED, newGame, place, move, getBoard, getTurn, getPhase, isOver, getWinner, setBoard };
+  }
+})();
+</script>
+</body>
+</html>

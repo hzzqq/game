@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 尼姆</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .piles{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+  .pile{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;min-width:90px;text-align:center;cursor:pointer}
+  .pile .lbl{color:var(--dim);font-size:12px}
+  .pile .n{color:var(--gold);font-size:30px;font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;align-items:center;flex-wrap:wrap}
+  .controls input{width:70px;background:#0e141d;border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;font-family:inherit}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>尼姆</b> NIM</span></div>
+  <div class="wrap">
+    <div class="hud"><span>轮到 TURN · <span class="st" id="turn">玩家1</span></span><span>尼姆和 NIM-SUM · <span class="st" id="sum">0</span></span></div>
+    <div class="piles" id="piles"></div>
+    <div class="controls">
+      <span style="color:var(--dim);font-size:12px">选堆</span><input id="pid" value="1" />
+      <span style="color:var(--dim);font-size:12px">取</span><input id="num" value="1" />
+      <button id="take">取子 TAKE</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">轮流从某一堆取任意数量（至少 1）。取走最后一枚者按正常规则获胜。</div>
+  </div>
+  <div class="foot">经典 Nim：多堆石子，每次从一堆取若干。nim-sum 为零为必败态，可用异或算出制胜步。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let piles, turn, over, winner;
+  function newGame(init){
+    const p = init ? init.slice() : [3,4,5];
+    piles = p.map(x=>x); turn=0; over=false; winner=null;
+  }
+  function nimSum(){ return piles.reduce((a,b)=>a^b,0); }
+  function remove(pileIdx, n){
+    if(over) return false;
+    if(pileIdx<0||pileIdx>=piles.length) return false;
+    if(n<1||n>piles[pileIdx]) return false;
+    piles[pileIdx]-=n;
+    if(piles.every(x=>x===0)){ over=true; winner=turn; return true; }
+    turn = turn===0?1:0;
+    return true;
+  }
+  function getPiles(){ return piles.slice(); }
+  function getTurn(){ return turn; }
+  function isOver(){ return over; }
+  function getWinner(){ return winner; }
+  function getNimSum(){ return nimSum(); }
+  function setPiles(arr,t){ piles=arr.slice(); turn=(t===0||t===1)?t:0; over=false; winner=null; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let pileEls=[];
+  function build(){
+    if(typeof document==='undefined') return;
+    const pl=$('piles'); if(!pl) return; pl.innerHTML=''; pileEls=[];
+    piles.forEach((v,i)=>{ const el=document.createElement('div'); el.className='pile'; el.dataset.i=i;
+      el.innerHTML='<div class="lbl">堆 '+(i+1)+'</div><div class="n">'+v+'</div>';
+      el.addEventListener('click',()=>{ if($('pid'))$('pid').value=String(i+1); });
+      pl.appendChild(el); pileEls.push(el);
+    });
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    pileEls.forEach((el,i)=>{ el.querySelector('.n').textContent=piles[i]; });
+    const t=$('turn'),s=$('sum'),msg=$('msg');
+    if(t) t.textContent=turn===0?'玩家1':'玩家2';
+    if(s) s.textContent=nimSum();
+    if(msg){ if(over){ msg.className='msg win'; msg.textContent='🏁 玩家'+(winner+1)+' 取走最后一颗，获胜！'; } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const tb=$('take'),nb=$('new');
+    if(tb) tb.onclick=()=>{ const pi=(parseInt($('pid').value,10)||1)-1, n=parseInt($('num').value,10)||1; if(remove(pi,n)) render(); };
+    if(nb) nb.onclick=()=>{ newGame(); build(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ build(); bindUI(); render(); });
+    else { build(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ newGame, remove, getPiles, getTurn, isOver, getWinner, getNimSum, nimSum, setPiles };
+  }
+})();
+</script>
+</body>
+</html>

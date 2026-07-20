@@ -59,6 +59,10 @@ const FILES = {
   'nonogram.html':     { name:'数织 Nonogram',               offline:true },
   'klotski.html':      { name:'华容道 Klotski',               offline:true },
   'yahtzee.html':      { name:'快艇骰子 Yahtzee',             offline:true },
+  'go.html':           { name:'围棋 Go',                      offline:true },
+  'morris.html':       { name:'直棋 Morris',                  offline:true },
+  'nim.html':          { name:'尼姆 Nim',                     offline:true },
+  'jungle.html':       { name:'斗兽棋 Jungle',                offline:true },
 };
 
 let totalPass=0, totalFail=0;
