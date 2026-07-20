@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 猜单词</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:flex;gap:14px;margin-bottom:12px;align-items:stretch}
+  pre.gallows{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--green);font-size:13px;line-height:1.1;margin:0;white-space:pre}
+  .side{flex:1;display:flex;flex-direction:column;gap:8px}
+  .word{font-size:30px;letter-spacing:8px;color:var(--text);text-align:center;padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;min-height:62px}
+  .word .gap{color:var(--dim)}
+  .meta{font-size:12px;color:var(--dim)}
+  .meta b{color:var(--gold)}
+  .wrong{font-size:13px;color:var(--red)}
+  .guessed{font-size:13px;color:var(--dim);min-height:18px}
+  .controls{display:flex;gap:8px;align-items:center;margin-top:6px}
+  .controls input{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:inherit;font-size:18px;outline:none;text-transform:uppercase;letter-spacing:4px;text-align:center}
+  .controls input:focus{border-color:var(--red)}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .msg.lose{color:var(--red);font-weight:700}
+  .keyrow{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px}
+  .key{width:34px;height:34px;border-radius:6px;border:1px solid var(--border);background:#0e141d;color:var(--text);font-family:inherit;font-size:14px;cursor:pointer}
+  .key:hover{border-color:var(--dim)}
+  .key.used{opacity:.32;cursor:default}
+  .key.good{color:var(--green);border-color:var(--green)}
+  .key.bad{color:var(--red);border-color:var(--red)}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  @media(max-width:520px){.board{flex-direction:column}.word{font-size:24px;letter-spacing:5px}}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>猜单词</b> HANGMAN</span></div>
+  <div class="wrap">
+    <div class="hud"><span>错误 WRONG · <span class="st" id="wrong">0</span>/<span id="maxw">6</span></span><span id="status">猜出隐藏单词</span></div>
+    <div class="board">
+      <pre class="gallows" id="gallows"></pre>
+      <div class="side">
+        <div class="word" id="word"></div>
+        <div class="meta">提示 HINT · <b id="hint">—</b></div>
+        <div class="wrong" id="wrow"></div>
+        <div class="guessed" id="gused"></div>
+      </div>
+    </div>
+    <div class="controls">
+      <input id="letter" type="text" maxlength="1" placeholder="A" />
+      <button id="guess">猜 GUESS</button>
+    </div>
+    <div class="keyrow" id="keys"></div>
+    <div class="msg" id="msg">输入一个字母，猜出隐藏的英文单词。拼错 6 次即被吊死！</div>
+  </div>
+  <div class="foot">经典 Hangman：计算机随机选词，每次猜一个字母。猜中亮绿、猜错亮红，6 次错误触发结局。暗色终端皮肤 + 反馈音效。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const WORDS = [
+    {w:'APPLE', h:'苹果'},{w:'TIGER', h:'老虎'},{w:'PLANET', h:'行星'},{w:'ROCKET', h:'火箭'},
+    {w:'GUITAR', h:'吉他'},{w:'OCEAN', h:'海洋'},{w:'CASTLE', h:'城堡'},{w:'DRAGON', h:'龙'},
+    {w:'GARDEN', h:'花园'},{w:'PYRAMID', h:'金字塔'},{w:'THUNDER', h:'雷'},{w:'DIAMOND', h:'钻石'},
+    {w:'WIZARD', h:'巫师'},{w:'PUZZLE', h:'谜题'},{w:'CACTUS', h:'仙人掌'},{w:'VOLCANO', h:'火山'},
+    {w:'ORANGE', h:'橙子'},{w:'SILVER', h:'银'},{w:'BRONZE', h:'青铜'},{w:'MONKEY', h:'猴子'},
+    {w:'PLANET', h:'行星'},{w:'SHADOW', h:'影子'},{w:'GALAXY', h:'星系'},{w:'MIRAGE', h:'海市蜃楼'},
+  ];
+  const MAX_WRONG = 6;
+  // 吊死小人 7 阶段 ASCII（0..6 次错误）
+  const GALLOWS = [
+`  +---+
+  |   |
+      |
+      |
+      |
+      |
+ =======`,
+`  +---+
+  |   |
+  O   |
+      |
+      |
+      |
+ =======`,
+`  +---+
+  |   |
+  O   |
+  |   |
+      |
+      |
+ =======`,
+`  +---+
+  |   |
+  O   |
+ /|   |
+      |
+      |
+ =======`,
+`  +---+
+  |   |
+  O   |
+ /|\\  |
+      |
+      |
+ =======`,
+`  +---+
+  |   |
+  O   |
+ /|\\  |
+ /    |
+      |
+ =======`,
+`  +---+
+  |   |
+  O   |
+ /|\\  |
+ / \\  |
+      |
+ =======`,
+  ];
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+  function pickWord(){ return WORDS[Math.floor(_rand()*WORDS.length)]; }
+
+  let secret, guessed, wrong, status;
+  function reset(wordObj){
+    secret = wordObj || pickWord();
+    guessed = new Set();
+    wrong = 0;
+    status = 'playing';
+  }
+  // 返回 'ok' | 'repeat' | 'invalid' | 'over'
+  function guess(letter){
+    if(status !== 'playing') return 'over';
+    if(typeof letter !== 'string' || letter.length !== 1 || !/[a-z]/i.test(letter)) return 'invalid';
+    letter = letter.toUpperCase();
+    if(guessed.has(letter)) return 'repeat';
+    guessed.add(letter);
+    if(secret.w.indexOf(letter) >= 0){
+      if(isWin()) status = 'won';
+    } else {
+      wrong++;
+      if(wrong >= MAX_WRONG) status = 'lost';
+    }
+    return 'ok';
+  }
+  function isWin(){ return secret.w.split('').every(c => guessed.has(c)); }
+  function masked(){ return secret.w.split('').map(c => guessed.has(c) ? c : '_').join(' '); }
+  function getWrong(){ return wrong; }
+  function getMaxWrong(){ return MAX_WRONG; }
+  function getRemaining(){ return MAX_WRONG - wrong; }
+  function getGuessed(){ return Array.from(guessed).sort(); }
+  function getStatus(){ return status; }
+  function getSecret(){ return secret.w; }
+  function getHint(){ return secret.h; }
+  function hasWon(){ return status === 'won'; }
+  function hasLost(){ return status === 'lost'; }
+  function getGallows(){ return GALLOWS[Math.min(wrong, GALLOWS.length-1)]; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined') ? document.getElementById(id) : null; }
+  function render(){
+    if(typeof document === 'undefined') return;
+    const wEl=$('word'), gEl=$('gallows'), wrongEl=$('wrong'), maxEl=$('maxw'), statusEl=$('status'),
+          hintEl=$('hint'), wrowEl=$('wrow'), gusedEl=$('gused'), msgEl=$('msg'), keysEl=$('keys'), letterEl=$('letter');
+    if(!wEl) return;
+    wEl.innerHTML = masked().split(' ').map(c => c==='_' ? '<span class="gap">_</span>' : c).join(' ');
+    if(gEl) gEl.textContent = getGallows();
+    if(wrongEl) wrongEl.textContent = wrong;
+    if(maxEl) maxEl.textContent = MAX_WRONG;
+    if(hintEl) hintEl.textContent = secret.h;
+    if(wrowEl) wrowEl.textContent = '已错字母 '+getGuessed().filter(c=>secret.w.indexOf(c)<0).join(' ');
+    if(gusedEl) gusedEl.textContent = '已猜 ' + (getGuessed().join(' ') || '—');
+    if(statusEl){ statusEl.textContent = hasWon()?'已猜中':(hasLost()?'已结束':(wrong===0?'猜出隐藏单词':'继续推理')); }
+    if(msgEl){
+      if(hasWon()){ msgEl.className='msg win'; msgEl.textContent='🎉 猜中！单词是 '+secret.w+'（'+secret.h+'）'; }
+      else if(hasLost()){ msgEl.className='msg lose'; msgEl.textContent='💀 被吊死 · 单词是 '+secret.w+'（'+secret.h+'）'; }
+      else { msgEl.className='msg'; msgEl.textContent='已猜 '+wrong+' / '+MAX_WRONG+' 次错误。'; }
+    }
+    if(letterEl) letterEl.disabled = status!=='playing';
+    if(keysEl && !keysEl.children.length){
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ch=>{
+        const b=document.createElement('button'); b.className='key'; b.textContent=ch; b.dataset.ch=ch;
+        b.onclick=()=>doGuess(ch); keysEl.appendChild(b);
+      });
+    }
+    if(keysEl){
+      Array.from(keysEl.children).forEach(b=>{
+        const ch=b.dataset.ch;
+        b.classList.remove('used','good','bad');
+        if(guessed.has(ch)){ b.classList.add('used'); b.classList.add(secret.w.indexOf(ch)>=0?'good':'bad'); }
+      });
+    }
+    if(typeof Juice!=='undefined'){
+      if(hasWon()){ Juice.sfx('levelup'); Juice.best('hangman', 1); }
+      else if(hasLost()) Juice.sfx('boom');
+    }
+  }
+  function doGuess(letter){
+    const r = guess(letter);
+    if(r==='ok'){ if(typeof Juice!=='undefined') Juice.sfx(secret.w.indexOf(letter.toUpperCase())>=0?'click':'error'); }
+    render();
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const letterEl=$('letter'), btn=$('guess');
+    if(btn) btn.onclick=()=>{ if(!letterEl.value) return; doGuess(letterEl.value); if(letterEl) letterEl.value=''; };
+    if(letterEl) letterEl.addEventListener('keydown', e=>{ if(e.key==='Enter'){ btn && btn.click(); } });
+  }
+  reset();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      WORDS, MAX_WRONG, GALLOWS,
+      setRand, pickWord, reset, guess,
+      masked, isWin, getWrong, getMaxWrong, getRemaining, getGuessed,
+      getStatus, getSecret, getHint, hasWon, hasLost, getGallows,
+    };
+  }
+})();
+</script>
+</body>
+</html>

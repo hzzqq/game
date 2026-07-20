@@ -46,6 +46,7 @@ const FILES = {
   'tictactoe.html':  { name:'井字棋 TicTacToe',      offline:true },
   'pinball.html':    { name:'弹珠台 Pinball',        offline:true },
   'invaders.html':   { name:'太空入侵 Invaders',      offline:true },
+  'hangman.html':    { name:'猜单词 Hangman',         offline:true },
 };
 
 let totalPass=0, totalFail=0;
