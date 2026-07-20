@@ -513,11 +513,12 @@
       charges = Math.min(3, charges + cleared);   // 消行积攒道具充能
       const before = level;
       linesCleared += cleared;
-      score += SCORE_TABLE[cleared] * level;
+      const gained = SCORE_TABLE[cleared] * level;   // 按消行时所在等级计分（标准俄罗斯方块）
+      score += gained;
       level = Math.floor(linesCleared/10) + 1;
       Juice.sfx(cleared>=4 ? 'win' : 'levelup');
       Juice.addTrauma(0.15 + cleared*0.12);
-      Juice.popup(board.width/2, board.height/2-20, (cleared>=4?'TETRIS! ':'')+'+'+(SCORE_TABLE[cleared]*level), '#f0b90b', {size:22});
+      Juice.popup(board.width/2, board.height/2-20, (cleared>=4?'TETRIS! ':'')+'+'+gained, '#f0b90b', {size:22});
       if(cleared>=4) Juice.achievement('⚡ TETRIS！一次消 4 行');
       if(level!==before){
         dropInterval = Math.max(80, 1000 - (level-1)*80);

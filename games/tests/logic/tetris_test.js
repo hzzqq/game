@@ -49,6 +49,33 @@ H.eq('俄罗斯 rotateCW', t.rotateCW([[1,2],[3,4]]), [[3,1],[4,2]]);
   H.eq('俄罗斯 clearLines 充能+1', t.getCharges(), 1);
 })();
 
+// 8b) 回归：跨等级边界消行，加分与弹出显示须一致（曾用升级前/后两个 level 不一致）
+(() => {
+  const { sandbox, t } = H.loadGame('../tetris.html');
+  t.startGame();
+  let popupText = null;
+  sandbox.Juice.popup = (x, y, text) => { popupText = text; };
+  // 连续消 9 行，停在 level 1 / lines 9（接近升级边界）
+  for (let i = 0; i < 9; i++) {
+    const g = t.getGrid();
+    for (let c = 0; c < t.COLS; c++) g[t.ROWS - 1][c] = '#x';
+    t.setGrid(g);
+    t.clearLines();
+  }
+  H.eq('前9次消行后 lines=9', t.getLines(), 9);
+  H.eq('前9次消行后 level 仍=1', t.getLevel(), 1);
+  // 第10次消1行 → linesCleared=10 → 升级 level 2
+  const scoreBefore = t.getScore();
+  const g = t.getGrid();
+  for (let c = 0; c < t.COLS; c++) g[t.ROWS - 1][c] = '#x';
+  t.setGrid(g);
+  t.clearLines();
+  const gained = t.getScore() - scoreBefore;
+  H.eq('第10次消行实际加分=SCORE_TABLE[1]*1(消行时旧level)', gained, t.SCORE_TABLE[1] * 1);
+  H.eq('第10次消行后 level=2', t.getLevel(), 2);
+  H.ok('弹出文本与实际加分一致(均用旧level)', !!popupText && popupText.indexOf('+' + gained) >= 0, 'popup=' + popupText + ' gained=' + gained);
+})();
+
 // 9) 道具-炸弹：有方块时清掉最底行，无方块时返回 false
 (() => {
   t.startGame();
