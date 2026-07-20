@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 快艇骰子</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .dice{display:flex;gap:10px;justify-content:center;margin-bottom:10px;flex-wrap:wrap}
+  .die{width:54px;height:54px;border-radius:10px;background:#0e141d;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;cursor:pointer;user-select:none}
+  .die.kept{box-shadow:0 0 0 3px var(--gold);background:#1a2330}
+  .die:active{transform:scale(.95)}
+  .controls{display:flex;gap:8px;margin-bottom:10px}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .card-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .cat{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;cursor:pointer}
+  .cat .nm{color:var(--text)} .cat .pv{color:var(--gold);font-weight:700;min-width:28px;text-align:right}
+  .cat.used{opacity:.4;cursor:default} .cat.used .pv{color:var(--dim)}
+  .cat:not(.used):hover{border-color:var(--red)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>快艇骰子</b> YAHTZEE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>回合 ROUND · <span class="st" id="round">1</span>/13</span><span>总分 TOTAL · <span class="st" id="total">0</span></span></div>
+    <div class="dice" id="dice"></div>
+    <div class="controls">
+      <button id="roll">投掷 ROLL</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="card-grid" id="card"></div>
+    <div class="msg" id="msg">每回合最多投 3 次：点骰子可保留（金色边框），再投只重摇未保留的。13 类各用一次，总分越高越好。</div>
+  </div>
+  <div class="foot">经典 Yahtzee：5 颗骰子、13 回合，每回合选一类记分（顺子/葫芦/同花/各类点数等），13 类全部分配完比总分。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const DICE = 5, MAX_ROLLS = 3, TURNS = 13;
+  const CATS = ['ones','twos','threes','fours','fives','sixes','threeKind','fourKind','fullHouse','smallStraight','largeStraight','yahtzee','chance'];
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let dice, rolls, kept, used, scores, total, over;
+  function newGame(){
+    dice=new Array(DICE).fill(1); rolls=0; kept=new Array(DICE).fill(false);
+    used={}; scores={}; total=0; over=false;
+  }
+  function reset(){ newGame(); }
+  function rnd6(){ return 1+Math.floor(_rand()*6); }
+  // keep: 长度 5 的布尔数组；rolls===0 时忽略 keep 全投
+  function roll(keep){
+    if(over || rolls>=MAX_ROLLS) return false;
+    const k = (rolls===0) ? new Array(DICE).fill(false) : (keep||new Array(DICE).fill(false));
+    for(let i=0;i<DICE;i++){ if(!k[i]) dice[i]=rnd6(); }
+    kept = (rolls===0) ? new Array(DICE).fill(false) : k.slice();
+    rolls++;
+    if(typeof Juice!=='undefined') Juice.sfx('click');
+    return true;
+  }
+  function counts(){
+    const c=new Array(7).fill(0);
+    dice.forEach(d=>c[d]++); return c;
+  }
+  function compute(cat){
+    const c=counts();
+    const sum=dice.reduce((a,b)=>a+b,0);
+    const faces=[1,2,3,4,5,6];
+    const present=f=>c[f]>0;
+    switch(cat){
+      case 'ones': return c[1]*1;
+      case 'twos': return c[2]*2;
+      case 'threes': return c[3]*3;
+      case 'fours': return c[4]*4;
+      case 'fives': return c[5]*5;
+      case 'sixes': return c[6]*6;
+      case 'threeKind': return c.some(x=>x>=3)?sum:0;
+      case 'fourKind': return c.some(x=>x>=4)?sum:0;
+      case 'fullHouse': {
+        const sorted=c.slice(1).sort((a,b)=>b-a);
+        if(sorted[0]===5) return 25;
+        if(sorted[0]>=3 && sorted[1]>=2) return 25;
+        return 0;
+      }
+      case 'smallStraight': return (present(1)&&present(2)&&present(3)&&present(4))||(present(2)&&present(3)&&present(4)&&present(5))||(present(3)&&present(4)&&present(5)&&present(6))?30:0;
+      case 'largeStraight': return (present(1)&&present(2)&&present(3)&&present(4)&&present(5))||(present(2)&&present(3)&&present(4)&&present(5)&&present(6))?40:0;
+      case 'yahtzee': return c.some(x=>x===5)?50:0;
+      case 'chance': return sum;
+      default: return 0;
+    }
+  }
+  // 把当前骰子记分到某类（必须先投过）
+  function assign(cat){
+    if(over) return false;
+    if(rolls===0) return false;       // 还没投过
+    if(used[cat]) return false;       // 已用过
+    if(CATS.indexOf(cat)<0) return false;
+    const sc=compute(cat);
+    used[cat]=true; scores[cat]=sc; total+=sc;
+    if(Object.keys(used).length>=TURNS){ over=true; }
+    else { dice=new Array(DICE).fill(1); rolls=0; kept=new Array(DICE).fill(false); }
+    if(typeof Juice!=='undefined'){ if(over) Juice.sfx('levelup'); else Juice.sfx('click'); }
+    return true;
+  }
+  function getDice(){ return dice.slice(); }
+  function getRolls(){ return rolls; }
+  function getKept(){ return kept.slice(); }
+  function getScores(){ return {...scores}; }
+  function getTotal(){ return total; }
+  function isOver(){ return over; }
+  function getRound(){ return Object.keys(used).length+1; }
+  function getUsedCats(){ return {...used}; }
+  function getCats(){ return CATS.slice(); }
+  function setDice(arr){ dice=arr.slice(); rolls=1; kept=new Array(DICE).fill(false); }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let dieEls=[];
+  function buildDice(){
+    if(typeof document==='undefined') return;
+    const d=$('dice'); if(!d) return;
+    d.innerHTML=''; dieEls=[];
+    for(let i=0;i<DICE;i++){
+      const el=document.createElement('div'); el.className='die'; el.dataset.i=i;
+      el.addEventListener('click',()=>{ if(rolls>0&&!over){ kept[i]=!kept[i]; render(); } });
+      d.appendChild(el); dieEls.push(el);
+    }
+  }
+  function buildCard(){
+    if(typeof document==='undefined') return;
+    const c=$('card'); if(!c) return;
+    c.innerHTML='';
+    CATS.forEach(cat=>{
+      const el=document.createElement('div'); el.className='cat'; el.dataset.cat=cat;
+      el.addEventListener('click',()=>{ assign(cat); render(); });
+      c.appendChild(el);
+    });
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const rd=$('round'),tt=$('total'),msg=$('msg');
+    dieEls.forEach((el,i)=>{ el.textContent=dice[i]; el.className='die'+(kept[i]?' kept':''); });
+    const card=$('card');
+    if(card) card.querySelectorAll('.cat').forEach(el=>{
+      const cat=el.dataset.cat;
+      const usedFlag=!!used[cat];
+      el.className='cat'+(usedFlag?' used':'');
+      el.innerHTML='<span class="nm">'+catName(cat)+(usedFlag?'':' · '+compute(cat))+'</span><span class="pv">'+(usedFlag?(scores[cat]):'')+'</span>';
+    });
+    if(rd) rd.textContent=getRound();
+    if(tt) tt.textContent=total;
+    if(msg){
+      if(over){ msg.className='msg win'; msg.textContent='🏁 终局！总分 '+total+'。'; }
+      else if(rolls===0){ msg.className='msg'; msg.textContent='点「投掷」开始本回合。'; }
+      else { msg.className='msg'; msg.textContent='还可投 '+(MAX_ROLLS-rolls)+' 次；点骰子保留，再选一类记分。'; }
+    }
+  }
+  function catName(cat){
+    return {ones:'一点',twos:'二点',threes:'三点',fours:'四点',fives:'五点',sixes:'六点',
+      threeKind:'三条',fourKind:'四条',fullHouse:'葫芦',smallStraight:'小顺',largeStraight:'大顺',yahtzee:'快艇',chance:'全选'}[cat]||cat;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const rb=$('roll'),nb=$('new');
+    if(rb) rb.onclick=()=>{ roll(kept); render(); };
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildDice(); buildCard(); bindUI(); render(); });
+    else { buildDice(); buildCard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      DICE, MAX_ROLLS, TURNS, CATS,
+      setRand, newGame, reset, roll, compute, assign,
+      getDice, getRolls, getKept, getScores, getTotal, isOver, getRound, getUsedCats, getCats, setDice,
+    };
+  }
+})();
+</script>
+</body>
+</html>

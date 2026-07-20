@@ -58,6 +58,7 @@ const FILES = {
   'pegsolitaire.html': { name:'孔明棋 Peg Solitaire',        offline:true },
   'nonogram.html':     { name:'数织 Nonogram',               offline:true },
   'klotski.html':      { name:'华容道 Klotski',               offline:true },
+  'yahtzee.html':      { name:'快艇骰子 Yahtzee',             offline:true },
 };
 
 let totalPass=0, totalFail=0;
