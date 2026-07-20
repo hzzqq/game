@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 孔明棋</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(460px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(460px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;grid-template-columns:repeat(7,46px);gap:5px;background:var(--panel);padding:12px;border-radius:14px;border:1px solid var(--border);margin:0 auto 10px;width:max-content}
+  .cell{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .cell.invalid{background:transparent}
+  .cell.peg{background:radial-gradient(circle at 35% 30%, #2a3a4d, #141d28);border:1px solid var(--border);cursor:pointer;box-shadow:0 0 10px rgba(2,192,118,.18)}
+  .cell.hole{background:#0a0e14;border:1px solid #243140;cursor:pointer}
+  .cell.sel{box-shadow:0 0 0 3px var(--gold)}
+  .cell.land{box-shadow:0 0 0 3px var(--red)}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(460px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>孔明棋</b> PEG SOLITAIRE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>剩余 PEGS · <span class="st" id="pegs">32</span></span><span id="status">跳吃直到只剩 1 子</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">重来 RESET</button>
+    </div>
+    <div class="msg" id="msg">先点选一颗棋子，再点它隔一个棋子正对面的空格，即可跳吃中间那颗。目标是只剩 1 子。</div>
+  </div>
+  <div class="foot">经典孔明棋（英式十字 33 孔）：横竖跳吃相邻棋子落入空位，被跳过的子移除。把 32 子吃到只剩 1 子即胜（理想落在中心）。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const N = 7;
+  let mask;
+  function buildMask(){
+    const m=Array.from({length:N},()=>new Array(N).fill(false));
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      m[r][c] = (r>=2 && r<=4) ? true : (c>=2 && c<=4);
+    }
+    return m;
+  }
+  let board, moves, won, over, sel;
+  function newGame(){
+    mask=buildMask();
+    board=Array.from({length:N},()=>new Array(N).fill(0));
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(mask[r][c]) board[r][c]=1;
+    board[3][3]=0; // 中心空
+    moves=0; won=false; over=false; sel=null;
+  }
+  function reset(){ newGame(); }
+  function isValid(r,c){ return r>=0&&r<N&&c>=0&&c<N && mask[r][c]; }
+  function pegsLeft(){ let n=0; for(let r=0;r<N;r++)for(let c=0;c<N;c++) n+=board[r][c]; return n; }
+  function move(fr,fc,tr,tc){
+    if(over) return false;
+    if(!isValid(fr,fc)||!isValid(tr,tc)) return false;
+    if(board[fr][fc]!==1 || board[tr][tc]!==0) return false;
+    const orth = (Math.abs(fr-tr)===2 && fc===tc) || (Math.abs(fc-tc)===2 && fr===tr);
+    if(!orth) return false;
+    const mr=(fr+tr)/2, mc=(fc+tc)/2;
+    if(!isValid(mr,mc) || board[mr][mc]!==1) return false;
+    board[fr][fc]=0; board[mr][mc]=0; board[tr][tc]=1;
+    moves++; sel=null;
+    if(pegsLeft()===1){ won=true; over=true; }
+    if(typeof Juice!=='undefined'){
+      if(won){ Juice.sfx('levelup'); Juice.best('pegsolitaire', moves); }
+      else Juice.sfx('click');
+    }
+    return true;
+  }
+  function isWin(){ return pegsLeft()===1; }
+  function isOver(){ return over; }
+  function getMoves(){ return moves; }
+  function getBoard(){ return board.map(r=>r.slice()); }
+  function getPegsLeft(){ return pegsLeft(); }
+  function getValidCount(){ let n=0; for(let r=0;r<N;r++)for(let c=0;c<N;c++) if(mask[r][c]) n++; return n; }
+  function getSel(){ return sel; }
+  function select(r,c){ if(over) return; sel = (sel && sel[0]===r && sel[1]===c)?null:[r,c]; }
+  function setBoard(b){ board=b.map(r=>r.slice()); mask=buildMask(); moves=0; won=false; over=false; sel=null; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let cells=[];
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const c=$('board'); if(!c) return;
+    c.innerHTML=''; cells=[];
+    for(let r=0;r<N;r++){ const row=[]; for(let cc=0;cc<N;cc++){
+      const el=document.createElement('div'); el.dataset.r=r; el.dataset.c=cc;
+      el.addEventListener('click',()=>{ onClick(r,cc); });
+      c.appendChild(el); row.push(el);
+    } cells.push(row); }
+  }
+  function onClick(r,c){
+    if(!isValid(r,c)) return;
+    if(sel){ // 已选来源 → 尝试作为落点
+      if(move(sel[0],sel[1],r,c)){ render(); return; }
+    }
+    select(r,c); render();
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const pe=$('pegs'),msg=$('msg'),st=$('status');
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const el=cells[r][c]; if(!el) continue;
+      if(!isValid(r,c)){ el.className='cell invalid'; continue; }
+      let cls='cell ';
+      if(board[r][c]===1) cls+='peg'; else cls+='hole';
+      if(sel && sel[0]===r && sel[1]===c) cls+=' sel';
+      el.className=cls;
+    }
+    if(pe) pe.textContent=pegsLeft();
+    if(st) st.textContent = won?'已通关':(over?'已结束':'跳吃直到只剩 1 子');
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 只剩 1 子！用了 '+moves+' 步。'; }
+      else if(over){ msg.className='msg win'; msg.textContent='结束，剩余 '+pegsLeft()+' 子。'; }
+      else { msg.className='msg'; msg.textContent = sel?'已选棋子，点正对面空格跳吃。':'点选棋子，再点隔子对面的空格。'; } }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      N,
+      newGame, reset, move, isWin, isOver, getMoves, getBoard,
+      getPegsLeft, getValidCount, isValid, getSel, select, setBoard,
+    };
+  }
+})();
+</script>
+</body>
+</html>
