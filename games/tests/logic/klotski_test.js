@@ -61,3 +61,15 @@ const { t } = loadGame('../klotski.html');
   ok('已胜状态', t.isWin()===true);
   ok('胜利后移动被拒', t.move('s1',0,1)===false);
 }
+
+// ===== 7. 新局不应开局即解（回归：打乱曾被 move 的 isWin 守卫全挡掉，棋盘冻结）=====
+{
+  // 用确定性 PRNG 驱动打乱，保证可复现
+  let s = 987654321;
+  t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; });
+  t.newGame();
+  ok('newGame 后不应开局即胜', t.isWin()===false);
+  const cao = t.getPieces().find(p=>p.cao);
+  ok('曹操不在出口位（棋盘确已打乱）', !(cao.r===2 && cao.c===1));
+  t.setRand(Math.random);
+}
