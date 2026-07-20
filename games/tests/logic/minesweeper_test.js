@@ -69,3 +69,16 @@ const { t } = H.loadGame('../minesweeper.html');
   t.checkWin();
   H.ok('扫雷 翻开非雷格 checkWin=won', t.getState().won === true);
 })();
+
+// 6) 回归：先给雷插旗再通关，flagCount 应等于 M（曾对已插旗雷重复++致 mineLeft 为负）
+(() => {
+  const R = 3, C = 3;
+  t.setDim(R, C, 1);
+  const g = [-1, 1, 0, 1, 1, 0, 0, 0, 0];
+  t.setGrid(g);
+  t.toggleFlag(0);                       // 先给雷插旗 → flagCount=1
+  for (let i = 1; i < 9; i++) t.clickCell(i);
+  t.checkWin();
+  H.eq('扫雷 通关后 flagCount 应等于 M(=1)', t.getState().flagCount, 1);
+  H.ok('扫雷 通关后 mineLeft 不为负 (M-flagCount>=0)', (t.getState().M - t.getState().flagCount) >= 0);
+})();

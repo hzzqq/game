@@ -232,7 +232,7 @@
     const total=R*C;
     let closed=0; for(let i=0;i<total;i++) if(!open[i]) closed++;
     if(closed===M){ won=true; stopTimer();
-      for(let i=0;i<total;i++) if(grid[i]===-1){ flag[i]=true; flagCount++; }
+      for(let i=0;i<total;i++) if(grid[i]===-1 && !flag[i]){ flag[i]=true; flagCount++; } // 已插旗的雷不重复计数，否则 mineLeft 变负
       updateMineLeft(); render();
       document.getElementById('face').textContent='😎';
       showOverlay('🎉 通关！','用时 '+timer+' 秒 · 雷区全部标记');
