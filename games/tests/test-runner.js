@@ -38,6 +38,7 @@ const FILES = {
   'gomoku.html':    { name:'五子棋 Gomoku',       offline:true },
   'bubblebob.html': { name:'泡泡堂 BubbleBob',    offline:true },
   'whack.html':     { name:'打地鼠 Whack',        offline:true },
+  'poker.html':     { name:'德州扑克 Poker',       offline:true },
 };
 
 let totalPass=0, totalFail=0;
