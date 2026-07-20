@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 塔防</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .hud .gold{color:var(--gold);font-weight:700}
+  canvas{width:min(432px,94vw);height:auto;background:#0e141d;border:1px solid var(--border);border-radius:8px;display:block;margin:0 auto;touch-action:none}
+  .controls{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:#0e141d;color:var(--text);border:1px solid var(--border)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>塔防</b> TOWER DEFENSE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>金币 GOLD · <span class="gold" id="gold">0</span></span><span>生命 LIVES · <span class="st" id="lives">0</span></span><span>波次 WAVE · <span id="wave">0</span>/<span id="maxw">8</span></span></div>
+    <canvas id="cv" width="432" height="336"></canvas>
+    <div class="controls">
+      <button id="start">开始波次 START WAVE</button>
+      <button id="restart" class="ghost">重开 NEW</button>
+    </div>
+    <div class="msg" id="msg">点空白格建塔（耗 30 金），塔自动射击进入射程的敌人。别让敌人走到终点！</div>
+  </div>
+  <div class="foot">极简塔防：敌人沿固定路线进攻，你在路旁建塔拦截。击杀赚金、漏怪掉血，撑过 8 波即胜。暗色终端风 + 反馈音效。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const COLS = 9, ROWS = 7, CELL = 48;
+  const W = COLS*CELL, H = ROWS*CELL;
+  const MAX_WAVE = 8;
+  const TOWER_COST = 30, TOWER_RANGE = 2.3, TOWER_DMG = 8, TOWER_CD = 0.5;
+
+  // 固定路线（格坐标）：左上进 → 右行 → 下 → 左行 → 下 → 右行到底
+  const PATH = [
+    [1,0],[1,1],[1,2],[1,3],[1,4],[1,5],[1,6],[1,7],[1,8],
+    [2,8],[3,8],
+    [3,7],[3,6],[3,5],[3,4],[3,3],[3,2],[3,1],[3,0],
+    [4,0],[5,0],
+    [5,1],[5,2],[5,3],[5,4],[5,5],[5,6],[5,7],[5,8],
+  ];
+  const PATHSET = new Set(PATH.map(p=>p[0]+','+p[1]));
+
+  let gold, lives, wave, enemies, towers, waveActive, over, won, nextId;
+
+  function newGame(){
+    gold = 120; lives = 20; wave = 0;
+    enemies = []; towers = []; waveActive = false; over = false; won = false; nextId = 1;
+  }
+  function isPathCell(r,c){ return PATHSET.has(r+','+c); }
+  function dist(a,b){ const dr=a.r-b.r, dc=a.c-b.c; return Math.sqrt(dr*dr+dc*dc); }
+  function enemyPos(e){
+    if(e.t < 0) return {r:PATH[0][0], c:PATH[0][1]};
+    let s = Math.min(e.seg, PATH.length-2);
+    const a = PATH[s], b = PATH[s+1];
+    return { r: a[0] + (b[0]-a[0])*e.t, c: a[1] + (b[1]-a[1])*e.t };
+  }
+  function placeTower(r,c){
+    if(over) return false;
+    if(r<0||r>=ROWS||c<0||c>=COLS) return false;
+    if(isPathCell(r,c)) return false;
+    if(towers.some(t=>t.r===r&&t.c===c)) return false;
+    if(gold < TOWER_COST) return false;
+    gold -= TOWER_COST;
+    towers.push({id:nextId++, r, c, range:TOWER_RANGE, dmg:TOWER_DMG, cd:TOWER_CD, cdLeft:0});
+    return true;
+  }
+  function spawnWave(n){
+    const count = 4 + n;
+    for(let i=0;i<count;i++){
+      enemies.push({ id:nextId++, hp:8+n*4, maxhp:8+n*4, seg:0, t:-i*0.7, speed:0.5+n*0.03, reward:4, alive:true });
+    }
+  }
+  function startWave(){
+    if(over || waveActive) return false;
+    if(wave >= MAX_WAVE) return false;
+    wave++;
+    waveActive = true;
+    spawnWave(wave);
+    return true;
+  }
+  function towerTargets(tw){
+    const pos = {r:tw.r, c:tw.c};
+    const list = enemies.filter(e=>e.alive).filter(e=>dist(enemyPos(e),pos) <= tw.range);
+    list.sort((a,b)=> (b.seg+b.t) - (a.seg+a.t)); // 最接近终点优先
+    return list;
+  }
+  function step(dt){
+    if(over) return;
+    // 移动敌人
+    for(const e of enemies){
+      if(!e.alive) continue;
+      if(e.t < 0){ e.t += e.speed*dt; if(e.t>0) e.t=0; continue; }
+      e.t += e.speed*dt;
+      while(e.t >= 1 && e.seg < PATH.length-1){ e.t -= 1; e.seg++; }
+      if(e.seg >= PATH.length-1 && e.t >= 1){
+        e.alive = false; e.reached = true; lives -= 1;
+        if(typeof Juice!=='undefined') Juice.sfx('boom');
+      }
+    }
+    // 塔开火
+    for(const tw of towers){
+      tw.cdLeft = Math.max(0, tw.cdLeft - dt);
+      if(tw.cdLeft > 0) continue;
+      const tg = towerTargets(tw)[0];
+      if(tg){
+        tg.hp -= tw.dmg;
+        tw.cdLeft = tw.cd;
+        if(typeof Juice!=='undefined') Juice.sfx('click');
+        if(tg.hp <= 0){
+          tg.alive = false; gold += tg.reward;
+          if(typeof Juice!=='undefined') Juice.burst(0,0);
+        }
+      }
+    }
+    // 清理死亡敌人
+    enemies = enemies.filter(e=>e.alive);
+    // 波次结束判定
+    if(waveActive && enemies.length === 0){
+      waveActive = false;
+      gold += 20; // 清波奖励
+      if(wave >= MAX_WAVE){ won = true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('towerdefense',1); } }
+    }
+    if(lives <= 0){ over = true; won = false; if(typeof Juice!=='undefined') Juice.sfx('boom'); }
+  }
+  function isOver(){ return over; }
+  function hasWon(){ return won; }
+  function getWaveActive(){ return waveActive; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined') ? document.getElementById(id) : null; }
+  let cv, ctx, lastT=0;
+  function render(){
+    if(typeof document==='undefined' || !ctx) return;
+    ctx.clearRect(0,0,W,H);
+    // 路径
+    ctx.strokeStyle='#1f2a38'; ctx.lineWidth=CELL*0.8; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.beginPath();
+    PATH.forEach((p,i)=>{ const x=p[1]*CELL+CELL/2, y=p[0]*CELL+CELL/2; if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+    ctx.stroke();
+    // 塔
+    for(const tw of towers){
+      const x=tw.c*CELL+CELL/2, y=tw.r*CELL+CELL/2;
+      ctx.fillStyle='#f0b90b'; ctx.beginPath(); ctx.arc(x,y,CELL*0.32,0,Math.PI*2); ctx.fill();
+    }
+    // 敌人
+    for(const e of enemies){
+      const p=enemyPos(e); const x=p.c*CELL+CELL/2, y=p.r*CELL+CELL/2;
+      ctx.fillStyle='#f6465d'; ctx.beginPath(); ctx.arc(x,y,CELL*0.26,0,Math.PI*2); ctx.fill();
+    }
+    const goldEl=$('gold'), livesEl=$('lives'), waveEl=$('wave'), msgEl=$('msg');
+    if(goldEl) goldEl.textContent=gold;
+    if(livesEl) livesEl.textContent=lives;
+    if(waveEl) waveEl.textContent=wave;
+    if(msgEl){
+      if(won){ msgEl.className='msg win'; msgEl.textContent='🎉 守住全部 8 波，胜利！'; }
+      else if(over){ msgEl.className='msg win'; msgEl.textContent='💀 基地失守，游戏结束。'; }
+      else msgEl.className='msg';
+    }
+  }
+  function loop(ts){
+    if(typeof document==='undefined') return;
+    const dt = lastT ? Math.min(0.05,(ts-lastT)/1000) : 0; lastT=ts;
+    if(!over && waveActive) step(dt);
+    render();
+    if(typeof requestAnimationFrame!=='undefined') requestAnimationFrame(loop);
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const startBtn=$('start'), rb=$('restart'), canvas=$('cv');
+    if(startBtn) startBtn.onclick=()=>{ startWave(); };
+    if(rb) rb.onclick=()=>{ newGame(); };
+    if(canvas) canvas.addEventListener('click', ev=>{
+      const rect=canvas.getBoundingClientRect();
+      const cx=(ev.clientX-rect.left)*(W/rect.width), cy=(ev.clientY-rect.top)*(H/rect.height);
+      const c=Math.floor(cx/CELL), r=Math.floor(cy/CELL);
+      if(!over) placeTower(r,c);
+      render();
+    });
+  }
+  newGame();
+  cv = (typeof document!=='undefined') ? $('cv') : null;
+  ctx = cv ? cv.getContext('2d') : null;
+  if(typeof document!=='undefined'){
+    bindUI(); render();
+    if(typeof requestAnimationFrame!=='undefined') requestAnimationFrame(loop);
+  }
+
+  if(typeof window!=='undefined'){
+    function getGold(){ return gold; }
+    function getLives(){ return lives; }
+    function getWave(){ return wave; }
+    function getEnemies(){ return enemies; }
+    function getTowers(){ return towers; }
+    function setGold(v){ gold=v; }
+    function setLives(v){ lives=v; }
+    function setEnemies(v){ enemies=v; }
+    function setTowers(v){ towers=v; }
+    function setWave(v){ wave=v; }
+    function setWaveActive(v){ waveActive=v; }
+    window.__t = {
+      COLS, ROWS, CELL, W, H, MAX_WAVE, TOWER_COST, TOWER_RANGE, TOWER_DMG, TOWER_CD,
+      PATH, isPathCell, newGame, placeTower, spawnWave, startWave, step, towerTargets, enemyPos,
+      getGold, getLives, getWave, getEnemies, getTowers, getWaveActive, isOver, hasWon,
+      setGold, setLives, setEnemies, setTowers, setWave, setWaveActive,
+      _state:()=>({gold,lives,wave,waveActive,over,won}),
+    };
+  }
+})();
+</script>
+</body>
+</html>
