@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 尖塔 SPIRE</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;user-select:none}
+  .titlebar{width:min(900px,98vw);display:flex;align-items:center;gap:10px;padding:8px 14px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px 10px 0 0;margin-top:8px}
+  .dot{width:11px;height:11px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--gold)}
+  .wrap{width:min(900px,98vw);min-height:min(640px,78vh);background:#070a0f;border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;padding:14px;overflow:hidden}
+  .top{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);margin-bottom:10px}
+  .top .hp{color:var(--red);font-weight:700}.top .en{color:var(--gold);font-weight:700}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .enemy{background:#121821;border:1px solid var(--border);border-radius:10px;padding:10px 12px;min-width:150px}
+  .enemy .nm{color:var(--text);font-weight:700;font-size:13px}
+  .enemy .hpbar{height:8px;background:#1a222e;border-radius:4px;overflow:hidden;margin:5px 0}
+  .enemy .hpbar>i{display:block;height:100%;background:linear-gradient(90deg,#f6465d,#ff8aa0)}
+  .enemy .meta{font-size:11px;color:var(--dim);line-height:1.5}
+  .enemy .intent{color:var(--gold);font-size:12px;margin-top:4px}
+  .enemy.target{border-color:var(--red)}
+  .hand{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;min-height:120px}
+  .card4{width:120px;background:#16202c;border:1px solid var(--border);border-radius:9px;padding:9px;cursor:pointer;transition:.1s;display:flex;flex-direction:column}
+  .card4:hover{border-color:var(--gold);transform:translateY(-4px)}
+  .card4.attack{border-left:3px solid var(--red)}
+  .card4.skill{border-left:3px solid var(--green)}
+  .card4.power{border-left:3px solid var(--gold)}
+  .card4 .cost{display:inline-block;background:var(--gold);color:#0a0e14;font-weight:700;border-radius:50%;width:20px;height:20px;text-align:center;line-height:20px;font-size:12px}
+  .card4 .cn{color:var(--text);font-weight:700;font-size:13px;margin:4px 0}
+  .card4 .cd{color:var(--dim);font-size:11px;line-height:1.4;flex:1}
+  .pstats{display:flex;gap:14px;font-size:12px;margin:6px 0 2px}
+  .pstats b{color:var(--text)} .pstats .b{color:var(--green)} .pstats .e{color:var(--gold)}
+  .btn{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 16px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .btn:hover{filter:brightness(1.1)}
+  .center{display:flex;flex-direction:column;align-items:center;gap:12px;padding:30px 10px;text-align:center}
+  .center h1{font-size:24px;letter-spacing:2px}.center h1.win{color:var(--gold)}.center h1.lose{color:var(--red)}
+  .center p{color:var(--dim);font-size:13px;max-width:460px;line-height:1.6}
+  .nodes{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+  .node{background:#121821;border:1px solid var(--border);border-radius:10px;padding:14px 18px;cursor:pointer;text-align:center;min-width:120px}
+  .node:hover{border-color:var(--gold)}
+  .node .ic{font-size:22px}.node .lb{font-size:12px;color:var(--dim);margin-top:6px}
+  .rewards{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .foot{width:min(900px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:8px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>尖塔</b> SPIRE · 类杀戮尖塔</span></div>
+  <div class="wrap" id="screen"></div>
+  <div class="foot">SlaySpire（尖塔）：回合制卡牌构筑 roguelike。沿地图节点推进，战斗中以能量打出攻击/技能/能力牌，击杀敌人后三选一扩充牌组，挑战最终 Boss。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const J = (typeof Juice!=='undefined')?Juice:null;
+  const screenEl = (typeof document!=='undefined')?document.getElementById('screen'):null;
+
+  // ---------- data ----------
+  const CARDS = {
+    strike:{name:'打击',cost:1,type:'attack',desc:'造成 6 点伤害',play:(c,t)=>dealToEnemy(t,6)},
+    defend:{name:'防御',cost:1,type:'skill',desc:'获得 5 点格挡',play:()=>gainBlock(5)},
+    bash:{name:'重击',cost:2,type:'attack',desc:'造成 8 点伤害，施加 2 层易伤',play:(c,t)=>{dealToEnemy(t,8);addVuln(t,2);}},
+    cleave:{name:'旋风斩',cost:1,type:'attack',desc:'对全体敌人造成 8 点伤害',play:()=>dealAll(8)},
+    poisonstab:{name:'毒刃',cost:1,type:'attack',desc:'造成 5 点伤害，施加 3 层中毒',play:(c,t)=>{dealToEnemy(t,5);addPoison(t,3);}},
+    ironwave:{name:'铁壁',cost:1,type:'attack',desc:'造成 5 点伤害，获得 5 点格挡',play:(c,t)=>{dealToEnemy(t,5);gainBlock(5);}},
+    pommel:{name:'顺势斩',cost:1,type:'attack',desc:'造成 9 点伤害，抽 1 张牌',play:(c,t)=>{dealToEnemy(t,9);drawN(1);}},
+    clothesline:{name:'锁喉',cost:2,type:'attack',desc:'造成 12 点伤害，施加 2 层虚弱',play:(c,t)=>{dealToEnemy(t,12);addWeak(t,2);}},
+    shrug:{name:'重整旗鼓',cost:1,type:'skill',desc:'获得 8 点格挡，抽 1 张牌',play:()=>{gainBlock(8);drawN(1);}},
+    adrenaline:{name:'肾上腺素',cost:0,type:'skill',desc:'获得 1 点能量，抽 2 张牌',play:()=>{gainEnergy(1);drawN(2);}},
+    berserk:{name:'狂暴',cost:1,type:'power',desc:'获得 2 点力量',play:()=>gainStr(2)},
+    demon:{name:'恶魔形态',cost:3,type:'power',desc:'每回合开始时获得 2 点力量',play:()=>{C.combat.demon+=2;}},
+    inferno:{name:'烈焰',cost:2,type:'attack',desc:'造成 10 点伤害，施加 2 层易伤',play:(c,t)=>{dealToEnemy(t,10);addVuln(t,2);}},
+  };
+  const POOL = ['cleave','poisonstab','ironwave','pommel','clothesline','shrug','adrenaline','berserk','demon','inferno'];
+  const RELICS = {
+    burning:{name:'燃烧之血',desc:'战斗胜利后回复 6 点生命'},
+    core:{name:'能量核心',desc:'每场战斗最大能量 +1'},
+    fist:{name:'铁拳',desc:'每场战斗开始时获得 1 点力量'},
+    shield:{name:'护盾电池',desc:'每场战斗开始时获得 4 点格挡'},
+  };
+  const ENEMIES = {
+    slime:{name:'史莱姆',hp:22,moves:[{t:'attack',v:8},{t:'attack',v:6},{t:'defend',v:6}]},
+    goblin:{name:'哥布林',hp:16,moves:[{t:'attack',v:7}]},
+    bat:{name:'蝙蝠',hp:11,moves:[{t:'attack',v:5},{t:'attack',v:5}]},
+    brute:{name:'蛮兵',hp:30,moves:[{t:'attack',v:12},{t:'defend',v:8}]},
+    hexer:{name:'咒师',hp:26,moves:[{t:'attack',v:8},{t:'debuff',v:1}]},
+    guardian:{name:'守卫',hp:54,moves:[{t:'attack',v:14},{t:'defend',v:12},{t:'buff',v:2}]},
+    dragon:{name:'巨龙',hp:130,moves:[{t:'attack',v:18},{t:'attack',v:10},{t:'buff',v:3}]},
+  };
+
+  function rand(a,b){return a+Math.random()*(b-a);}
+  function randi(a,b){return Math.floor(rand(a,b+1));}
+  function choice(a){return a[Math.floor(Math.random()*a.length)];}
+  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+  function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+
+  // ---------- run state ----------
+  let S=null, C=null;
+  function resetRun(opts){
+    opts=opts||{};
+    S={
+      floor:0, map:genMap(), pos:{f:0,n:0},
+      deck:['strike','strike','strike','strike','strike','defend','defend','defend','defend','bash'],
+      relics:[], hp:70, maxhp:70, gold:0,
+      screen:'map', combat:null, reward:null, shop:null, event:null,
+      over:false, won:false, lastNode:null,
+    };
+    if(opts.relics) opts.relics.forEach(r=>S.relics.push(r));
+    return S;
+  }
+  function genMap(){
+    const floors=[]; const NF=15;
+    floors.push([{type:'battle',next:[]}]);
+    for(let f=1;f<NF-1;f++){
+      const cnt=2+randi(0,2); const nodes=[];
+      for(let i=0;i<cnt;i++){
+        let type='battle';
+        const r=Math.random();
+        if(f>=3 && r<0.14) type='elite';
+        else if(f>=2 && r<0.34) type='event';
+        else if(f>=4 && r<0.52) type='rest';
+        else if(f>=2 && r<0.66) type='shop';
+        else type='battle';
+        nodes.push({type,next:[]});
+      }
+      floors.push(nodes);
+    }
+    floors.push([{type:'boss',next:[]}]);
+    // rest before boss
+    floors[NF-2].push({type:'rest',next:[NF-1]});
+    // connect
+    for(let f=0;f<NF-1;f++){
+      const cur=floors[f], nxt=floors[f+1];
+      for(let i=0;i<cur.length;i++){
+        const k=1+(Math.random()<0.5?1:0);
+        const picks=new Set();
+        for(let j=0;j<k;j++) picks.add(randi(0,nxt.length-1));
+        cur[i].next=[...picks];
+      }
+      // ensure every next node has incoming
+      for(let j=0;j<nxt.length;j++){
+        if(!cur.some(n=>n.next.includes(j))) cur[randi(0,cur.length-1)].next.push(j);
+      }
+    }
+    return floors;
+  }
+
+  // ---------- combat helpers ----------
+  function makeEnemy(id){
+    const d=ENEMIES[id];
+    return {id,name:d.name,hp:d.hp,maxhp:d.hp,block:0,str:0,dex:0,vuln:0,weak:0,poison:0,moves:d.moves,mi:0,intent:null};
+  }
+  function setIntent(e){
+    const m=e.moves[e.mi % e.moves.length]; e.mi++;
+    e.intent={type:m.t, value:m.v};
+  }
+  function atkDmg(base){
+    let d=base+(C?C.str:0);
+    if(C && C.weak>0) d=Math.floor(d*0.75);
+    return Math.max(0,d);
+  }
+  function dealToEnemy(ti,base){
+    const e=C.enemies[ti]; if(!e||e.hp<=0) return;
+    let d=atkDmg(base); if(e.vuln>0) d=Math.floor(d*1.5);
+    applyEnemyDamage(e,d);
+    if(J) J.sfx('hit');
+  }
+  function dealAll(base){ for(let i=0;i<C.enemies.length;i++) dealToEnemy(i,base); }
+  function applyEnemyDamage(e,d){
+    if(e.block>0){const a=Math.min(e.block,d);e.block-=a;d-=a;}
+    e.hp-=d; if(e.hp<0)e.hp=0;
+  }
+  function gainBlock(n){ C.block+=n; }
+  function addVuln(ti,n){const e=C.enemies[ti];if(e)e.vuln+=n;}
+  function addWeak(ti,n){const e=C.enemies[ti];if(e)e.weak+=n;}
+  function addPoison(ti,n){const e=C.enemies[ti];if(e)e.poison+=n;}
+  function drawN(n){ for(let i=0;i<n;i++){ if(C.hand.length>=10)break; if(C.draw.length===0){ C.draw=shuffle(C.discard.slice()); C.discard=[]; } if(C.draw.length===0)break; C.hand.push(C.draw.pop()); } }
+  function gainEnergy(n){ C.energy+=n; }
+  function gainStr(n){ C.str+=n; }
+
+  function startCombat(ids, kind){
+    C={
+      enemies:ids.map(makeEnemy),
+      draw:shuffle(S.deck.slice()), hand:[], discard:[],
+      block:0, energy:3, maxEnergy:3,
+      str:0, dex:0, vuln:0, weak:0, demon:0,
+      turn:1, phase:'player', over:false, result:null, kind:kind||'battle',
+    };
+    if(S.relics.includes('core')) C.maxEnergy=4;
+    if(S.relics.includes('fist')) C.str+=1;
+    if(S.relics.includes('shield')) C.block+=4;
+    for(const e of C.enemies) setIntent(e);
+    drawN(5);
+    S.combat=C; S.screen='combat';
+    if(J) J.sfx('start');
+  }
+  function checkEnemiesDead(){
+    if(C.enemies.every(e=>e.hp<=0)){ C.over=true; C.result='win'; onWin(); }
+  }
+  function onWin(){
+    if(S.relics.includes('burning')) S.hp=Math.min(S.maxhp,S.hp+6);
+    S.gold += randi(12,22) + (C.kind==='elite'?25:0) + (C.kind==='boss'?60:0);
+    if(C.kind==='boss'){ S.won=true; S.screen='win'; C=null; return; }
+    const cards=shuffle(POOL.slice()).slice(0,3);
+    let relic=null;
+    if(Math.random()<0.4 && S.relics.length<4){ const avail=Object.keys(RELICS).filter(r=>!S.relics.includes(r)); if(avail.length) relic=choice(avail); }
+    S.reward={cards,relic}; S.screen='reward';
+  }
+  function playerTake(d){
+    let dg=d; if(C.vuln>0) dg=Math.floor(dg*1.5);
+    let rem=dg;
+    if(C.block>0){const a=Math.min(C.block,rem);C.block-=a;rem-=a;}
+    S.hp-=rem;
+    if(J){ J.addTrauma(0.3); J.flash('#f6465d',0.18); }
+    if(S.hp<=0){ S.hp=0; C.over=true; C.result='lose'; S.over=true; S.screen='gameover'; }
+  }
+  function playCard(hi,ti){
+    if(!C||C.phase!=='player'||C.over) return false;
+    const id=C.hand[hi]; if(!id) return false;
+    const def=CARDS[id]; if(C.energy<def.cost) return false;
+    if(def.type==='attack'){ const e=C.enemies[ti]; if(!e||e.hp<=0) return false; }
+    C.energy-=def.cost;
+    def.play(C,ti);
+    C.hand.splice(hi,1); C.discard.push(id);
+    checkEnemiesDead();
+    if(J) J.sfx('card');
+    return true;
+  }
+  function endTurn(){
+    if(!C||C.phase!=='player'||C.over) return;
+    // discard hand
+    while(C.hand.length){ C.discard.push(C.hand.pop()); }
+    // enemy phase
+    for(const e of C.enemies){
+      if(e.hp<=0) continue;
+      const it=e.intent;
+      if(it.type==='attack'){ let d=it.value+e.str; if(e.weak>0)d=Math.floor(d*0.75); playerTake(d); }
+      else if(it.type==='defend'){ e.block+=it.value+e.dex; }
+      else if(it.type==='buff'){ e.str+=it.value; }
+      else if(it.type==='debuff'){ C.weak+=it.value; }
+      if(S.over) break;
+    }
+    if(C.over) return;
+    // status ticks
+    if(C.poison>0){ S.hp-=C.poison; C.poison--; if(S.hp<=0){S.hp=0;C.over=true;C.result='lose';S.over=true;S.screen='gameover';return;} }
+    C.vuln=Math.max(0,C.vuln-1); C.weak=Math.max(0,C.weak-1);
+    for(const e of C.enemies){
+      if(e.poison>0){ applyEnemyDamage(e,e.poison); e.poison--; }
+      e.vuln=Math.max(0,e.vuln-1); e.weak=Math.max(0,e.weak-1);
+    }
+    checkEnemiesDead();
+    if(C.over) return;
+    // new player turn
+    C.turn++; C.block=0; C.energy=C.maxEnergy;
+    if(C.demon>0) C.str+=C.demon;
+    for(const e of C.enemies) setIntent(e);
+    C.phase='player';
+    drawN(5);
+  }
+  function chooseReward(idx){
+    if(S.screen!=='reward') return false;
+    if(idx!==null && S.reward.cards[idx]) S.deck.push(S.reward.cards[idx]);
+    if(S.reward.relic) S.relics.push(S.reward.relic);
+    S.reward=null; S.screen='map';
+    return true;
+  }
+
+  // ---------- map navigation ----------
+  function currentOptions(){
+    if(!S||!S.map) return [];
+    const node=S.map[S.pos.f][S.pos.n];
+    return node.next.map(i=>({f:S.pos.f+1,n:i,type:S.map[S.pos.f+1][i].type}));
+  }
+  function chooseNode(i){
+    if(S.screen==='reward'){ return false; } // 必须先结算奖励
+    if(S.screen!=='map') return false;
+    const node=S.map[S.pos.f][S.pos.n];
+    if(!node.next[i]) return false;
+    S.pos={f:S.pos.f+1,n:node.next[i]};
+    const cur=S.map[S.pos.f][S.pos.n];
+    S.lastNode=cur.type;
+    if(cur.type==='battle'){ startCombat(pickTeam('battle'),'battle'); }
+    else if(cur.type==='elite'){ startCombat(pickTeam('elite'),'elite'); }
+    else if(cur.type==='boss'){ startCombat(['dragon'],'boss'); }
+    else if(cur.type==='rest'){ S.hp=Math.min(S.maxhp,S.hp+Math.floor(S.maxhp*0.3)); S.screen='map'; }
+    else if(cur.type==='shop'){ S.shop={card:choice(POOL),cost:50}; S.screen='shop'; }
+    else if(cur.type==='event'){ const r=Math.random(); if(r<0.4)S.hp=Math.min(S.maxhp,S.hp+10); else if(r<0.7)S.gold+=randi(15,30); else S.hp=Math.max(1,S.hp-randi(4,9)); S.screen='map'; }
+    return true;
+  }
+  function pickTeam(kind){
+    if(kind==='elite') return Math.random()<0.5?['guardian']:['hexer','goblin'];
+    const normals=['slime','goblin','bat','brute'];
+    const n=Math.random()<0.4?2:1;
+    const t=[]; for(let i=0;i<n;i++) t.push(choice(normals)); return t;
+  }
+  function shopBuy(){
+    if(S.screen!=='shop'||!S.shop) return false;
+    if(S.gold>=S.shop.cost){ S.gold-=S.shop.cost; S.deck.push(S.shop.card); S.shop=null; S.screen='map'; return true; }
+    return false;
+  }
+  function shopSkip(){ if(S.screen==='shop'){ S.shop=null; S.screen='map'; return true; } return false; }
+
+  // ---------- render ----------
+  function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+  function render(){
+    if(!screenEl) return;
+    if(S.screen==='combat') renderCombat();
+    else if(S.screen==='map') renderMap();
+    else if(S.screen==='reward') renderReward();
+    else if(S.screen==='shop') renderShop();
+    else if(S.screen==='win') renderWin();
+    else if(S.screen==='gameover') renderOver();
+    else renderMap();
+  }
+  function renderMap(){
+    const opts=currentOptions();
+    const icons={battle:'⚔️',elite:'💀',boss:'🐉',rest:'🔥',shop:'🛒',event:'❓'};
+    const labels={battle:'战斗',elite:'精英',boss:'BOSS',rest:'休息',shop:'商店',event:'事件'};
+    let html='<div class="top"><span>第 '+(S.pos.f+1)+' 层 · 节点已选：'+(S.lastNode?labels[S.lastNode]:'起点')+'</span><span class="hp">HP '+S.hp+'/'+S.maxhp+'</span><span class="en">金币 '+S.gold+'</span></div>';
+    html+='<div class="center"><p>选择下一个节点继续攀登尖塔。精英与事件暗藏风险与机遇，休息可回血，商店可购牌。</p></div>';
+    html+='<div class="nodes">';
+    opts.forEach((o,i)=>{ html+='<div class="node" data-i="'+i+'"><div class="ic">'+icons[o.type]+'</div><div class="lb">'+labels[o.type]+'</div></div>'; });
+    html+='</div>';
+    screenEl.innerHTML=html;
+    if(typeof document!=='undefined') screenEl.querySelectorAll('.node').forEach((el,i)=>{ el.onclick=()=>{ chooseNode(i); render(); }; });
+  }
+  function renderCombat(){
+    const c=C;
+    let html='<div class="top"><span class="hp">HP '+S.hp+'/'+S.maxhp+'</span><span>格挡 '+c.block+' · 能量 '+c.energy+'/'+c.maxEnergy+' · 力量 '+c.str+'</span><span class="en">回合 '+c.turn+'</span></div>';
+    html+='<div class="pstats"><span class="b">格挡 '+c.block+'</span><span class="e">能量 '+c.energy+'/'+c.maxEnergy+'</span><span>力量 '+c.str+'</span><span>易伤 '+c.vuln+'</span><span>虚弱 '+c.weak+'</span><span>中毒 '+c.poison+'</span></div>';
+    html+='<div class="row">';
+    c.enemies.forEach((e,i)=>{
+      const pct=Math.max(0,e.hp/e.maxhp*100);
+      let intent='';
+      if(e.intent){ if(e.intent.type==='attack') intent='🗡 攻击 '+(e.intent.value+e.str); else if(e.intent.type==='defend') intent='🛡 防御'; else if(e.intent.type==='buff') intent='⬆ 强化'; else intent='✖ 弱化'; }
+      html+='<div class="enemy"><div class="nm">'+esc(e.name)+'</div><div class="hpbar"><i style="width:'+pct+'%"></i></div><div class="meta">HP '+e.hp+(e.block?(' +'+e.block+'🛡'):'')+(e.vuln?' 易伤'+e.vuln:'')+(e.weak?' 虚弱'+e.weak:'')+(e.poison?' 毒'+e.poison:'')+'</div><div class="intent">'+intent+'</div></div>';
+    });
+    html+='</div>';
+    html+='<div class="hand">';
+    c.hand.forEach((id,hi)=>{
+      const d=CARDS[id];
+      html+='<div class="card4 '+d.type+'" data-h="'+hi+'"><span class="cost">'+d.cost+'</span><div class="cn">'+esc(d.name)+'</div><div class="cd">'+esc(d.desc)+'</div></div>';
+    });
+    html+='</div>';
+    html+='<div style="margin-top:10px;display:flex;gap:10px;align-items:center"><button class="btn" id="end">结束回合</button><span style="color:var(--dim);font-size:12px">抽牌堆 '+c.draw.length+' · 弃牌堆 '+c.discard.length+' · 牌组 '+S.deck.length+'</span></div>';
+    screenEl.innerHTML=html;
+    if(typeof document!=='undefined'){
+      screenEl.querySelectorAll('.card4').forEach((el,hi)=>{ el.onclick=()=>{ const t=firstLiving(); playCard(hi,t); render(); }; });
+      const b=screenEl.querySelector('#end'); if(b) b.onclick=()=>{ endTurn(); render(); };
+    }
+  }
+  function firstLiving(){ for(let i=0;i<C.enemies.length;i++) if(C.enemies[i].hp>0) return i; return 0; }
+  function renderReward(){
+    let html='<div class="center"><h1 class="win">战斗胜利</h1><p>选择一张卡加入牌组（点击后方块继续）。</p></div><div class="rewards">';
+    S.reward.cards.forEach((id,i)=>{ const d=CARDS[id]; html+='<div class="card4 '+d.type+'" data-r="'+i+'"><span class="cost">'+d.cost+'</span><div class="cn">'+esc(d.name)+'</div><div class="cd">'+esc(d.desc)+'</div></div>'; });
+    html+='</div><div style="text-align:center;margin-top:14px"><button class="btn ghost" id="skip">跳过（不拿牌）</button></div>';
+    screenEl.innerHTML=html;
+    if(typeof document!=='undefined'){
+      screenEl.querySelectorAll('.card4').forEach((el,i)=>{ el.onclick=()=>{ chooseReward(i); render(); }; });
+      const s=screenEl.querySelector('#skip'); if(s) s.onclick=()=>{ chooseReward(null); render(); };
+    }
+  }
+  function renderShop(){
+    const d=CARDS[S.shop.card];
+    screenEl.innerHTML='<div class="center"><h1>商店</h1><p>用 '+S.shop.cost+' 金币购买【'+esc(d.name)+'】：'+esc(d.desc)+'。当前金币 '+S.gold+'。</p>'+
+      '<div class="rewards"><div class="card4 '+d.type+'"><span class="cost">'+d.cost+'</span><div class="cn">'+esc(d.name)+'</div><div class="cd">'+esc(d.desc)+'</div></div></div>'+
+      '<div style="display:flex;gap:10px;margin-top:14px"><button class="btn" id="buy">购买</button><button class="btn ghost" id="skip">离开</button></div></div>';
+    if(typeof document!=='undefined'){
+      const b=screenEl.querySelector('#buy'); if(b) b.onclick=()=>{ shopBuy(); render(); };
+      const s=screenEl.querySelector('#skip'); if(s) s.onclick=()=>{ shopSkip(); render(); };
+    }
+  }
+  function renderWin(){ screenEl.innerHTML='<div class="center"><h1 class="win">登顶尖塔！</h1><p>你击败了最终 Boss，完成这场 roguelike 征程。HP 剩余 '+S.hp+'。</p><button class="btn" id="rs">再来一局</button></div>'; if(typeof document!=='undefined'){const b=screenEl.querySelector('#rs');if(b)b.onclick=()=>{resetRun();render();};} }
+  function renderOver(){ screenEl.innerHTML='<div class="center"><h1 class="lose">GAME OVER</h1><p>你在第 '+(S.pos.f+1)+' 层倒下了。</p><button class="btn" id="rs">重新开始</button></div>'; if(typeof document!=='undefined'){const b=screenEl.querySelector('#rs');if(b)b.onclick=()=>{resetRun();render();};} }
+
+  // loop (render only; logic driven by clicks)
+  function loop(){ if(typeof document!=='undefined'){ render(); requestAnimationFrame(loop); } }
+
+  // ---------- boot ----------
+  resetRun();
+  if(typeof document!=='undefined'){ render(); requestAnimationFrame(loop); }
+
+  // ---------- test hooks ----------
+  if(typeof window!=='undefined'){
+    window.__t = {
+      resetRun,
+      startCombat, // test helper: startCombat(enemyIds, kind?)
+      getScreen:()=>S.screen,
+      getMap:()=>({floors:S.map.length, floor:S.pos.f, node:S.pos.n, type:S.map[S.pos.f][S.pos.n].type, lastType:S.map[S.map.length-1][0].type, options:currentOptions().map(o=>o.type)}),
+      currentOptions,
+      chooseNode,
+      getPlayer:()=>({hp:S.hp,maxhp:S.maxhp,gold:S.gold,deck:S.deck.length,relics:S.relics.slice()}),
+      getCombat:()=>C?({turn:C.turn,phase:C.phase,energy:C.energy,maxEnergy:C.maxEnergy,block:C.block,str:C.str,vuln:C.vuln,weak:C.weak,poison:C.poison,demon:C.demon,hand:C.hand.slice(),draw:C.draw.length,discard:C.discard.length,over:C.over,result:C.result}):null,
+      getEnemies:()=>C?C.enemies.map(e=>({name:e.name,hp:e.hp,maxhp:e.maxhp,block:e.block,str:e.str,vuln:e.vuln,weak:e.weak,poison:e.poison,intent:e.intent?{...e.intent}:null})):[],
+      getHand:()=>C?C.hand.map(id=>({id,name:CARDS[id].name,cost:CARDS[id].cost,type:CARDS[id].type})):[],
+      playCard,
+      endTurn,
+      chooseReward,
+      getReward:()=>S.reward?{cards:S.reward.cards.slice(),relic:S.reward.relic}:null,
+      shopBuy, shopSkip,
+      getRelics:()=>S.relics.slice(),
+      isOver:()=>S.over,
+      isWin:()=>S.won,
+      addRelic:(r)=>{ if(RELICS[r]&&!S.relics.includes(r)) S.relics.push(r); },
+      // --- debug-only hooks for deterministic logic tests ---
+      debugDeal:(i,d)=>dealToEnemy(i,d),
+      debugVuln:(i,n)=>addVuln(i,n),
+      debugBlock:(n)=>gainBlock(n),
+      debugPlayerTake:(d)=>playerTake(d),
+      getRunHp:()=>S.hp,
+      setRunHp:(h)=>{ S.hp=h; },
+    };
+  }
+})();
+</script>
+</body>
+</html>
