@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 数织</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(460px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(460px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .game{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
+  .rhints{display:flex;flex-direction:column;gap:5px;justify-content:center}
+  .rhint{height:34px;display:flex;align-items:center;justify-content:flex-end;gap:4px;font-size:12px;color:var(--dim);min-width:46px}
+  .rhint span{background:#0e141d;border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+  .main{display:flex;flex-direction:column;gap:5px}
+  .chints{display:flex;gap:5px}
+  .chint{width:34px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--dim)}
+  .chint span{background:#0e141d;border:1px solid var(--border);border-radius:4px;padding:1px 0;width:100%;text-align:center}
+  .grid{display:grid;gap:5px}
+  .cell{width:34px;height:34px;border-radius:6px;background:#0e141d;border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none}
+  .cell.on{background:var(--gold);box-shadow:0 0 10px rgba(240,185,11,.4)}
+  .cell:active{transform:scale(.94)}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(460px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>数织</b> NONOGRAM</span></div>
+  <div class="wrap">
+    <div class="hud"><span>已填 FILLED · <span class="st" id="filled">0</span></span><span id="status">按提示还原图案</span></div>
+    <div class="game">
+      <div class="rhints" id="rhints"></div>
+      <div class="main">
+        <div class="chints" id="chints"></div>
+        <div class="grid" id="grid"></div>
+      </div>
+    </div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">重来 RESET</button>
+    </div>
+    <div class="msg" id="msg">根据每行/每列的数字提示（连续填充块长度）点击格子填色，还原出隐藏图案即过关。</div>
+  </div>
+  <div class="foot">经典 Nonogram（Picross）：行列数字表示该行/列连续黑块的长度。推理出哪些格子该填，完全还原隐藏图即胜。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const R = 5, C = 5;
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let solution, marks, won, over, filled;
+  function hintsFor(line){
+    const h=[]; let run=0;
+    for(const v of line){ if(v===1){ run++; } else { if(run>0){ h.push(run); run=0; } } }
+    if(run>0) h.push(run);
+    if(h.length===0) h.push(0);
+    return h;
+  }
+  function genSolution(){
+    let s;
+    let guard=0;
+    do{
+      s=Array.from({length:R},()=>Array.from({length:C},()=> _rand()<0.5?1:0));
+      guard++;
+    } while(s.flat().reduce((a,b)=>a+b,0)<6 && guard<20); // 至少若干填充格
+    return s;
+  }
+  function newGame(){
+    solution=genSolution();
+    marks=Array.from({length:R},()=>new Array(C).fill(0));
+    won=false; over=false; filled=0;
+  }
+  function reset(){ newGame(); }
+  function computeHints(){
+    const rh=[]; for(let r=0;r<R;r++) rh.push(hintsFor(solution[r]));
+    const ch=[]; for(let c=0;c<C;c++){ const col=solution.map(row=>row[c]); ch.push(hintsFor(col)); }
+    return {rh,ch};
+  }
+  function toggle(r,c){
+    if(over || r<0||r>=R||c<0||c>=C) return false;
+    marks[r][c] = marks[r][c]?0:1;
+    filled = marks.flat().reduce((a,b)=>a+b,0);
+    if(matches()){ won=true; over=true; }
+    if(typeof Juice!=='undefined'){
+      if(won){ Juice.sfx('levelup'); Juice.best('nonogram', filled); }
+      else Juice.sfx('click');
+    }
+    return true;
+  }
+  function matches(){ for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(marks[r][c]!==solution[r][c]) return false; return true; }
+  function isWin(){ return won; }
+  function isOver(){ return over; }
+  function getFilled(){ return filled; }
+  function getSolution(){ return solution.map(row=>row.slice()); }
+  function getMarks(){ return marks.map(row=>row.slice()); }
+  function getRHints(){ return computeHints().rh; }
+  function getCHints(){ return computeHints().ch; }
+  function getRC(){ return [R,C]; }
+  function setSolution(b){ solution=b.map(row=>row.slice()); marks=Array.from({length:R},()=>new Array(C).fill(0)); won=false; over=false; filled=0; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let cells=[];
+  function buildGrid(){
+    if(typeof document==='undefined') return;
+    const g=$('grid'),rh=$('rhints'),ch=$('chints'); if(!g) return;
+    g.style.gridTemplateColumns='repeat('+C+',34px)';
+    g.innerHTML=''; cells=[];
+    for(let r=0;r<R;r++){ const row=[]; for(let c=0;c<C;c++){
+      const el=document.createElement('div'); el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>{ toggle(r,c); render(); });
+      g.appendChild(el); row.push(el);
+    } cells.push(row); }
+    if(rh){ rh.innerHTML=''; for(let r=0;r<R;r++){ const d=document.createElement('div'); d.className='rhint'; const h=hintsFor(solution[r]); h.forEach(n=>{ const s=document.createElement('span'); s.textContent=n; d.appendChild(s); }); rh.appendChild(d); } }
+    if(ch){ ch.innerHTML=''; for(let c=0;c<C;c++){ const d=document.createElement('div'); d.className='chint'; const h=hintsFor(solution.map(row=>row[c])); h.forEach(n=>{ const s=document.createElement('span'); s.textContent=n; d.appendChild(s); }); ch.appendChild(d); } }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const f=$('filled'),msg=$('msg'),st=$('status');
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+      const el=cells[r] && cells[r][c]; if(!el) continue;
+      el.className='cell'+(marks[r][c]?' on':'');
+    }
+    if(f) f.textContent=filled;
+    if(st) st.textContent = won?'已通关':(over?'已结束':'按提示还原图案');
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 还原成功！用了 '+filled+' 格填充。'; }
+      else if(over){ msg.className='msg win'; msg.textContent='已结束。'; }
+      else { msg.className='msg'; msg.textContent='根据行列数字提示点击格子填色。'; } }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newGame(); buildGrid(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); buildGrid(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildGrid(); bindUI(); render(); });
+    else { buildGrid(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      R, C, setRand, newGame, reset, toggle, isWin, isOver, getFilled,
+      getSolution, getMarks, getRHints, getCHints, getRC, setSolution,
+    };
+  }
+})();
+</script>
+</body>
+</html>
