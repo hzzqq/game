@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 围点成线</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(460px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(460px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:0;background:var(--panel);padding:14px;border-radius:14px;border:1px solid var(--border);margin:0 auto 10px;width:max-content}
+  .box{display:grid;grid-template-columns:18px 56px 18px;grid-template-rows:18px 56px 18px;align-items:center;justify-items:center}
+  .edge{background:transparent;border:none;cursor:pointer;border-radius:3px}
+  .edge.h{grid-column:1/4;width:100%;height:10px}
+  .edge.v{grid-row:2;width:10px;height:100%}
+  .edge.top{grid-row:1} .edge.bottom{grid-row:3} .edge.left{grid-column:1} .edge.right{grid-column:3}
+  .edge.on.h{background:var(--gold)} .edge.on.v{background:var(--gold)}
+  .edge.cur.h:hover{background:rgba(240,185,11,.3)} .edge.cur.v:hover{background:rgba(240,185,11,.3)}
+  .center{width:48px;height:48px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px}
+  .center.p0{background:rgba(2,192,118,.25);color:var(--green)} .center.p1{background:rgba(246,70,93,.25);color:var(--red)} .center.empty{background:#0e141d}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(460px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>围点成线</b> DOTS &amp; BOXES</span></div>
+  <div class="wrap">
+    <div class="hud"><span>轮到 TURN · <span class="st" id="turn">你 (绿)</span></span><span>比分 <span class="st" id="score">0 : 0</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">重来 RESET</button>
+    </div>
+    <div class="msg" id="msg">轮流在相邻两点间画线。谁画完一个方格的第四条边，谁就赢得该格并再画一条。格子全部分完，占格多者胜。</div>
+  </div>
+  <div class="foot">经典 Dots and Boxes：点阵之间连线段，围出方格即得分并可连走。N×N 点阵对应 (N−1)² 个方格。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const DEF_R = 4, DEF_C = 4; // 4x4 点 → 3x3 方格
+
+  let R, C, h, v, owner, current, scores, over, winner;
+  function newGame(r,c){
+    R = (r&&r>=2)?r:DEF_R; C = (c&&c>=2)?c:DEF_C;
+    h = Array.from({length:R}, ()=>new Array(C-1).fill(false));   // 横线
+    v = Array.from({length:R-1}, ()=>new Array(C).fill(false));   // 竖线
+    owner = Array.from({length:R-1}, ()=>new Array(C-1).fill(-1));
+    current=0; scores=[0,0]; over=false; winner=null;
+  }
+  function reset(){ newGame(R,C); }
+  // 检查某条线是否使相邻方格完成，完成则归 current
+  function completeCheck(){
+    let claimed=false;
+    for(let br=0;br<R-1;br++) for(let bc=0;bc<C-1;bc++){
+      if(owner[br][bc]>=0) continue;
+      if(h[br][bc] && h[br+1][bc] && v[br][bc] && v[br][bc+1]){
+        owner[br][bc]=current; scores[current]++; claimed=true;
+      }
+    }
+    return claimed;
+  }
+  function playH(r,c){
+    if(over || r<0||r>=R||c<0||c>=C-1 || h[r][c]) return false;
+    h[r][c]=true;
+    const claimed=completeCheck();
+    if(!claimed) current=1-current;
+    else if(owner.flat().every(x=>x>=0)){ over=true; winner=scores[0]>scores[1]?0:(scores[1]>scores[0]?1:-1); }
+    if(typeof Juice!=='undefined'){
+      if(claimed){ Juice.sfx('levelup'); }
+      else Juice.sfx('click');
+    }
+    return true;
+  }
+  function playV(r,c){
+    if(over || r<0||r>=R-1||c<0||c>=C || v[r][c]) return false;
+    v[r][c]=true;
+    const claimed=completeCheck();
+    if(!claimed) current=1-current;
+    else if(owner.flat().every(x=>x>=0)){ over=true; winner=scores[0]>scores[1]?0:(scores[1]>scores[0]?1:-1); }
+    if(typeof Juice!=='undefined'){
+      if(claimed){ Juice.sfx('levelup'); }
+      else Juice.sfx('click');
+    }
+    return true;
+  }
+  function getCurrent(){ return current; }
+  function getScores(){ return scores.slice(); }
+  function isOver(){ return over; }
+  function getWinner(){ return winner; }
+  function getOwner(){ return owner.map(r=>r.slice()); }
+  function getH(){ return h.map(r=>r.slice()); }
+  function getV(){ return v.map(r=>r.slice()); }
+  function getRC(){ return [R,C]; }
+  // 测试钩子：直接设置线/归属/当前方
+  function setRaw(hArr,vArr,ownArr,cur,sc){
+    h=hArr.map(r=>r.slice()); v=vArr.map(r=>r.slice());
+    owner=ownArr.map(r=>r.slice()); current=cur; scores=sc.slice(); over=false; winner=null;
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const board=$('board'),turn=$('turn'),score=$('score'),msg=$('msg');
+    if(!board) return;
+    board.style.gridTemplateColumns='repeat('+(C-1)+', 92px)';
+    board.innerHTML='';
+    for(let br=0;br<R-1;br++) for(let bc=0;bc<C-1;bc++){
+      const box=document.createElement('div'); box.className='box';
+      // top
+      const top=document.createElement('button'); top.className='edge h top'+(h[br][bc]?' on':'')+(over?'':' cur');
+      top.onclick=()=>{ playH(br,bc); render(); }; box.appendChild(top);
+      // left
+      const left=document.createElement('button'); left.className='edge v left'+(v[br][bc]?' on':'')+(over?'':' cur');
+      left.onclick=()=>{ playV(br,bc); render(); }; box.appendChild(left);
+      // center
+      const ctr=document.createElement('div');
+      const o=owner[br][bc];
+      ctr.className='center '+(o<0?'empty':(o===0?'p0':'p1'));
+      ctr.textContent = o<0?'':(o===0?'你':'敌'); box.appendChild(ctr);
+      // right
+      const right=document.createElement('button'); right.className='edge v right'+(v[br][bc+1]?' on':'')+(over?'':' cur');
+      right.onclick=()=>{ playV(br,bc+1); render(); }; box.appendChild(right);
+      // bottom
+      const bot=document.createElement('button'); bot.className='edge h bottom'+(h[br+1][bc]?' on':'')+(over?'':' cur');
+      bot.onclick=()=>{ playH(br+1,bc); render(); }; box.appendChild(bot);
+      board.appendChild(box);
+    }
+    if(turn) turn.textContent = over?'结束':(current===0?'你 (绿)':'对手 (红)');
+    if(score) score.textContent = scores[0]+' : '+scores[1];
+    if(msg){
+      if(over){ const w=winner; msg.className='msg win';
+        msg.textContent = w===0?'🎉 你赢了 '+scores[0]+' : '+scores[1] : (w===1?'对手赢了 '+scores[1]+' : '+scores[0] : '平局 '+scores[0]+' : '+scores[1]); }
+      else { msg.className='msg'; msg.textContent='画线围出方格得分；围住后可再画一条。'; }
+    }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      DEF_R, DEF_C,
+      newGame, reset, playH, playV, getCurrent, getScores, isOver, getWinner,
+      getOwner, getH, getV, getRC, setRaw,
+    };
+  }
+})();
+</script>
+</body>
+</html>
