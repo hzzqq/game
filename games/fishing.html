@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 钓鱼</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex:justify-content:space-between;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  canvas{background:#0b3d2e;border:1px solid var(--border);border-radius:8px;max-width:98vw}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls input{width:70px;background:#0e141d;border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;font-family:inherit;text-align:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>钓鱼</b> FISHING</span></div>
+  <div class="wrap">
+    <div class="hud"><span>渔获 · <span class="st" id="sc">0</span></span><span>状态 · <span class="st" id="st">抛竿中</span></span></div>
+    <canvas id="cv" width="400" height="240"></canvas>
+    <div class="msg" id="msg">抛竿入水，当鱼钩附近有鱼咬钩时收线即可钓起。把池塘里的鱼尽量多钓上来。</div>
+    <div class="controls">
+      <input id="x" placeholder="X" /><input id="y" placeholder="Y" />
+      <button id="cast">抛竿 CAST</button>
+      <button id="reel" class="ghost">收线 REEL</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+  </div>
+  <div class="foot">Fishing（钓鱼）：在池塘抛竿，鱼钩附近出现鱼即咬钩，及时收线钓起，比拼渔获数量。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const W=400, H=240, R=14;
+  let fish, hook, score;
+  function reset(){ fish=[{x:120,y:80,id:1},{x:260,y:150,id:2},{x:200,y:60,id:3}]; hook=null; score=0; }
+  function setFish(arr){ fish=arr.map(f=>({x:f.x,y:f.y,id:f.id})); hook=null; score=0; }
+  function castAt(x,y){ hook={x,y}; }
+  function dist(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); }
+  function getBiting(){
+    if(!hook) return false;
+    return fish.some(f=>dist(hook.x,hook.y,f.x,f.y)<=R);
+  }
+  function reel(){
+    if(!hook || !getBiting()) return null;
+    let best=null,bd=1e9;
+    for(const f of fish){ const d=dist(hook.x,hook.y,f.x,f.y); if(d<=R&&d<bd){ bd=d; best=f; } }
+    if(best){ fish=fish.filter(f=>f.id!==best.id); score++; return best.id; }
+    return null;
+  }
+  function getScore(){ return score; }
+  function getFish(){ return fish.map(f=>({x:f.x,y:f.y,id:f.id})); }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('cv'); if(!cv||!cv.getContext) return; const ctx=cv.getContext('2d');
+    ctx.fillStyle='#0b3d2e'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#f0b90b'; for(const f of fish){ ctx.beginPath(); ctx.arc(f.x,f.y,6,0,Math.PI*2); ctx.fill(); }
+    if(hook){ ctx.strokeStyle= getBiting()?'#02c076':'#e6edf3'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(hook.x,hook.y,R,0,Math.PI*2); ctx.stroke(); }
+    const sc=$('sc'),st=$('st'); if(sc)sc.textContent=score; if(st)st.textContent=hook?(getBiting()?'有鱼咬钩!':'抛竿中'):'抛竿中';
+  }
+  function loop(){ if(typeof requestAnimationFrame==='undefined') return; render(); requestAnimationFrame(loop); }
+  reset();
+  if(typeof document!=='undefined'){ const cb=$('cast'),rb=$('reel'),nb=$('new'),xi=$('x'),yi=$('y'); if(cb)cb.onclick=()=>{ castAt(+xi.value||0,+yi.value||0); render(); }; if(rb)rb.onclick=()=>{ reel(); render(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
+  if(typeof window!=='undefined'){ window.__t={ reset, setFish, castAt, getBiting, reel, getScore, getFish }; }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 飞镖</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex:justify-content:space-between;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}
+  .pl{background:#0e141d;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+  .pl .sc{font-size:30px;font-weight:700;color:var(--gold)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls input{width:70px;background:#0e141d;border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;font-family:inherit;text-align:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>飞镖</b> DARTS</span></div>
+  <div class="wrap">
+    <div class="hud"><span>回合 · <span class="st" id="turn">玩家0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="board">
+      <div class="pl"><div>玩家0</div><div class="sc" id="s0">501</div></div>
+      <div class="pl"><div>玩家1</div><div class="sc" id="s1">501</div></div>
+    </div>
+    <div class="msg" id="msg">每人起始 501 分，每回合投三镖递减。恰好减到 0 获胜；若减成负数则该镖作废（爆镖）。</div>
+    <div class="controls">
+      <input id="pts" placeholder="环数" />
+      <button id="throw">投镖 THROW</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+  </div>
+  <div class="foot">Darts（飞镖）：标准 501 规则。玩家轮流投镖从 501 递减，必须恰好减到 0 获胜，减成负数则本镖爆镖作废。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let scores, turn, over, winner;
+  function reset(){ scores=[501,501]; turn=0; over=false; winner=-1; }
+  function setScores(arr){ scores=arr.slice(); turn=0; over=false; winner=-1; }
+  function throwDart(pts){
+    if(over) return;
+    const p=turn;
+    const ns=scores[p]-pts;
+    if(ns===0){ scores[p]=0; over=true; winner=p; }
+    else if(ns<0){ /* 爆镖：本镖作废，分数不变 */ }
+    else { scores[p]=ns; }
+  }
+  function getScore(p){ return scores[p]; }
+  function getTurn(){ return turn; }
+  function isOver(){ return over; }
+  function getWinner(){ return winner; }
+  function nextTurn(){ if(!over) turn=1-turn; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const s0=$('s0'),s1=$('s1'),tn=$('turn'),st=$('st');
+    if(s0)s0.textContent=scores[0]; if(s1)s1.textContent=scores[1];
+    if(tn)tn.textContent='玩家'+turn; if(st)st.textContent=over?'结束':'进行中';
+    const msg=$('msg'); if(msg&&over){ msg.className='msg win'; msg.textContent='🎯 玩家'+winner+' 减到 0，获胜！'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const tb=$('throw'),nb=$('new'),pi=$('pts');
+    if(tb) tb.onclick=()=>{ throwDart(+pi.value||0); nextTurn(); render(); };
+    if(nb) nb.onclick=()=>{ reset(); render(); };
+  }
+  reset();
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ reset, setScores, throwDart, getScore, getTurn, isOver, getWinner, nextTurn }; }
+})();
+</script>
+</body>
+</html>

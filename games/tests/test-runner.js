@@ -91,6 +91,10 @@ const FILES = {
   'bomberman.html':    { name:'炸弹人 Bomberman',            offline:true },
   'bowling.html':      { name:'保龄球 Bowling',              offline:true },
   'golf.html':         { name:'迷你高尔夫 Golf',             offline:true },
+  'darts.html':        { name:'飞镖 Darts',                  offline:true },
+  'pool.html':         { name:'台球 Pool',                   offline:true },
+  'basketball.html':   { name:'投篮 Basketball',             offline:true },
+  'fishing.html':      { name:'钓鱼 Fishing',               offline:true },
 };
 
 let totalPass=0, totalFail=0;
