@@ -39,6 +39,7 @@ const FILES = {
   'bubblebob.html': { name:'泡泡堂 BubbleBob',    offline:true },
   'whack.html':     { name:'打地鼠 Whack',        offline:true },
   'poker.html':     { name:'德州扑克 Poker',       offline:true },
+  'slots.html':     { name:'老虎机 Slots',         offline:true },
 };
 
 let totalPass=0, totalFail=0;

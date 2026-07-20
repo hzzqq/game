@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 老虎机</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785; --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+      radial-gradient(1200px 700px at 50% -10%, rgba(240,185,11,.06), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,
+      var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--gold)}
+  .wrap{width:min(560px,98vw)}
+  .machine{background:linear-gradient(180deg,#101a24,#0a121a);border:1px solid var(--border);border-radius:16px;padding:22px;position:relative;overflow:hidden}
+  .machine::before{content:"";position:absolute;inset:0;background:radial-gradient(360px 180px at 50% 30%, rgba(240,185,11,.10), transparent 70%);pointer-events:none}
+  .reels{display:flex;gap:12px;justify-content:center;margin:14px 0 18px}
+  .reel{width:96px;height:120px;background:#05080c;border:2px solid var(--border);border-radius:12px;
+    display:flex;align-items:center;justify-content:center;font-size:54px;position:relative;transition:.12s}
+  .reel.win{border-color:var(--gold);box-shadow:0 0 22px rgba(240,185,11,.5);animation:winpulse .5s ease}
+  @keyframes winpulse{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
+  .reel.spin{animation:reelspin .25s linear infinite}
+  @keyframes reelspin{0%{transform:translateY(-8px);opacity:.5}100%{transform:translateY(8px);opacity:1}}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:14px}
+  .hud .bal{color:var(--green);font-weight:700;font-size:16px}
+  .hud .bet{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .betbox{display:flex;gap:6px;align-items:center;flex:1;min-width:140px}
+  .betbox input{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:11px;font-family:inherit;flex:1;outline:none}
+  .betbox button{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:11px 12px;cursor:pointer;font-family:inherit}
+  .betbox button:hover{border-color:var(--gold);color:var(--gold)}
+  .spin{background:var(--gold);color:#0a0e14;border:none;border-radius:10px;padding:14px 0;font-weight:700;font-size:15px;flex:2;min-width:160px;cursor:pointer;font-family:inherit}
+  .spin:hover{filter:brightness(1.08)} .spin:disabled{opacity:.4;cursor:not-allowed}
+  .msg{text-align:center;min-height:24px;margin-top:12px;font-size:14px;color:var(--dim)}
+  .msg.win{color:var(--gold)} .msg.jackpot{color:var(--red);font-weight:700}
+  .pay{margin-top:14px;font-size:11px;color:var(--dim);line-height:1.7;border-top:1px solid var(--border);padding-top:10px}
+  .pay b{color:var(--text)}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>老虎机</b> SLOTS</span>
+  </div>
+  <div class="wrap">
+    <div class="machine">
+      <div class="reels" id="reels">
+        <div class="reel" id="r0">🍒</div>
+        <div class="reel" id="r1">🍋</div>
+        <div class="reel" id="r2">🔔</div>
+      </div>
+      <div class="hud">
+        <span>余额 BALANCE · <span class="bal" id="bal">200</span></span>
+        <span>下注 BET · <span class="bet" id="betv">10</span></span>
+      </div>
+      <div class="controls">
+        <div class="betbox">
+          <button id="betMinus">−</button>
+          <input id="betInput" type="number" min="1" value="10" />
+          <button id="betPlus">＋</button>
+        </div>
+        <button class="spin" id="spin">SPIN 转动</button>
+      </div>
+      <div class="msg" id="msg">投注并转动，三连即大奖。</div>
+      <div class="pay">
+        赔率 PAYTABLE — 三连：🍒×3 · 🍋×5 · 🔔×10 · BAR×20 · 7×50 · 💎×100 ｜ 两樱桃 ×5 ｜ 任意两同 ×2
+      </div>
+    </div>
+    <div class="foot">暗色金融终端风老虎机。余额归零即结束，可重开。红涨绿跌，祝你好运。</div>
+  </div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const SYMBOLS = [
+    { id:0, name:'CHERRY',  sym:'🍒', mult:3,   w:30 },
+    { id:1, name:'LEMON',   sym:'🍋', mult:5,   w:25 },
+    { id:2, name:'BELL',    sym:'🔔', mult:10,  w:20 },
+    { id:3, name:'BAR',     sym:'BAR', mult:20, w:15 },
+    { id:4, name:'SEVEN',   sym:'7',  mult:50,  w:8  },
+    { id:5, name:'DIAMOND', sym:'💎', mult:100, w:4  },
+  ];
+  const WSUM = SYMBOLS.reduce((a,s)=>a+s.w,0);
+  const START_BAL = 200;
+  const JACKPOT_MULT = 50; // 三连倍率 >= 此值为 jackpot
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  function pickSymbol(){
+    let x = _rand() * WSUM;
+    for(let i=0;i<SYMBOLS.length;i++){ x -= SYMBOLS[i].w; if(x<0) return SYMBOLS[i].id; }
+    return SYMBOLS[SYMBOLS.length-1].id;
+  }
+  function makeReels(){ return [pickSymbol(), pickSymbol(), pickSymbol()]; }
+
+  // 赔率：reels=[id,id,id], bet 下注额 → 返回赢额
+  function payout(reels, bet){
+    const [a,b,c] = reels;
+    if(a===b && b===c){
+      return { win: bet * SYMBOLS[a].mult, kind:'triple', sym:SYMBOLS[a] };
+    }
+    // 两同（顺序不限）
+    let pair = -1;
+    if(a===b) pair=a; else if(a===c) pair=a; else if(b===c) pair=b;
+    if(pair>=0){
+      if(pair===0) return { win: bet*5, kind:'two-cherry', sym:SYMBOLS[0] };
+      return { win: bet*2, kind:'pair', sym:SYMBOLS[pair] };
+    }
+    return { win:0, kind:'none', sym:null };
+  }
+  function isJackpot(reels, bet){
+    const [a,b,c]=reels;
+    if(a===b && b===c) return SYMBOLS[a].mult >= JACKPOT_MULT;
+    return false;
+  }
+
+  /* ===================== 状态机 ===================== */
+  let balance, bet, spinning, reels, lastWin, gameOver;
+  function reset(){
+    balance = START_BAL; bet = 10; spinning = false; reels = [0,1,2];
+    lastWin = 0; gameOver = false;
+  }
+  function setBet(v){
+    if(spinning) return false;
+    v = Math.floor(v);
+    if(!isFinite(v) || v<1) v = 1;
+    if(v>balance) v = balance;
+    bet = v; return true;
+  }
+  function spin(){
+    if(spinning || gameOver) return null;
+    if(bet<1 || bet>balance) return null;
+    balance -= bet;
+    spinning = true;
+    const rs = makeReels();
+    const p = payout(rs, bet);
+    balance += p.win;
+    spinning = false;
+    reels = rs;
+    lastWin = p.win;
+    if(balance<=0){ gameOver = true; }
+    if(typeof Juice!=='undefined'){
+      Juice.sfx(p.win>0 ? 'win' : 'click');
+      if(p.win>0){
+        if(isJackpot(rs,bet)){ if(typeof Juice.flash==='function') Juice.flash('#f0b90b'); Juice.addTrauma(0.4); }
+        else Juice.flash('#f0b90b');
+      }
+    }
+    return { reels:rs, win:p.win, kind:p.kind, jackpot:isJackpot(rs,bet) };
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined') ? document.getElementById(id) : null; }
+  function sym(id){ return SYMBOLS[id].sym; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const re0=$('r0'),re1=$('r1'),re2=$('r2'),bal=$('bal'),betv=$('betv'),bi=$('betInput'),msg=$('msg'),sp=$('spin');
+    if(!re0) return;
+    [re0,re1,re2].forEach((e,i)=> e.textContent = sym(reels[i]));
+    if(bal) bal.textContent = balance;
+    if(betv) betv.textContent = bet;
+    if(bi) bi.value = bet;
+    if(msg){
+      if(gameOver){ msg.className='msg jackpot'; msg.textContent='余额归零 · 游戏结束（刷新重开）'; }
+      else if(lastWin>0){ const jp=payout(reels,bet).kind; msg.className='msg '+(isJackpot(reels,bet)?'jackpot':'win'); msg.textContent=(isJackpot(reels,bet)?'💰 JACKPOT! ':'中奖! ')+'+'+lastWin; }
+      else { msg.className='msg'; msg.textContent='再试一次。'; }
+    }
+    if(sp) sp.disabled = spinning || gameOver;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const sp=$('spin'),bm=$('betMinus'),bp=$('betPlus'),bi=$('betInput');
+    if(sp) sp.onclick=()=>{ const r=spin(); if(r){ render(); } };
+    if(bm) bm.onclick=()=>{ setBet(bet-10); render(); };
+    if(bp) bp.onclick=()=>{ setBet(bet+10); render(); };
+    if(bi) bi.onclick=bi.onchange=()=>{ setBet(parseInt(bi.value||'1',10)); render(); };
+  }
+  reset();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      SYMBOLS, WSUM, START_BAL, JACKPOT_MULT,
+      setRand, pickSymbol, makeReels, payout, isJackpot,
+      reset, setBet, spin,
+      getBalance:()=>balance, getBet:()=>bet, getReels:()=>reels,
+      getLastWin:()=>lastWin, isGameOver:()=>gameOver, isSpinning:()=>spinning,
+    };
+  }
+})();
+</script>
+</body>
+</html>
