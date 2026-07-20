@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 华容道</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(440px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(440px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;grid-template-columns:repeat(5,46px);gap:4px;background:var(--panel);padding:10px;border-radius:14px;border:1px solid var(--border);margin:0 auto 10px;width:max-content;position:relative}
+  .cell{width:46px;height:46px;border-radius:7px;background:#0e141d;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;cursor:default;user-select:none}
+  .cell.empty{cursor:default}
+  .cell.piece{cursor:pointer;color:#0a0e14;font-weight:700}
+  .cell.sel{box-shadow:0 0 0 3px var(--gold)}
+  .cell.cao{background:linear-gradient(180deg,#f6465d,#c8324a)}
+  .cell.gen{background:linear-gradient(180deg,#2a3a4d,#141d28);color:var(--text)}
+  .cell.guan{background:linear-gradient(180deg,#3aa0ff,#2563c0);color:#fff}
+  .cell.sol{background:linear-gradient(180deg,#f0b90b,#c79309)}
+  .exit{position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);width:96px;height:6px;background:var(--green);border-radius:3px;box-shadow:0 0 12px rgba(2,192,118,.6)}
+  .controls{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:8px}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:6px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(440px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:8px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>华容道</b> KAWAI / KLOTSKI</span></div>
+  <div class="wrap">
+    <div class="hud"><span>步数 MOVES · <span class="st" id="moves">0</span></span><span id="status">护送曹操逃出底部</span></div>
+    <div class="board" id="board"><div class="exit"></div></div>
+    <div class="controls">
+      <button id="up">▲</button><button id="down">▼</button>
+      <button id="left">◀</button><button id="right">▶</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">点选一块棋子（曹操为红 2×2），再用方向键把它滑入相邻空格。让曹操从底部中央逃出即胜。</div>
+  </div>
+  <div class="foot">经典华容道：曹操（红 2×2）被众将围困，滑动各方块腾出通道，让曹操从棋盘底部中央出口逃脱即过关。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const W = 5, H = 4;
+  const SCRAMBLE = 40;
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+  // 出口（曹操 2x2 左上角目标）
+  const EXIT_R = H-2, EXIT_C = 1; // (2,1) → 占 (2,1)(2,2)(3,1)(3,2)
+
+  // 已解布局（曹操在出口）——用于生成可解初始局面
+  function solvedPieces(){
+    return [
+      {id:'cao', name:'曹操', r:2, c:1, w:2, h:2, cao:true, kind:'cao'},
+      {id:'gy',  name:'关羽', r:0, c:0, w:2, h:1, cao:false, kind:'guan'},
+      {id:'ga',  name:'张飞', r:0, c:2, w:1, h:2, cao:false, kind:'gen'},
+      {id:'gb',  name:'赵云', r:0, c:3, w:1, h:2, cao:false, kind:'gen'},
+      {id:'gc',  name:'马超', r:0, c:4, w:1, h:2, cao:false, kind:'gen'},
+      {id:'gd',  name:'黄忠', r:2, c:0, w:1, h:2, cao:false, kind:'gen'},
+      {id:'s1',  name:'兵', r:1, c:0, w:1, h:1, cao:false, kind:'sol'},
+      {id:'s2',  name:'兵', r:1, c:1, w:1, h:1, cao:false, kind:'sol'},
+      {id:'s3',  name:'兵', r:2, c:3, w:1, h:1, cao:false, kind:'sol'},
+      {id:'s4',  name:'兵', r:3, c:3, w:1, h:1, cao:false, kind:'sol'},
+    ];
+  }
+  let pieces, moves, won, over, sel;
+  function buildGrid(){
+    const g=Array.from({length:H},()=>new Array(W).fill(-1));
+    for(const p of pieces){
+      for(let r=0;r<p.h;r++) for(let c=0;c<p.w;c++) g[p.r+r][p.c+c]=p.id;
+    }
+    return g;
+  }
+  function inb(r,c){ return r>=0&&r<H&&c>=0&&c<W; }
+  function move(id, dr, dc){
+    if(over || isWin()) return false;
+    const p = pieces.find(x=>x.id===id); if(!p) return false;
+    const nr=p.r+dr, nc=p.c+dc;
+    const g=buildGrid();
+    for(let r=0;r<p.h;r++) for(let c=0;c<p.w;c++){
+      const rr=nr+r, cc=nc+c;
+      if(!inb(rr,cc)) return false;
+      if(g[rr][cc]!==-1 && g[rr][cc]!==id) return false; // 越界或撞其他块
+    }
+    p.r=nr; p.c=nc; moves++;
+    if(isWin()){ won=true; over=true; }
+    if(typeof Juice!=='undefined'){
+      if(won){ Juice.sfx('levelup'); Juice.best('klotski', moves); }
+      else Juice.sfx('click');
+    }
+    return true;
+  }
+  function isWin(){
+    const cao=pieces.find(x=>x.cao);
+    return cao && cao.r===EXIT_R && cao.c===EXIT_C;
+  }
+  function isOver(){ return over; }
+  function getMoves(){ return moves; }
+  function getPieces(){ return pieces.map(p=>({...p})); }
+  function getExit(){ return [EXIT_R,EXIT_C]; }
+  function getSel(){ return sel; }
+  function select(id){ sel = (sel===id)?null:id; }
+  function setPieces(arr){ pieces=arr.map(p=>({...p})); moves=0; won=false; over=false; sel=null; }
+  function newGame(){
+    pieces = solvedPieces();
+    moves=0; won=false; over=false; sel=null;
+    // 从已解局面随机走若干步 → 保证可由逆向走回（可解）
+    const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
+    let guard=0;
+    do{
+      for(let i=0;i<SCRAMBLE;i++){
+        const p=pieces[Math.floor(_rand()*pieces.length)];
+        const d=dirs[Math.floor(_rand()*4)];
+        move(p.id, d[0], d[1]); // 非法移动被忽略
+      }
+      guard++;
+    } while(isWin() && guard<10); // 避免开局即胜
+    moves=0; // 重置步数（打乱不计步）
+  }
+  function reset(){ newGame(); }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let cells=[];
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    // 保留 .exit，重建格子
+    b.querySelectorAll('.cell').forEach(e=>e.remove());
+    cells=[];
+    for(let r=0;r<H;r++){ const row=[]; for(let c=0;c<W;c++){
+      const el=document.createElement('div'); el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>onClick(r,c));
+      b.appendChild(el); row.push(el);
+    } cells.push(row); }
+  }
+  function onClick(r,c){
+    const g=buildGrid();
+    const id=g[r][c];
+    if(id!==-1){ select(id); render(); }
+  }
+  function moveSel(dr,dc){
+    if(sel){ move(sel,dr,dc); render(); }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const mv=$('moves'),msg=$('msg'),st=$('status');
+    const g=buildGrid();
+    for(let r=0;r<H;r++) for(let c=0;c<W;c++){
+      const el=cells[r] && cells[r][c]; if(!el) continue;
+      const id=g[r][c];
+      if(id===-1){ el.className='cell empty'; el.textContent=''; continue; }
+      const p=pieces.find(x=>x.id===id);
+      el.className='cell piece '+p.kind+(sel===id?' sel':'');
+      el.textContent=p.name;
+    }
+    if(mv) mv.textContent=moves;
+    if(st) st.textContent = won?'已通关':(over?'已结束':'护送曹操逃出底部');
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 曹操逃脱！用了 '+moves+' 步。'; }
+      else if(over){ msg.className='msg win'; msg.textContent='已结束。'; }
+      else { msg.className='msg'; msg.textContent='点选棋子，用方向键滑入空格。'; } }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),up=$('up'),dn=$('down'),lf=$('left'),rg=$('right');
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+    if(up) up.onclick=()=>moveSel(-1,0);
+    if(dn) dn.onclick=()=>moveSel(1,0);
+    if(lf) lf.onclick=()=>moveSel(0,-1);
+    if(rg) rg.onclick=()=>moveSel(0,1);
+    if(typeof window!=='undefined' && window.addEventListener){
+      window.addEventListener('keydown',e=>{
+        const k=e.key;
+        if(k==='ArrowUp'){ moveSel(-1,0); e.preventDefault(); }
+        else if(k==='ArrowDown'){ moveSel(1,0); e.preventDefault(); }
+        else if(k==='ArrowLeft'){ moveSel(0,-1); e.preventDefault(); }
+        else if(k==='ArrowRight'){ moveSel(0,1); e.preventDefault(); }
+      });
+    }
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      W, H, EXIT_R, EXIT_C, SCRAMBLE,
+      setRand, newGame, reset, move, isWin, isOver, getMoves,
+      getPieces, getExit, getSel, select, setPieces, buildGrid,
+    };
+  }
+})();
+</script>
+</body>
+</html>

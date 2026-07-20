@@ -57,6 +57,7 @@ const FILES = {
   'simon.html':        { name:'记忆灯 Simon',                offline:true },
   'pegsolitaire.html': { name:'孔明棋 Peg Solitaire',        offline:true },
   'nonogram.html':     { name:'数织 Nonogram',               offline:true },
+  'klotski.html':      { name:'华容道 Klotski',               offline:true },
 };
 
 let totalPass=0, totalFail=0;
