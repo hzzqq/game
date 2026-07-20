@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 弹球</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  canvas{background:#0e141d;border:1px solid var(--border);border-radius:8px;max-width:98vw}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>弹球</b> PONG</span></div>
+  <div class="wrap">
+    <div class="hud"><span>比分 · <span class="st" id="sc">0 : 0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <canvas id="cv" width="400" height="300"></canvas>
+    <div class="msg" id="msg">← → / W S 控制左右挡板，把球弹回对方半场。漏球则对方得分，先到 11 分胜。</div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+  </div>
+  <div class="foot">Pong（弹球）：双人对战经典。控制挡板反弹小球，球越过对方挡板即得分，先到 11 分获胜。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const W=400, H=300, PW=8, PH=60, R=7, WIN=11;
+  let ball, leftY, rightY, score, over, winner;
+  function reset(){
+    ball={ x:W/2, y:H/2, vx:3, vy:1.5, speed:3 };
+    leftY=H/2; rightY=H/2; score=[0,0]; over=false; winner=-1;
+  }
+  function setPaddle(side,y){ if(side==='left') leftY=y; else rightY=y; }
+  function setBall(x,y,vx,vy){ ball.x=x; ball.y=y; ball.vx=vx; ball.vy=vy; }
+  function step(dt){
+    if(over) return;
+    dt=dt||1;
+    ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
+    if(ball.y<R){ ball.y=R; ball.vy=Math.abs(ball.vy); }
+    if(ball.y>H-R){ ball.y=H-R; ball.vy=-Math.abs(ball.vy); }
+    // 左挡板
+    if(ball.vx<0 && ball.x-R<=PW+PH/2 && ball.x-R>=0 && Math.abs(ball.y-leftY)<=PH/2) { ball.vx=Math.abs(ball.vx); ball.x=PW+PH/2+R; }
+    // 右挡板
+    if(ball.vx>0 && ball.x+R>=W-PW-PH/2 && ball.x+R<=W && Math.abs(ball.y-rightY)<=PH/2) { ball.vx=-Math.abs(ball.vx); ball.x=W-PW-PH/2-R; }
+    if(ball.x<0){ score[1]++; if(score[1]>=WIN){over=true;winner=1;} else resetBall(1); }
+    else if(ball.x>W){ score[0]++; if(score[0]>=WIN){over=true;winner=0;} else resetBall(-1); }
+  }
+  function resetBall(dir){ ball.x=W/2; ball.y=H/2; ball.vx=dir*3; ball.vy=(Math.random()*2-1)*1.5; }
+  function getScore(){ return score.slice(); }
+  function getBall(){ return {x:ball.x,y:ball.y,vx:ball.vx,vy:ball.vy}; }
+  function isOver(){ return over; }
+  function getWinner(){ return winner; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('cv'); if(!cv||!cv.getContext) return; const ctx=cv.getContext('2d');
+    ctx.fillStyle='#0e141d'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#f0b90b'; ctx.fillRect(0,leftY-PH/2,PW,PH); ctx.fillRect(W-PW,rightY-PH/2,PW,PH);
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,R,0,Math.PI*2); ctx.fill();
+    const sc=$('sc'),st=$('st'); if(sc)sc.textContent=score[0]+' : '+score[1]; if(st)st.textContent=over?'结束':'进行中';
+  }
+  function loop(){ if(typeof requestAnimationFrame==='undefined') return; step(1); render(); requestAnimationFrame(loop); }
+  reset();
+  if(typeof document!=='undefined'){ const nb=$('new'); if(nb) nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
+  if(typeof window!=='undefined'){ window.__t={ reset, setPaddle, setBall, step, getScore, getBall, isOver, getWinner }; }
+})();
+</script>
+</body>
+</html>

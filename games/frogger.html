@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 青蛙过河</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex:space-between;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:2px;justify-content:center;margin:6px auto;width:max-content;background:var(--border);padding:2px;border-radius:8px}
+  .cell{width:30px;height:24px;background:#0e141d;display:flex;align-items:center;justify-content:center;font-size:13px}
+  .cell.car{background:var(--red)}
+  .cell.log{background:#7a5230}
+  .cell.frog{background:var(--green);color:#0a0e14;font-weight:700}
+  .cell.goal{background:var(--gold)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>青蛙过河</b> FROGGER</span></div>
+  <div class="wrap">
+    <div class="hud"><span>位置 · <span class="st" id="pos">--</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="msg" id="msg">方向键移动青蛙，躲开马路车流、踩着河面浮木过河，抵达顶部终点即胜。被撞或落水即失败。</div>
+    <div class="controls">
+      <button data-d="up">↑</button><button data-d="left">←</button><button data-d="down">↓</button><button data-d="right">→</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+  </div>
+  <div class="foot">Frogger（青蛙过河）：操纵青蛙穿越车流与河流，踩浮木过河中抵达对岸终点。考验时机与走位。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const ROWS=13, COLS=11;
+  let frog, rows, dead, goal;
+  function defaultRows(){
+    rows=[];
+    for(let r=0;r<ROWS;r++){
+      let type='safe';
+      if(r===0) type='goal';
+      else if(r>=1&&r<=5) type='water';
+      else if(r>=7&&r<=11) type='road';
+      rows.push({ type, dir: r%2===0?1:-1, speed:1, obstacles:[] });
+    }
+  }
+  function reset(){ frog={row:ROWS-1,col:Math.floor(COLS/2)}; defaultRows(); dead=false; goal=false; }
+  function setFrog(r,c){ frog.row=r; frog.col=c; }
+  function setRow(r,type){ rows[r].type=type; }
+  function setObstacles(r,cols){ rows[r].obstacles=cols.slice(); }
+  function setRowDir(r,d){ rows[r].dir=d; }
+  function setRowSpeed(r,s){ rows[r].speed=s; }
+  function move(d){
+    if(dead||goal) return;
+    if(d==='up') frog.row=Math.max(0,frog.row-1);
+    else if(d==='down') frog.row=Math.min(ROWS-1,frog.row+1);
+    else if(d==='left') frog.col=Math.max(0,frog.col-1);
+    else if(d==='right') frog.col=Math.min(COLS-1,frog.col+1);
+    if(frog.row===0) goal=true;
+  }
+  function tick(dt){
+    if(dead||goal) return;
+    dt=dt||1;
+    for(const row of rows){ for(let i=0;i<row.obstacles.length;i++){ let c=row.obstacles[i]+row.dir*row.speed*dt; if(c<0)c+=COLS; if(c>=COLS)c-=COLS; row.obstacles[i]=c; } }
+    const row=rows[frog.row];
+    if(row.type==='road'){ if(row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)) dead=true; }
+    else if(row.type==='water'){ if(!row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)) dead=true; else frog.col += row.dir*row.speed*dt; }
+  }
+  function isDead(){ return dead; }
+  function isGoal(){ return goal || frog.row===0; }
+  function getFrog(){ return {row:frog.row,col:frog.col}; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+COLS+',30px)'; bd.innerHTML=''; for(let r=0;r<ROWS;r++){ for(let c=0;c<COLS;c++){ const d=document.createElement('div'); let cls='cell'; const row=rows[r]; const hasObs=row.obstacles.some(o=>Math.abs(o-c)<0.6); if(row.type==='goal') cls+=' goal'; else if(row.type==='road'&&hasObs) cls+=' car'; else if(row.type==='water'&&hasObs) cls+=' log'; if(frog.row===r&&frog.col===c) cls+=' frog'; d.className=cls; d.textContent=(frog.row===r&&frog.col===c)?'🐸':''; bd.appendChild(d); } } }
+    const p=$('pos'),st=$('st'); if(p)p.textContent='('+frog.row+','+frog.col+')'; if(st)st.textContent=goal?'已到达':(dead?'失败':'进行中');
+    const msg=$('msg'); if(msg){ if(goal){msg.className='msg win';msg.textContent='🎉 青蛙成功过河！';} else if(dead){msg.className='msg';msg.textContent='💀 被撞或落水，失败。';} }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    document.querySelectorAll('.controls button[data-d]').forEach(b=>{ b.onclick=()=>{ move(b.getAttribute('data-d')); tick(0); render(); }; });
+    const nb=$('new'); if(nb) nb.onclick=()=>{ reset(); render(); };
+  }
+  reset();
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ reset, setFrog, setRow, setObstacles, setRowDir, setRowSpeed, move, tick, isDead, isGoal, getFrog }; }
+})();
+</script>
+</body>
+</html>

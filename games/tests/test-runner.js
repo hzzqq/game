@@ -83,6 +83,10 @@ const FILES = {
   'liarsdice.html':    { name:'吹牛 Liar\'s Dice',            offline:true },
   'rps.html':          { name:'石头剪刀布 RPS',               offline:true },
   'bingo.html':        { name:'宾果 Bingo',                  offline:true },
+  'dice.html':         { name:'掷骰 Pig',                    offline:true },
+  'pong.html':         { name:'弹球 Pong',                   offline:true },
+  'asteroids.html':    { name:'小行星 Asteroids',            offline:true },
+  'frogger.html':      { name:'青蛙过河 Frogger',            offline:true },
 };
 
 let totalPass=0, totalFail=0;
