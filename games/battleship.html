@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 战舰</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(620px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(620px,98vw);display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+  .board{display:grid;grid-template-columns:repeat(10,32px);gap:2px;background:var(--border);border:2px solid var(--border);border-radius:8px;padding:4px}
+  .cell{width:32px;height:32px;background:#0c121a;border:1px solid #16202c;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;user-select:none}
+  .cell:hover{border-color:var(--red)}
+  .cell.miss{background:#10202b}
+  .cell.miss::after{content:'·';color:var(--dim)}
+  .cell.hit{background:var(--red);color:#0a0e14;font-weight:700}
+  .cell.hit::after{content:'✸'}
+  .cell.sunk{background:var(--gold);color:#0a0e14;font-weight:700}
+  .side{flex:1;min-width:180px}
+  .hud{font-size:13px;color:var(--dim);margin-bottom:8px}
+  .hud b{color:var(--green)}
+  .fleet{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px}
+  .fleet .sh{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(31,42,56,.5)}
+  .fleet .sh:last-child{border-bottom:none}
+  .fleet .sh.sunk{color:var(--gold);text-decoration:line-through}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:14px;color:var(--dim);width:100%}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(620px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>战舰</b> BATTLESHIP</span></div>
+  <div class="wrap">
+    <div class="board" id="board"></div>
+    <div class="side">
+      <div class="hud">命中 <b id="hits">0</b> · 击沉 <b id="sunk">0</b>/5 · 射击 <b id="shots">0</b></div>
+      <div class="fleet" id="fleet"></div>
+    </div>
+    <div class="msg" id="msg">点击格子轰炸敌方舰队，击沉全部 5 艘即胜。</div>
+  </div>
+  <div class="foot">经典战舰：计算机在 10×10 海域布下 5 艘舰（长度 5/4/3/3/2）。点击坐标轰炸，反馈命中/未中/击沉。红涨绿跌，暗色终端风。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const SIZE = 10;
+  const SHIP_LENS = [5,4,3,3,2];
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let board, ships, shots, hits, sunkCount, over, won;
+  function reset(){
+    board = []; for(let r=0;r<SIZE;r++) board.push(new Array(SIZE).fill(0)); // 0空 1舰 2命中
+    ships = []; shots = new Set(); hits = 0; sunkCount = 0; over = false; won = false;
+    placeShips();
+  }
+  function key(r,c){ return r+','+c; }
+  function placeShips(){
+    for(const len of SHIP_LENS){
+      let placed=false, guard=0;
+      while(!placed && guard++<200){
+        const horiz = _rand()<0.5;
+        const r = Math.floor(_rand()*SIZE), c = Math.floor(_rand()*SIZE);
+        const cells=[]; let okk=true;
+        for(let i=0;i<len;i++){
+          const rr = horiz? r : r+i, cc = horiz? c+i : c;
+          if(rr>=SIZE||cc>=SIZE||board[rr][cc]!==0){ okk=false; break; }
+          cells.push({r:rr,c:cc});
+        }
+        if(!okk) continue;
+        cells.forEach(p=>board[p.r][p.c]=1);
+        ships.push({len, cells, hits:0, sunk:false});
+        placed=true;
+      }
+    }
+  }
+  function shoot(r,c){
+    if(over) return {err:'over'};
+    if(r<0||r>=SIZE||c<0||c>=SIZE) return {err:'oob'};
+    if(shots.has(key(r,c))) return {repeat:true};
+    shots.add(key(r,c));
+    let res={r,c,miss:true,hit:false,sunk:false};
+    if(board[r][c]===1){
+      board[r][c]=2; hits++; res.miss=false; res.hit=true;
+      const ship = ships.find(s=>s.cells.some(p=>p.r===r&&p.c===c));
+      ship.hits++;
+      if(ship.hits===ship.len){ ship.sunk=true; sunkCount++; res.sunk=true; }
+      if(sunkCount===ships.length){ won=true; over=true; }
+    }
+    if(!won && shots.size>=SIZE*SIZE) over=true; // 极端：全射完未胜（理论上不会，因舰必被击中）
+    if(typeof Juice!=='undefined'){
+      if(res.sunk){ Juice.sfx('boom'); Juice.addTrauma(0.3); }
+      else if(res.hit){ Juice.sfx('click'); }
+      else Juice.sfx('miss');
+      if(won){ Juice.sfx('levelup'); Juice.best('battleship', shots.size); }
+    }
+    return res;
+  }
+  function isWin(){ return won; }
+  function isOver(){ return over; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let cellEls=[];
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return; b.innerHTML=''; cellEls=[];
+    for(let r=0;r<SIZE;r++){ cellEls.push([]); for(let c=0;c<SIZE;c++){
+      const e=document.createElement('div'); e.className='cell'; e.onclick=()=>onCell(r,c);
+      b.appendChild(e); cellEls[r].push(e);
+    }}
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const h=$('hits'),s=$('sunk'),sh=$('shots'),fl=$('fleet'),msg=$('msg');
+    if(!h) return;
+    h.textContent=hits; s.textContent=sunkCount; sh.textContent=shots.size;
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+      const e=cellEls[r][c]; const v=board[r][c];
+      e.className='cell'+(v===2?' hit':'')+(v===2&&ships.some(s=>s.sunk&&s.cells.some(p=>p.r===r&&p.c===c))?' sunk':'');
+    }
+    if(fl){
+      fl.innerHTML='';
+      ships.forEach((s,i)=>{ const row=document.createElement('div'); row.className='sh'+(s.sunk?' sunk':''); row.innerHTML='<span>舰 '+(i+1)+' (长'+s.len+')</span><span>'+(s.sunk?'击沉':s.hits+'/'+s.len)+'</span>'; fl.appendChild(row); });
+    }
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 全舰队击沉！用了 '+shots.size+' 发。'; } else if(over){ msg.className='msg win'; msg.textContent='海域清空。'; } else { msg.className='msg'; msg.textContent='继续轰炸。'; } }
+  }
+  function onCell(r,c){
+    if(over) return;
+    const res=shoot(r,c);
+    if(res.repeat) return;
+    render();
+  }
+  reset();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); render(); });
+    else { buildBoard(); render(); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      SIZE, SHIP_LENS,
+      setRand, reset, shoot, isWin, isOver,
+      getBoard:()=>board, getShips:()=>ships, getShots:()=>shots,
+      getHits:()=>hits, getSunk:()=>sunkCount,
+      setBoard:(b)=>{ board=b; }, addShot:(r,c)=>shots.add(key(r,c)),
+    };
+  }
+})();
+</script>
+</body>
+</html>

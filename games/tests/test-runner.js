@@ -42,6 +42,7 @@ const FILES = {
   'slots.html':     { name:'老虎机 Slots',         offline:true },
   'lianliankan.html':{ name:'连连看 Lianliankan',   offline:true },
   'mastermind.html': { name:'猜数字 Mastermind',     offline:true },
+  'battleship.html': { name:'战舰 Battleship',       offline:true },
 };
 
 let totalPass=0, totalFail=0;
