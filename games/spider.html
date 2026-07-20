@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 蜘蛛纸牌</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(760px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(760px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .tableau{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
+  .col{width:46px;display:flex;flex-direction:column;gap:2px;align-items:center}
+  .slot{width:46px;height:62px;border:1px solid var(--border);border-radius:6px;background:#0e141d;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700}
+  .slot.red{color:var(--red)} .slot.black{color:var(--text)}
+  .slot.empty{color:var(--dim);font-size:12px}
+  .controls{display:flex;gap:8px;margin-top:10px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(760px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>蜘蛛纸牌</b> SPIDER</span></div>
+  <div class="wrap">
+    <div class="hud"><span>已收套数 · <span class="st" id="fn">0/8</span></span><span>牌库 STOCK · <span class="st" id="st">50</span></span></div>
+    <div class="tableau" id="tableau"></div>
+    <div class="controls">
+      <button id="deal">发牌 DEAL</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">同花色 K→A 整列自动收走。点列顶把牌移到相邻列（目标比它大 1 即可，花色不限）。集满 8 套通关。</div>
+  </div>
+  <div class="foot">蜘蛛纸牌（Spider，双色版）：104 张牌 10 列，降序接龙，同花色完整顺子自动收入 8 座。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const SUITS=['♠','♥'];
+  let tableau, stock, foundations, over, won, _rand;
+  function setRand(fn){ _rand=fn; }
+  function color(s){ return s===1?'red':'black'; }
+  function newDeck(){ const d=[]; for(let copy=0;copy<2;copy++) for(let s=0;s<2;s++) for(let r=1;r<=13;r++) d.push({s,r}); return d; }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor((_rand||Math.random)()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function newGame(){
+    const deck=shuffle(newDeck());
+    tableau=[[],[],[],[],[],[],[],[],[],[]];
+    for(let c=0;c<10;c++){ const n=(c<4)?6:5; for(let k=0;k<n;k++) tableau[c].push(deck.pop()); }
+    stock=deck; foundations=0; over=false; won=false;
+  }
+  function canStack(card, col){ const t=tableau[col]; if(t.length===0) return true; return t[t.length-1].r === card.r+1; }
+  function moveToColumn(from,to){ if(from===to) return false; if(!tableau[from].length) return false; const c=tableau[from][tableau[from].length-1]; if(!canStack(c,to)) return false; tableau[to].push(c); tableau[from].pop(); settle(); return true; }
+  function settle(){
+    for(let c=0;c<10;c++){ const t=tableau[c]; if(t.length<13) continue; let ok=true; const suit=t[t.length-1].s;
+      for(let k=0;k<13;k++){ const card=t[t.length-1-k]; if(card.r!==(1+k) || card.s!==suit){ ok=false; break; } }
+      if(ok){ t.splice(t.length-13,13); foundations++; if(foundations>=8){ over=true; won=true; } }
+    }
+  }
+  function dealOne(){ if(over||!stock.length) return false; for(let c=0;c<10;c++){ if(!stock.length) break; if(tableau[c].length) tableau[c].push(stock.pop()); } return true; }
+  function isWin(){ return won || foundations>=8; }
+  function getState(){ return { tableau:tableau.map(t=>t.map(c=>({...c}))), stock:stock.length, foundations, over, won }; }
+  function setTableau(t,f,s){ const COLS=10; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f||0; stock=(s||[]).map(c=>({...c})); over=false; won=false; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function cardHTML(c){ if(!c) return '<div class="slot empty">·</div>'; const nm=c.r===1?'A':c.r===11?'J':c.r===12?'Q':c.r===13?'K':c.r; return '<div class="slot '+(color(c.s))+'">'+nm+SUITS[c.s]+'</div>'; }
+  function build(){
+    if(typeof document==='undefined') return;
+    const tb=$('tableau'); if(!tb) return; tb.innerHTML='';
+    for(let c=0;c<10;c++){ const col=document.createElement('div'); col.className='col'; col.dataset.c=c;
+      col.addEventListener('click',()=>{ if(!over){ moveToColumn(c,(c+1)%10); render(); } });
+      tb.appendChild(col);
+    }
+    const dl=$('deal'); if(dl) dl.onclick=()=>{ dealOne(); render(); };
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cols=document.querySelectorAll('#tableau .col');
+    for(let c=0;c<10;c++){ if(!cols[c]) continue; let h=''; for(const card of tableau[c]) h+=cardHTML(card); if(!tableau[c].length) h='<div class="slot empty">·</div>'; cols[c].innerHTML=h; }
+    const fn=$('fn'),st=$('st'),msg=$('msg');
+    if(fn) fn.textContent=foundations+'/8';
+    if(st) st.textContent=stock.length;
+    if(msg){ if(over&&won){ msg.className='msg win'; msg.textContent='🏁 八套收齐，通关！'; } else msg.className='msg'; }
+  }
+  function bindUI(){ if(typeof document==='undefined') return; const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); render(); }; }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ build(); bindUI(); render(); });
+    else { build(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ SUITS, color, newGame, newDeck, canStack, moveToColumn, settle, dealOne, isWin, getState, setTableau, setRand };
+  }
+})();
+</script>
+</body>
+</html>

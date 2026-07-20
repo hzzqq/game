@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 大老二</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(640px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(640px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:flex;flex-direction:column;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;width:min(600px,96vw)}
+  .row{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+  .row .who{color:var(--dim)}
+  .row .cnt{color:var(--gold)}
+  .row.cur .who{color:var(--green);font-weight:700}
+  .hand{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;min-height:44px}
+  .card{width:38px;height:54px;border:1px solid var(--border);border-radius:6px;background:#0e141d;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;cursor:pointer}
+  .card.red{color:var(--red)} .card.black{color:var(--text)}
+  .card.sel{box-shadow:0 0 0 2px var(--gold)}
+  .controls{display:flex;gap:8px;margin-top:10px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(640px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>大老二</b> BIG TWO</span></div>
+  <div class="wrap">
+    <div class="hud"><span>轮到 · <span class="st" id="turn">玩家1</span></span><span>规则 · <span class="st">单/对</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="pass" class="ghost">过 PASS</button>
+      <button id="play">出牌 PLAY</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">4 人各 13 张：出单张或一对，跟同型更大牌；都过则赢家领出。先出完手牌者胜（黑桃 2 最大）。</div>
+  </div>
+  <div class="foot">大老二（Big Two）：含 2 的最大牌序，组合单/对，跟牌须同型更大；先把手牌出光者获胜。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const SUITS=['♣','♦','♥','♠']; // ♣<♦<♥<♠（黑桃最大）
+  let hands, turn, lead, lastWinner, passes, over, winner, sel;
+  function setRand(fn){ _rand=fn; } let _rand;
+  function rankVal(r){ return r===2?15 : r===1?14 : r; }
+  function suitVal(s){ return s; }
+  function comboOf(cards){
+    if(cards.length===1) return {type:'single', cards, power:[1, rankVal(cards[0].r), suitVal(cards[0].s)]};
+    if(cards.length===2 && cards[0].r===cards[1].r) return {type:'pair', cards, power:[2, rankVal(cards[0].r), Math.max(suitVal(cards[0].s),suitVal(cards[1].s))]};
+    return null;
+  }
+  function higher(a,b){ if(a.type!==b.type) return false; return a.power[1]>b.power[1] || (a.power[1]===b.power[1] && a.power[2]>b.power[2]); }
+  function newGame(){
+    const d=[]; for(let s=0;s<4;s++) for(let r=1;r<=13;r++) d.push({s,r});
+    for(let i=d.length-1;i>0;i--){ const j=Math.floor((_rand||Math.random)()*(i+1)); const t=d[i];d[i]=d[j];d[j]=t; }
+    hands=[[],[],[],[]]; for(let i=0;i<52;i++) hands[i%4].push(d[i]);
+    turn=0; lead=null; lastWinner=0; passes=0; over=false; winner=null; sel=[];
+  }
+  function play(player, combo){
+    if(over) return false;
+    if(player!==turn) return false;
+    if(combo.type==='pass'){
+      if(lead===null) return false; // 领出者必须出牌
+      passes++;
+      if(passes>=3){ lead=null; passes=0; turn=lastWinner; }
+      else turn=(turn+1)%4;
+      return true;
+    }
+    if(lead===null){ lead=combo; lastWinner=player; passes=0; }
+    else { if(combo.type!==lead.type) return false; if(!higher(combo,lead)) return false; lead=combo; lastWinner=player; passes=0; }
+    for(const c of combo.cards){ const i=hands[player].findIndex(x=>x.s===c.s&&x.r===c.r); if(i>=0) hands[player].splice(i,1); }
+    if(hands[player].length===0){ over=true; winner=player; return true; }
+    turn=(turn+1)%4; return true;
+  }
+  function isWin(){ return over; }
+  function getWinner(){ return winner; }
+  function getTurn(){ return turn; }
+  function getHands(){ return hands.map(h=>h.map(c=>({...c}))); }
+  function setHands(h, t){ hands=h.map(x=>x.map(c=>({...c}))); turn=(t===undefined?0:t); lead=null; lastWinner=t||0; passes=0; over=false; winner=null; sel=[]; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function cardHTML(c,idx){ const nm=c.r===1?'A':c.r===11?'J':c.r===12?'Q':c.r===13?'K':c.r; const col=(c.s===1||c.s===2)?'red':'black'; return '<div class="card '+(sel.indexOf(idx)>=0?'sel ':'')+col+'" data-i="'+idx+'">'+nm+SUITS[c.s]+'</div>'; }
+  function build(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(!bd) return; bd.innerHTML='';
+    for(let p=0;p<4;p++){ const row=document.createElement('div'); row.className='row'+(p===turn?' cur':''); row.dataset.p=p;
+      const info=document.createElement('div'); info.innerHTML='<span class="who">玩家'+(p+1)+'</span> · <span class="cnt">'+hands[p].length+' 张</span>';
+      const h=document.createElement('div'); h.className='hand';
+      hands[p].forEach((c,idx)=>{ const el=document.createElement('div'); el.innerHTML=cardHTML(c,idx);
+        if(p===0){ el.firstChild.addEventListener('click',()=>{ const i=sel.indexOf(idx); if(i>=0) sel.splice(i,1); else sel.push(idx); render(); }); }
+        h.appendChild(el.firstChild);
+      });
+      row.appendChild(info); row.appendChild(h); bd.appendChild(row);
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    build();
+    const t=$('turn'),msg=$('msg');
+    if(t) t.textContent='玩家'+(turn+1);
+    if(msg){ if(over){ msg.className='msg win'; msg.textContent='🏁 玩家'+(winner+1)+' 出完手牌，获胜！'; } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const pb=$('play'),ps=$('pass'),nb=$('new');
+    if(pb) pb.onclick=()=>{ const cards=sel.map(i=>hands[0][i]).filter(Boolean); const combo=comboOf(cards); if(combo && play(0,combo)){ sel=[]; render(); } };
+    if(ps) ps.onclick=()=>{ if(play(0,{type:'pass'})){ sel=[]; render(); } };
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ SUITS, rankVal, suitVal, comboOf, higher, newGame, play, isWin, getWinner, getTurn, getHands, setHands, setRand };
+  }
+})();
+</script>
+</body>
+</html>

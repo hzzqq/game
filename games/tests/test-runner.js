@@ -67,6 +67,10 @@ const FILES = {
   'dominoes.html':     { name:'多米诺 Dominoes',              offline:true },
   'quarto.html':       { name:'夸托 Quarto',                  offline:true },
   'hex.html':          { name:'六角棋 Hex',                   offline:true },
+  'klondike.html':     { name:'纸牌接龙 Klondike',            offline:true },
+  'freecell.html':     { name:'空当接龙 FreeCell',            offline:true },
+  'spider.html':       { name:'蜘蛛纸牌 Spider',              offline:true },
+  'bigtwo.html':       { name:'大老二 Big Two',               offline:true },
 };
 
 let totalPass=0, totalFail=0;
