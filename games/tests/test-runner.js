@@ -87,6 +87,10 @@ const FILES = {
   'pong.html':         { name:'弹球 Pong',                   offline:true },
   'asteroids.html':    { name:'小行星 Asteroids',            offline:true },
   'frogger.html':      { name:'青蛙过河 Frogger',            offline:true },
+  'tron.html':         { name:'光轮对战 Tron',               offline:true },
+  'bomberman.html':    { name:'炸弹人 Bomberman',            offline:true },
+  'bowling.html':      { name:'保龄球 Bowling',              offline:true },
+  'golf.html':         { name:'迷你高尔夫 Golf',             offline:true },
 };
 
 let totalPass=0, totalFail=0;

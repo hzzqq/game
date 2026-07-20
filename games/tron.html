@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 光轮对战</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex:justify-content:space-between;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:1px;justify-content:center;margin:6px auto;width:max-content;background:var(--border);padding:1px;border-radius:6px}
+  .cell{width:22px;height:22px;background:#0e141d}
+  .cell.p0{background:var(--red)}
+  .cell.p1{background:var(--green)}
+  .cell.h0{background:#ff9aa6}.cell.h1{background:#86efac}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>光轮对战</b> TRON</span></div>
+  <div class="wrap">
+    <div class="hud"><span>玩家0 · <span class="st" style="color:var(--red)">红</span></span><span>状态 · <span class="st" id="st">进行中</span></span><span>玩家1 · <span class="st" style="color:var(--green)">绿</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="msg" id="msg">双光轮在网格中行驶并留下光迹，撞墙、撞光迹或头碰头即出局，存活者胜。方向键控制红方，WASD 控制绿方。</div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+  </div>
+  <div class="foot">Tron（光轮对战）：双人网格竞速。光轮行进会在身后留下轨迹，撞墙、撞对方轨迹或迎面相撞即淘汰，最后存活者获胜。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const DIRS={ up:[-1,0], down:[1,0], left:[0,-1], right:[0,1] };
+  let W,H,p0,p1,winner;
+  function setup(w,h,pA,pB){
+    W=w; H=h;
+    p0={ id:0, x:pA.x, y:pA.y, dir:pA.dir, trail:new Set([pA.y+','+pA.x]), dead:false };
+    p1={ id:1, x:pB.x, y:pB.y, dir:pB.dir, trail:new Set([pB.y+','+pB.x]), dead:false };
+    winner=-1;
+  }
+  function setDir(p,d){ const pl=p===0?p0:p1; if(!pl.dead) pl.dir=d; }
+  function step(){
+    if(winner!==-1) return;
+    const next={};
+    for(const pl of [p0,p1]){ if(pl.dead) continue; const [dr,dc]=DIRS[pl.dir]; next[pl.id]=[pl.y+dr, pl.x+dc]; }
+    const occ=new Set([...p0.trail, ...p1.trail]);
+    for(const pl of [p0,p1]){
+      if(pl.dead) continue;
+      const [nr,nc]=next[pl.id];
+      if(nr<0||nc<0||nr>=H||nc>=W){ pl.dead=true; continue; }
+      if(occ.has(nr+','+nc)){ pl.dead=true; continue; }
+      const other = pl.id===0?p1:p0;
+      if(other.id in next && next[other.id][0]===nr && next[other.id][1]===nc){ pl.dead=true; if(!other.dead) other.dead=true; }
+    }
+    for(const pl of [p0,p1]){ if(pl.dead) continue; const [nr,nc]=next[pl.id]; pl.trail.add(pl.y+','+pl.x); pl.y=nr; pl.x=nc; }
+    if(p0.dead&&p1.dead) winner=-1; else if(p0.dead) winner=1; else if(p1.dead) winner=0;
+  }
+  function getWinner(){ return winner; }
+  function getState(){ return { p0:{x:p0.x,y:p0.y,dead:p0.dead}, p1:{x:p1.x,y:p1.y,dead:p1.dead}, winner }; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',22px)'; bd.innerHTML=''; for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); let cls='cell'; const k=r+','+c; if(p0.trail.has(k))cls+=' p0'; if(p1.trail.has(k))cls+=' p1'; if(p0.x===c&&p0.y===r)cls+=' h0'; if(p1.x===c&&p1.y===r)cls+=' h1'; d.className=cls; bd.appendChild(d); } } }
+    const st=$('st'); if(st)st.textContent=winner===-1?'平局/进行中':('玩家'+winner+' 胜');
+  }
+  function bindKeys(){
+    if(typeof document==='undefined') return;
+    window.addEventListener('keydown',e=>{ const m={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'}; if(m[e.key]) setDir(0,m[e.key]); const w={w:'up',s:'down',a:'left',d:'right'}; if(w[e.key]) setDir(1,w[e.key]); });
+  }
+  function loop(){ if(typeof requestAnimationFrame==='undefined') return; step(); render(); requestAnimationFrame(loop); }
+  if(typeof document!=='undefined'){ const nb=$('new'); if(nb) nb.onclick=()=>{ setup(W,H,{x:1,y:1,dir:'right'},{x:W-2,y:H-2,dir:'left'}); render(); }; bindKeys(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); render(); loop(); }); else { setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); render(); loop(); } }
+  if(typeof window!=='undefined'){ window.__t={ setup, setDir, step, getWinner, getState }; }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 炸弹人</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex:justify-content:space-between;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:1px;justify-content:center;margin:6px auto;width:max-content;background:var(--border);padding:1px;border-radius:6px}
+  .cell{width:26px;height:26px;background:#0e141d}
+  .cell.block{background:#7a5230}
+  .cell.wall{background:#3b4654}
+  .cell.blast{background:var(--gold)}
+  .cell.bomb{background:var(--red)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>炸弹人</b> BOMBERMAN</span></div>
+  <div class="wrap">
+    <div class="hud"><span>范围 · <span class="st" id="rg">2</span></span><span>状态 · <span class="st" id="st">布弹中</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="msg" id="msg">放置炸弹后十字爆破，炸毁可破坏砖块、击杀爆炸范围内的角色。规划走位用爆破清场。</div>
+    <div class="controls">
+      <button id="bomb">放弹 BOMB</button>
+      <button id="boom" class="ghost">引爆 DETONATE</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+  </div>
+  <div class="foot">Bomberman（炸弹人）：放置定时炸弹，爆炸沿十字方向波及，摧毁可破坏砖块并击杀范围内角色，利用爆破开路。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let W,H, blocks, walls, bombs, players, range;
+  function setup(w,h,blockList){
+    W=w; H=h; blocks=new Set((blockList||[]).map(b=>b[0]+','+b[1])); walls=new Set(); bombs=null; players=[]; range=2;
+  }
+  function setRange(r){ range=r; }
+  function setBomb(x,y){ bombs={x,y}; }
+  function setPlayers(arr){ players=arr.map(p=>({x:p.x,y:p.y,dead:false})); }
+  function inBlast(r,c){ return blastSet.has(r+','+c); }
+  let blastSet=new Set();
+  function explode(){
+    blastSet=new Set();
+    if(!bombs) return [];
+    const cells=[[bombs.x,bombs.y]];
+    const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
+    for(const [dr,dc] of dirs){ for(let i=1;i<=range;i++){ const r=bombs.x+dr*i, c=bombs.y+dc*i; if(r<0||c<0||r>=H||c>=W) break; cells.push([r,c]); if(blocks.has(r+','+c)){ blocks.delete(r+','+c); break; } } }
+    blastSet=new Set(cells.map(([r,c])=>r+','+c));
+    for(const p of players){ if(cells.some(([r,c])=>r===p.x&&c===p.y)) p.dead=true; }
+    bombs=null;
+    return cells;
+  }
+  function getBlast(){ return [...blastSet].map(s=>s.split(',').map(Number)); }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',26px)'; bd.innerHTML=''; for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); let cls='cell'; const k=r+','+c; if(walls.has(k))cls+=' wall'; else if(blocks.has(k))cls+=' block'; if(bombs&&bombs.x===c&&bombs.y===r)cls+=' bomb'; if(blastSet.has(k))cls+=' blast'; bd.appendChild(d); } } }
+    const rg=$('rg'),st=$('st'); if(rg)rg.textContent=range; if(st)st.textContent=bombs?'已布弹':'布弹中';
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const bb=$('bomb'),bm=$('boom'),nb=$('new');
+    if(bb) bb.onclick=()=>{ setBomb(2,2); render(); };
+    if(bm) bm.onclick=()=>{ explode(); render(); };
+    if(nb) nb.onclick=()=>{ setup(8,8,[]); render(); };
+  }
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ setup(8,8,[]); render(); }); else { setup(8,8,[]); render(); } }
+  if(typeof window!=='undefined'){ window.__t={ setup, setRange, setBomb, setPlayers, explode, getBlast, inBlast }; }
+})();
+</script>
+</body>
+</html>
