@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 猜数字</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .pegs{display:flex;gap:18px;margin-bottom:10px;font-size:12px;color:var(--dim)}
+  .pegs .bk{color:var(--gold)} .pegs .wt{color:var(--text)}
+  .history{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;height:260px;overflow-y:auto;margin-bottom:10px;font-size:13px}
+  .row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid rgba(31,42,56,.5)}
+  .row:last-child{border-bottom:none}
+  .row .g{display:flex;gap:5px}
+  .pchip{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0a0e14}
+  .row .fb{margin-left:auto;color:var(--dim)}
+  .row .fb .k{color:var(--gold)} .row .fb .w{color:var(--text)}
+  .controls{display:flex;gap:8px;align-items:center}
+  .controls input{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:inherit;font-size:15px;outline:none;letter-spacing:3px}
+  .controls input:focus{border-color:var(--red)}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  .colors{display:flex;gap:6px;margin-bottom:8px;justify-content:center}
+  .colors .c{width:22px;height:22px;border-radius:50%}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>猜数字</b> MASTERMIND</span></div>
+  <div class="wrap">
+    <div class="hud"><span>步数 STEP · <span class="st" id="step">0</span>/10</span><span id="status">破解隐藏密码</span></div>
+    <div class="colors" id="colors"></div>
+    <div class="history" id="history"></div>
+    <div class="msg" id="msg">输入 4 位数字（每位 0-5），回车提交。黑=位值全对，白=值对位错。</div>
+    <div class="controls">
+      <input id="guess" type="text" inputmode="numeric" maxlength="4" placeholder="0000" />
+      <button id="submit">提交 GUESS</button>
+    </div>
+  </div>
+  <div class="foot">经典 Mastermind：计算机生成 4 位密码（0-5，可重复）。每次猜测返回黑 peg（位置与数值都对）+ 白 peg（数值对但位置错）。10 步内破解即胜。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const LEN = 4, DOMAIN = 6, MAX_STEP = 10;
+  const COLORS = ['#f6465d','#02c076','#f0b90b','#3aa0ff','#b073ff','#ff8a3a'];
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+  function generateSecret(){
+    const s=[]; for(let i=0;i<LEN;i++) s.push(Math.floor(_rand()*DOMAIN)); return s;
+  }
+  // 评估：返回 {black, white}
+  function evaluate(secret, guess){
+    let black=0, white=0;
+    const sUsed=new Array(LEN).fill(false), gUsed=new Array(LEN).fill(false);
+    for(let i=0;i<LEN;i++){ if(secret[i]===guess[i]){ black++; sUsed[i]=true; gUsed[i]=true; } }
+    for(let i=0;i<LEN;i++){
+      if(gUsed[i]) continue;
+      for(let j=0;j<LEN;j++){
+        if(!sUsed[j] && secret[j]===guess[i]){ white++; sUsed[j]=true; gUsed[i]=true; break; }
+      }
+    }
+    return {black, white};
+  }
+
+  let secret, history, step, won, over;
+  function reset(){
+    secret = generateSecret();
+    history = []; step = 0; won = false; over = false;
+  }
+  // 提交一次猜测（guess: number[] 长度 LEN，每位 0..DOMAIN-1）
+  function submitGuess(guess){
+    if(over) return null;
+    if(!Array.isArray(guess) || guess.length!==LEN) return null;
+    if(guess.some(v=>!Number.isInteger(v) || v<0 || v>=DOMAIN)) return null;
+    const fb = evaluate(secret, guess);
+    history.push({guess:guess.slice(), black:fb.black, white:fb.white});
+    step++;
+    if(fb.black===LEN){ won=true; over=true; }
+    else if(step>=MAX_STEP){ over=true; }
+    if(typeof Juice!=='undefined'){
+      if(won){ Juice.sfx('levelup'); Juice.best('mastermind', MAX_STEP-step+1); }
+      else Juice.sfx(step>=MAX_STEP?'boom':'click');
+    }
+    return fb;
+  }
+  function isWin(){ return won; }
+  function isOver(){ return over; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function chip(v){ const e=document.createElement('div'); e.className='pchip'; e.style.background=COLORS[v%COLORS.length]; e.textContent=v; return e; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const st=$('step'),hist=$('history'),msg=$('msg'),gs=$('guess'),colors=$('colors'),status=$('status');
+    if(!hist) return;
+    if(st) st.textContent=step;
+    if(colors && !colors.children.length){ COLORS.forEach(c=>{ const e=document.createElement('div'); e.className='c'; e.style.background=c; colors.appendChild(e); }); }
+    hist.innerHTML='';
+    history.forEach(h=>{
+      const row=document.createElement('div'); row.className='row';
+      const g=document.createElement('div'); g.className='g';
+      h.guess.forEach(v=>g.appendChild(chip(v)));
+      const fb=document.createElement('div'); fb.className='fb';
+      fb.innerHTML='<span class="k">● '+h.black+'</span> <span class="w">○ '+h.white+'</span>';
+      row.appendChild(g); row.appendChild(fb); hist.appendChild(row);
+    });
+    hist.scrollTop=hist.scrollHeight;
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 破解成功！密码是 '+secret.join(''); }
+      else if(over){ msg.className='msg win'; msg.textContent='失败 · 密码是 '+secret.join(''); }
+      else { msg.className='msg'; msg.textContent='第 '+step+' 步反馈已记录。'; } }
+    if(status){ status.textContent = won?'已破解':(over?'已结束':(step===0?'破解隐藏密码':'继续推理')); }
+    if(gs) gs.disabled = over;
+  }
+  function parseGuess(str){
+    const m=(str||'').match(/\d/g); if(!m || m.length!==LEN) return null;
+    const arr=m.map(Number); if(arr.some(v=>v>=DOMAIN)) return null; return arr;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const gs=$('guess'),sb=$('submit');
+    if(sb) sb.onclick=()=>{ const g=parseGuess(gs.value); if(!g){ return; } submitGuess(g); gs.value=''; render(); };
+    if(gs) gs.addEventListener('keydown',e=>{ if(e.key==='Enter'){ sb.click(); } });
+  }
+  reset();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      LEN, DOMAIN, MAX_STEP, COLORS,
+      setRand, generateSecret, evaluate, reset, submitGuess, isWin, isOver,
+      getSecret:()=>secret, getHistory:()=>history, getStep:()=>step,
+      setSecret:(s)=>{ secret=s; },
+    };
+  }
+})();
+</script>
+</body>
+</html>

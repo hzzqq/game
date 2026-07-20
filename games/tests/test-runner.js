@@ -41,6 +41,7 @@ const FILES = {
   'poker.html':     { name:'德州扑克 Poker',       offline:true },
   'slots.html':     { name:'老虎机 Slots',         offline:true },
   'lianliankan.html':{ name:'连连看 Lianliankan',   offline:true },
+  'mastermind.html': { name:'猜数字 Mastermind',     offline:true },
 };
 
 let totalPass=0, totalFail=0;
