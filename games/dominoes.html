@@ -73,11 +73,20 @@
     if(over) return false;
     const hi=hands[turn].findIndex(t=>t[0]===tile[0]&&t[1]===tile[1]);
     if(hi<0) return false;
-    if(!canPlace(tile)) return false;
     const [a,b]=tile;
     if(line.length===0){ line.push([a,b]); }
-    else if(side==='left'){ const e=leftEnd(); const other=(a===e)?b:a; line.unshift([other,e]); }
-    else { const e=rightEnd(); const other=(a===e)?b:a; line.push([e,other]); }
+    else if(side==='left'){
+      const e=leftEnd();
+      if(a!==e && b!==e) return false;            // 该牌接不上左端，不得强行拼成假牌
+      const other=(a===e)?b:a;
+      line.unshift([other,e]);
+    }
+    else {
+      const e=rightEnd();
+      if(a!==e && b!==e) return false;            // 该牌接不上右端
+      const other=(a===e)?b:a;
+      line.push([e,other]);
+    }
     hands[turn].splice(hi,1);
     passed=0;
     if(hands[turn].length===0){ over=true; winner=turn; return true; }
