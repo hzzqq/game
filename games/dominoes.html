@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 多米诺</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(520px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(520px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .line{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;min-height:54px;align-items:center}
+  .tile{display:flex;background:var(--panel);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .tile div{width:24px;height:48px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--gold);border-right:1px solid var(--border)}
+  .tile div:last-child{border-right:none}
+  .hands{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .hand{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:6px;flex:1}
+  .hand .h{font-size:11px;color:var(--dim);margin-bottom:4px}
+  .hand .ts{display:flex;gap:3px;flex-wrap:wrap}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls input{width:60px;background:#0e141d;border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;font-family:inherit}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(520px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>多米诺</b> DOMINOES</span></div>
+  <div class="wrap">
+    <div class="hud"><span>轮到 TURN · <span class="st" id="turn">玩家1</span></span><span>比分 SCORE · <span class="st" id="sc">0 : 0</span></span></div>
+    <div class="line" id="line"></div>
+    <div class="hands">
+      <div class="hand"><div class="h">玩家1 手牌</div><div class="ts" id="h0"></div></div>
+      <div class="hand"><div class="h">玩家2 手牌</div><div class="ts" id="h1"></div></div>
+    </div>
+    <div class="controls">
+      <span style="color:var(--dim);font-size:12px">牌[a,b]</span><input id="a" value="1"/><input id="b" value="2"/>
+      <select id="side" style="background:#0e141d;color:var(--text);border:1px solid var(--border);padding:8px;border-radius:6px;font-family:inherit"><option value="right">右</option><option value="left">左</option></select>
+      <button id="play">出牌 PLAY</button>
+      <button id="pass" class="ghost">过 PASS</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">轮流把双数骨牌接在棋链两端（点数要匹配）。手牌出完即胜；都接不上则点数少者胜。</div>
+  </div>
+  <div class="foot">西洋骨牌（Block Dominoes）：双六套 28 张，接龙玩法，先出完手牌或终局点数少者赢。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let hands, line, turn, over, winner, passed;
+  function newGame(){ hands=[[[1,2],[3,4],[0,0],[6,6],[5,5],[2,2],[4,4]],[[1,1],[3,3],[0,1],[5,6],[2,6],[0,6],[3,5]]]; line=[]; turn=0; over=false; winner=null; passed=0; }
+  function leftEnd(){ return line.length?line[0][0]:null; }
+  function rightEnd(){ return line.length?line[line.length-1][1]:null; }
+  function canPlace(tile){
+    if(line.length===0) return true;
+    const e=[leftEnd(),rightEnd()];
+    return tile[0]===e[0]||tile[1]===e[0]||tile[0]===e[1]||tile[1]===e[1];
+  }
+  function canPlaceAny(){ return hands[turn].some(canPlace); }
+  function place(tile, side){
+    if(over) return false;
+    const hi=hands[turn].findIndex(t=>t[0]===tile[0]&&t[1]===tile[1]);
+    if(hi<0) return false;
+    if(!canPlace(tile)) return false;
+    const [a,b]=tile;
+    if(line.length===0){ line.push([a,b]); }
+    else if(side==='left'){ const e=leftEnd(); const other=(a===e)?b:a; line.unshift([other,e]); }
+    else { const e=rightEnd(); const other=(a===e)?b:a; line.push([e,other]); }
+    hands[turn].splice(hi,1);
+    passed=0;
+    if(hands[turn].length===0){ over=true; winner=turn; return true; }
+    turn = turn===0?1:0;
+    return true;
+  }
+  function pass(){
+    if(over) return false;
+    if(canPlaceAny()) return false;
+    passed++; turn = turn===0?1:0;
+    if(passed>=2){ over=true; const p0=hands[0].reduce((s,t)=>s+t[0]+t[1],0), p1=hands[1].reduce((s,t)=>s+t[0]+t[1],0); winner = p0<p1?0:(p1<p0?1:'draw'); }
+    return true;
+  }
+  function pips(p){ return hands[p].reduce((s,t)=>s+t[0]+t[1],0); }
+  function getHands(){ return [hands[0].map(t=>t.slice()),hands[1].map(t=>t.slice())]; }
+  function getLine(){ return line.map(t=>t.slice()); }
+  function getTurn(){ return turn; }
+  function isOver(){ return over; }
+  function getWinner(){ return winner; }
+  function setHands(h0,h1){ hands=[h0.map(t=>t.slice()),h1.map(t=>t.slice())]; line=[]; turn=0; over=false; winner=null; passed=0; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function tileHTML(t){ return '<div class="tile"><div>'+t[0]+'</div><div>'+t[1]+'</div></div>'; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const ln=$('line'); if(ln){ ln.innerHTML=line.map(tileHTML).join(''); }
+    const h0=$('h0'),h1=$('h1');
+    if(h0) h0.innerHTML=hands[0].map(tileHTML).join('');
+    if(h1) h1.innerHTML=hands[1].map(tileHTML).join('');
+    const t=$('turn'),sc=$('sc'),msg=$('msg');
+    if(t) t.textContent='玩家'+(turn+1);
+    if(sc) sc.textContent=pips(0)+' : '+pips(1);
+    if(msg){ if(over){ msg.className='msg win'; msg.textContent= winner==='draw'?'🏁 平局！':('🏁 玩家'+(winner+1)+' 获胜（得分 '+(winner===0?pips(1):pips(0))+'）'); } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const pb=$('play'),ps=$('pass'),nb=$('new');
+    if(pb) pb.onclick=()=>{ const a=parseInt($('a').value,10)||0,b=parseInt($('b').value,10)||0; if(place([a,b],$('side').value)) render(); };
+    if(ps) ps.onclick=()=>{ pass(); render(); };
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ newGame, place, pass, canPlace, canPlaceAny, getHands, getLine, getTurn, isOver, getWinner, pips, leftEnd, rightEnd, setHands };
+  }
+})();
+</script>
+</body>
+</html>

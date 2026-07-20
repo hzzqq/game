@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 接水管</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(460px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(460px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:3px;background:var(--panel);padding:8px;border:1px solid var(--border);border-radius:10px;width:min(380px,92vw);margin:0 auto}
+  .cell{aspect-ratio:1/1;background:#0e141d;border:1px solid #1a2230;border-radius:4px;position:relative;cursor:pointer;overflow:hidden}
+  .cell .hub{position:absolute;left:50%;top:50%;width:34%;height:34%;transform:translate(-50%,-50%);background:var(--gold);border-radius:3px}
+  .cell .bar{position:absolute;background:var(--gold)}
+  .cell .bar.u{left:50%;top:0;width:22%;height:52%;transform:translateX(-50%)}
+  .cell .bar.d{left:50%;bottom:0;width:22%;height:52%;transform:translateX(-50%)}
+  .cell .bar.l{top:50%;left:0;height:22%;width:52%;transform:translateY(-50%)}
+  .cell .bar.r{top:50%;right:0;height:22%;width:52%;transform:translateY(-50%)}
+  .cell.src{box-shadow:inset 0 0 0 2px var(--green)}
+  .cell.snk{box-shadow:inset 0 0 0 2px var(--red)}
+  .controls{display:flex;gap:8px;margin-top:10px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(460px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>接水管</b> PLUMBER</span></div>
+  <div class="wrap">
+    <div class="hud"><span>状态 STATUS · <span class="st" id="st">连通中</span></span><span>旋转 ROTATE · 点格子</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+    <div class="msg" id="msg">点格子旋转管道，把左侧水源（绿框）接到右侧出水口（红框）。管道两端互通才能通水。</div>
+  </div>
+  <div class="foot">接水管（Pipe Rotation）：旋转方格中的管道，连通左右两端的供水线路即过关。每局随机打乱，保证有解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const N=6;
+  const U=1,R=2,D=4,L=8;
+  let board, over;
+  function rotMask(m){ return ((m<<1)|(m>>3))&15; }
+  function newGame(){
+    board=Array.from({length:N},()=>new Array(N).fill(0));
+    // 构造 L 型解：第 0 行横向，最后一列纵向
+    for(let c=0;c<N;c++){ board[0][c]= (c===0?L|R : (c===N-1?L|D : L|R)); }
+    for(let r=1;r<N;r++){ board[r][N-1]= (r===N-1?U|R : U|D); }
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){ if(r===0&&c===0) continue; if(r===0&&c===N-1) continue; if(r===N-1&&c===N-1) continue; if(c===N-1&&r>0) continue; board[r][c]=(1+Math.floor(Math.random()*15)); }
+    // 打乱旋转
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){ const k=Math.floor(Math.random()*4); for(let i=0;i<k;i++) board[r][c]=rotMask(board[r][c]); }
+    over=false;
+  }
+  function rotate(r,c){ if(over) return; board[r][c]=rotMask(board[r][c]); }
+  function getMask(r,c){ return board[r][c]; }
+  function getBoard(){ return board.map(r=>r.slice()); }
+  function isSolved(){
+    if(!(board[0][0]&L)) return false;
+    if(!(board[N-1][N-1]&R)) return false;
+    const seen=new Set(['0,0']); const q=[[0,0]];
+    const DIRS=[[U,-1,0],[R,0,1],[D,1,0],[L,0,-1]];
+    while(q.length){ const [r,c]=q.shift();
+      for(const [bit,dr,dc] of DIRS){         if(!(board[r][c]&bit)) continue; const nr=r+dr,nc=c+dc; if(nr<0||nr>=N||nc<0||nc>=N) continue;
+        const oppBit = bit===U?D:(bit===D?U:(bit===R?L:R));
+        if(board[nr][nc]&oppBit){ const k=nr+','+nc; if(!seen.has(k)){ seen.add(k); q.push([nr,nc]); } } }
+    }
+    return seen.has((N-1)+','+(N-1));
+  }
+  function setBoard(m){ board=m.map(r=>r.slice()); over=false; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let cellEls=[];
+  function build(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(!bd) return; bd.innerHTML=''; cellEls=[]; bd.style.gridTemplateColumns='repeat('+N+',1fr)';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const el=document.createElement('div'); el.className='cell'+(r===0&&c===0?' src':'')+(r===N-1&&c===N-1?' snk':'');
+      el.addEventListener('click',()=>{ rotate(r,c); render(); });
+      bd.appendChild(el); cellEls.push(el);
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    cellEls.forEach((el,i)=>{ const r=Math.floor(i/N),c=i%N; const m=board[r][c];
+      el.innerHTML='<div class="hub"></div>'+(m&U?'<div class="bar u"></div>':'')+(m&R?'<div class="bar r"></div>':'')+(m&D?'<div class="bar d"></div>':'')+(m&L?'<div class="bar l"></div>':'');
+      if(isSolved()&&!over){ over=true; }
+    });
+    const st=$('st'),msg=$('msg');
+    if(st) st.textContent=over?'已连通':'连通中';
+    if(msg){ if(over){ msg.className='msg win'; msg.textContent='🏁 通水成功！水源已接到出水口。'; } else msg.className='msg'; }
+  }
+  function bindUI(){ if(typeof document==='undefined') return; const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); render(); }; }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ build(); bindUI(); render(); });
+    else { build(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ N, U, R, D, L, newGame, rotate, getMask, getBoard, isSolved, setBoard, rotMask };
+  }
+})();
+</script>
+</body>
+</html>

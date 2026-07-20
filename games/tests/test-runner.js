@@ -63,6 +63,10 @@ const FILES = {
   'morris.html':       { name:'直棋 Morris',                  offline:true },
   'nim.html':          { name:'尼姆 Nim',                     offline:true },
   'jungle.html':       { name:'斗兽棋 Jungle',                offline:true },
+  'plumber.html':      { name:'接水管 Plumber',               offline:true },
+  'dominoes.html':     { name:'多米诺 Dominoes',              offline:true },
+  'quarto.html':       { name:'夸托 Quarto',                  offline:true },
+  'hex.html':          { name:'六角棋 Hex',                   offline:true },
 };
 
 let totalPass=0, totalFail=0;

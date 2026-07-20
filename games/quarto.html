@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 夸托</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(460px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(460px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--panel);padding:8px;border:1px solid var(--border);border-radius:10px;width:min(360px,92vw);margin:0 auto}
+  .cell{aspect-ratio:1/1;background:#0e141d;border:1px solid #1a2230;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:11px;gap:2px}
+  .cell.sel{box-shadow:0 0 0 3px var(--gold)}
+  .cell .att{display:flex;gap:3px}
+  .cell .dot2{width:9px;height:9px;border-radius:50%}
+  .pending{display:flex;gap:3px;justify-content:center;margin:8px 0}
+  .pending .dot2{width:14px;height:14px}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(460px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>夸托</b> QUARTO</span></div>
+  <div class="wrap">
+    <div class="hud"><span>轮到 TURN · <span class="st" id="turn">玩家1</span></span><span>待放棋子 NEXT · <span class="st" id="pend">—</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="pending" id="pending"></div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+    <div class="msg" id="msg">对方给你一枚棋子，你把它放到任意空格；放下后你再选一枚给对手。任一线（行/列/斜）4 子共属性即胜。</div>
+  </div>
+  <div class="foot">夸托（Quarto）：16 枚棋子各有 4 个二值属性（色/高/形/顶）。放下棋子形成共属性连线者胜——所以选子给对手也是策略。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const N=4;
+  // 16 枚棋子，属性 [color,height,shape,top] ∈ {0,1}
+  const PIECES=[]; for(let i=0;i<16;i++) PIECES.push([(i>>0)&1,(i>>1)&1,(i>>2)&1,(i>>3)&1]);
+  let board, turn, available, pending, over, winner, sel;
+  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn=0; available=PIECES.map((_,i)=>i); pending=0; over=false; winner=null; sel=null; }
+  function give(idx){ if(available.indexOf(idx)<0) return false; pending=idx; return true; }
+  function place(r,c){
+    if(over) return false;
+    if(board[r][c]!==null) return false;
+    if(pending===null||available.indexOf(pending)<0) return false;
+    board[r][c]=pending; available.splice(available.indexOf(pending),1); pending=null;
+    if(checkWin(r,c)){ over=true; winner=turn; return true; }
+    if(available.length===0){ over=true; winner='draw'; return true; }
+    turn = turn===0?1:0;
+    return true;
+  }
+  function sameAttr(cells, a){ return cells.every(c=>PIECES[c][a]===PIECES[cells[0]][a]); }
+  function winLine(cells){ if(cells.some(c=>c===null)) return false; for(let a=0;a<4;a++) if(sameAttr(cells,a)) return true; return false; }
+  function checkWin(){
+    for(let r=0;r<N;r++){ const row=[]; for(let c=0;c<N;c++) row.push(board[r][c]); if(winLine(row)) return true; }
+    for(let c=0;c<N;c++){ const col=[]; for(let r=0;r<N;r++) col.push(board[r][c]); if(winLine(col)) return true; }
+    const d1=[board[0][0],board[1][1],board[2][2],board[3][3]]; if(winLine(d1)) return true;
+    const d2=[board[0][3],board[1][2],board[2][1],board[3][0]]; if(winLine(d2)) return true;
+    return false;
+  }
+  function getBoard(){ return board.map(r=>r.slice()); }
+  function getTurn(){ return turn; }
+  function isOver(){ return over; }
+  function getWinner(){ return winner; }
+  function getPending(){ return pending; }
+  function getAvailable(){ return available.slice(); }
+  function setBoard(b,t,p){ board=b.map(r=>r.slice()); turn=t||0; available=PIECES.map((_,i)=>i).filter(i=>!b.flat().includes(i)); pending=(p===null||p===undefined)?null:p; over=false; winner=null; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function attHTML(p){ if(p===null) return ''; const cols=['#f6465d','#02c076','#f0b90b','#6b7785']; return '<div class="att">'+p.map((v,i)=>'<span class="dot2" style="background:'+(v?cols[i]:'#1f2a38')+'"></span>').join('')+'</div>'; }
+  let cellEls=[];
+  function build(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(!bd) return; bd.innerHTML=''; cellEls=[];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const el=document.createElement('div'); el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>{ if(!over&&pending!==null){ place(r,c); render(); } });
+      bd.appendChild(el); cellEls.push(el);
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    cellEls.forEach((el,i)=>{ const r=Math.floor(i/N),c=i%N; const p=board[r][c]; el.innerHTML=p===null?'':attHTML(PIECES[p]); });
+    const t=$('turn'),pe=$('pend'),pg=$('pending'),msg=$('msg');
+    if(t) t.textContent='玩家'+(turn+1);
+    if(pe) pe.textContent = pending===null?'已落子':('第'+pending+'枚');
+    if(pg) pg.innerHTML = pending===null?'':attHTML(PIECES[pending]);
+    if(msg){ if(over){ msg.className='msg win'; msg.textContent= winner==='draw'?'🏁 平局！':('🏁 玩家'+(winner+1)+' 连线获胜！'); } else msg.className='msg'; }
+  }
+  function bindUI(){ if(typeof document==='undefined') return; const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); build(); render(); }; }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ build(); bindUI(); render(); });
+    else { build(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ N, PIECES, newGame, give, place, getBoard, getTurn, isOver, getWinner, getPending, getAvailable, checkWin, setBoard };
+  }
+})();
+</script>
+</body>
+</html>
