@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 太空入侵</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:8px}
+  .hud .sc{color:var(--gold);font-weight:700}.hud .lv{color:var(--green);font-weight:700}.hud .wv{color:var(--red);font-weight:700}
+  canvas{background:linear-gradient(180deg,#06090f,#0a0e14);border:2px solid var(--border);border-radius:12px;display:block;margin:0 auto;touch-action:none}
+  .controls{display:flex;gap:8px;margin-top:10px}
+  .controls button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:11px;cursor:pointer;font-family:inherit;font-size:13px}
+  .controls button:active{border-color:var(--gold);color:var(--gold)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.over{color:var(--red);font-weight:700}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>太空入侵</b> SPACE INVADERS</span></div>
+  <div class="wrap">
+    <div class="hud"><span>得分 <span class="sc" id="score">0</span></span><span>波次 <span class="wv" id="wave">1</span></span><span>命 <span class="lv" id="lives">3</span></span></div>
+    <canvas id="cv" width="480" height="600"></canvas>
+    <div class="controls">
+      <button id="left">◀ 左 (←/A)</button>
+      <button id="fire">开火 (空格/↑)</button>
+      <button id="right">右 (→/D) ▶</button>
+    </div>
+    <div class="msg" id="msg">移动飞船击落外星编队，别让它们抵达底线。全清进入下一波。</div>
+  </div>
+  <div class="foot">经典太空入侵：底部飞船左右移动 + 射击，击落 8×4 外星编队。编队触底或你耗尽 3 命即结束。红涨绿跌，暗色终端风。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const W=480, H=600;
+  const COLS=8, ROWS=4, AW=32, AH=24, GX=16, GY=18, MARGIN=40, TOP=70;
+  const PLAYER_Y=H-44, PLAYER_W=42, PLAYER_SPEED=18;
+  const BULLET_VY=-12, START_SPEED=10, DROP=22;
+
+  let player, aliens, bullets, ox, oy, dir, speed, score, lives, wave, over, cooldown;
+
+  function buildAliens(){
+    aliens=[];
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) aliens.push({col:c,row:r,alive:true});
+    ox=0; oy=0; dir=1;
+  }
+  function reset(){
+    player={x:W/2};
+    bullets=[];
+    score=0; lives=3; wave=1; over=false; cooldown=0;
+    speed=START_SPEED;
+    buildAliens();
+  }
+  function alienX(a){ return MARGIN + a.col*(AW+GX) + ox; }
+  function alienY(a){ return TOP + a.row*(AH+GY) + oy; }
+  function aliveCount(){ return aliens.filter(a=>a.alive).length; }
+
+  function movePlayer(d){ player.x += d*PLAYER_SPEED; if(player.x<PLAYER_W/2) player.x=PLAYER_W/2; if(player.x>W-PLAYER_W/2) player.x=W-PLAYER_W/2; }
+  function shoot(){
+    if(over || cooldown>0) return false;
+    bullets.push({x:player.x, y:PLAYER_Y-10, vy:BULLET_VY});
+    cooldown=6;
+    if(typeof Juice!=='undefined') Juice.sfx('click');
+    return true;
+  }
+  function moveAliens(){
+    ox += dir*speed;
+    // 边界：取最左/最右 alive alien
+    let minX=Infinity, maxX=-Infinity;
+    aliens.forEach(a=>{ if(a.alive){ minX=Math.min(minX,alienX(a)); maxX=Math.max(maxX,alienX(a)); } });
+    if(minX < MARGIN-10 || maxX > W-MARGIN+10-AW){
+      dir=-dir; ox += dir*speed; oy += DROP;
+    }
+  }
+  function update(){
+    if(over) return;
+    if(cooldown>0) cooldown--;
+    // 子弹上移
+    for(const b of bullets) b.y += b.vy;
+    bullets = bullets.filter(b=> b.y > -20);
+    // 子弹击中 alien
+    for(const b of bullets){
+      for(const a of aliens){
+        if(!a.alive) continue;
+        const ax=alienX(a), ay=alienY(a);
+        if(b.x>ax && b.x<ax+AW && b.y>ay && b.y<ay+AH){
+          a.alive=false; score+=10; b.dead=true;
+          if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); }
+          break;
+        }
+      }
+    }
+    bullets = bullets.filter(b=>!b.dead);
+    // 编队移动
+    moveAliens();
+    // 抵达底线
+    for(const a of aliens){
+      if(a.alive && alienY(a)+AH >= PLAYER_Y){ over=true; if(typeof Juice!=='undefined'){ Juice.flash('#f6465d'); Juice.best('invaders',score); } break; }
+    }
+    // 全清 → 下一波
+    if(!over && aliveCount()===0){
+      wave++; speed*=1.15;
+      if(typeof Juice!=='undefined') Juice.sfx('levelup');
+      buildAliens();
+    }
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let ctx=null, cv=null;
+  function render(){
+    if(typeof document==='undefined' || !ctx) return;
+    ctx.clearRect(0,0,W,H);
+    // aliens
+    aliens.forEach(a=>{ if(!a.alive) return; const x=alienX(a), y=alienY(a); ctx.fillStyle='#f6465d'; ctx.fillRect(x,y,AW,AH); });
+    // bullets
+    ctx.fillStyle='#f0b90b'; bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-8,4,8));
+    // player
+    ctx.fillStyle='#02c076'; ctx.fillRect(player.x-PLAYER_W/2, PLAYER_Y, PLAYER_W, 14);
+  }
+  function loop(){ update(); render(); if(typeof document!=='undefined') requestAnimationFrame(loop); }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const l=$('left'),r=$('right'),f=$('fire');
+    if(l) l.onclick=()=>movePlayer(-1);
+    if(r) r.onclick=()=>movePlayer(1);
+    if(f) f.onclick=()=>shoot();
+    if(typeof document!=='undefined'){
+      document.addEventListener('keydown',e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') movePlayer(-1); if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') movePlayer(1); if(e.key===' '||e.key==='ArrowUp'){ e.preventDefault(); shoot(); } });
+    }
+  }
+  function uiTick(){
+    if(typeof document==='undefined') return;
+    const sc=$('score'),wv=$('wave'),lv=$('lives'),msg=$('msg');
+    if(sc) sc.textContent=score; if(wv) wv.textContent=wave; if(lv) lv.textContent=lives;
+    if(msg){ if(over){ msg.className='msg over'; msg.textContent='游戏结束 · 得分 '+score+' · 波次 '+wave; } else { msg.className='msg'; msg.textContent='移动 + 射击，清光编队进下一波。'; } }
+  }
+  reset();
+  if(typeof document!=='undefined'){
+    cv=$('cv'); if(cv) ctx=cv.getContext('2d');
+    if(ctx){ bindUI(); loop(); setInterval(uiTick,100); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      W,H,COLS,ROWS,AW,AH,MARGIN,TOP,PLAYER_Y,PLAYER_W,BULLET_VY,START_SPEED,DROP,
+      reset, movePlayer, shoot, moveAliens, update,
+      alienX, alienY, aliveCount,
+      getPlayer:()=>player, getAliens:()=>aliens, getBullets:()=>bullets,
+      getOx:()=>ox, getOy:()=>oy, getDir:()=>dir, getSpeed:()=>speed,
+      setOx:(v)=>{ox=v;}, setOy:(v)=>{oy=v;},
+      getScore:()=>score, setScore:(v)=>{score=v;},
+      getLives:()=>lives, setLives:(v)=>{lives=v;},
+      getWave:()=>wave, getOver:()=>over, setOver:(v)=>{over=v;},
+    };
+  }
+})();
+</script>
+</body>
+</html>

@@ -45,6 +45,7 @@ const FILES = {
   'battleship.html': { name:'战舰 Battleship',       offline:true },
   'tictactoe.html':  { name:'井字棋 TicTacToe',      offline:true },
   'pinball.html':    { name:'弹珠台 Pinball',        offline:true },
+  'invaders.html':   { name:'太空入侵 Invaders',      offline:true },
 };
 
 let totalPass=0, totalFail=0;

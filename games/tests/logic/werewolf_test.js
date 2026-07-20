@@ -75,13 +75,18 @@ for (let i=1;i<6;i++){
 // ===== 5. livingIds / aliveRole / livingNonWitch =====
 t.newGame();
 eq('livingIds 初始6', t.livingIds().length, 6);
-t.getPlayers()[0].alive = false;
+const _k0 = t.getPlayers().findIndex(p => p.role!=='wolf');
+t.getPlayers()[_k0].alive = false;
 eq('livingIds 杀1后5', t.livingIds().length, 5);
-// aliveRole
+// aliveRole（确定性：先定位狼，再杀一个非狼玩家，避免依赖随机角色分配）
+const wolfIdx = t.getPlayers().findIndex(p => p.role==='wolf');
+ok('存在 wolf 玩家', wolfIdx>=0);
+const killIdx = t.getPlayers().findIndex((p,i) => p.role!=='wolf');
+t.getPlayers()[killIdx].alive = false;
 const wolf = t.aliveRole('wolf');
 ok('aliveRole wolf 存在', !!wolf);
 ok('aliveRole wolf.role=wolf', wolf && wolf.role==='wolf');
-t.getPlayers().forEach(p => { if(p.role==='wolf') p.alive=false; });
+t.getPlayers()[wolfIdx].alive = false;
 ok('aliveRole wolf 死后 null', t.aliveRole('wolf')===null);
 // 恢复
 t.newGame();
