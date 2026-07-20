@@ -97,14 +97,14 @@
       const nr=emptyR+d[0], nc=emptyC+d[1];
       if(!inb(nr,nc)) continue;
       const tr=nr, tc=nc; // 要滑动的是空格邻块 (tr,tc)
-      scramble.push([tr,tc]);
+      scramble.push([emptyR, emptyC]); // 记录移动前的空格位置（用于反向求解）
       board[emptyR][emptyC]=board[tr][tc];
       board[tr][tc]=0;
       emptyR=tr; emptyC=tc;
     }
     if(isWin()){ // 极小概率回到已解，再滑一步
       const d=neigh[Math.floor(_rand()*4)]; const nr=emptyR+d[0],nc=emptyC+d[1];
-      if(inb(nr,nc)){ scramble.push([nr,nc]); board[emptyR][emptyC]=board[nr][nc]; board[nr][nc]=0; emptyR=nr; emptyC=nc; }
+      if(inb(nr,nc)){ scramble.push([emptyR, emptyC]); board[emptyR][emptyC]=board[nr][nc]; board[nr][nc]=0; emptyR=nr; emptyC=nc; }
     }
   }
   function reset(){ newGame(); }
