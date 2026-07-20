@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 数字华容道</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(460px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(460px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:8px;margin:0 auto 12px;width:max-content;background:var(--panel);padding:8px;border-radius:12px;border:1px solid var(--border)}
+  .tile{width:92px;height:92px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;
+    background:linear-gradient(180deg,#1c2735,#141d28);border:1px solid var(--border);color:var(--text);cursor:pointer;user-select:none;transition:transform .1s}
+  .tile.empty{background:transparent;border:none;cursor:default}
+  .tile:not(.empty):active{transform:scale(.96)}
+  .tile.correct{color:var(--green);border-color:rgba(2,192,118,.5)}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(460px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>数字华容道</b> 15-PUZZLE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>步数 MOVES · <span class="st" id="moves">0</span></span><span id="status">拼回 1→15</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">重来 RESET</button>
+    </div>
+    <div class="msg" id="msg">点击与空格相邻的方块，把它滑入空格。把 1→15 按顺序拼好、空格在右下角即过关。</div>
+  </div>
+  <div class="foot">经典 15-Puzzle：4×4 棋盘上一块空格，滑动邻块拼出 1 到 15 的顺序。本局从已解状态随机滑动若干步生成，保证一定可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const SIZE = 4;
+  const SCRAMBLE = 80;
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let board, emptyR, emptyC, moves, won, over, scramble;
+  function solved(){
+    const b=Array.from({length:SIZE},()=>new Array(SIZE).fill(0));
+    let v=1;
+    for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){ if(r===SIZE-1&&c===SIZE-1){b[r][c]=0;} else {b[r][c]=v++;} }
+    return b;
+  }
+  function inb(r,c){ return r>=0&&r<SIZE&&c>=0&&c<SIZE; }
+  function adjacent(r,c){ return (Math.abs(r-emptyR)+Math.abs(c-emptyC))===1; }
+  function canMove(r,c){ return inb(r,c) && adjacent(r,c); }
+  function isWin(){
+    let v=1;
+    for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+      if(r===SIZE-1&&c===SIZE-1) return board[r][c]===0;
+      if(board[r][c]!==v++) return false;
+    }
+    return true;
+  }
+  function move(r,c){
+    if(over || !canMove(r,c)) return false;
+    board[emptyR][emptyC]=board[r][c];
+    board[r][c]=0;
+    emptyR=r; emptyC=c;
+    moves++;
+    if(isWin()){ won=true; over=true; }
+    if(typeof Juice!=='undefined'){
+      if(won){ Juice.sfx('levelup'); Juice.best('puzzle15', moves); }
+      else Juice.sfx('click');
+    }
+    return true;
+  }
+  function newGame(){
+    board=solved(); emptyR=SIZE-1; emptyC=SIZE-1; moves=0; won=false; over=false; scramble=[];
+    // 从已解状态随机滑动若干步 → 必可解
+    const neigh=[[ -1,0],[1,0],[0,-1],[0,1]];
+    let guard=0;
+    while(scramble.length<SCRAMBLE && guard++<SCRAMBLE*4){
+      const d=neigh[Math.floor(_rand()*4)];
+      const nr=emptyR+d[0], nc=emptyC+d[1];
+      if(!inb(nr,nc)) continue;
+      const tr=nr, tc=nc; // 要滑动的是空格邻块 (tr,tc)
+      scramble.push([tr,tc]);
+      board[emptyR][emptyC]=board[tr][tc];
+      board[tr][tc]=0;
+      emptyR=tr; emptyC=tc;
+    }
+    if(isWin()){ // 极小概率回到已解，再滑一步
+      const d=neigh[Math.floor(_rand()*4)]; const nr=emptyR+d[0],nc=emptyC+d[1];
+      if(inb(nr,nc)){ scramble.push([nr,nc]); board[emptyR][emptyC]=board[nr][nc]; board[nr][nc]=0; emptyR=nr; emptyC=nc; }
+    }
+  }
+  function reset(){ newGame(); }
+  function getBoard(){ return board.map(row=>row.slice()); }
+  function getEmpty(){ return [emptyR,emptyC]; }
+  function getMoves(){ return moves; }
+  function isOver(){ return over; }
+  function getScramble(){ return scramble.map(p=>p.slice()); }
+  function setBoard(b,er,ec){ board=b.map(row=>row.slice()); emptyR=er; emptyC=ec; moves=0; won=false; over=false; scramble=[]; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.style.gridTemplateColumns='repeat('+SIZE+',92px)';
+    b.innerHTML='';
+    for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+      const el=document.createElement('div'); el.className='tile'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>{ move(r,c); render(); });
+      b.appendChild(el);
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'),mv=$('moves'),msg=$('msg'),st=$('status');
+    if(!b) return;
+    const cells=b.children;
+    for(let i=0;i<cells.length;i++){
+      const r=+cells[i].dataset.r, c=+cells[i].dataset.c;
+      const v=board[r][c];
+      if(v===0){ cells[i].className='tile empty'; cells[i].textContent=''; }
+      else { cells[i].className='tile'+(v===r*SIZE+c+1?' correct':''); cells[i].textContent=v; }
+    }
+    if(mv) mv.textContent=moves;
+    if(st) st.textContent = won?'已通关':(over?'已结束':'拼回 1→15');
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 拼好了！用了 '+moves+' 步。'; }
+      else if(over){ msg.className='msg win'; msg.textContent='已结束。'; }
+      else { msg.className='msg'; msg.textContent='点击与空格相邻的方块滑入空格。'; } }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      SIZE, SCRAMBLE,
+      setRand, newGame, reset, move, canMove, isWin,
+      getBoard, getEmpty, getMoves, isOver, getScramble, setBoard,
+    };
+  }
+})();
+</script>
+</body>
+</html>
