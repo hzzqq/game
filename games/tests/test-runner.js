@@ -54,6 +54,7 @@ const FILES = {
   'mancala.html':      { name:'播棋 Mancala',             offline:true },
   'hanoi.html':        { name:'汉诺塔 Tower of Hanoi',     offline:true },
   'dotsboxes.html':    { name:'围点成线 Dots & Boxes',      offline:true },
+  'simon.html':        { name:'记忆灯 Simon',                offline:true },
 };
 
 let totalPass=0, totalFail=0;

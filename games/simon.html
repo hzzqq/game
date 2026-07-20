@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 记忆灯</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(440px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(440px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .pads{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:min(320px,86vw);margin:0 auto 12px}
+  .pad{height:140px;border-radius:16px;cursor:pointer;opacity:.45;transition:opacity .1s,box-shadow .1s;border:1px solid var(--border)}
+  .pad.p0{background:var(--green)} .pad.p1{background:var(--red)} .pad.p2{background:var(--gold)} .pad.p3{background:#3aa0ff}
+  .pad.lit{opacity:1;box-shadow:0 0 28px currentColor}
+  .pad:active{transform:scale(.97)}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(440px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>记忆灯</b> SIMON</span></div>
+  <div class="wrap">
+    <div class="hud"><span>关卡 LEVEL · <span class="st" id="level">0</span></span><span>最高 BEST · <span class="st" id="best">0</span></span></div>
+    <div class="pads" id="pads">
+      <div class="pad p0" data-p="0"></div>
+      <div class="pad p1" data-p="1"></div>
+      <div class="pad p2" data-p="2"></div>
+      <div class="pad p3" data-p="3"></div>
+    </div>
+    <div class="controls">
+      <button id="start">开始 START</button>
+      <button id="next" class="ghost" disabled>下一轮 NEXT</button>
+    </div>
+    <div class="msg" id="msg">点「开始」后，记住亮灯顺序并依次点回去。每过一关序列加长一格，点错即结束。</div>
+  </div>
+  <div class="foot">经典 Simon：机器亮一段彩色灯序，你复现它。每轮末尾追加一盏灯，复现正确进入下一轮，失误即终局，比拼记忆长度。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const PADS = 4;
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let seq, inp, round, over, complete, score, best;
+  function newGame(){
+    seq=[]; inp=[]; round=0; over=false; complete=false; score=0;
+  }
+  function reset(){ newGame(); }
+  function startRound(){
+    if(over) return false;
+    round++;
+    seq.push(Math.floor(_rand()*PADS));
+    inp=[]; complete=false;
+    return true;
+  }
+  // 玩家点一个 pad。返回 true=该步正确，false=错误/非法。
+  function input(p){
+    if(over || complete) return false;
+    if(p<0 || p>=PADS) return false;
+    const expected = seq[inp.length];
+    if(p===expected){
+      inp.push(p);
+      if(inp.length===seq.length){
+        complete=true;
+        score=round;
+        if(score>best) best=score;
+        if(typeof Juice!=='undefined') Juice.sfx('levelup');
+      } else if(typeof Juice!=='undefined') Juice.sfx('click');
+      return true;
+    }
+    over=true;
+    if(typeof Juice!=='undefined') Juice.sfx('boom');
+    return false;
+  }
+  function getSequence(){ return seq.slice(); }
+  function getInput(){ return inp.slice(); }
+  function getRound(){ return round; }
+  function getScore(){ return score; }
+  function getBest(){ return best; }
+  function isOver(){ return over; }
+  function isRoundComplete(){ return complete; }
+  function setBest(b){ best=b; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let pads=[];
+  function buildPads(){
+    if(typeof document==='undefined') return;
+    const c=$('pads'); if(!c) return;
+    pads=[];
+    c.querySelectorAll('.pad').forEach(el=>{
+      const p=+el.dataset.p;
+      el.addEventListener('click',()=>{ input(p); render(); });
+      pads.push(el);
+    });
+  }
+  function flash(i){
+    if(typeof document==='undefined' || !pads[i]) return;
+    pads[i].classList.add('lit');
+    setTimeout(()=>{ pads[i] && pads[i].classList.remove('lit'); }, 350);
+  }
+  function showSequence(){
+    if(typeof document==='undefined') return;
+    let k=0; const s=seq.slice();
+    const iv=setInterval(()=>{ if(k>=s.length){ clearInterval(iv); return; } flash(s[k]); k++; }, 500);
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const lv=$('level'),bs=$('best'),msg=$('msg'),ns=$('next'),st=$('start');
+    if(lv) lv.textContent=round;
+    if(bs) bs.textContent=best;
+    if(msg){
+      if(over){ msg.className='msg win'; msg.textContent='💥 结束！本局到达第 '+round+' 关，历史最佳 '+best+'。'; }
+      else if(complete){ msg.className='msg win'; msg.textContent='✅ 第 '+round+' 关正确！点「下一轮」继续。'; }
+      else if(round===0){ msg.className='msg'; msg.textContent='点「开始」后，记住亮灯顺序并依次点回去。'; }
+      else { msg.className='msg'; msg.textContent='复现当前序列（'+seq.length+' 盏）…'; }
+    }
+    if(ns) ns.disabled = !(complete && !over);
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const stb=$('start'),nb=$('next');
+    if(stb) stb.onclick=()=>{ newGame(); startRound(); showSequence(); render(); };
+    if(nb) nb.onclick=()=>{ if(!complete||over) return; startRound(); showSequence(); render(); };
+  }
+  newGame(); best=0;
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildPads(); bindUI(); render(); });
+    else { buildPads(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      PADS,
+      setRand, newGame, reset, startRound, input,
+      getSequence, getInput, getRound, getScore, getBest, isOver, isRoundComplete, setBest,
+    };
+  }
+})();
+</script>
+</body>
+</html>
