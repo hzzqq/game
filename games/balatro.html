@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 巴尔牌 BALATRO</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;user-select:none}
+  .titlebar{width:min(900px,98vw);display:flex;align-items:center;gap:10px;padding:8px 14px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px 10px 0 0;margin-top:8px}
+  .dot{width:11px;height:11px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--gold)}
+  .wrap{width:min(900px,98vw);min-height:min(640px,78vh);background:#070a0f;border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;padding:14px;overflow:hidden}
+  .top{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);margin-bottom:8px;flex-wrap:wrap;gap:6px}
+  .top .ant{color:var(--gold);font-weight:700}
+  .bar{height:14px;background:#1a222e;border-radius:7px;overflow:hidden;margin:6px 0 2px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#02c076,#7affb0)}
+  .jokers{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;min-height:40px}
+  .jk{background:#1a1320;border:1px solid #4a2d5e;border-radius:8px;padding:6px 9px;font-size:11px;color:#e9c8ff;max-width:160px}
+  .jk b{color:var(--gold)}
+  .hand{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;min-height:120px}
+  .card5{width:78px;height:108px;background:#16202c;border:1px solid var(--border);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:.1s;position:relative}
+  .card5:hover{transform:translateY(-5px)}
+  .card5.sel{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+  .card5 .rk{font-size:26px;font-weight:800}
+  .card5 .su{font-size:18px}
+  .card5.red{color:var(--red)} .card5.black{color:var(--text)}
+  .card5.deb{opacity:.4;filter:grayscale(1)}
+  .ctrls{display:flex;gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap}
+  .btn{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 16px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn:hover:not(:disabled){filter:brightness(1.1)}
+  .msg{color:var(--dim);font-size:12px;margin-left:8px}
+  .center{display:flex;flex-direction:column;align-items:center;gap:12px;padding:30px 10px;text-align:center}
+  .center h1{font-size:24px;letter-spacing:2px}.center h1.win{color:var(--gold)}.center h1.lose{color:var(--red)}
+  .center p{color:var(--dim);font-size:13px;max-width:460px;line-height:1.6}
+  .rewards{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  .node{background:#121821;border:1px solid var(--border);border-radius:10px;padding:14px 20px;cursor:pointer;text-align:center;min-width:120px}
+  .node:hover{border-color:var(--gold)}.node .lb{color:var(--dim);font-size:12px;margin-top:6px}
+  .foot{width:min(900px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:8px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>巴尔牌</b> BALATRO · 类小丑牌</span></div>
+  <div class="wrap" id="screen"></div>
+  <div class="foot">Balatro（巴尔牌）：扑克构筑 roguelike。用手牌凑成德州牌型（对子/顺子/同花/四条…），基础筹码×倍率，再吃小丑牌的加成，在有限出手次数内凑够目标分数通关。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const J = (typeof Juice!=='undefined')?Juice:null;
+  const screenEl = (typeof document!=='undefined')?document.getElementById('screen'):null;
+  const SUITS=['spade','heart','diamond','club'];
+  const SUIT_CH={spade:'♠',heart:'♥',diamond:'♦',club:'♣'};
+  const SUIT_RED={spade:false,heart:true,diamond:true,club:false};
+  const MAXANTE=8;
+
+  function rand(a,b){return a+Math.random()*(b-a);}
+  function randi(a,b){return Math.floor(rand(a,b+1));}
+  function choice(a){return a[Math.floor(Math.random()*a.length)];}
+  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+  function buildDeck(){ const d=[]; for(const s of SUITS) for(let r=2;r<=14;r++) d.push({rank:r,suit:s}); return d; }
+  function cardChip(rank){ if(rank<=10) return rank; if(rank===14) return 11; return 10; }
+
+  // ---- poker evaluation ----
+  function evaluate(cards){
+    const ranks=cards.map(c=>c.rank), suits=cards.map(c=>c.suit), n=cards.length;
+    const rc={}; ranks.forEach(r=>rc[r]=(rc[r]||0)+1);
+    const counts=Object.values(rc).sort((a,b)=>b-a);
+    const isFlush = n===5 && suits.every(s=>s===suits[0]);
+    const uniq=[...new Set(ranks)].sort((a,b)=>a-b);
+    let isStraight=false, aceLow=false;
+    if(n===5 && uniq.length===5){
+      if(uniq[4]-uniq[0]===4) isStraight=true;
+      else if(JSON.stringify(uniq)===JSON.stringify([2,3,4,5,14])){ isStraight=true; aceLow=true; }
+    }
+    let type,chips,mult;
+    if(isStraight&&isFlush){ if(uniq[4]===14&&!aceLow){type='ROYAL_FLUSH';chips=100;mult=8;} else {type='STRAIGHT_FLUSH';chips=100;mult=8;} }
+    else if(counts[0]===4){type='FOUR_KIND';chips=60;mult=7;}
+    else if(counts[0]===3&&counts[1]===2){type='FULL_HOUSE';chips=40;mult=4;}
+    else if(isFlush){type='FLUSH';chips=35;mult=4;}
+    else if(isStraight){type='STRAIGHT';chips=30;mult=4;}
+    else if(counts[0]===3){type='THREE_KIND';chips=30;mult=3;}
+    else if(counts[0]===2&&counts[1]===2){type='TWO_PAIR';chips=20;mult=2;}
+    else if(counts[0]===2){type='PAIR';chips=10;mult=2;}
+    else {type='HIGH_CARD';chips=5;mult=1;}
+    return {type,chips,mult};
+  }
+
+  // ---- jokers ----
+  const JOKERS={
+    joker:{name:'小丑',desc:'+4 倍率',apply:()=>({mult:4})},
+    greedy:{name:'贪婪',desc:'含♣ +3 倍率',apply:c=>(c.hasSuit('club')?{mult:3}:null)},
+    wrathful:{name:'愤怒',desc:'含♠ +3 倍率',apply:c=>(c.hasSuit('spade')?{mult:3}:null)},
+    hopeful:{name:'乐观',desc:'含♥ +15 筹码',apply:c=>(c.hasSuit('heart')?{chips:15}:null)},
+    melancholic:{name:'忧郁',desc:'含♦ +15 筹码',apply:c=>(c.hasSuit('diamond')?{chips:15}:null)},
+    flat:{name:'扁平',desc:'+50 筹码',apply:()=>({chips:50})},
+    doubl:{name:'翻倍',desc:'倍率 ×2',apply:()=>({multMul:2})},
+    evenj:{name:'偶数',desc:'全偶数 +4 倍率',apply:c=>(c.allEven?{mult:4}:null)},
+    oddj:{name:'奇数',desc:'全奇数 +4 倍率',apply:c=>(c.allOdd?{mult:4}:null)},
+    steel:{name:'钢铁',desc:'含人头牌 +20 筹码',apply:c=>(c.hasFace?{chips:20}:null)},
+  };
+  const JOKER_IDS=Object.keys(JOKERS);
+
+  // ---- run state ----
+  let S=null;
+  function newRun(){
+    S={
+      ante:1, blindIdx:0, target:0, bossDebuff:null,
+      deck:buildDeck(), hand:[], discard:[], selected:[],
+      chips:0, plays:4, discards:3,
+      jokers:[], screen:'round', over:false, won:false,
+    };
+    startBlind();
+    return S;
+  }
+  function blindTarget(){
+    const a=S.ante,b=S.blindIdx;
+    if(b===0) return 300+(a-1)*250;
+    if(b===1) return 500+(a-1)*350;
+    return 800+(a-1)*500;
+  }
+  function startBlind(){
+    S.target=blindTarget();
+    S.bossDebuff = (S.blindIdx===2)?choice(SUITS):null;
+    S.deck=buildDeck(); S.discard=[]; S.hand=[]; S.selected=[];
+    S.chips=0; S.plays=4; S.discards=3;
+    drawN(8);
+    S.screen='round';
+  }
+  function drawN(n){
+    for(let i=0;i<n;i++){
+      if(S.hand.length>=8) break;
+      if(S.deck.length===0){ S.deck=shuffle(S.discard); S.discard=[]; }
+      if(S.deck.length===0) break;
+      S.hand.push(S.deck.pop());
+    }
+  }
+  function toggleSelect(i){ const k=S.selected.indexOf(i); if(k>=0)S.selected.splice(k,1); else S.selected.push(i); }
+  function canPlay(){ return S.plays>0 && S.selected.length>=1 && S.selected.length<=5; }
+  function canDiscard(){ return S.discards>0 && S.selected.length>=1; }
+
+  function scoreHand(cards){
+    const ev=evaluate(cards);
+    let chips=ev.chips, mult=ev.mult;
+    const deb=c=>S.bossDebuff&&c.suit===S.bossDebuff;
+    for(const c of cards){ if(deb(c)) continue; chips+=cardChip(c.rank); }
+    const suits=cards.map(c=>c.suit);
+    const hasSuit=s=>cards.some(c=>c.suit===s && !deb(c));
+    const allEven=cards.every(c=>c.rank%2===0);
+    const allOdd=cards.every(c=>c.rank%2===1);
+    const hasFace=cards.some(c=>c.rank>=11&&c.rank<=13);
+    for(const id of S.jokers){
+      const j=JOKERS[id]; const ctx={chips,mult,hasSuit,hasFace,allEven,allOdd,type:ev.type};
+      const r=j.apply(ctx);
+      if(r){ if(r.chips)chips+=r.chips; if(r.mult)mult+=r.mult; if(r.multMul)mult*=r.multMul; }
+    }
+    chips=Math.round(chips); mult=Math.round(mult);
+    return {type:ev.type, chips, mult, score:chips*mult};
+  }
+
+  function playSelected(){
+    if(!canPlay()) return null;
+    const sel=S.selected.slice().sort((a,b)=>a-b);
+    const cards=sel.map(i=>S.hand[i]);
+    const res=scoreHand(cards);
+    S.chips+=res.score;
+    if(J) J.sfx('level');
+    // remove played from hand (high->low to keep indices valid)
+    for(let k=sel.length-1;k>=0;k--) S.hand.splice(sel[k],1);
+    for(const c of cards) S.discard.push(c);
+    S.selected=[];
+    S.plays--;
+    if(S.chips>=S.target){ winBlind(); }
+    else if(S.plays<=0){ S.over=true; S.screen='gameover'; }
+    return res;
+  }
+  function discardSelected(){
+    if(!canDiscard()) return false;
+    const sel=S.selected.slice().sort((a,b)=>a-b);
+    for(let k=sel.length-1;k>=0;k--){ S.discard.push(S.hand[sel[k]]); S.hand.splice(sel[k],1); }
+    S.selected=[];
+    S.discards--;
+    drawN(sel.length);
+    return true;
+  }
+  function winBlind(){
+    if(J) J.sfx('win');
+    if(S.blindIdx===2){
+      if(S.ante>=MAXANTE){ S.won=true; S.screen='win'; return; }
+      S.ante++; S.blindIdx=0;
+    } else S.blindIdx++;
+    S.reward={cards:shuffle(JOKER_IDS.slice()).slice(0,3)};
+    S.screen='reward';
+  }
+  function chooseReward(idx){
+    if(S.screen!=='reward') return false;
+    if(idx!==null && S.reward.cards[idx]) S.jokers.push(S.reward.cards[idx]);
+    S.reward=null;
+    startBlind();
+    return true;
+  }
+  function skipReward(){ if(S.screen==='reward'){ S.reward=null; startBlind(); return true; } return false; }
+
+  // ---- render ----
+  function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+  function render(){
+    if(!screenEl) return;
+    if(S.screen==='round') renderRound();
+    else if(S.screen==='reward') renderReward();
+    else if(S.screen==='win') renderWin();
+    else if(S.screen==='gameover') renderOver();
+    else renderRound();
+  }
+  const BLIND_NAME=['小盲','大盲','BOSS'];
+  function renderRound(){
+    const pct=Math.min(100,S.chips/S.target*100);
+    const debTxt=S.bossDebuff?(' · ⚠ '+SUIT_CH[S.bossDebuff]+' 被封印'):'';
+    let html='<div class="top"><span class="ant">第 '+S.ante+' 轮 · '+BLIND_NAME[S.blindIdx]+debTxt+'</span>'+
+      '<span>目标 '+S.target+' · 已得 '+S.chips+'</span>'+
+      '<span>出手 '+S.plays+' · 弃牌 '+S.discards+' · 小丑 '+S.jokers.length+'</span></div>';
+    html+='<div class="bar"><i style="width:'+pct+'%"></i></div>';
+    html+='<div class="jokers">';
+    if(S.jokers.length===0) html+='<span style="color:var(--dim);font-size:11px">（暂无小丑牌，赢下盲注后三选一获取）</span>';
+    else S.jokers.forEach(id=>{ const j=JOKERS[id]; html+='<div class="jk"><b>'+esc(j.name)+'</b><br>'+esc(j.desc)+'</div>'; });
+    html+='</div>';
+    html+='<div class="hand">';
+    S.hand.forEach((c,i)=>{
+      const sel=S.selected.includes(i);
+      const deb=S.bossDebuff&&c.suit===S.bossDebuff;
+      html+='<div class="card5 '+(SUIT_RED[c.suit]?'red':'black')+(sel?' sel':'')+(deb?' deb':'')+'" data-i="'+i+'">'+
+        '<div class="rk">'+c.rank+'</div><div class="su">'+SUIT_CH[c.suit]+'</div></div>';
+    });
+    html+='</div>';
+    html+='<div class="ctrls"><button class="btn" id="play" '+(canPlay()?'':'disabled')+'>出牌 ('+S.selected.length+')</button>'+
+      '<button class="btn ghost" id="disc" '+(canDiscard()?'':'disabled')+'>弃牌</button>'+
+      '<span class="msg">点牌选中，凑成牌型出牌得分；达到目标即过关。</span></div>';
+    screenEl.innerHTML=html;
+    if(typeof document!=='undefined'){
+      screenEl.querySelectorAll('.card5').forEach((el,i)=>{ el.onclick=()=>{ toggleSelect(i); render(); }; });
+      const p=screenEl.querySelector('#play'); if(p) p.onclick=()=>{ playSelected(); render(); };
+      const d=screenEl.querySelector('#disc'); if(d) d.onclick=()=>{ discardSelected(); render(); };
+    }
+  }
+  function renderReward(){
+    let html='<div class="center"><h1 class="win">盲注通过！</h1><p>选择一个小丑牌加入构筑（永久生效）。</p></div><div class="rewards">';
+    S.reward.cards.forEach((id,i)=>{ const j=JOKERS[id]; html+='<div class="jk" data-r="'+i+'" style="cursor:pointer"><b>'+esc(j.name)+'</b><br>'+esc(j.desc)+'</div>'; });
+    html+='</div><div style="text-align:center;margin-top:14px"><button class="btn ghost" id="skip">跳过（不拿牌）</button></div>';
+    screenEl.innerHTML=html;
+    if(typeof document!=='undefined'){
+      screenEl.querySelectorAll('.jk').forEach((el,i)=>{ el.onclick=()=>{ chooseReward(i); render(); }; });
+      const s=screenEl.querySelector('#skip'); if(s) s.onclick=()=>{ skipReward(); render(); };
+    }
+  }
+  function renderWin(){ screenEl.innerHTML='<div class="center"><h1 class="win">通关！</h1><p>你击穿了全部 '+MAXANTE+' 轮盲注，成为巴尔牌大师。</p><button class="btn" id="rs">再来一局</button></div>'; if(typeof document!=='undefined'){const b=screenEl.querySelector('#rs');if(b)b.onclick=()=>{newRun();render();};} }
+  function renderOver(){ screenEl.innerHTML='<div class="center"><h1 class="lose">GAME OVER</h1><p>出手次数用尽仍未达到目标 '+S.target+'（得 '+S.chips+'）。</p><button class="btn" id="rs">重新开始</button></div>'; if(typeof document!=='undefined'){const b=screenEl.querySelector('#rs');if(b)b.onclick=()=>{newRun();render();};} }
+
+  function loop(){ if(typeof document!=='undefined'){ render(); requestAnimationFrame(loop); } }
+
+  // ---------- boot ----------
+  newRun();
+  if(typeof document!=='undefined'){ render(); requestAnimationFrame(loop); }
+
+  // ---------- test hooks ----------
+  if(typeof window!=='undefined'){
+    window.__t = {
+      newRun,
+      evaluate,            // evaluate(cards)
+      scoreHand,           // scoreHand(cards) using current jokers/debuff
+      getScreen:()=>S.screen,
+      getState:()=>({ante:S.ante,blindIdx:S.blindIdx,target:S.target,bossDebuff:S.bossDebuff,chips:S.chips,plays:S.plays,discards:S.discards,jokers:S.jokers.length,hand:S.hand.length,over:S.over,won:S.won}),
+      getHand:()=>S.hand.map(c=>({rank:c.rank,suit:c.suit})),
+      getJokers:()=>S.jokers.slice(),
+      addJoker:(id)=>{ if(JOKERS[id]&&!S.jokers.includes(id)) S.jokers.push(id); },
+      toggleSelect, getSelected:()=>S.selected.slice(),
+      canPlay, canDiscard,
+      playSelected, discardSelected,
+      chooseReward, skipReward,
+      isOver:()=>S.over, isWin:()=>S.won,
+      // debug hooks
+      debugSetHand:(cards)=>{ S.hand=cards.slice(); S.selected=[]; },
+      debugSetTarget:(t)=>{ S.target=t; },
+      debugSetDebuff:(s)=>{ S.bossDebuff=s; },
+    };
+  }
+})();
+</script>
+</body>
+</html>

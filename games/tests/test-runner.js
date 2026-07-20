@@ -99,6 +99,7 @@ const FILES = {
   'trivia.html':       { name:'知识问答 Trivia',            offline:true },
   'survivor.html':     { name:'幸存者 Survivor',            offline:true },
   'spire.html':        { name:'尖塔 Spire',                 offline:true },
+  'balatro.html':      { name:'小丑牌 Balatro',              offline:true },
 };
 
 let totalPass=0, totalFail=0;
