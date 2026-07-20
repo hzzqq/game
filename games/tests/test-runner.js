@@ -44,6 +44,7 @@ const FILES = {
   'mastermind.html': { name:'猜数字 Mastermind',     offline:true },
   'battleship.html': { name:'战舰 Battleship',       offline:true },
   'tictactoe.html':  { name:'井字棋 TicTacToe',      offline:true },
+  'pinball.html':    { name:'弹珠台 Pinball',        offline:true },
 };
 
 let totalPass=0, totalFail=0;

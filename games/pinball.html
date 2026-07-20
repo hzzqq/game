@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 弹珠台</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(240,185,11,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(440px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--gold)}
+  .wrap{width:min(440px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:8px}
+  .hud .sc{color:var(--gold);font-weight:700;font-size:15px}
+  .hud .lv{color:var(--green);font-weight:700}
+  canvas{background:linear-gradient(180deg,#0b1018,#0a0e14);border:2px solid var(--border);border-radius:12px;display:block;margin:0 auto;touch-action:none}
+  .controls{display:flex;gap:8px;margin-top:10px}
+  .controls button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;cursor:pointer;font-family:inherit;font-size:13px}
+  .controls button:active,.controls button.on{border-color:var(--gold);color:var(--gold);background:rgba(240,185,11,.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.over{color:var(--red);font-weight:700}
+  .foot{width:min(440px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>弹珠台</b> PINBALL</span></div>
+  <div class="wrap">
+    <div class="hud"><span>得分 SCORE · <span class="sc" id="score">0</span></span><span>球 LIVES · <span class="lv" id="lives">3</span></span></div>
+    <canvas id="cv" width="400" height="600"></canvas>
+    <div class="controls">
+      <button id="left">◀ 左挡板 (←/A)</button>
+      <button id="right">右挡板 (→/D) ▶</button>
+    </div>
+    <div class="msg" id="msg">球会自动落下，用左右挡板把球弹回去。撞发光柱加分。</div>
+  </div>
+  <div class="foot">经典弹珠台：重力下落的球撞 3 根发光柱（bumper）反弹加分，用左右挡板（←/A、→/D 或屏幕按钮）击球。3 条命耗尽即结束。红涨绿跌，暗色终端风。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const W=400, H=600, G=0.35, BALL_R=10, LAUNCH=-13;
+  const FLIP_Y=H-46, FLIP_LX=W*0.30, FLIP_RX=W*0.70, FLIP_RANGE=70;
+  const BUMPERS=[
+    {x:W*0.5, y:H*0.32, r:26},
+    {x:W*0.28, y:H*0.50, r:22},
+    {x:W*0.72, y:H*0.50, r:22},
+  ];
+  const START_LIVES=3;
+
+  let ball, score, lives, over, leftDown, rightDown;
+  function resetBall(){
+    ball = { x:W/2, y:80, vx:(Math.random()*2-1)*2, vy:1.5 };
+  }
+  function reset(){
+    score=0; lives=START_LIVES; over=false; leftDown=false; rightDown=false;
+    resetBall();
+  }
+  function flipperHit(fx, active){
+    if(!active) return false;
+    if(ball.y > FLIP_Y-60 && ball.y < FLIP_Y+20 && Math.abs(ball.x-fx) < FLIP_RANGE && ball.vy > -2){
+      ball.vy = LAUNCH;
+      ball.vx += (ball.x < fx ? -3 : 3);
+      return true;
+    }
+    return false;
+  }
+  // 推进一帧（dt 固定步长，沙箱里手动调用）
+  function step(){
+    if(over) return;
+    ball.vy += G;
+    ball.x += ball.vx; ball.y += ball.vy;
+    // 墙反弹
+    if(ball.x < BALL_R){ ball.x=BALL_R; ball.vx=Math.abs(ball.vx); }
+    if(ball.x > W-BALL_R){ ball.x=W-BALL_R; ball.vx=-Math.abs(ball.vx); }
+    if(ball.y < BALL_R){ ball.y=BALL_R; ball.vy=Math.abs(ball.vy); }
+    // bumper 碰撞
+    for(const b of BUMPERS){
+      const dx=ball.x-b.x, dy=ball.y-b.y, d=Math.hypot(dx,dy);
+      if(d < b.r+BALL_R && d>0){
+        const nx=dx/d, ny=dy/d;
+        ball.x = b.x + nx*(b.r+BALL_R);
+        ball.y = b.y + ny*(b.r+BALL_R);
+        const dot = ball.vx*nx + ball.vy*ny;
+        ball.vx -= 2*dot*nx; ball.vy -= 2*dot*ny;
+        ball.vx*=1.05; ball.vy*=1.05;
+        score += 10;
+        if(typeof Juice!=='undefined'){ Juice.sfx('click'); }
+      }
+    }
+    // flippers
+    let hit=false;
+    if(leftDown) hit = flipperHit(FLIP_LX, true) || hit;
+    if(rightDown) hit = flipperHit(FLIP_RX, true) || hit;
+    if(hit && typeof Juice!=='undefined') Juice.sfx('combo');
+    // 失球
+    if(ball.y > H + BALL_R){
+      lives--;
+      if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.3); }
+      if(lives<=0){ over=true; if(typeof Juice!=='undefined'){ Juice.flash('#f6465d'); Juice.best('pinball', score); } }
+      else resetBall();
+    }
+  }
+  function setLeft(v){ leftDown = v; }
+  function setRight(v){ rightDown = v; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let ctx=null, cv=null, raf=0;
+  function render(){
+    if(typeof document==='undefined' || !ctx) return;
+    ctx.clearRect(0,0,W,H);
+    // bumpers
+    BUMPERS.forEach(b=>{ ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.strokeStyle='#f0b90b'; ctx.lineWidth=3; ctx.stroke(); });
+    // flippers
+    ctx.strokeStyle = leftDown?'#f0b90b':'#6b7785'; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(FLIP_LX-FLIP_RANGE, FLIP_Y); ctx.lineTo(FLIP_LX+10, FLIP_Y+18); ctx.stroke();
+    ctx.strokeStyle = rightDown?'#f0b90b':'#6b7785'; ctx.beginPath(); ctx.moveTo(FLIP_RX+FLIP_RANGE, FLIP_Y); ctx.lineTo(FLIP_RX-10, FLIP_Y+18); ctx.stroke();
+    // ball
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2); ctx.fillStyle='#02c076'; ctx.fill();
+  }
+  function loop(){ step(); render(); if(typeof document!=='undefined') requestAnimationFrame(loop); }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const l=$('left'), r=$('right');
+    const dl=e=>{ setLeft(true); if(l) l.classList.add('on'); }, ul=e=>{ setLeft(false); if(l) l.classList.remove('on'); };
+    const dr=e=>{ setRight(true); if(r) r.classList.add('on'); }, ur=e=>{ setRight(false); if(r) r.classList.remove('on'); };
+    if(l){ l.addEventListener('pointerdown',dl); l.addEventListener('pointerup',ul); l.addEventListener('pointerleave',ul); }
+    if(r){ r.addEventListener('pointerdown',dr); r.addEventListener('pointerup',ur); r.addEventListener('pointerleave',ur); }
+    if(typeof document!=='undefined'){
+      document.addEventListener('keydown',e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') dl(); if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') dr(); });
+      document.addEventListener('keyup',e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') ul(); if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') ur(); });
+    }
+  }
+  let hudTick=0;
+  function uiTick(){
+    if(typeof document==='undefined') return;
+    const sc=$('score'),lv=$('lives'),msg=$('msg');
+    if(sc) sc.textContent=score; if(lv) lv.textContent=lives;
+    if(msg){ if(over){ msg.className='msg over'; msg.textContent='游戏结束 · 得分 '+score; } else { msg.className='msg'; msg.textContent='用左右挡板击球，撞发光柱加分。'; } }
+  }
+  reset();
+  if(typeof document!=='undefined'){
+    cv=$('cv'); if(cv) ctx=cv.getContext('2d');
+    if(ctx){ bindUI(); loop(); setInterval(uiTick, 100); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      W, H, G, BALL_R, LAUNCH, FLIP_Y, FLIP_LX, FLIP_RX, FLIP_RANGE, START_LIVES,
+      BUMPERS,
+      reset, step, setLeft, setRight,
+      getBall:()=>ball, setBall:(b)=>{ball=b;},
+      getScore:()=>score, setScore:(v)=>{score=v;},
+      getLives:()=>lives, setLives:(v)=>{lives=v;},
+      isOver:()=>over, getLeft:()=>leftDown, getRight:()=>rightDown,
+    };
+  }
+})();
+</script>
+</body>
+</html>
