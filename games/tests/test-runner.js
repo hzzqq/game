@@ -52,6 +52,7 @@ const FILES = {
   'lightsout.html':    { name:'关灯 Lights Out',        offline:true },
   'puzzle15.html':     { name:'数字华容道 15-Puzzle',    offline:true },
   'mancala.html':      { name:'播棋 Mancala',             offline:true },
+  'hanoi.html':        { name:'汉诺塔 Tower of Hanoi',     offline:true },
 };
 
 let totalPass=0, totalFail=0;
