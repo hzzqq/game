@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 洪水填充</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:3px;justify-content:center;margin:6px auto}
+  .cell{width:34px;height:34px;border-radius:5px;border:1px solid rgba(255,255,255,.06)}
+  .palette{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+  .swatch{width:38px;height:38px;border-radius:8px;border:2px solid transparent;cursor:pointer}
+  .swatch.sel{border-color:var(--gold)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>洪水填充</b> FLOOD FILL</span></div>
+  <div class="wrap">
+    <div class="hud"><span>步数 · <span class="st" id="moves">0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="palette" id="palette"></div>
+    <div class="msg" id="msg">点击色块把左上角区域「漫染」成该颜色，把整盘染成同色即胜。策略性地选择顺序用最少步数通关。</div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+  </div>
+  <div class="foot">洪水填充（Flood-It）：每次选一种颜色，从左上角连通区向四周扩散同色块，目标是让整张网格变为同一种颜色。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const PALETTE=['#f6465d','#02c076','#f0b90b','#3b82f6','#a855f7','#ec4899'];
+  let rows=12, cols=12, numColors=6, board, region, moves, over;
+  let _rand=Math.random;
+  function setRand(fn){ _rand=fn; }
+  function gen(){
+    board=[]; for(let r=0;r<rows;r++){ const row=[]; for(let c=0;c<cols;c++) row.push(Math.floor(_rand()*numColors)); board.push(row); }
+    moves=0; over=false; computeRegion();
+  }
+  function inb(r,c){ return r>=0&&c>=0&&r<rows&&c<cols; }
+  function neighbors(r,c){ const out=[]; if(inb(r-1,c))out.push([r-1,c]); if(inb(r+1,c))out.push([r+1,c]); if(inb(r,c-1))out.push([r,c-1]); if(inb(r,c+1))out.push([r,c+1]); return out; }
+  function computeRegion(){
+    region=[]; const start=board[0][0]; const seen=new Set(); const q=[[0,0]]; seen.add('0,0');
+    while(q.length){ const [r,c]=q.pop(); region.push([r,c]); for(const [nr,nc] of neighbors(r,c)){ const k=nr+','+nc; if(!seen.has(k)&&board[nr][nc]===start){ seen.add(k); q.push([nr,nc]); } } }
+  }
+  function step(color){
+    if(over) return false;
+    for(const [r,c] of region) board[r][c]=color;
+    const seen=new Set(region.map(p=>p[0]+','+p[1]));
+    const q=region.slice();
+    while(q.length){ const [r,c]=q.pop(); for(const [nr,nc] of neighbors(r,c)){ const k=nr+','+nc; if(seen.has(k)) continue; if(board[nr][nc]===color){ seen.add(k); region.push([nr,nc]); q.push([nr,nc]); } } }
+    moves++;
+    over = region.length===rows*cols;
+    return true;
+  }
+  function getFlooded(){ return region.length; }
+  function getMoves(){ return moves; }
+  function isSolved(){ return over; }
+  function getBoard(){ return board.map(r=>r.slice()); }
+  function setBoard(b){ board=b.map(r=>r.slice()); rows=b.length; cols=b[0].length; moves=0; over=false; computeRegion(); }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+cols+',34px)'; bd.innerHTML=''; for(let r=0;r<rows;r++){ for(let c=0;c<cols;c++){ const d=document.createElement('div'); d.className='cell'; d.style.background=PALETTE[board[r][c]]; bd.appendChild(d); } } }
+    const mv=$('moves'),st=$('st'); if(mv)mv.textContent=moves; if(st)st.textContent=over?'已通关':'进行中';
+    const pal=$('palette'); if(pal){ pal.innerHTML=''; for(let i=0;i<numColors;i++){ const s=document.createElement('div'); s.className='swatch'; s.style.background=PALETTE[i]; s.onclick=()=>{ step(i); render(); }; pal.appendChild(s); } }
+    const msg=$('msg'); if(msg&&over){ msg.className='msg win'; msg.textContent='✅ 全部染成同色，通关！步数 '+moves; }
+  }
+  function newGame(){ gen(); render(); }
+  if(typeof document!=='undefined'){
+    const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ step, getFlooded, getMoves, isSolved, getBoard, setBoard, setRand, gen }; }
+})();
+</script>
+</body>
+</html>

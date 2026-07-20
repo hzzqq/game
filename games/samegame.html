@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 同色消除</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:3px;justify-content:center;margin:6px auto;width:max-content}
+  .cell{width:36px;height:36px;border-radius:5px;border:1px solid rgba(255,255,255,.06);cursor:pointer}
+  .cell.empty{background:#0e141d;border-color:var(--border);cursor:default}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>同色消除</b> SAME GAME</span></div>
+  <div class="wrap">
+    <div class="hud"><span>得分 · <span class="st" id="score">0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="msg" id="msg">点选 2 个及以上相连的同色块消除，上方方块下落、空列左移。无可行消除即结束，剩越少分越高。</div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+  </div>
+  <div class="foot">同色消除（SameGame）：点击相邻同色块群（≥2）消除，上方块受重力下落、空列向左收拢，消除 n 个得 (n-2)² 分。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const PALETTE=['#f6465d','#02c076','#f0b90b','#3b82f6','#a855f7'];
+  let rows=10, cols=14, numColors=4, board, score, over;
+  let _rand=Math.random;
+  function setRand(fn){ _rand=fn; }
+  function gen(){
+    board=[]; for(let r=0;r<rows;r++){ const row=[]; for(let c=0;c<cols;c++) row.push(Math.floor(_rand()*numColors)); board.push(row); }
+    score=0; over=false;
+  }
+  function inb(r,c){ return r>=0&&c>=0&&r<rows&&c<cols; }
+  function neighbors(r,c){ const out=[]; if(inb(r-1,c))out.push([r-1,c]); if(inb(r+1,c))out.push([r+1,c]); if(inb(r,c-1))out.push([r,c-1]); if(inb(r,c+1))out.push([r,c+1]); return out; }
+  function groupAt(r,c){
+    const color=board[r][c]; if(color<0) return [];
+    const seen=new Set(); const q=[[r,c]]; seen.add(r+','+c); const grp=[];
+    while(q.length){ const [cr,cc]=q.pop(); grp.push([cr,cc]); for(const [nr,nc] of neighbors(cr,cc)){ const k=nr+','+nc; if(!seen.has(k)&&board[nr][nc]===color){ seen.add(k); q.push([nr,nc]); } } }
+    return grp;
+  }
+  function canRemove(r,c){ const g=groupAt(r,c); return g.length>=2; }
+  function applyGravity(){
+    for(let c=0;c<cols;c++){ const stack=[]; for(let r=rows-1;r>=0;r--){ if(board[r][c]>=0) stack.push(board[r][c]); } for(let r=rows-1;r>=0;r--){ board[r][c]= stack.length>(rows-1-r) ? stack[rows-1-r] : -1; } }
+    const nonempty=[]; for(let c=0;c<cols;c++){ let has=false; for(let r=0;r<rows;r++){ if(board[r][c]>=0){ has=true; break; } } if(has) nonempty.push(c); }
+    const nb=Array.from({length:rows},()=>Array(cols).fill(-1));
+    for(let i=0;i<nonempty.length;i++){ const oc=nonempty[i]; for(let r=0;r<rows;r++) nb[r][i]=board[r][oc]; }
+    board=nb;
+  }
+  function remove(r,c){
+    const g=groupAt(r,c); if(g.length<2) return 0;
+    for(const [gr,gc] of g) board[gr][gc]=-1;
+    applyGravity(); score += Math.pow(g.length-2,2); over=isOver(); return g.length;
+  }
+  function isOver(){
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){ if(board[r][c]<0) continue; for(const [nr,nc] of neighbors(r,c)){ if(inb(nr,nc)&&board[nr][nc]===board[r][c]) return false; } }
+    return true;
+  }
+  function getScore(){ return score; }
+  function isSolved(){ return over; }
+  function getBoard(){ return board.map(r=>r.slice()); }
+  function setBoard(b){ board=b.map(r=>r.slice()); rows=b.length; cols=b[0].length; score=0; over=false; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+cols+',36px)'; bd.innerHTML=''; for(let r=0;r<rows;r++){ for(let c=0;c<cols;c++){ const v=board[r][c]; const d=document.createElement('div'); if(v<0){ d.className='cell empty'; } else { d.className='cell'; d.style.background=PALETTE[v]; d.onclick=()=>{ if(remove(r,c)>=0) render(); }; } bd.appendChild(d); } } }
+    const sc=$('score'),st=$('st'); if(sc)sc.textContent=score; if(st)st.textContent=over?'已结束':'进行中';
+    const msg=$('msg'); if(msg&&over){ msg.className='msg win'; msg.textContent='🏁 无可消除组合，最终得分 '+score; }
+  }
+  function newGame(){ gen(); render(); }
+  if(typeof document!=='undefined'){ const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); }; }
+  newGame();
+  if(typeof document!=='undefined'){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ canRemove, remove, isOver, getScore, isSolved, getBoard, setBoard, setRand, gen }; }
+})();
+</script>
+</body>
+</html>

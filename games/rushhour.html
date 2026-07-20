@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 华容道车</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:2px;background:var(--border);padding:2px;border-radius:8px;margin:6px auto;width:max-content}
+  .cell{width:46px;height:46px;background:#0e141d;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--dim)}
+  .cell.red{background:var(--red);color:#0a0e14;font-weight:700}
+  .cell.car{background:#3b82f6;color:#0a0e14;font-weight:700}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>华容道车</b> RUSH HOUR</span></div>
+  <div class="wrap">
+    <div class="hud"><span>步数 · <span class="st" id="moves">0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="msg" id="msg">滑动车辆让红色车从右侧出口驶出。点选车辆后按方向键或按钮移动。</div>
+    <div class="controls">
+      <button class="ghost" id="reset">重置 RESET</button>
+    </div>
+  </div>
+  <div class="foot">华容道车（Rush Hour）：6×6 网格上的滑块谜题，让横置的红色车平移到最右列即过关。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const N=6;
+  let cars=[], moves=0, over=false;
+  function setCars(arr){ cars=arr.map(c=>({id:c.id,dir:c.dir,len:c.len,r:c.r,c:c.c})); moves=0; over=false; }
+  function grid(){
+    const g=Array.from({length:N},()=>Array(N).fill(null));
+    for(const c of cars){ for(let i=0;i<c.len;i++){ const r=c.dir==='v'?c.r+i:c.r; const col=c.dir==='h'?c.c+i:c.c; g[r][col]=c.id; } }
+    return g;
+  }
+  function canMove(id,d,n){
+    const car=cars.find(c=>c.id===id); if(!car) return false;
+    const horiz=car.dir==='h';
+    if((d==='L'||d==='R')&&!horiz) return false;
+    if((d==='U'||d==='D')&&horiz) return false;
+    const g=grid();
+    if(d==='R'){ const end=car.c+car.len-1+n; if(end>=N) return false; for(let c=car.c+car.len;c<=end;c++) if(g[car.r][c]!==null&&g[car.r][c]!==id) return false; }
+    if(d==='L'){ const start=car.c+n; if(start<0) return false; for(let c=car.c-1;c>=start;c--) if(g[car.r][c]!==null&&g[car.r][c]!==id) return false; }
+    if(d==='D'){ const end=car.r+car.len-1+n; if(end>=N) return false; for(let r=car.r+car.len;r<=end;r++) if(g[r][car.c]!==null&&g[r][car.c]!==id) return false; }
+    if(d==='U'){ const start=car.r+n; if(start<0) return false; for(let r=car.r-1;r>=start;r--) if(g[r][car.c]!==null&&g[r][car.c]!==id) return false; }
+    return true;
+  }
+  function move(id,d,n){
+    if(!canMove(id,d,n)) return false;
+    const car=cars.find(c=>c.id===id);
+    if(d==='R'||d==='L') car.c+=n; else car.r+=n;
+    moves++; over=isSolved(); return true;
+  }
+  function isSolved(){ const red=cars.find(c=>c.id===0); return !!(red&&red.dir==='h'&&red.r===2&&red.c+red.len===N); }
+  function getMoves(){ return moves; }
+  function getCars(){ return cars.map(c=>({...c})); }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+N+',46px)'; bd.innerHTML=''; const g=grid(); for(let r=0;r<N;r++){ for(let c=0;c<N;c++){ const d=document.createElement('div'); const id=g[r][c]; d.className='cell'+(id===0?' red':(id!==null?' car':'')); d.textContent=id!==null?(''+id):''; bd.appendChild(d); } } }
+    const mv=$('moves'),st=$('st'); if(mv)mv.textContent=moves; if(st)st.textContent=over?'已通关':'进行中';
+    const msg=$('msg'); if(msg&&over){ msg.className='msg win'; msg.textContent='✅ 红色车成功驶出！步数 '+moves; }
+  }
+  function newGame(){ // default classic: red at row 2 col 0
+    setCars([{id:0,dir:'h',len:2,r:2,c:0},{id:1,dir:'v',len:3,r:0,c:2},{id:2,dir:'h',len:2,r:0,c:3},{id:3,dir:'v',len:2,r:3,c:5}]); render();
+  }
+  if(typeof document!=='undefined'){ const rb=$('reset'); if(rb) rb.onclick=()=>{ newGame(); }; }
+  newGame();
+  if(typeof document!=='undefined'){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ setCars, canMove, move, isSolved, getMoves, getCars }; }
+})();
+</script>
+</body>
+</html>

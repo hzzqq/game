@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 迷宫</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:1px;background:var(--border);padding:2px;border-radius:8px;margin:6px auto;width:max-content}
+  .cell{width:28px;height:28px;background:#0e141d;position:relative}
+  .cell.path{background:rgba(2,192,118,.35)}
+  .cell.goal{background:var(--gold)}
+  .cell.wallN::before,.cell.wallS::before,.cell.wallE::before,.cell.wallW::before{content:'';position:absolute;background:var(--text)}
+  .cell.wallN::before{top:0;left:0;right:0;height:2px}
+  .cell.wallS::before{bottom:0;left:0;right:0;height:2px}
+  .cell.wallE::before{top:0;right:0;bottom:0;width:2px}
+  .cell.wallW::before{top:0;left:0;bottom:0;width:2px}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>迷宫</b> MAZE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 · <span class="st" id="size">--</span></span><span>状态 · <span class="st" id="st">可解</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="msg" id="msg">从起点 (左上) 走到终点 (右下)。迷宫随机生成保证连通，可用方向键或按钮寻路。</div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+  </div>
+  <div class="foot">迷宫（Maze）：基于随机深度优先的递归回溯算法生成保证连通的完美迷宫，BFS 自动求解路径。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let W=12, H=12, maze;
+  let _rand=Math.random;
+  function setRand(fn){ _rand=fn; }
+  function carve(){
+    maze=[]; for(let r=0;r<H;r++){ const row=[]; for(let c=0;c<W;c++) row.push({N:true,E:true,S:true,W:true,vis:false}); maze.push(row); }
+    const stack=[[0,0]]; maze[0][0].vis=true;
+    while(stack.length){
+      const [r,c]=stack[stack.length-1];
+      const dirs=[];
+      if(r>0 && !maze[r-1][c].vis) dirs.push('N');
+      if(r<H-1 && !maze[r+1][c].vis) dirs.push('S');
+      if(c>0 && !maze[r][c-1].vis) dirs.push('W');
+      if(c<W-1 && !maze[r][c+1].vis) dirs.push('E');
+      if(dirs.length===0){ stack.pop(); continue; }
+      const d=dirs[Math.floor(_rand()*dirs.length)];
+      const [nr,nc]=neighbor(r,c,d);
+      maze[r][c][d]=false; maze[nr][nc][opp(d)]=false; maze[nr][nc].vis=true;
+      stack.push([nr,nc]);
+    }
+  }
+  function opp(d){ return d==='N'?'S':d==='S'?'N':d==='E'?'W':'E'; }
+  function neighbor(r,c,d){ if(d==='N')return [r-1,c]; if(d==='S')return [r+1,c]; if(d==='E')return [r,c+1]; return [r,c-1]; }
+  function inb(r,c){ return r>=0&&c>=0&&r<H&&c<W; }
+  function open(r,c,d){ return !maze[r][c][d]; }
+  function solve(){
+    if(!maze) return null;
+    const key=p=>p[0]+','+p[1];
+    const q=[[0,0]]; const prev={}; prev[key([0,0])]=null;
+    while(q.length){
+      const [r,c]=q.shift();
+      if(r===H-1&&c===W-1){ const path=[]; let cur=key([r,c]); while(cur!==null){ const [pr,pc]=cur.split(',').map(Number); path.unshift([pr,pc]); cur=prev[cur]; } return path; }
+      for(const d of ['N','E','S','W']){ if(open(r,c,d)){ const [nr,nc]=neighbor(r,c,d); if(inb(nr,nc) && !(key([nr,nc]) in prev)){ prev[key([nr,nc])]=key([r,c]); q.push([nr,nc]); } } }
+    }
+    return null;
+  }
+  function isSolved(){ return solve()!==null; }
+  function getPath(){ return solve(); }
+  function setMaze(m){ maze=m; H=m.length; W=m[0].length; }
+  function getMazeSize(){ return {W,H}; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',28px)'; bd.innerHTML=''; const path=solve()||[]; const pset=new Set(path.map(p=>p[0]+','+p[1])); for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); const cell=maze[r][c]; let cls='cell'; if(cell.N)cls+=' wallN'; if(cell.S)cls+=' wallS'; if(cell.E)cls+=' wallE'; if(cell.W)cls+=' wallW'; if(pset.has(r+','+c))cls+=' path'; if(r===H-1&&c===W-1)cls+=' goal'; d.className=cls; bd.appendChild(d); } } }
+    const sz=$('size'),st=$('st'); if(sz)sz.textContent=W+'×'+H; if(st)st.textContent=isSolved()?'可解':'无解';
+  }
+  function newGame(){ carve(); render(); }
+  if(typeof document!=='undefined'){ const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); }; }
+  newGame();
+  if(typeof document!=='undefined'){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ solve, isSolved, getPath, setMaze, getMazeSize, setRand, carve }; }
+})();
+</script>
+</body>
+</html>

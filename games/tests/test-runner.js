@@ -75,6 +75,10 @@ const FILES = {
   'war.html':          { name:'比大小 War',                   offline:true },
   'wordle.html':       { name:'猜词 Wordle',                  offline:true },
   'twentyfour.html':   { name:'24点 24 Game',                 offline:true },
+  'floodfill.html':    { name:'洪水填充 Flood Fill',          offline:true },
+  'rushhour.html':     { name:'华容道车 Rush Hour',           offline:true },
+  'samegame.html':     { name:'同色消除 SameGame',            offline:true },
+  'maze.html':         { name:'迷宫 Maze',                    offline:true },
 };
 
 let totalPass=0, totalFail=0;
