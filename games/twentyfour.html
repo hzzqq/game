@@ -66,12 +66,17 @@
   function evalExpr(expr, ns){
     // 安全求值：只允许数字与 + - * / ( ) 与 4 个给定数各用一次
     if(!/^[\d+\-*/().\s]+$/.test(expr)) return null;
-    for(const c of expr.replace(/[^0-9]/g,'').split('')) { /* noop */ }
     try{
       // 用 Function 求值（已做白名单过滤）
       const v=Function('"use strict";return ('+expr+')')();
       if(typeof v!=='number'||!isFinite(v)) return null;
-      return Math.abs(v-24)<1e-6 ? true : false;
+      if(Math.abs(v-24)>=1e-6) return false;          // 不等于 24
+      // 等于 24 后，必须校验算式恰用给定 4 数各一次（否则可凭空输入 "24"/"12+12" 作弊）
+      const tokens=(expr.match(/\d+/g)||[]).map(Number);
+      if(tokens.length!==ns.length) return false;
+      const a=tokens.slice().sort((x,y)=>x-y), b=ns.slice().sort((x,y)=>x-y);
+      for(let i=0;i<a.length;i++) if(a[i]!==b[i]) return false;
+      return true;
     }catch(e){ return null; }
   }
   function newGame(){ nums=rand4(); over=false; }
