@@ -51,6 +51,7 @@ const FILES = {
   'towerdefense.html':{ name:'塔防 Tower Defense',     offline:true },
   'lightsout.html':    { name:'关灯 Lights Out',        offline:true },
   'puzzle15.html':     { name:'数字华容道 15-Puzzle',    offline:true },
+  'mancala.html':      { name:'播棋 Mancala',             offline:true },
 };
 
 let totalPass=0, totalFail=0;

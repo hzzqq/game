@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 播棋</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(540px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(540px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;grid-template-columns:64px repeat(6,52px) 64px;gap:8px;align-items:center;background:var(--panel);padding:12px;border-radius:14px;border:1px solid var(--border);margin-bottom:10px}
+  .store{width:64px;height:120px;border-radius:10px;background:#0e141d;border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;color:var(--gold)}
+  .store small{color:var(--dim);font-weight:400;font-size:11px}
+  .pit{width:52px;height:52px;border-radius:50%;background:#0e141d;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;cursor:pointer;user-select:none}
+  .pit.you{color:var(--green)} .pit.foe{color:var(--red)}
+  .pit.cur{box-shadow:0 0 0 2px var(--gold)} .pit:active{transform:scale(.94)}
+  .pit.empty{opacity:.45;cursor:default}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(540px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>播棋</b> MANCALA</span></div>
+  <div class="wrap">
+    <div class="hud"><span>轮到 TURN · <span class="st" id="turn">你 (绿)</span></span><span id="status">把更多石子收进自己的大库</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">重来 RESET</button>
+    </div>
+    <div class="msg" id="msg">点你一侧（绿色）的任一非空棋坑，逆时针把石子逐个播入后续棋坑。落子进自己大库可再走一步；落进己方空格且对面有子则吃子。</div>
+  </div>
+  <div class="foot">经典 Mancala（Kalah 规则）：每侧 6 坑各 4 子 + 各自大库。一方坑空则游戏结束，剩余石子归对方大库，大库多者胜。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const PITS = 6;        // 每侧坑数
+  const INIT = 4;        // 初始每坑石子
+  // board 索引: 0..5 你(绿)的坑, 6 你的大库, 7..12 对手(红)的坑, 13 对手大库
+  const STORE = { 0:6, 1:13 };
+  const OWN = { 0:[0,1,2,3,4,5], 1:[7,8,9,10,11,12] };
+
+  let board, current, over, winner;
+  function newGame(){
+    board = new Array(14).fill(INIT);
+    board[6]=0; board[13]=0;
+    current=0; over=false; winner=null;
+  }
+  function reset(){ newGame(); }
+  function oppStore(p){ return p===0?13:6; }
+  function inOwn(pit,p){ return OWN[p].indexOf(pit)>=0; }
+  function sumPits(p){ return OWN[p].reduce((s,i)=>s+board[i],0); }
+  function getStore(p){ return board[STORE[p]]; }
+
+  // 落子：player 在 pit 处 sow。返回 true 表示合法走子；false 表示非法。
+  function sow(player, pit){
+    if(over) return false;
+    if(player!==current) return false;
+    if(!inOwn(pit,player)) return false;
+    if(board[pit]===0) return false;
+    let stones = board[pit]; board[pit]=0;
+    const skip = oppStore(player);
+    let pos = pit;
+    while(stones>0){
+      pos = (pos+1)%14;
+      if(pos===skip) continue;
+      board[pos]++; stones--;
+    }
+    const last = pos;
+    // 落进自己大库 → 额外回合
+    if(last === STORE[player]){
+      checkEnd();
+      if(!over && typeof Juice!=='undefined') Juice.sfx('click');
+      return true; // 不改变 current
+    }
+    // 落进己方空格且对面有子 → 吃子
+    if(inOwn(last,player) && board[last]===1){
+      const opp = 12 - last; // 对面坑
+      if(board[opp]>0){
+        board[STORE[player]] += board[last] + board[opp];
+        board[last]=0; board[opp]=0;
+        if(typeof Juice!=='undefined') Juice.sfx('levelup');
+      }
+    }
+    current = 1-player;
+    checkEnd();
+    if(!over && typeof Juice!=='undefined') Juice.sfx('click');
+    return true;
+  }
+  function checkEnd(){
+    if(sumPits(0)===0 || sumPits(1)===0){
+      board[6] += sumPits(0); board[13] += sumPits(1);
+      OWN[0].forEach(i=>board[i]=0); OWN[1].forEach(i=>board[i]=0);
+      over=true;
+      winner = board[6]>board[13]?0:(board[13]>board[6]?1:-1);
+    }
+  }
+  function getCurrent(){ return current; }
+  function isOver(){ return over; }
+  function getWinner(){ return winner; }
+  function getBoard(){ return board.slice(); }
+  function setBoard(b,cur){ board=b.slice(); current=cur; over=false; winner=null; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.innerHTML='';
+    // 上排：对手大库 + 对手坑(12..7 反向显示)
+    const topStore=document.createElement('div'); topStore.className='store'; topStore.id='store1'; b.appendChild(topStore);
+    for(let i=12;i>=7;i--){ const p=document.createElement('div'); p.className='pit foe'; p.dataset.pit=i; p.addEventListener('click',()=>{ if(current===1) sow(1,i); render(); }); b.appendChild(p); }
+    const botStore=document.createElement('div'); botStore.className='store'; botStore.id='store0'; b.appendChild(botStore);
+    for(let i=0;i<6;i++){ const p=document.createElement('div'); p.className='pit you'; p.dataset.pit=i; p.addEventListener('click',()=>{ if(current===0) sow(0,i); render(); }); b.appendChild(p); }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    const store0=$('store0'), store1=$('store1'), msg=$('msg'), st=$('status'), turn=$('turn');
+    const pits=b.querySelectorAll('.pit');
+    pits.forEach(el=>{
+      const i=+el.dataset.pit;
+      el.textContent=board[i];
+      el.classList.toggle('empty', board[i]===0);
+      el.classList.toggle('cur', i===current || (current===0&&OWN[0].indexOf(i)>=0) || (current===1&&OWN[1].indexOf(i)>=0));
+    });
+    if(store0) store0.innerHTML='<small>你</small>'+board[6];
+    if(store1) store1.innerHTML='<small>对手</small>'+board[13];
+    if(turn) turn.textContent = over?'结束':(current===0?'你 (绿)':'对手 (红)');
+    if(st) st.textContent = over?'本局结束':(current===0?'你的回合':'对手回合');
+    if(msg){
+      if(over){ const w=winner; msg.className='msg win';
+        msg.textContent = w===0?'🎉 你赢了！大库 '+board[6]+' : '+board[13] : (w===1?'对手赢了 '+board[13]+' : '+board[6] : '平局 '+board[6]+' : '+board[13]); }
+      else { msg.className='msg'; msg.textContent='点你一侧的任一非空棋坑进行播棋。'; }
+    }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      PITS, INIT, STORE, OWN,
+      newGame, reset, sow, getCurrent, isOver, getWinner, getBoard, getStore, sumPits,
+      setBoard, checkEnd,
+    };
+  }
+})();
+</script>
+</body>
+</html>
