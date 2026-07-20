@@ -81,7 +81,14 @@
     for(const row of rows){ for(let i=0;i<row.obstacles.length;i++){ let c=row.obstacles[i]+row.dir*row.speed*dt; if(c<0)c+=COLS; if(c>=COLS)c-=COLS; row.obstacles[i]=c; } }
     const row=rows[frog.row];
     if(row.type==='road'){ if(row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)) dead=true; }
-    else if(row.type==='water'){ if(!row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)) dead=true; else frog.col += row.dir*row.speed*dt; }
+    else if(row.type==='water'){
+      if(!row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)) dead=true;
+      else {
+        const nc=frog.col + row.dir*row.speed*dt;
+        if(nc<0 || nc>COLS-1) dead=true;   // 被浮木带出边界→落水身亡（青蛙不能随浮木 wrap）
+        else frog.col=nc;
+      }
+    }
   }
   function isDead(){ return dead; }
   function isGoal(){ return goal || frog.row===0; }

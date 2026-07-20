@@ -34,3 +34,26 @@ ok('河面无浮木 → 落水死亡', t.isDead() === true);
 t.reset();
 t.setFrog(0,5);
 ok('处于第0行 → 到达终点', t.isGoal() === true);
+
+// 回归：踩浮木被带出右边界应落水身亡，且 frog.col 不越界（曾无边界判定被带出棋盘）
+t.reset();
+t.setRow(2,'water');
+t.setRowDir(2,1);
+t.setRowSpeed(2,1);
+t.setObstacles(2,[8]);
+t.setFrog(2,8);
+let maxCol=8;
+for(let i=0;i<60;i++){ t.tick(0.1); const f=t.getFrog(); if(f.col>maxCol)maxCol=f.col; if(t.isDead())break; }
+ok('被浮木带出右边界 → 落水身亡', t.isDead() === true);
+ok('frog.col 不超过棋盘边界 (<=COLS-1)', maxCol <= 10, 'maxCol='+maxCol);
+// 左边界同理
+t.reset();
+t.setRow(2,'water');
+t.setRowDir(2,-1);
+t.setRowSpeed(2,1);
+t.setObstacles(2,[2]);
+t.setFrog(2,2);
+let minCol=2;
+for(let i=0;i<60;i++){ t.tick(0.1); const f=t.getFrog(); if(f.col<minCol)minCol=f.col; if(t.isDead())break; }
+ok('被浮木带出左边界 → 落水身亡', t.isDead() === true);
+ok('frog.col 不低于 0', minCol >= 0, 'minCol='+minCol);
