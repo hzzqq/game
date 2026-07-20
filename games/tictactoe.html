@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 井字棋</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(420px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(420px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .sc{color:var(--gold);font-weight:700}
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:var(--border);border:2px solid var(--border);border-radius:12px;padding:8px}
+  .cell{aspect-ratio:1;background:#0c121a;border:1px solid #16202c;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:54px;font-weight:700;cursor:pointer;user-select:none;transition:.1s}
+  .cell:hover{border-color:var(--green)}
+  .cell.x{color:var(--red)} .cell.o{color:var(--green)}
+  .cell.win{background:rgba(240,185,11,.15);border-color:var(--gold)}
+  .msg{text-align:center;min-height:22px;margin-top:12px;font-size:14px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:10px}
+  .controls button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px;cursor:pointer;font-family:inherit}
+  .controls button:hover{border-color:var(--gold);color:var(--gold)}
+  .foot{width:min(420px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>井字棋</b> TIC-TAC-TOE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>你 <b style="color:var(--red)">✕</b> · AI <b style="color:var(--green)">◯</b></span><span id="record">胜 0 · 负 0 · 平 0</span></div>
+    <div class="board" id="board"></div>
+    <div class="msg" id="msg">你先手（✕）。点空格落子。</div>
+    <div class="controls"><button id="restart">重开</button></div>
+  </div>
+  <div class="foot">经典井字棋：你执 ✕ 先手，AI 执 ◯ 用 minimax 永不落败（至少平局）。红涨绿跌，暗色终端风。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const HUMAN=1, AI=2, EMPTY=0;
+  const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  function winner(board){
+    for(const [a,b,c] of LINES){ if(board[a]!==EMPTY && board[a]===board[b] && board[b]===board[c]) return board[a]; }
+    return null;
+  }
+  function isFull(board){ return board.every(v=>v!==EMPTY); }
+  function avail(board){ const r=[]; for(let i=0;i<9;i++) if(board[i]===EMPTY) r.push(i); return r; }
+
+  // minimax：返回该局面对 AI 的最优分数（AI 视角，越大越利于 AI）
+  function minimax(board, player, depth){
+    const w = winner(board);
+    if(w===AI) return 10-depth;
+    if(w===HUMAN) return depth-10;
+    if(isFull(board)) return 0;
+    const moves = avail(board);
+    if(player===AI){
+      let best=-Infinity;
+      for(const m of moves){ board[m]=AI; best=Math.max(best, minimax(board,HUMAN,depth+1)); board[m]=EMPTY; }
+      return best;
+    } else {
+      let best=Infinity;
+      for(const m of moves){ board[m]=HUMAN; best=Math.min(best, minimax(board,AI,depth+1)); board[m]=EMPTY; }
+      return best;
+    }
+  }
+  function aiMove(board){
+    const moves = avail(board);
+    if(moves.length===0) return -1;
+    let best=-Infinity, pick=moves[0];
+    for(const m of moves){
+      board[m]=AI;
+      const sc = minimax(board, HUMAN, 0);
+      board[m]=EMPTY;
+      if(sc>best){ best=sc; pick=m; }
+    }
+    return pick;
+  }
+
+  let board, cur, over, winLine, record;
+  function reset(){
+    board = new Array(9).fill(EMPTY);
+    cur = HUMAN; over=false; winLine=null;
+    if(typeof record==='undefined') record={w:0,l:0,d:0};
+  }
+  function humanMove(pos){
+    if(over || cur!==HUMAN || board[pos]!==EMPTY) return {ok:false};
+    board[pos]=HUMAN;
+    if(typeof Juice!=='undefined') Juice.sfx('click');
+    if(finishIfDone()) return {ok:true};
+    cur=AI;
+    const ai=aiMove(board);
+    if(ai>=0){ board[ai]=AI; if(typeof Juice!=='undefined') Juice.sfx('click'); }
+    finishIfDone();
+    return {ok:true};
+  }
+  function finishIfDone(){
+    const w=winner(board);
+    if(w!==null){
+      over=true; cur=null;
+      winLine = LINES.find(l=>board[l[0]]===w && board[l[1]]===w && board[l[2]]===w);
+      if(w===HUMAN){ record.w++; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076'); } }
+      else { record.l++; if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.flash('#f6465d'); } }
+      return true;
+    }
+    if(isFull(board)){ over=true; cur=null; record.d++; if(typeof Juice!=='undefined') Juice.sfx('click'); return true; }
+    return false;
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let cellEls=[];
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return; b.innerHTML=''; cellEls=[];
+    for(let i=0;i<9;i++){ const e=document.createElement('div'); e.className='cell'; e.onclick=()=>onCell(i); b.appendChild(e); cellEls.push(e); }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const msg=$('msg'),rec=$('record');
+    if(!cellEls.length) return;
+    for(let i=0;i<9;i++){
+      const v=board[i]; const e=cellEls[i];
+      e.textContent = v===HUMAN?'✕':(v===AI?'◯':'');
+      e.className='cell'+(v===HUMAN?' x':(v===AI?' o':''))+(winLine&&winLine.includes(i)?' win':'');
+    }
+    if(rec) rec.textContent='胜 '+record.w+' · 负 '+record.l+' · 平 '+record.d;
+    if(msg){
+      if(over){ const w=winner(board); if(w===HUMAN) {msg.className='msg win';msg.textContent='🎉 你赢了！';} else if(w===AI){msg.className='msg win';msg.textContent='AI 获胜。';} else {msg.className='msg win';msg.textContent='平局。';} }
+      else { msg.className='msg'; msg.textContent = cur===HUMAN?'你的回合（✕）':'AI 思考中…'; }
+    }
+  }
+  function onCell(i){ if(over||cur!==HUMAN) return; humanMove(i); render(); }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const rs=$('restart'); if(rs) rs.onclick=()=>{ reset(); render(); };
+  }
+  reset();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      HUMAN, AI, EMPTY, LINES,
+      setRand, winner, isFull, avail, minimax, aiMove,
+      reset, humanMove,
+      getBoard:()=>board, getCur:()=>cur, isOver:()=>over, getWinLine:()=>winLine,
+      getRecord:()=>record, setRecord:(r)=>{record=r;},
+    };
+  }
+})();
+</script>
+</body>
+</html>
