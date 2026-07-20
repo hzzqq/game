@@ -62,11 +62,12 @@
   function explode(){
     blastSet=new Set();
     if(!bombs) return [];
-    const cells=[[bombs.x,bombs.y]];
+    const br=bombs.y, bc=bombs.x;        // bombs.x=列, bombs.y=行（与 render 一致）
+    const cells=[[br,bc]];
     const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
-    for(const [dr,dc] of dirs){ for(let i=1;i<=range;i++){ const r=bombs.x+dr*i, c=bombs.y+dc*i; if(r<0||c<0||r>=H||c>=W) break; cells.push([r,c]); if(blocks.has(r+','+c)){ blocks.delete(r+','+c); break; } } }
+    for(const [dr,dc] of dirs){ for(let i=1;i<=range;i++){ const r=br+dr*i, c=bc+dc*i; if(r<0||c<0||r>=H||c>=W) break; cells.push([r,c]); if(blocks.has(r+','+c)){ blocks.delete(r+','+c); break; } } }
     blastSet=new Set(cells.map(([r,c])=>r+','+c));
-    for(const p of players){ if(cells.some(([r,c])=>r===p.x&&c===p.y)) p.dead=true; }
+    for(const p of players){ if(cells.some(([r,c])=>r===p.y&&c===p.x)) p.dead=true; }
     bombs=null;
     return cells;
   }
