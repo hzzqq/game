@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 宾果</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:3px;justify-content:center;margin:6px auto;width:max-content}
+  .cell{width:46px;height:46px;border:1px solid var(--border);border-radius:8px;background:#0e141d;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text)}
+  .cell.hit{background:var(--green);color:#0a0e14;font-weight:700}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls input{width:80px;background:#0e141d;border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;font-family:inherit;text-align:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>宾果</b> BINGO</span></div>
+  <div class="wrap">
+    <div class="hud"><span>已喊 · <span class="st" id="called">0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="msg" id="msg">系统随机喊号，命中卡片上的数就标记。任一行/列/对角线全中即宾果！</div>
+    <div class="controls">
+      <input id="call" placeholder="喊号" />
+      <button id="callbtn">喊 CALL</button>
+      <button id="next" class="ghost">随机喊 NEXT</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+  </div>
+  <div class="foot">宾果（Bingo）：5×5 卡片随机布数，主持人依次喊号，玩家标记命中格，率先凑成整行/列/对角线者获胜。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const N=5;
+  let card, marked, called, over;
+  let _rand=Math.random;
+  function setRand(fn){ _rand=fn; }
+  function gen(){
+    const pool=[]; for(let i=1;i<=75;i++) pool.push(i);
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(_rand()*(i+1)); const t=pool[i];pool[i]=pool[j];pool[j]=t; }
+    card=[]; for(let r=0;r<N;r++){ const row=[]; for(let c=0;c<N;c++) row.push(pool[r*N+c]); card.push(row); }
+    marked=Array.from({length:N},()=>Array(N).fill(false)); called=0; over=false;
+  }
+  function setCard(c){ card=c.map(r=>r.slice()); marked=Array.from({length:N},()=>Array(N).fill(false)); called=0; over=false; }
+  function call(n){
+    if(over) return false;
+    let hit=false;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){ if(card[r][c]===n && !marked[r][c]){ marked[r][c]=true; hit=true; } }
+    if(hit) called++;
+    over=isWin();
+    return hit;
+  }
+  function autoCall(n){ if(typeof n==='number'){ call(n); return; } let v; do { v=1+Math.floor(_rand()*75); } while(!call(v)); }
+  function isWin(){
+    for(let r=0;r<N;r++){ if(marked[r].every(x=>x)) return true; }
+    for(let c=0;c<N;c++){ let all=true; for(let r=0;r<N;r++) if(!marked[r][c]) all=false; if(all) return true; }
+    let d1=true,d2=true; for(let i=0;i<N;i++){ if(!marked[i][i]) d1=false; if(!marked[i][N-1-i]) d2=false; }
+    return d1||d2;
+  }
+  function getMarked(r,c){ return marked[r][c]; }
+  function getCard(){ return card.map(r=>r.slice()); }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+N+',46px)'; bd.innerHTML=''; for(let r=0;r<N;r++){ for(let c=0;c<N;c++){ const d=document.createElement('div'); d.className='cell'+(marked[r][c]?' hit':''); d.textContent=card[r][c]; bd.appendChild(d); } } }
+    const ca=$('called'),st=$('st'); if(ca)ca.textContent=called; if(st)st.textContent=over?'宾果!':'进行中';
+    const msg=$('msg'); if(msg&&over){ msg.className='msg win'; msg.textContent='🎉 BINGO！达成连线，获胜！'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cb=$('callbtn'),nx=$('next'),nw=$('new'),ci=$('call');
+    if(cb) cb.onclick=()=>{ call(+ci.value||0); render(); };
+    if(nx) nx.onclick=()=>{ autoCall(); render(); };
+    if(nw) nw.onclick=()=>{ gen(); render(); };
+  }
+  gen();
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ gen, setCard, call, autoCall, isWin, getMarked, getCard, setRand }; }
+})();
+</script>
+</body>
+</html>

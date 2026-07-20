@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 吹牛</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .dice{display:flex;gap:8px;justify-content:center;margin:8px 0;flex-wrap:wrap}
+  .die{width:40px;height:40px;border:1px solid var(--border);border-radius:8px;background:#0e141d;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--gold)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls input{width:60px;background:#0e141d;border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;font-family:inherit;text-align:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>吹牛</b> LIAR'S DICE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>你的骰子 · <span class="st" id="cnt">0</span></span><span>当前叫注 · <span class="st" id="bid">无</span></span></div>
+    <div class="dice" id="mine"></div>
+    <div class="msg" id="msg">叫注「至少 N 个某点数」。下家可加注（更多数量，或同数量更高点数）或开「吹牛」。</div>
+    <div class="controls">
+      <input id="n" placeholder="数量" /><input id="f" placeholder="点数" />
+      <button id="bidbtn">叫注 BID</button>
+      <button id="callbtn" class="ghost">开吹牛 CALL</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+  </div>
+  <div class="foot">吹牛（Liar's Dice）：经典猜测骰子游戏。叫注累计，开牌时若全场实际某点数数量 ≥ 叫注则叫注者胜，否则开牌者胜。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let dice=[], cur=null;
+  let _rand=Math.random;
+  function setRand(fn){ _rand=fn; }
+  function gen(perPlayer, sides){
+    perPlayer=perPlayer||3; sides=sides||6;
+    dice=[]; for(let p=0;p<2;p++){ const h=[]; for(let i=0;i<perPlayer;i++) h.push(1+Math.floor(_rand()*sides)); dice.push(h); }
+    cur=null;
+  }
+  function setDice(d){ dice=d.map(x=>x.slice()); cur=null; }
+  function getCount(face){ let c=0; for(const p of dice) for(const v of p) if(v===face) c++; return c; }
+  function getDice(){ return dice.map(p=>p.slice()); }
+  function placeBid(n,face){ if(!isValidRaise(n,face)) return false; cur={n,face}; return true; }
+  function isValidRaise(n,face){
+    if(!cur) return true;
+    if(n>cur.n) return true;
+    if(n===cur.n && face>cur.face) return true;
+    return false;
+  }
+  function call(){
+    if(!cur) return null;
+    const count=getCount(cur.face);
+    const bidderWin = count>=cur.n;
+    return { winner: bidderWin?0:1, count, bid:cur };
+  }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const m=$('mine'); if(m){ m.innerHTML=''; for(const v of (dice[0]||[])){ const d=document.createElement('div'); d.className='die'; d.textContent=v; m.appendChild(d); } }
+    const cnt=$('cnt'); if(cnt)cnt.textContent=(dice[0]||[]).length;
+    const bid=$('bid'); if(bid)bid.textContent=cur?('≥'+cur.n+' 个 '+cur.face+'点'):'无';
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('bidbtn'),cb=$('callbtn'),nw=$('new'),ni=$('n'),fi=$('f');
+    if(nb) nb.onclick=()=>{ placeBid(+ni.value||0,+fi.value||0); render(); };
+    if(cb) cb.onclick=()=>{ const r=call(); const msg=$('msg'); if(msg&&r){ if(r.winner===0){ msg.className='msg win'; msg.textContent='✅ 实际 '+r.count+' 个 '+r.bid.face+'点 ≥ 叫注，叫注者胜！'; } else { msg.className='msg'; msg.textContent='❌ 实际仅 '+r.count+' 个，吹牛成功，开牌者胜！'; } } };
+    if(nw) nw.onclick=()=>{ gen(); render(); };
+  }
+  gen();
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ setDice, getCount, placeBid, isValidRaise, call, getDice, setRand, gen }; }
+})();
+</script>
+</body>
+</html>

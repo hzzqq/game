@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 数和</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:4px;justify-content:center;margin:6px auto;width:max-content}
+  .cell{width:64px;height:64px;border:1px solid var(--border);border-radius:8px;background:#0e141d;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:26px;color:var(--gold);font-weight:700}
+  .clue{font-size:10px;color:var(--dim);line-height:1.1;text-align:center}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls input{width:70px;background:#0e141d;border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;font-family:inherit;text-align:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>数和</b> KAKURO</span></div>
+  <div class="wrap">
+    <div class="hud"><span>进度 · <span class="st" id="prog">0/0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="msg" id="msg">把数字 1-9 填入白格，使每条横/竖连续块的合计等于其线索，且同一块内数字不重复。</div>
+    <div class="controls">
+      <input id="r" placeholder="行" /><input id="c" placeholder="列" /><input id="v" placeholder="值" />
+      <button id="set">填入 SET</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+  </div>
+  <div class="foot">数和（Kakuro）：日文填数谜题。每个连续白格段标注目标合计，玩家用 1-9 不重复地填满，使每段之和等于线索。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let rows, cols, board, runs;
+  function puzzle(){
+    rows=2; cols=2; board=[[0,0],[0,0]];
+    runs=[
+      { dir:'h', cells:[[0,0],[0,1]], sum:3 },
+      { dir:'h', cells:[[1,0],[1,1]], sum:7 },
+      { dir:'v', cells:[[0,0],[1,0]], sum:4 },
+      { dir:'v', cells:[[0,1],[1,1]], sum:6 },
+    ];
+  }
+  function setPuzzle(def){ rows=def.rows; cols=def.cols; board=def.board.map(r=>r.slice()); runs=def.runs.map(r=>({dir:r.dir,cells:r.cells.map(p=>p.slice()),sum:r.sum})); }
+  function setCell(r,c,v){ if(r<0||c<0||r>=rows||c>=cols) return false; if(v<0||v>9) return false; board[r][c]=v; return true; }
+  function getCell(r,c){ return board[r][c]; }
+  function checkRun(run){
+    const vals=run.cells.map(([r,c])=>board[r][c]);
+    if(vals.some(v=>v<1||v>9)) return false;
+    if(new Set(vals).size!==vals.length) return false; // 同块不重复
+    let s=0; for(const v of vals) s+=v; return s===run.sum;
+  }
+  function isComplete(){ for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(board[r][c]<1) return false; return true; }
+  function isSolved(){ if(!isComplete()) return false; return runs.every(checkRun); }
+  function progress(){ let f=0,t=rows*cols; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(board[r][c]>=1) f++; return {f,t}; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+cols+',64px)'; bd.innerHTML=''; for(let r=0;r<rows;r++){ for(let c=0;c<cols;c++){ const d=document.createElement('div'); d.className='cell'; const hr=runs.find(x=>x.dir==='h'&&x.cells[0][0]===r&&x.cells[0][1]===c); const vr=runs.find(x=>x.dir==='v'&&x.cells[0][0]===r&&x.cells[0][1]===c); let clue=''; if(hr)clue+='横'+hr.sum+' '; if(vr)clue+='竖'+vr.sum; d.innerHTML='<div class="clue">'+(clue||'')+'</div><div>'+ (board[r][c]||'') +'</div>'; bd.appendChild(d); } } }
+    const p=progress(); const pr=$('prog'),st=$('st'); if(pr)pr.textContent=p.f+'/'+p.t; if(st)st.textContent=isSolved()?'已解':'进行中';
+    const msg=$('msg'); if(msg&&isSolved()){ msg.className='msg win'; msg.textContent='✅ 全部数块合计正确，通关！'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const set=$('set'),nb=$('new'),ri=$('r'),ci=$('c'),vi=$('v');
+    if(set) set.onclick=()=>{ setCell((+ri.value||0),(+ci.value||0),(+vi.value||0)); render(); };
+    if(nb) nb.onclick=()=>{ puzzle(); render(); };
+  }
+  puzzle();
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ setPuzzle, setCell, getCell, checkRun, isComplete, isSolved, progress, puzzle }; }
+})();
+</script>
+</body>
+</html>

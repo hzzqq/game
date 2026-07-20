@@ -79,6 +79,10 @@ const FILES = {
   'rushhour.html':     { name:'华容道车 Rush Hour',           offline:true },
   'samegame.html':     { name:'同色消除 SameGame',            offline:true },
   'maze.html':         { name:'迷宫 Maze',                    offline:true },
+  'kakuro.html':       { name:'数和 Kakuro',                  offline:true },
+  'liarsdice.html':    { name:'吹牛 Liar\'s Dice',            offline:true },
+  'rps.html':          { name:'石头剪刀布 RPS',               offline:true },
+  'bingo.html':        { name:'宾果 Bingo',                  offline:true },
 };
 
 let totalPass=0, totalFail=0;
