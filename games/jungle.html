@@ -68,6 +68,9 @@
   function canCapture(atk,tr,tc){
     const def=board[tr][tc]; if(!def) return false;
     const ar=atk.rank, dr=def.rank;
+    // 陷阱优先：防守方在敌方陷阱上 effRank 降为 0，任何棋子可吃（含象吃鼠）。
+    // 必须在「象不吃鼠」特殊规则之前判定，否则鼠蹲敌方陷阱时象仍无法吃。
+    if(effRank(tr,tc)===0) return true;
     if(ar===1&&dr===8) return true;        // 鼠吃象
     if(ar===8&&dr===1) return false;       // 象不吃鼠
     return effRank(tr,tc) <= ar;           // 进攻方用真实 rank；陷阱已在 effRank 处理

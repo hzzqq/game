@@ -65,3 +65,19 @@ t.setBoard([
   [null,null,null,null,null,null,null],
 ], 'w');
 ok('象不吃鼠', !t.move(2,3,2,2));
+
+// 回归：鼠蹲在敌方陷阱上 effRank 降为 0，象应能吃（曾因「象不吃鼠」在 effRank 前短路而无法吃）
+t.newGame();
+t.setBoard([
+  [null,{side:'w',rank:8},{side:'b',rank:1},null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+], 'w');
+ok('象吃敌方陷阱上的鼠', t.move(0,1,0,2));
+eq('鼠被吃，象落到(0,2)', t.getPiece(0,2).side, 'w');
