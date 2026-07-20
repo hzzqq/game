@@ -49,6 +49,7 @@ const FILES = {
   'hangman.html':    { name:'猜单词 Hangman',         offline:true },
   'checkers.html':   { name:'西洋跳棋 Checkers',       offline:true },
   'towerdefense.html':{ name:'塔防 Tower Defense',     offline:true },
+  'lightsout.html':    { name:'关灯 Lights Out',        offline:true },
 };
 
 let totalPass=0, totalFail=0;

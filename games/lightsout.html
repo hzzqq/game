@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 关灯</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(520px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(520px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:8px;margin:0 auto 12px;width:max-content}
+  .cell{width:64px;height:64px;border-radius:10px;border:1px solid var(--border);background:#0e141d;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:13px;transition:background .12s,box-shadow .12s;user-select:none}
+  .cell.on{background:var(--gold);box-shadow:0 0 18px rgba(240,185,11,.55);color:#0a0e14;font-weight:700}
+  .cell:active{transform:scale(.96)}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(520px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>关灯</b> LIGHTS OUT</span></div>
+  <div class="wrap">
+    <div class="hud"><span>步数 MOVES · <span class="st" id="moves">0</span></span><span id="status">把所有灯按灭</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">重来 RESET</button>
+    </div>
+    <div class="msg" id="msg">点击格子会翻转它和上下左右相邻的灯。把全部灯熄灭即过关。</div>
+  </div>
+  <div class="foot">经典 Lights Out：每个格子亮/灭，点击一处会把它与上下左右四个邻居一起反转。存在数学解——从全灭出发随机按几下的局面必定可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const N = 5;
+  const SCRAMBLE = 12;
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let board, moves, won, over, scramble;
+  function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+  function flip(r,c){ if(inb(r,c)) board[r][c] = board[r][c] ? 0 : 1; }
+  // 点击 (r,c)：反转自身 + 上下左右
+  function toggle(r,c){
+    flip(r,c); flip(r-1,c); flip(r+1,c); flip(r,c-1); flip(r,c+1);
+  }
+  function newGame(){
+    board = Array.from({length:N}, ()=>new Array(N).fill(0));
+    moves = 0; won = false; over = false; scramble = [];
+    // 从全灭出发随机按若干下，保证可解
+    for(let i=0;i<SCRAMBLE;i++){
+      const r = Math.floor(_rand()*N), c = Math.floor(_rand()*N);
+      scramble.push([r,c]); toggle(r,c);
+    }
+    // 避免开局即胜
+    if(isWin()) toggle(Math.floor(_rand()*N), Math.floor(_rand()*N));
+  }
+  function reset(){ newGame(); }
+  // 玩家点击
+  function click(r,c){
+    if(over || !inb(r,c)) return false;
+    toggle(r,c); moves++;
+    if(isWin()){ won = true; over = true; }
+    if(typeof Juice!=='undefined'){
+      if(won){ Juice.sfx('levelup'); Juice.best('lightsout', moves); }
+      else Juice.sfx('click');
+    }
+    return true;
+  }
+  function isWin(){
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(board[r][c]) return false;
+    return true;
+  }
+  function countOn(){
+    let n=0; for(let r=0;r<N;r++) for(let c=0;c<N;c++) n+=board[r][c]; return n;
+  }
+  function getCell(r,c){ return inb(r,c)?board[r][c]:null; }
+  function getBoard(){ return board.map(row=>row.slice()); }
+  function getMoves(){ return moves; }
+  function isOver(){ return over; }
+  function getScramble(){ return scramble.map(p=>p.slice()); }
+  // 测试钩子：直接设置棋盘（b 为 N×N 的 0/1 数组）
+  function setBoard(b){ board = b.map(row=>row.slice()); moves=0; won=false; over=false; scramble=[]; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.style.gridTemplateColumns='repeat('+N+',64px)';
+    b.innerHTML='';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const el=document.createElement('div');
+      el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>{ click(r,c); render(); });
+      b.appendChild(el);
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'),mv=$('moves'),msg=$('msg'),st=$('status');
+    if(!b) return;
+    const cells=b.children;
+    for(let i=0;i<cells.length;i++){
+      const r=+cells[i].dataset.r, c=+cells[i].dataset.c;
+      const on=board[r][c];
+      cells[i].className='cell'+(on?' on':'');
+    }
+    if(mv) mv.textContent=moves;
+    if(st) st.textContent = won?'已通关':(over?'已结束':'把所有灯按灭');
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 全部熄灭！用了 '+moves+' 步。'; }
+      else if(over){ msg.className='msg win'; msg.textContent='已结束。'; }
+      else { msg.className='msg'; msg.textContent='点击格子会翻转它和上下左右相邻的灯。'; } }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      N, SCRAMBLE,
+      setRand, newGame, reset, click, toggle, isWin, countOn,
+      getCell, getBoard, getMoves, isOver, getScramble, setBoard,
+    };
+  }
+})();
+</script>
+</body>
+</html>
