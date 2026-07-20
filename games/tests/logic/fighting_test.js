@@ -21,4 +21,12 @@ T.setRage(T.player, 100);
 T.triggerBerserk(T.player);          // 已狂暴应被忽略
 H.ok(T.isBerserk(T.player) === true, 'fighting: 已狂暴状态保持');
 
+// 4) 回归：狂暴持续应为秒级(>=5000ms)，曾误写 5(ms) 致一帧即过期、1.5x 伤害失效
+T.player.berserkTimer = 0;
+T.setRage(T.player, 100);
+T.triggerBerserk(T.player);
+H.ok(T.player.berserkTimer >= 5000, 'fighting: 狂暴持续应秒级(>=5000ms) (得到 ' + T.player.berserkTimer + ')');
+T.player.berserkTimer -= 16.7;       // 模拟一帧(~60fps)
+H.ok(T.isBerserk(T.player) === true, 'fighting: 一帧后狂暴仍持续(证明非 5ms)');
+
 module.exports = {};

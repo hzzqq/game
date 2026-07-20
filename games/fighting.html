@@ -122,7 +122,7 @@ function startAttack(f,type){
 }
 function triggerBerserk(f){
   if(f.berserkTimer>0 || f.rage < 100) return false;
-  f.rage = 0; f.berserkTimer = 5;
+  f.rage = 0; f.berserkTimer = 5000;   // 毫秒计(与 specialCd/hitstun 同单位)，5 秒；曾误写 5 致一帧即过期
   if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#f0b90b',0.3); Juice.burst(f.x, f.y+f.h*0.4, {color:'#f0b90b', n:16, speed:220}); Juice.achievement('狂暴 BERSERK!'); }
   return true;
 }
