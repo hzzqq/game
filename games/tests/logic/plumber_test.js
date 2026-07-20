@@ -2,7 +2,11 @@ const { loadGame, ok, eq } = require('./harness');
 const { t } = loadGame('../plumber.html');
 const { U,R,D,L } = t;
 
-t.newGame();
+// 用确定布局测试旋转确实改变掩码（避免随机布局恰为空格/十字等旋转不变管道导致伪失败）
+const N = t.N;
+const b1 = Array.from({length:N},()=>new Array(N).fill(0));
+b1[2][2] = U|R; // L 型管道，旋转必变
+t.setBoard(b1);
 const before = t.getMask(2,2);
 t.rotate(2,2);
 ok('旋转改变掩码', t.getMask(2,2) !== before);

@@ -281,6 +281,12 @@
     // 行动者：翻后从小盲后第一位开始
     toAct = (dealerIdx+1)%4;
     advanceToActor();
+    // 全员全下：未弃牌者≥2 但无人可再行动(contesting 为空)，
+    // 必须连续发完剩余公共牌并摊牌，否则牌局会卡在当前街、底池永不分配。
+    if(activePlayers().length>=2 && contesting().length===0){
+      if(stage==='river'){ showdown(); return; }
+      nextStage();
+    }
   }
 
   function best7(idx){ return evaluate7(players[idx].hole.concat(community)); }

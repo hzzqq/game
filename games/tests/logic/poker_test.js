@@ -176,6 +176,25 @@ t.startHand();
   ok('best7 p0 同花', t.best7(0).cat === 5);
 }
 
+// ---------- 全员全下必须跑完剩余公共牌并摊牌（回归：曾卡在 flop 不摊牌）----------
+{
+  t.startHand();
+  const potBefore = t.getPot();
+  // 依次让每位行动者全下，直到无行动者或牌局结束
+  let guard = 0;
+  while (!t.isHandOver() && t.getToAct() !== -1 && guard++ < 20) {
+    t.action(t.getToAct(), 'allin');
+  }
+  ok('全员全下后必须到达摊牌 (handOver=true)', t.isHandOver() === true);
+  ok('全员全下后阶段应推进到 river', t.getStage() === 'river');
+  // 底池已被分掉：赢家筹码增加，pot 仍为发牌前累计值（showdown 不清零 pot，只分钱）
+  const totalChips = t.getPlayers().reduce((s, p) => s + p.chips, 0);
+  // 4 人各 200 起始 = 800，全下后筹码重分配，总数不变
+  ok('全下摊牌后筹码守恒(800)', totalChips === 800);
+  // 至少一名赢家筹码 > 起始 200
+  ok('全下摊牌后有赢家分到 pot', t.getPlayers().some(p => p.chips > 200));
+}
+
 // 失败则非零退出
 let failed = 0;
 for (const r of require('./harness').results) if (!r.pass) failed++;
