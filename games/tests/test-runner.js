@@ -97,6 +97,7 @@ const FILES = {
   'fishing.html':      { name:'钓鱼 Fishing',               offline:true },
   'dodge.html':        { name:'闪避 Dodge',                 offline:true },
   'trivia.html':       { name:'知识问答 Trivia',            offline:true },
+  'survivor.html':     { name:'幸存者 Survivor',            offline:true },
 };
 
 let totalPass=0, totalFail=0;
