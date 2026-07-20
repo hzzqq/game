@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 知识问答</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex:justify-content:space-between;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .q{background:#0e141d;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:15px;line-height:1.5;margin-bottom:10px}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .opts button{background:#16202c;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;font-family:inherit;font-size:14px}
+  .opts button:hover{filter:brightness(1.2)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>知识问答</b> TRIVIA</span></div>
+  <div class="wrap">
+    <div class="hud"><span>得分 · <span class="st" id="sc">0</span></span><span>进度 · <span class="st" id="pr">0/0</span></span></div>
+    <div class="q" id="q">准备开始</div>
+    <div class="opts" id="opts"></div>
+    <div class="msg" id="msg">阅读题目，从四个选项中选出正确答案。答对得分，答错或跳过不计分。</div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+  </div>
+  <div class="foot">Trivia（知识问答）：选择题竞答，每题四选一，答对累积得分，全部作答后结算总分。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let questions, idx, score;
+  const DEFAULT=[
+    { q:'光在真空中的速度约为？', options:['3×10⁵ km/s','3×10⁸ m/s','3×10⁶ m/s','3×10⁴ km/s'], answer:1 },
+    { q:'下列哪个是质数？', options:['9','15','17','21'], answer:2 },
+    { q:'水的化学式是？', options:['CO₂','H₂O','O₂','NaCl'], answer:1 },
+    { q:'一年有多少天（平年）？', options:['365','366','360','364'], answer:0 },
+  ];
+  function reset(){ questions=DEFAULT.map(q=>({...q})); idx=0; score=0; }
+  function setQuestions(arr){ questions=arr.map(q=>({...q})); idx=0; score=0; }
+  function getCurrent(){ return idx<questions.length ? { q:questions[idx].q, options:questions[idx].options } : null; }
+  function answer(i){
+    if(idx>=questions.length) return false;
+    const correct = questions[idx].answer===i;
+    if(correct) score++;
+    idx++;
+    return correct;
+  }
+  function getScore(){ return score; }
+  function isFinished(){ return idx>=questions.length; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const q=$('q'),opts=$('opts'),sc=$('sc'),pr=$('pr'),msg=$('msg');
+    const cur=getCurrent();
+    if(q) q.textContent = cur?cur.q:'已完成';
+    if(opts){
+      opts.innerHTML='';
+      if(cur){
+        cur.options.forEach((o,i)=>{
+          const b=document.createElement('button');
+          b.textContent=o;
+          b.onclick=()=>{ answer(i); render(); };
+          opts.appendChild(b);
+        });
+      }
+    }
+    if(sc)sc.textContent=score; if(pr)pr.textContent=idx+'/'+questions.length;
+    if(msg){ if(isFinished()){ msg.className='msg win'; msg.textContent='🏁 答题完成，总分 '+score+'/'+questions.length; } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'); if(nb) nb.onclick=()=>{ reset(); render(); };
+  }
+  reset();
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ reset, setQuestions, getCurrent, answer, getScore, isFinished }; }
+})();
+</script>
+</body>
+</html>
