@@ -47,6 +47,7 @@ const FILES = {
   'pinball.html':    { name:'弹珠台 Pinball',        offline:true },
   'invaders.html':   { name:'太空入侵 Invaders',      offline:true },
   'hangman.html':    { name:'猜单词 Hangman',         offline:true },
+  'checkers.html':   { name:'西洋跳棋 Checkers',       offline:true },
 };
 
 let totalPass=0, totalFail=0;

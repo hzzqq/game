@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 西洋跳棋</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{width:min(480px,94vw);aspect-ratio:1/1;margin:0 auto;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);border:2px solid var(--border);border-radius:8px;overflow:hidden}
+  .cell{position:relative;display:flex;align-items:center;justify-content:center}
+  .cell.dark{background:#1a2330}
+  .cell.light{background:#0e141d}
+  .cell.sel{box-shadow:inset 0 0 0 3px var(--gold)}
+  .cell.mv{box-shadow:inset 0 0 0 3px var(--green)}
+  .cell.cap{box-shadow:inset 0 0 0 3px var(--red)}
+  .piece{width:74%;height:74%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#0a0e14;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+  .piece.red{background:radial-gradient(circle at 35% 30%, #ff8a96, var(--red))}
+  .piece.black{background:radial-gradient(circle at 35% 30%, #4a5a6a, #1b2530)}
+  .piece.king::after{content:'♔';font-size:16px}
+  .controls{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:#0e141d;color:var(--text);border:1px solid var(--border)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>西洋跳棋</b> CHECKERS</span></div>
+  <div class="wrap">
+    <div class="hud"><span>回合 TURN · <span class="st" id="turn">红 RED</span></span><span id="status">你执红先手</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="restart" class="ghost">重开 NEW</button>
+    </div>
+    <div class="msg" id="msg">点红色棋子选中，再点高亮格落子。可吃子时必须吃，连吃到底。吃掉对方全部棋子即胜。</div>
+  </div>
+  <div class="foot">经典西洋跳棋（8×8，英式）：红方（你）在下、向上走，黑方（AI）在上、向下走。到底线升王♔（可双向走）。暗色终端风 + 反馈音效。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const SIZE = 8;
+  const EMPTY = 0, REDman = 1, BLACKman = 2, REDking = 3, BLACKking = 4;
+
+  let board, turn, pending; // pending=[r,c] 必须继续连吃的棋子，或 null
+
+  function inBoard(r,c){ return r>=0 && r<SIZE && c>=0 && c<SIZE; }
+  function isDark(r,c){ return ((r+c) % 2) === 1; }
+  function sideOf(p){ if(p===REDman||p===REDking) return 'red'; if(p===BLACKman||p===BLACKking) return 'black'; return null; }
+  function isKing(p){ return p===REDking || p===BLACKking; }
+  function fwdDirs(p){
+    if(p===REDman) return [[-1,-1],[-1,1]];
+    if(p===BLACKman) return [[1,-1],[1,1]];
+    return [[-1,-1],[-1,1],[1,-1],[1,1]]; // 王双向
+  }
+  function emptyBoard(){ return Array.from({length:SIZE},()=>new Array(SIZE).fill(EMPTY)); }
+
+  function newGame(){
+    board = emptyBoard();
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+      if(!isDark(r,c)) continue;
+      if(r<=2) board[r][c] = BLACKman;
+      else if(r>=5) board[r][c] = REDman;
+    }
+    turn = 'red'; pending = null;
+  }
+
+  function capturesFrom(r,c){
+    const p=board[r][c]; const res=[];
+    if(!p) return res;
+    for(const [dr,dc] of fwdDirs(p)){
+      const mr=r+dr, mc=c+dc, lr=r+2*dr, lc=c+2*dc;
+      if(!inBoard(lr,lc)) continue;
+      const mid=board[mr][mc], land=board[lr][lc];
+      if(mid && sideOf(mid)!==sideOf(p) && land===EMPTY) res.push({from:[r,c], to:[lr,lc], capture:[mr,mc]});
+    }
+    return res;
+  }
+  function simpleFrom(r,c){
+    const p=board[r][c]; const res=[];
+    if(!p) return res;
+    for(const [dr,dc] of fwdDirs(p)){
+      const nr=r+dr, nc=c+dc;
+      if(inBoard(nr,nc) && board[nr][nc]===EMPTY) res.push({from:[r,c], to:[nr,nc], capture:null});
+    }
+    return res;
+  }
+  function legalMoves(){
+    if(pending){
+      const caps = capturesFrom(pending[0], pending[1]);
+      if(caps.length) return caps;
+      pending = null; // 理论上不会触发（设 pending 时必有后续吃子）
+    }
+    const all=[]; let anyCap=false;
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+      const p=board[r][c];
+      if(!p || sideOf(p)!==turn) continue;
+      const caps=capturesFrom(r,c);
+      if(caps.length){ anyCap=true; all.push(...caps); }
+    }
+    if(anyCap) return all; // 强制吃子
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+      const p=board[r][c];
+      if(!p || sideOf(p)!==turn) continue;
+      all.push(...simpleFrom(r,c));
+    }
+    return all;
+  }
+  function applyMove(m){
+    const [fr,fc]=m.from, [tr,tc]=m.to;
+    const p=board[fr][fc];
+    board[fr][fc]=EMPTY;
+    if(m.capture) board[m.capture[0]][m.capture[1]]=EMPTY;
+    let np=p;
+    if(p===REDman && tr===0) np=REDking;
+    else if(p===BLACKman && tr===SIZE-1) np=BLACKking;
+    board[tr][tc]=np;
+    if(typeof Juice!=='undefined' && m.capture){ Juice.sfx('click'); }
+    if(m.capture){
+      const more=capturesFrom(tr,tc);
+      if(more.length){ pending=[tr,tc]; return; } // 连吃
+    }
+    pending=null;
+    turn = turn==='red' ? 'black' : 'red';
+  }
+  function countPieces(side){
+    let n=0;
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){ const p=board[r][c]; if(p && sideOf(p)===side) n++; }
+    return n;
+  }
+  function winner(){
+    const red=countPieces('red'), black=countPieces('black');
+    if(red===0) return 'black';
+    if(black===0) return 'red';
+    if(legalMoves().length===0) return turn==='red' ? 'black' : 'red';
+    return null;
+  }
+  function pieceAt(r,c){ return board[r][c]; }
+  function getBoard(){ return board.map(row=>row.slice()); }
+  function getTurn(){ return turn; }
+  function getPending(){ return pending; }
+  function setBoard(b){ board = b.map(row=>row.slice()); }
+  function setTurn(s){ turn = s; }
+  function setPending(v){ pending = v; }
+
+  // 简单 AI：黑方走合法第一步（有吃子强制吃子，已隐含在 legalMoves）。执行整个黑方回合（含连吃）。
+  function aiMove(){
+    let guard=0;
+    while(turn==='black' && guard++<40){
+      const mv = legalMoves();
+      if(!mv.length) break;
+      applyMove(mv[0]);
+      if(typeof Juice!=='undefined') Juice.sfx('click');
+    }
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined') ? document.getElementById(id) : null; }
+  let selected=null;
+  function render(){
+    if(typeof document==='undefined') return;
+    const boardEl=$('board'), turnEl=$('turn'), statusEl=$('status'), msgEl=$('msg');
+    if(!boardEl) return;
+    const moves = (turn==='red' && !pending) || (pending && sideOf(board[pending[0]][pending[1]])==='red')
+      ? legalMoves().filter(m=> !selected || (m.from[0]===selected[0]&&m.from[1]===selected[1])) : [];
+    const mvSet = new Set(moves.map(m=>m.to[0]+','+m.to[1]+','+(m.capture?'c':'m')));
+    boardEl.innerHTML='';
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+      const cell=document.createElement('div');
+      cell.className='cell '+(isDark(r,c)?'dark':'light');
+      if(selected && selected[0]===r && selected[1]===c) cell.classList.add('sel');
+      const key=r+','+c;
+      if(mvSet.has(key+',m')) cell.classList.add('mv');
+      if(mvSet.has(key+',c')) cell.classList.add('cap');
+      const p=board[r][c];
+      if(p){
+        const pc=document.createElement('div');
+        pc.className='piece '+((p===REDman||p===REDking)?'red':'black')+(isKing(p)?' king':'');
+        cell.appendChild(pc);
+      }
+      if(turn==='red' && !pending && p && sideOf(p)==='red'){
+        cell.onclick=()=>{ selected=[r,c]; render(); };
+      } else if(pending && pending[0]===r && pending[1]===c){
+        cell.onclick=()=>{ selected=[r,c]; render(); };
+      } else if(mvSet.has(key+',m') || mvSet.has(key+',c')){
+        cell.onclick=()=>doMove(r,c);
+      }
+      boardEl.appendChild(cell);
+    }
+    if(turnEl) turnEl.textContent = turn==='red' ? '红 RED' : '黑 BLACK';
+    const w=winner();
+    if(statusEl){ statusEl.textContent = w ? (w==='red'?'你赢了':'AI 获胜') : (turn==='red'?'你执红':'AI 思考中'); }
+    if(msgEl){
+      if(w){ msgEl.className='msg win'; msgEl.textContent = w==='red' ? '🎉 你赢了！' : '💀 AI 获胜。'; }
+      else { msgEl.className='msg'; msgEl.textContent = pending ? '连吃：继续吃子！' : (turn==='red'?'点红色棋子选中，再点高亮格落子':'AI 走子中…'); }
+    }
+  }
+  function doMove(r,c){
+    if(turn!=='red') return;
+    const moves = legalMoves().filter(m => (selected && m.from[0]===selected[0] && m.from[1]===selected[1]) && m.to[0]===r && m.to[1]===c);
+    if(!moves.length) return;
+    applyMove(moves[0]);
+    selected=null;
+    if(typeof Juice!=='undefined'){ Juice.sfx(moves[0].capture?'click':'click'); if(winner()) Juice.sfx('levelup'), Juice.best('checkers',1); }
+    if(turn==='black' && !winner()){
+      if(typeof Juice!=='undefined') Juice.sfx('click');
+      aiMove();
+    }
+    render();
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const rb=$('restart');
+    if(rb) rb.onclick=()=>{ newGame(); selected=null; render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      SIZE, EMPTY, REDman, BLACKman, REDking, BLACKking,
+      inBoard, isDark, sideOf, isKing, fwdDirs,
+      newGame, capturesFrom, simpleFrom, legalMoves, applyMove,
+      countPieces, winner, pieceAt, getBoard, getTurn, getPending,
+      setBoard, setTurn, setPending, aiMove,
+    };
+  }
+})();
+</script>
+</body>
+</html>
