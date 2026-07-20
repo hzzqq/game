@@ -157,8 +157,8 @@
     let peer=null, conn=null;
     let running=false, over=false;
 
-    const tankA={x:W*0.25,y:H*0.5,a:-Math.PI/2,hp:MAXHP};
-    const tankB={x:W*0.75,y:H*0.5,a:Math.PI/2,hp:MAXHP};
+    const tankA={x:W*0.25,y:H*0.5,a:-Math.PI/2,hp:MAXHP,fireCd:0};
+    const tankB={x:W*0.75,y:H*0.5,a:Math.PI/2,hp:MAXHP,fireCd:0};
     let bullets=[];           // {x,y,vx,vy,owner:'A'|'B'}
     let scoreA=0, scoreB=0;
     const keys={};
@@ -232,18 +232,19 @@
       const inp=gatherInput();
       if(mode==='local'){
         moveTank(tankA, inp.A, dt); moveTank(tankB, inp.B, dt);
-        if(inp.A.fire && fireCd<=0){ fire(tankA,'A'); fireCd=FIRE_CD; }
-        if(inp.B.fire && fireCd<=0){ fire(tankB,'B'); fireCd=FIRE_CD; }
+        if(inp.A.fire && tankA.fireCd<=0){ fire(tankA,'A'); tankA.fireCd=FIRE_CD; }
+        if(inp.B.fire && tankB.fireCd<=0){ fire(tankB,'B'); tankB.fireCd=FIRE_CD; }
       } else {
         const me = role==='host' ? tankA : tankB;
         const meInp = inp[role==='host'?'A':'B'];
         moveTank(me, meInp, dt);
-        if(meInp.fire && fireCd<=0){ fire(me, role==='host'?'A':'B'); fireCd=FIRE_CD; sendState(); }
+        if(meInp.fire && me.fireCd<=0){ fire(me, role==='host'?'A':'B'); me.fireCd=FIRE_CD; sendState(); }
         if(remoteTank){ moveTank(remoteTank, remoteTank.inp||{}, dt); }
         // 合并子弹用于本地模拟
         bullets = myBullets.concat(remoteBullets);
       }
-      if(fireCd>0) fireCd--;
+      if(tankA.fireCd>0) tankA.fireCd--;
+      if(tankB.fireCd>0) tankB.fireCd--;
       // 子弹推进 + 碰撞
       for(const b of bullets){
         b.x+=b.vx; b.y+=b.vy;
@@ -272,7 +273,7 @@
     function resetPositions(){
       tankA.x=W*0.25;tankA.y=H*0.5;tankA.a=-Math.PI/2;tankA.hp=MAXHP;
       tankB.x=W*0.75;tankB.y=H*0.5;tankB.a=Math.PI/2;tankB.hp=MAXHP;
-      bullets=[]; myBullets=[]; remoteBullets=[]; fireCd=0;
+      bullets=[]; myBullets=[]; remoteBullets=[]; tankA.fireCd=0; tankB.fireCd=0; fireCd=0;
     }
 
     // ============ 渲染 ============
@@ -416,8 +417,8 @@
       setRunning: function(v){ running = v; },
       getOver: function(){ return over; },
       setOver: function(v){ over = v; },
-      getFireCd: function(){ return fireCd; },
-      setFireCd: function(v){ fireCd = v; },
+      getFireCd: function(){ return tankA.fireCd; },
+      setFireCd: function(v){ tankA.fireCd = v; tankB.fireCd = v; fireCd = v; },
       getKeys: function(){ return keys; },
       setKeys: function(v){ for(const k in keys) delete keys[k]; for(const k in v) keys[k]=v[k]; },
       getMyBullets: function(){ return myBullets; },

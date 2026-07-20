@@ -220,6 +220,18 @@ t.setFireCd(0);
 t.step(1);
 eq('step 子弹撞障碍被滤', t.getBullets().length, 0);
 
+// ===== 15. 本地双人同帧开火：各自独立冷却，不应互相吞（回归）=====
+t.setMode('local');
+t.setOver(false);
+t.setRunning(true);
+t.resetPositions();
+t.setFireCd(0);
+// P1(space) 与 P2(enter) 同帧按下
+t.setKeys({w:false, s:false, a:false, d:false, ' ':true, arrowup:false, arrowdown:false, arrowleft:false, arrowright:false, enter:true});
+const sameTickBefore = t.getBullets().length;
+t.step(1);
+eq('同帧 P1+P2 开火应生成 2 颗子弹（独立冷却）', t.getBullets().length - sameTickBefore, 2);
+
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;
