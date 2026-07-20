@@ -74,7 +74,7 @@
     shrug:{name:'重整旗鼓',cost:1,type:'skill',desc:'获得 8 点格挡，抽 1 张牌',play:()=>{gainBlock(8);drawN(1);}},
     adrenaline:{name:'肾上腺素',cost:0,type:'skill',desc:'获得 1 点能量，抽 2 张牌',play:()=>{gainEnergy(1);drawN(2);}},
     berserk:{name:'狂暴',cost:1,type:'power',desc:'获得 2 点力量',play:()=>gainStr(2)},
-    demon:{name:'恶魔形态',cost:3,type:'power',desc:'每回合开始时获得 2 点力量',play:()=>{C.combat.demon+=2;}},
+    demon:{name:'恶魔形态',cost:3,type:'power',desc:'每回合开始时获得 2 点力量',play:()=>{C.demon+=2;}},
     inferno:{name:'烈焰',cost:2,type:'attack',desc:'造成 10 点伤害，施加 2 层易伤',play:(c,t)=>{dealToEnemy(t,10);addVuln(t,2);}},
   };
   const POOL = ['cleave','poisonstab','ironwave','pommel','clothesline','shrug','adrenaline','berserk','demon','inferno'];
@@ -413,6 +413,7 @@
       debugVuln:(i,n)=>addVuln(i,n),
       debugBlock:(n)=>gainBlock(n),
       debugPlayerTake:(d)=>playerTake(d),
+      debugSetHand:(h)=>{ if(C) C.hand=h.slice(); },
       getRunHp:()=>S.hp,
       setRunHp:(h)=>{ S.hp=h; },
     };

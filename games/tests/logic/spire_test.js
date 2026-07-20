@@ -49,6 +49,17 @@ t.debugBlock(5);
 t.debugPlayerTake(8);                   // 5 格挡吸收后掉 3
 eq('格挡吸收后剩余血量', t.getRunHp(), 67);
 
+// --- 恶魔形态牌打出不崩溃且 C.demon+2（回归：曾误写 C.combat.demon 致打出即抛错）---
+t.resetRun();
+t.startCombat(['slime'], 'battle');
+t.debugSetHand(['demon']);
+const demonBefore = t.getCombat().demon;
+ok('打出恶魔形态不抛错', t.playCard(0, 0) === true);
+eq('恶魔形态打出后 C.demon=2', t.getCombat().demon, demonBefore + 2);
+// 下回合开始应额外 +2 力量（demon 机制）
+t.endTurn();
+// endTurn 后若战斗未结束，新回合 C.demon 仍生效（C.str += C.demon）
+
 // --- end turn: enemy acts, new player turn resets ---
 t.resetRun();
 t.startCombat(['slime'], 'battle');
