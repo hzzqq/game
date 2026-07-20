@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 比大小</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .arena{display:flex;justify-content:space-around;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:10px}
+  .side{text-align:center}
+  .side .lbl{color:var(--dim);font-size:12px;margin-bottom:6px}
+  .big{width:70px;height:96px;border:1px solid var(--border);border-radius:10px;background:#0e141d;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:700}
+  .vs{color:var(--dim);font-size:20px}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>比大小</b> WAR</span></div>
+  <div class="wrap">
+    <div class="hud"><span>玩家1 牌堆 · <span class="st" id="c1">0</span></span><span>玩家2 牌堆 · <span class="st" id="c2">0</span></span></div>
+    <div class="arena">
+      <div class="side"><div class="lbl">玩家1</div><div class="big" id="b1">—</div></div>
+      <div class="vs">VS</div>
+      <div class="side"><div class="lbl">玩家2</div><div class="big" id="b2">—</div></div>
+    </div>
+    <div class="controls">
+      <button id="flip">翻牌 FLIP</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">双方各翻一张：点数大者收走两张入自己牌堆底；相同则开战（各压 3 张再比）。谁先没钱谁输。</div>
+  </div>
+  <div class="foot">战争（War）：经典比大小纸牌，平局加注再战，赢家通吃，耗光对手牌堆者获胜。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let p1, p2, over, winner, last;
+  function rank(r){ return r; } // 2..14，A=14 最大
+  function newGame(){ p1=[{r:10},{r:7},{r:3}]; p2=[{r:5},{r:7},{r:2}]; over=false; winner=null; last=null; }
+  function step(){
+    if(over) return null;
+    const pot=[];
+    while(true){
+      if(!p1.length||!p2.length) break;
+      const c1=p1.shift(), c2=p2.shift(); pot.push(c1,c2);
+      if(c1.r===c2.r){ // 战争：各压若干暗牌，但各留 1 张翻面比
+        const down=Math.min(3, Math.max(0, Math.min(p1.length,p2.length)-1));
+        for(let k=0;k<down;k++){ pot.push(p1.shift()); pot.push(p2.shift()); }
+        continue;
+      }
+      const w = c1.r>c2.r ? p1 : p2;
+      w.push(...pot);
+      last={c1:c1.r,c2:c2.r,win:w===p1?1:2};
+      if(!p1.length||!p2.length){ over=true; winner=p1.length?1:2; }
+      return last;
+    }
+    over=true; winner = p1.length>p2.length?1:(p2.length>p1.length?2:'draw');
+    return last;
+  }
+  function getDecks(){ return { p1:p1.length, p2:p2.length }; }
+  function getWinner(){ return winner; }
+  function isOver(){ return over; }
+  function getLast(){ return last; }
+  function setDecks(d1,d2){ p1=d1.map(c=>({...c})); p2=d2.map(c=>({...c})); over=false; winner=null; last=null; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b1=$('b1'),b2=$('b2'),c1=$('c1'),c2=$('c2');
+    if(b1) b1.textContent=last?last.c1:'—';
+    if(b2) b2.textContent=last?last.c2:'—';
+    if(c1) c1.textContent=p1.length; if(c2) c2.textContent=p2.length;
+    const msg=$('msg');
+    if(msg){ if(over){ msg.className='msg win'; msg.textContent= winner==='draw'?'🏁 平局！':('🏁 玩家'+winner+' 获胜！'); } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const fl=$('flip'),nb=$('new');
+    if(fl) fl.onclick=()=>{ step(); render(); };
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ newGame, step, getDecks, getWinner, isOver, getLast, setDecks, rank };
+  }
+})();
+</script>
+</body>
+</html>

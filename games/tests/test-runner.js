@@ -71,6 +71,10 @@ const FILES = {
   'freecell.html':     { name:'空当接龙 FreeCell',            offline:true },
   'spider.html':       { name:'蜘蛛纸牌 Spider',              offline:true },
   'bigtwo.html':       { name:'大老二 Big Two',               offline:true },
+  'scopa.html':        { name:'斯卡帕 Scopa',                 offline:true },
+  'war.html':          { name:'比大小 War',                   offline:true },
+  'wordle.html':       { name:'猜词 Wordle',                  offline:true },
+  'twentyfour.html':   { name:'24点 24 Game',                 offline:true },
 };
 
 let totalPass=0, totalFail=0;

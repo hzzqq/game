@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 斯卡帕</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(520px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(520px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;min-height:48px;align-items:center}
+  .card{width:38px;height:52px;border:1px solid var(--border);border-radius:6px;background:#0e141d;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;cursor:pointer}
+  .card.sel{box-shadow:0 0 0 2px var(--gold)}
+  .card.coin{color:var(--gold)}
+  .hand .card:hover{filter:brightness(1.2)}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(520px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>斯卡帕</b> SCOPA</span></div>
+  <div class="wrap">
+    <div class="hud"><span>你收牌 · <span class="st" id="cap">0</span></span><span>斯科普 SCOPA · <span class="st" id="sc">0</span></span></div>
+    <div class="row" id="table"></div>
+    <div class="row hand" id="hand"></div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+    <div class="msg" id="msg">出一张手牌：若它的点数等于桌上若干张牌之和，就把那些牌收走（清空桌面算「斯科普」加分）。否则这张牌留到桌上。</div>
+  </div>
+  <div class="foot">斯卡帕（Scopa）：意大利经典牌戏，用点数凑牌收桌，清台得「斯科普」加分，终局以收牌数/金币/七金等计分。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let table, hand, captured, scopaCount, sel;
+  function newGame(){ table=[{v:2,s:0},{v:5,s:1},{v:7,s:2},{v:1,s:3}]; hand=[{v:3,s:0},{v:6,s:1},{v:9,s:2},{v:4,s:3}]; captured=0; scopaCount=0; sel=null; }
+  function findCapture(val){
+    const n=table.length; let best=null;
+    for(let mask=1;mask<(1<<n);mask++){ let sum=0,cnt=0; for(let i=0;i<n;i++) if(mask&(1<<i)){ sum+=table[i].v; cnt++; } if(sum===val){ if(!best||cnt>best.cnt||(cnt===best.cnt&&sum>best.sum)) best={mask,cnt,sum}; } }
+    return best;
+  }
+  function play(card){
+    const idx=hand.findIndex(c=>c.v===card.v&&c.s===card.s); if(idx<0) return false;
+    const cap=findCapture(card.v);
+    hand.splice(idx,1);
+    if(cap){ const before=table.length; const rm=[]; for(let i=0;i<table.length;i++) if(cap.mask&(1<<i)) rm.push(i);
+      rm.sort((a,b)=>b-a).forEach(i=>table.splice(i,1));
+      captured+=rm.length+1; if(table.length===0) scopaCount++; return true; }
+    table.push(card); return false;
+  }
+  function getTable(){ return table.map(c=>({...c})); }
+  function getHand(){ return hand.map(c=>({...c})); }
+  function getCaptured(){ return captured; }
+  function getScopa(){ return scopaCount; }
+  function setTableau(t,h){ table=t.map(c=>({...c})); hand=h.map(c=>({...c})); captured=0; scopaCount=0; sel=null; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function cardHTML(c,idx,sel){ return '<div class="card '+(c.s===0?'coin ':'')+(sel?'sel ':'')+(idx!==undefined?'h':'' )+'" data-i="'+idx+'">'+c.v+'</div>'; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const tb=$('table'); if(tb) tb.innerHTML=table.map(c=>cardHTML(c)).join('');
+    const h=$('hand'); if(h){ h.innerHTML=hand.map((c,i)=>cardHTML(c,i,sel===i)).join(''); h.querySelectorAll('.card').forEach(el=>{ el.onclick=()=>{ const i=+el.dataset.i; if(play(hand[i])){ sel=null; render(); } }; }); }
+    const cap=$('cap'),sc=$('sc'); if(cap) cap.textContent=captured; if(sc) sc.textContent=scopaCount;
+  }
+  function bindUI(){ if(typeof document==='undefined') return; const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); render(); }; }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ newGame, play, getTable, getHand, getCaptured, getScopa, findCapture, setTableau };
+  }
+})();
+</script>
+</body>
+</html>

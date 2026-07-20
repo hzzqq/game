@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 猜词</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(440px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(440px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+  .row{display:flex;gap:6px;justify-content:center}
+  .cell{width:46px;height:46px;border:2px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;text-transform:uppercase}
+  .cell.g{background:var(--green);border-color:var(--green);color:#06120c}
+  .cell.y{background:var(--gold);border-color:var(--gold);color:#1a1400}
+  .cell.x{background:#1a2230;border-color:#2a3340}
+  .controls{display:flex;gap:8px;justify-content:center}
+  .controls input{width:130px;background:#0e141d;border:1px solid var(--border);color:var(--text);padding:10px;border-radius:6px;font-family:inherit;font-size:16px;letter-spacing:4px;text-transform:uppercase}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(440px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>猜词</b> WORDLE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>猜词数 · <span class="st" id="n">0</span>/6</span><span>结果 · <span class="st" id="st">进行中</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <input id="guess" maxlength="5" placeholder="AAAAA" />
+      <button id="go">猜 GUESS</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">猜 5 字母单词：绿=位置对，黄=有此字母但位置错，灰=无。6 次内猜中即胜。</div>
+  </div>
+  <div class="foot">猜词（Wordle）：经典每日猜词，颜色反馈提示字母位置，绿色正确、黄色异位、灰色缺失。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const WORDS=['CRANE','SLATE','BRICK','PLANT','SOUND','FANCY','GHOST','WORLD','MONEY','LIGHT','APPLE','ALLOY'];
+  let solution, guesses, over, won;
+  function choose(){ solution=WORDS[Math.floor(Math.random()*WORDS.length)]; }
+  function setSolution(w){ solution=w.toUpperCase(); guesses=[]; over=false; won=false; }
+  function feedback(guess){
+    const g=guess.toUpperCase(), s=solution, n=s.length; const res=new Array(n).fill('x');
+    const counts={}; for(const c of s) counts[c]=(counts[c]||0)+1;
+    for(let i=0;i<n;i++) if(g[i]===s[i]){ res[i]='g'; counts[g[i]]--; }
+    for(let i=0;i<n;i++){ if(g[i]===s[i]) continue; if(counts[g[i]]>0){ res[i]='y'; counts[g[i]]--; } }
+    return res;
+  }
+  function guess(word){
+    if(over) return null;
+    const fb=feedback(word); guesses.push(word.toUpperCase());
+    if(word.toUpperCase()===solution){ over=true; won=true; }
+    else if(guesses.length>=6){ over=true; won=false; }
+    return fb;
+  }
+  function getGuesses(){ return guesses.slice(); }
+  function getSolution(){ return solution; }
+  function isOver(){ return over; }
+  function isWon(){ return won; }
+  function newGame(){ choose(); guesses=[]; over=false; won=false; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(bd){ let h=''; for(const w of guesses){ const fb=feedback(w); h+='<div class="row">'+w.toUpperCase().split('').map((c,i)=>'<div class="cell '+(fb[i]==='g'?'g':fb[i]==='y'?'y':'x')+'">'+c+'</div>').join('')+'</div>'; } bd.innerHTML=h; }
+    const n=$('n'),st=$('st'),msg=$('msg');
+    if(n) n.textContent=guesses.length;
+    if(st) st.textContent=over?(won?'猜中':'未中'):'进行中';
+    if(msg){ if(over){ msg.className='msg win'; msg.textContent= won?'🏁 猜中！答案是 '+solution:'💡 答案是 '+solution; } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const go=$('go'),nb=$('new'),gi=$('guess');
+    if(go) go.onclick=()=>{ const v=(gi&&gi.value||'').toUpperCase(); if(v.length===5){ guess(v); if(gi) gi.value=''; render(); } };
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ newGame, setSolution, guess, feedback, getGuesses, getSolution, isOver, isWon, WORDS };
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 24点</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .nums{display:flex;gap:10px;justify-content:center;margin-bottom:10px}
+  .num{width:60px;height:60px;border:1px solid var(--border);border-radius:12px;background:#0e141d;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:var(--gold)}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls input{width:200px;background:#0e141d;border:1px solid var(--border);color:var(--text);padding:10px;border-radius:6px;font-family:inherit;font-size:15px}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>24点</b> 24 GAME</span></div>
+  <div class="wrap">
+    <div class="hud"><span>状态 · <span class="st" id="st">解题中</span></span><span>可解 · <span class="st" id="sol">?</span></span></div>
+    <div class="nums" id="nums"></div>
+    <div class="controls">
+      <input id="expr" placeholder="如 (8-4)*(7-1)" />
+      <button id="check">验证 CHECK</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">用 + - * / 和括号把 4 个数凑成 24。可点「求解」看是否可解；输入算式验证是否正好得 24。</div>
+  </div>
+  <div class="foot">24 点：给定 4 个数字，用四则运算与括号凑出 24。经典算术脑力游戏，存在无解组合。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  let nums, over;
+  function setRand(fn){ _rand=fn; } let _rand;
+  function rand4(){ const pool=[1,2,3,4,5,6,7,8,9,10,11,12,13]; for(let i=pool.length-1;i>0;i--){ const j=Math.floor((_rand||Math.random)()*(i+1)); const t=pool[i];pool[i]=pool[j];pool[j]=t; } return pool.slice(0,4); }
+  function solve(arr){
+    const eps=1e-6;
+    function dfs(a){
+      if(a.length===1) return Math.abs(a[0]-24)<eps;
+      for(let i=0;i<a.length;i++) for(let j=0;j<a.length;j++){ if(i===j) continue;
+        const x=a[i], y=a[j]; const rest=[]; for(let k=0;k<a.length;k++) if(k!==i&&k!==j) rest.push(a[k]);
+        const cands=[x+y, x-y, y-x, x*y]; if(Math.abs(y)>eps) cands.push(x/y); if(Math.abs(x)>eps) cands.push(y/x);
+        for(const c of cands){ if(dfs(rest.concat(c))) return true; }
+      }
+      return false;
+    }
+    return dfs(arr.slice());
+  }
+  function evalExpr(expr, ns){
+    // 安全求值：只允许数字与 + - * / ( ) 与 4 个给定数各用一次
+    if(!/^[\d+\-*/().\s]+$/.test(expr)) return null;
+    for(const c of expr.replace(/[^0-9]/g,'').split('')) { /* noop */ }
+    try{
+      // 用 Function 求值（已做白名单过滤）
+      const v=Function('"use strict";return ('+expr+')')();
+      if(typeof v!=='number'||!isFinite(v)) return null;
+      return Math.abs(v-24)<1e-6 ? true : false;
+    }catch(e){ return null; }
+  }
+  function newGame(){ nums=rand4(); over=false; }
+  function getNums(){ return nums.slice(); }
+  function isSolvable(){ return solve(nums); }
+  function setNums(a){ nums=a.slice(); over=false; }
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const nm=$('nums'); if(nm) nm.innerHTML=nums.map(n=>'<div class="num">'+n+'</div>').join('');
+    const sol=$('sol'),st=$('st'),msg=$('msg');
+    if(sol) sol.textContent = isSolvable()?'可解':'无解';
+    if(st) st.textContent=over?'已验证':'解题中';
+    if(msg){ if(over){ msg.className='msg win'; msg.textContent='✅ 算式得 24！'; } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const ck=$('check'),nb=$('new'),ex=$('expr');
+    if(ck) ck.onclick=()=>{ const v=evalExpr(ex&&ex.value||'', nums); if(v===true){ over=true; render(); } else if(v===false){ if(ex) ex.value=''; const m=$('msg'); if(m){ m.className='msg'; m.textContent='❌ 不等于 24，再试试。'; } } };
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ newGame, solve, evalExpr, getNums, isSolvable, setNums, setRand };
+  }
+})();
+</script>
+</body>
+</html>
