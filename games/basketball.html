@@ -54,11 +54,12 @@
   function dist(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); }
   function shoot(angleDeg,power){
     made=false;
+    Juice.sfx('shoot');
     const a=angleDeg*Math.PI/180, vx=power*Math.cos(a); let vy=-power*Math.sin(a);
     let x=ball.x, y=ball.y;
     for(let s=0;s<400;s++){
       x+=vx; y+=vy; vy+=G;
-      if(dist(x,y,hoop.x,hoop.y)<=CAP){ made=true; score++; ball.x=hoop.x; ball.y=hoop.y; return; }
+      if(dist(x,y,hoop.x,hoop.y)<=CAP){ made=true; score++; Juice.sfx('hit'); Juice.addTrauma(.25); Juice.popup(x, y, '+1', '#f0b90b'); ball.x=hoop.x; ball.y=hoop.y; return; }
       if(x>W||y>H||x<0) break;
     }
     ball.x=x; ball.y=y;
