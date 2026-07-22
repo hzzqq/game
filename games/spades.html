@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 黑桃 SPADES</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(640px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(640px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:8px;flex-wrap:wrap;gap:6px}
+  .hud .st{color:var(--green);font-weight:700}
+  canvas{display:block;width:100%;background:#0e141d;border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
+  .board{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+  .row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--panel)}
+  .row.cur{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+  .row .who{font-size:12px;color:var(--dim);min-width:96px}
+  .row.cur .who{color:var(--gold)}
+  .row .cnt{font-size:11px;color:var(--dim)}
+  .row .bid{font-size:11px;color:var(--gold)}
+  .trick{display:flex;justify-content:center;gap:10px;min-height:54px;align-items:center;padding:6px;border:1px dashed var(--border);border-radius:8px;margin-bottom:8px;background:var(--panel)}
+  .trick .ph{font-size:11px;color:var(--dim);text-align:center}
+  .card{display:inline-flex;align-items:center;justify-content:center;width:34px;height:48px;border-radius:6px;background:#e6edf3;color:#0a0e14;font-weight:700;font-size:14px;border:1px solid #0a0e14;cursor:pointer;user-select:none}
+  .card.red{color:var(--red);background:#fbe7ea}
+  .card.sel{outline:2px solid var(--gold);outline-offset:1px;transform:translateY(-3px)}
+  .card.disabled{cursor:default;opacity:.65}
+  .hand{display:flex;flex-wrap:wrap;gap:4px}
+  .controls{display:flex;gap:8px;align-items:center}
+  .controls input{width:64px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:inherit;font-size:14px;text-align:center}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text);flex:0 0 auto;padding:10px 16px}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(640px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>黑桃</b> SPADES</span></div>
+  <div class="wrap">
+    <div class="hud">
+      <span>阶段 <span class="st" id="phase">-</span></span>
+      <span>轮次 <span class="st" id="trickno">0</span>/13</span>
+      <span>黑桃 <span class="st" id="sb">未破</span></span>
+      <span>分数 <span class="st" id="score">0/0/0/0</span></span>
+    </div>
+    <canvas id="cv" width="620" height="64"></canvas>
+    <div class="trick" id="trick"></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <input id="bidval" type="number" min="0" max="13" value="3" />
+      <button id="confirm">确认 CONFIRM</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">叫牌阶段：填入叫墩数（0-13）点确认；出牌阶段：跟花色，黑桃为将，黑桃未破不能首攻黑桃。完成叫数 +10/墩，超叫 +1/墩(记 bag)，欠叫 -10/墩。</div>
+  </div>
+  <div class="foot">黑桃（Spades）：4 人各 13 张，先叫墩数；黑桃为将牌，最大将牌赢墩。完成叫数得 10×叫数 + 超叫墩(bag)；欠叫扣 10×叫数；bag 累计 10 个扣 100 分。</div>
+
+<script src="juice.js"></script>
+<script src="input.js"></script>
+<script>
+(function(){
+  "use strict";
+  const J = (typeof Juice!=='undefined') ? Juice : null;
+
+  function mk(seed){
+    let s = (seed>>>0) || 1;
+    return function(){
+      s |= 0; s = s + 0x6D2B79F5 | 0;
+      let t = Math.imul(s ^ s >>> 15, 1 | s);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  let _rng = mk(0x5678abcd);
+  function setRand(fn){ if(typeof fn==='function') _rng = fn; }
+
+  const SUITS = ['♠','♥','♦','♣'];
+  const RNAMES = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  const HUMAN = 0;
+  function suit(c){ return Math.floor(c/13); }
+  function rank(c){ return c % 13; }
+  function rankNum(c){ return (c % 13 === 0) ? 14 : (c % 13) + 1; }
+  function isRed(c){ return suit(c)===1 || suit(c)===2; }
+  function cardName(c){ return RNAMES[rank(c)] + SUITS[suit(c)]; }
+  function lowest(arr){ return arr.slice().sort((a,b)=> rankNum(a)-rankNum(b) || suit(a)-suit(b))[0]; }
+  function highest(arr){ return arr.slice().sort((a,b)=> rankNum(b)-rankNum(a) || suit(b)-suit(a))[0]; }
+
+  let hands, phase, current, trick, leadSuit, spadesBroken, tricksPlayed, won, bids, scores, bags, sel, lastSeed, lastRoundCards;
+
+  function freshState(){
+    hands=[[],[],[],[]]; phase='bid'; current=0; trick=[]; leadSuit=null;
+    spadesBroken=false; tricksPlayed=0; won=[0,0,0,0]; bids=[null,null,null,null];
+    scores=[0,0,0,0]; bags=[0,0,0,0]; sel=[]; lastRoundCards=0;
+  }
+  function deal(){
+    const d=[]; for(let c=0;c<52;c++) d.push(c);
+    for(let i=51;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=d[i]; d[i]=d[j]; d[j]=t; }
+    hands=[[],[],[],[]];
+    for(let i=0;i<52;i++) hands[i%4].push(d[i]);
+    for(let p=0;p<4;p++) hands[p].sort((a,b)=> a-b);
+  }
+  function newGame(seed){
+    lastSeed = (typeof seed==='number') ? (seed>>>0) : (Date.now()>>>0);
+    _rng = mk(lastSeed);
+    freshState();
+    deal();
+    return getState();
+  }
+  function reset(){ return newGame(lastSeed || 1); }
+
+  // ---- 叫牌 ----
+  function aiBid(p){
+    const h=hands[p];
+    let b=0;
+    for(const c of h){
+      if(suit(c)===0){ // 黑桃
+        const r=rankNum(c);
+        if(r>=12) b+=1; else if(r>=10) b+=0.5; else if(r>=5) {} else b+=0;
+      } else {
+        const r=rankNum(c);
+        if(r===14) b+=1;            // A
+        else if(r===13) b+=0.5;      // K
+      }
+    }
+    if(h.filter(c=>suit(c)===0).length>=4) b+=1; // 长将
+    let bid=Math.round(b);
+    if(bid<1) bid=1; if(bid>13) bid=13;
+    return bid;
+  }
+  function bid(player, n){
+    if(phase!=='bid') return false;
+    if(bids[player]!==null) return false;
+    n=Math.max(0, Math.min(13, Math.floor(n)));
+    bids[player]=n;
+    if(player===HUMAN){ for(let a=0;a<4;a++) if(a!==HUMAN && bids[a]===null) bids[a]=aiBid(a); }
+    if(bids.every(x=>x!==null)) startPlay();
+    return true;
+  }
+  function startPlay(){
+    phase='play';
+    current=0; trick=[]; leadSuit=null; spadesBroken=false; tricksPlayed=0;
+    if(J) J.sfx('deal');
+  }
+
+  // ---- 合法出牌 ----
+  function legalMovesIn(H, player, trk, ls, sb){
+    const hand=H[player];
+    const leading = trk.length===0;
+    if(leading){
+      const nonSpades = hand.filter(c=>suit(c)!==0);
+      if(sb || nonSpades.length===0) return hand.slice();
+      return nonSpades;
+    } else {
+      const inSuit = hand.filter(c=>suit(c)===ls);
+      if(inSuit.length) return inSuit;
+      return hand.slice();
+    }
+  }
+  function legalMoves(player){ return legalMovesIn(hands, player, trick, leadSuit, spadesBroken); }
+
+  function aiChooseFor(H, player, moves, trk, ls){
+    if(trk.length===0){
+      const nonSpades = moves.filter(c=>suit(c)!==0);
+      const pool = nonSpades.length ? nonSpades : moves;
+      return highest(pool); // 首攻出大牌施压
+    }
+    const inSuit = moves.filter(c=>suit(c)===ls);
+    if(inSuit.length) return lowest(inSuit);
+    const trumps = moves.filter(c=>suit(c)===0);
+    if(trumps.length) return lowest(trumps); // 用最小将吃
+    return highest(moves); // 垫最大闲牌
+  }
+  function aiChoose(player){ return aiChooseFor(hands, player, legalMoves(player), trick, leadSuit); }
+
+  // ---- 赢墩（黑桃为将）----
+  function winnerOfTrick(cards){
+    const ls = suit(cards[0]);
+    let ti=-1, tv=-1, li=-1, lv=-1;
+    for(let i=0;i<cards.length;i++){
+      const c=cards[i], su=suit(c), rv=rankNum(c);
+      if(su===0){ if(rv>tv){ tv=rv; ti=i; } }
+      else if(su===ls){ if(rv>lv){ lv=rv; li=i; } }
+    }
+    return ti>=0 ? ti : li;
+  }
+
+  function playCard(player, card){
+    if(phase!=='play') return false;
+    if(player!==current) return false;
+    if(!hands[player].includes(card)) return false;
+    const lm = legalMoves(player);
+    if(lm.indexOf(card)<0) return false;
+    hands[player].splice(hands[player].indexOf(card),1);
+    trick.push({player, card});
+    if(trick.length===1) leadSuit=suit(card);
+    if(suit(card)===0) spadesBroken=true;
+    if(J) J.sfx('click');
+    if(trick.length===4){
+      const w = winnerOfTrick(trick.map(t=>t.card));
+      won[w]++;
+      tricksPlayed++;
+      trick=[]; leadSuit=null; current=w;
+      if(J) J.flash('#02c076', .25);
+      if(tricksPlayed===13) endRound();
+    } else {
+      current=(current+1)%4;
+    }
+    return true;
+  }
+
+  // ---- 计分（含 bag）----
+  function roundScore(bidArr, wonArr, bagArr){
+    const delta=[0,0,0,0]; const nb=bagArr.slice();
+    for(let p=0;p<4;p++){
+      const b=bidArr[p], w=wonArr[p];
+      if(w>=b) delta[p] = 10*b + (w-b);
+      else delta[p] = -10*b;
+      if(w>b) nb[p] += (w-b);
+      while(nb[p]>=10){ delta[p]-=100; nb[p]-=10; }
+    }
+    return {delta, bags:nb};
+  }
+  function endRound(){
+    const rs = roundScore(bids, won, bags);
+    for(let p=0;p<4;p++){ scores[p]+=rs.delta[p]; bags[p]=rs.bags[p]; }
+    lastRoundCards = 52;
+    if(scores.some(s=>s>=500)){
+      phase='over';
+      if(J) J.sfx('levelup');
+    } else {
+      deal();
+      bids=[null,null,null,null]; phase='bid';
+      trick=[]; leadSuit=null; spadesBroken=false; tricksPlayed=0; won=[0,0,0,0];
+    }
+  }
+
+  function step(){
+    let guard=0;
+    while(phase==='play' && current!==HUMAN && guard++<300){
+      playCard(current, aiChoose(current));
+      if(phase!=='play') break;
+      if(trick.length===0) break;
+    }
+  }
+
+  function isOver(){ return phase==='over'; }
+  function getScores(){ return scores.slice(); }
+  function getBags(){ return bags.slice(); }
+  function getState(){
+    return {
+      phase, current, spadesBroken, tricksPlayed, leadSuit,
+      bids: bids.slice(), won: won.slice(), bags: bags.slice(), scores: scores.slice(),
+      hands: hands.map(h=>h.slice()),
+      trick: trick.map(t=>({player:t.player, card:t.card})),
+      lastRoundCards,
+      over: isOver()
+    };
+  }
+  function setHands(arr, cur){
+    hands = arr.map(h=>h.slice().sort((a,b)=>a-b));
+    current=(cur===undefined)?0:cur; phase='play'; trick=[]; leadSuit=null; spadesBroken=false; tricksPlayed=0; won=[0,0,0,0];
+    return getState();
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const W = Math.min(620, (typeof window!=='undefined'?window.innerWidth:800) - 20);
+    const cv=$('cv'); if(cv){ cv.width=W; cv.height=64;
+      const ctx=cv.getContext('2d'); if(ctx){ ctx.clearRect(0,0,W,64);
+        for(let p=0;p<4;p++){
+          const x=p*(W/4)+6, y=8, w=W/4-12, h=48;
+          ctx.fillStyle=(p===current&&phase==='play')?'#16241c':'#121821';
+          ctx.strokeStyle=(p===current)?'#02c076':'#1f2a38'; ctx.lineWidth=2;
+          ctx.beginPath(); ctx.roundRect?ctx.roundRect(x,y,w,h,8):ctx.rect(x,y,w,h); ctx.fill(); ctx.stroke();
+          ctx.fillStyle=p===0?'#02c076':'#e6edf3'; ctx.font='bold 13px monospace'; ctx.textAlign='left'; ctx.textBaseline='middle';
+          ctx.fillText('P'+(p+1), x+8, y+14);
+          ctx.fillStyle='#e6edf3'; ctx.font='bold 12px monospace';
+          ctx.fillText('分'+scores[p]+' 叫'+(bids[p]===null?'-':bids[p])+' 得'+won[p], x+8, y+34);
+        }
+      }
+    }
+    const ph=$('phase'); if(ph) ph.textContent = phase==='bid'?'叫牌':phase==='play'?'出牌':'结束';
+    const tn=$('trickno'); if(tn) tn.textContent=tricksPlayed;
+    const sb=$('sb'); if(sb) sb.textContent = spadesBroken?'已破':'未破';
+    const sc=$('score'); if(sc) sc.textContent = scores.join('/');
+
+    const tr=$('trick'); if(tr){ tr.innerHTML='';
+      if(trick.length){ trick.forEach(t=>{ const d=document.createElement('div'); d.className='ph'; d.innerHTML=cardName(t.card)+'<br>P'+(t.player+1); tr.appendChild(d); }); }
+      else { const d=document.createElement('div'); d.className='ph'; d.textContent=phase==='play'?'等待出牌…':'—'; tr.appendChild(d); }
+    }
+    const bd=$('board'); if(bd){ bd.innerHTML='';
+      for(let p=0;p<4;p++){
+        const row=document.createElement('div'); row.className='row'+(p===current&&phase==='play'?' cur':'');
+        const info=document.createElement('div'); info.className='who';
+        info.innerHTML='玩家'+(p+1)+(p===HUMAN?'(你)':'')+'<br><span class="cnt">'+hands[p].length+' 张</span><span class="bid"> 叫'+(bids[p]===null?'-':bids[p])+'/得'+won[p]+'</span>';
+        row.appendChild(info);
+        const h=document.createElement('div'); h.className='hand';
+        const lm=(phase==='play'&&p===current)?legalMoves(p):null;
+        hands[p].forEach(c=>{ const el=document.createElement('div');
+          el.className='card'+(isRed(c)?' red':'')+(sel.indexOf(c)>=0?' sel':'')+((p!==HUMAN||lm===null)?' disabled':'');
+          el.textContent=cardName(c);
+          if(p===HUMAN && lm){ if(lm.indexOf(c)<0) el.classList.add('disabled');
+            el.addEventListener('click',()=>{ const i=sel.indexOf(c); if(i>=0) sel.splice(i,1); else if(lm.indexOf(c)>=0) sel.push(c); render(); }); }
+          h.appendChild(el);
+        });
+        row.appendChild(h); bd.appendChild(row);
+      }
+    }
+    const msg=$('msg'); if(msg){
+      if(phase==='over'){ msg.className='msg win'; msg.textContent='🏁 游戏结束，最终分数 '+scores.join(' / '); }
+      else if(phase==='bid'){ msg.className='msg'; msg.textContent='叫牌：填墩数点确认（AI 已自动叫）。'; }
+      else if(current===HUMAN){ msg.className='msg'; msg.textContent='轮到你出牌：选一张合法牌，点确认。'; }
+      else msg.className='msg';
+    }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cf=$('confirm'), nb=$('new'), bv=$('bidval');
+    if(cf) cf.onclick=()=>{
+      if(phase==='bid'){
+        const n=parseInt(bv?bv.value:'3',10); if(bid(HUMAN, isNaN(n)?3:n)){ sel=[]; render(); }
+      } else if(phase==='play' && current===HUMAN){
+        if(sel.length===1 && playCard(HUMAN, sel[0])){ sel=[]; step(); render(); }
+      }
+    };
+    if(nb) nb.onclick=()=>{ newGame(); render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      SUITS, RNAMES, suit, rank, rankNum, cardName,
+      setRand, newGame, reset, getState, legalMoves, playCard, bid, aiBid,
+      winnerOfTrick, roundScore, step, getScores, getBags, isOver, setHands
+    };
+  }
+})();
+</script>
+</body>
+</html>
