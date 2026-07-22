@@ -22,3 +22,38 @@ t.setScores([10,20]);
 t.throwDart(4);  // 6
 t.throwDart(6);  // 0 → 胜
 eq('分步减到0获胜', t.getWinner(), 0);
+
+// ===== 注入式掉落道具系统（确定性驱动，不依赖随机自动掉落）=====
+// 1. 🎯 靶心奖励掉落：直接 apply 加分到奖励池
+t.reset();
+t.spawnPickup('bull', 0, 0);
+eq('生成 1 个掉落物', t.getPickups(), 1);
+const b0 = t.getBonus();
+t.applyPickup(t.getPickup(0));
+eq('拾取 🎯 靶心奖励 +30', t.getBonus(), b0 + 30);
+eq('拾取后掉落物移除', t.getPickups(), 0);
+
+// 2. 💰 金币掉落：apply 加分
+t.reset();
+t.spawnPickup('coin', 0, 0);
+const b1 = t.getBonus();
+t.applyPickup(t.getPickup(0));
+eq('拾取 💰 奖励 +20', t.getBonus(), b1 + 20);
+
+// 3. 未碰撞不生效：仅生成不 apply，奖励不变、掉落物仍在
+t.reset();
+t.spawnPickup('coin', 0, 0);
+t.stepPickups(0.016);
+eq('未碰撞奖励不变', t.getBonus(), 0);
+eq('未碰撞掉落物仍在', t.getPickups(), 1);
+
+// 4. 命中靶心自动掉落奖励
+t.reset();
+t.throwDart(50);
+eq('命中靶心触发 🎯 奖励 +30', t.getBonus(), 30);
+eq('自动掉落已生效并移除', t.getPickups(), 0);
+
+// 5. 回归：核心 501 计分不受影响
+t.setScores([10,20]);
+t.throwDart(10);
+eq('核心计分减到 0 仍获胜', t.getWinner(), 0);
