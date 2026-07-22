@@ -62,8 +62,9 @@
     board[r][c]=turn; placed[turn]++;
     if(placed.b>=NEED&&placed.w>=NEED) phase='move';
     const col=turn;
-    if(lineWin(col)){ over=true; winner=col; return true; }
+    if(lineWin(col)){ over=true; winner=col; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} return true; }
     turn = turn==='b'?'w':'b';
+    if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.2); }
     return true;
   }
   function move(fr,fc,tr,tc){
@@ -74,8 +75,9 @@
     if(!ok) return false;
     board[tr][tc]=turn; board[fr][fc]=null;
     const col=turn;
-    if(lineWin(col)){ over=true; winner=col; return true; }
+    if(lineWin(col)){ over=true; winner=col; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} return true; }
     turn = turn==='b'?'w':'b';
+    if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.2); }
     return true;
   }
   function getBoard(){ return board.map(r=>r.slice()); }
