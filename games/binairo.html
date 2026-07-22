@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 黑白 BINAIRO</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>黑白</b> BINAIRO</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">6</span></span><span id="status">每行每列 0/1 各半，且无 3 连同色</span></div>
+    <div class="boardwrap"><canvas id="board" width="376" height="376"></canvas></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点格子切换：空 → 0 → 1 → 空。填满整盘并满足每行/列 0、1 数量相等且无 3 个连续相同即过关。</div>
+  </div>
+  <div class="foot">Binairo（Takuzu）：在 N×N 棋盘上填入 0 与 1，要求每行每列 0、1 各占一半，且任意方向不得出现 3 个连续相同数字。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(seed){let s=seed>>>0;return ()=>{s=(s*1664525+1013904223)>>>0;return (s&0x7fffffff)/0x7fffffff;};}
+  let _rng = mk(0xabcdef01);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+  const J = (typeof Juice!=='undefined')?Juice:null;
+
+  const N = 6;
+  const CELL = 56, PAD = 20;
+  let board;   // N×N，null=空，0/1=已填
+  let sol;     // N×N，规范解（0/1）
+  let won = false;
+  let confettiFired = false;
+
+  // ---- 生成合法解：回溯逐格填，约束行/列计数与无 3 连同色 ----
+  function genSolution(){
+    const g = Array.from({length:N},()=>new Array(N).fill(-1));
+    function rowCount(r,v){let n=0;for(let i=0;i<N;i++) if(g[r][i]===v)n++;return n;}
+    function colCount(c,v){let n=0;for(let i=0;i<N;i++) if(g[i][c]===v)n++;return n;}
+    function row3(r,c,v){let n=0;for(let i=c-1;i>=0&&g[r][i]===v;i--)n++;return n>=2;}
+    function col3(r,c,v){let n=0;for(let i=r-1;i>=0&&g[i][c]===v;i--)n++;return n>=2;}
+    function bt(r,c){
+      if(r===N) return true;
+      if(c===N) return bt(r+1,0);
+      const order = _rng()<0.5 ? [0,1] : [1,0];
+      for(const v of order){
+        if(rowCount(r,v) > N/2-1) continue;
+        if(colCount(c,v) > N/2-1) continue;
+        if(row3(r,c,v)) continue;
+        if(col3(r,c,v)) continue;
+        g[r][c]=v;
+        if(bt(r,c+1)) return true;
+        g[r][c]=-1;
+      }
+      return false;
+    }
+    bt(0,0);
+    return g;
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    sol = genSolution();
+    board = Array.from({length:N},()=>new Array(N).fill(null));
+    won = false;
+    return getState();
+  }
+
+  function isComplete(){
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(board[r][c]===null) return false;
+    return true;
+  }
+  function isWin(){
+    if(!isComplete()) return false;
+    for(let r=0;r<N;r++){
+      let z=0,o=0;
+      for(let c=0;c<N;c++){ if(board[r][c]===0)z++; else if(board[r][c]===1)o++; else return false; }
+      if(z!==N/2||o!==N/2) return false;
+      for(let c=2;c<N;c++) if(board[r][c]===board[r][c-1]&&board[r][c]===board[r][c-2]) return false;
+    }
+    for(let c=0;c<N;c++){
+      for(let r=2;r<N;r++) if(board[r][c]===board[r-1][c]&&board[r][c]===board[r-2][c]) return false;
+    }
+    return true;
+  }
+
+  function setCell(r,c,val){
+    if(r<0||r>=N||c<0||c>=N) return false;
+    if(val===null||val===undefined||val===-1){ board[r][c]=null; }
+    else if(val===0||val===1){ board[r][c]=val; }
+    else return false;
+    won=isWin();
+    if(won&&J) J.sfx('levelup');
+    return true;
+  }
+  function toggleCell(r,c){
+    if(r<0||r>=N||c<0||c>=N) return false;
+    const v=board[r][c];
+    board[r][c] = (v===null)?0 : (v===0?1:null);
+    won=isWin();
+    if(won&&J) J.sfx('levelup');
+    return true;
+  }
+  function reset(){ board=Array.from({length:N},()=>new Array(N).fill(null)); won=false; return getState(); }
+  function applySolution(){ board=sol.map(row=>row.slice()); won=isWin(); return won; }
+  function getSolution(){ return sol.map(row=>row.slice()); }
+  function getState(){ return { N, board:board.map(r=>r.slice()), sol:sol.map(r=>r.slice()), won }; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    const Wd=cv.width, Hd=cv.height;
+    ctx.clearRect(0,0,Wd,Hd);
+    ctx.fillStyle='#6b7785'; ctx.font='bold 26px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const x=PAD+c*CELL, y=PAD+r*CELL;
+      const v=board[r][c];
+      if(v===0){ ctx.fillStyle='rgba(246,70,93,.14)'; ctx.fillRect(x+2,y+2,CELL-4,CELL-4); ctx.fillStyle='#f6465d'; }
+      else if(v===1){ ctx.fillStyle='rgba(2,192,118,.14)'; ctx.fillRect(x+2,y+2,CELL-4,CELL-4); ctx.fillStyle='#02c076'; }
+      else { ctx.fillStyle='#2a3645'; }
+      if(v===0||v===1) ctx.fillText(v, x+CELL/2, y+CELL/2);
+    }
+    ctx.strokeStyle='#1f2a38'; ctx.lineWidth=1;
+    for(let i=0;i<=N;i++){
+      ctx.beginPath(); ctx.moveTo(PAD,PAD+i*CELL); ctx.lineTo(PAD+N*CELL,PAD+i*CELL); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(PAD+i*CELL,PAD); ctx.lineTo(PAD+i*CELL,PAD+N*CELL); ctx.stroke();
+    }
+    const stt=$('status'); if(stt) stt.textContent = won?'已通关':'每行每列 0/1 各半，且无 3 连同色';
+    const msg=$('msg'); if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！全盘满足 Binairo 规则。'; if(!confettiFired){ confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } else { msg.className='msg'; confettiFired=false; } }
+  }
+  function hit(mx,my){
+    const gx=(mx-PAD)/CELL, gy=(my-PAD)/CELL;
+    if(gx<0||gy<0||gx>N||gy>N) return null;
+    return { r:Math.floor(gy), c:Math.floor(gx) };
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'),nb=$('new'),rb=$('reset');
+    if(cv) cv.addEventListener('click',e=>{
+      const rect=cv.getBoundingClientRect();
+      const mx=(e.clientX-rect.left)*(cv.width/rect.width);
+      const my=(e.clientY-rect.top)*(cv.height/rect.height);
+      const k=hit(mx,my); if(k){ toggleCell(k.r,k.c); render(); }
+    });
+    if(nb) nb.onclick=()=>{ newPuzzle(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setCell, toggleCell, applySolution, getSolution, getState };
+  }
+})();
+</script>
+</body>
+</html>
