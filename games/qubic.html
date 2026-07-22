@@ -16,6 +16,10 @@
   .wrap{width:min(560px,98vw)}
   .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
   .hud .st{color:var(--green);font-weight:700}
+  .diffbar{display:flex;gap:6px;margin-bottom:10px}
+  .diffbar button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:7px 0;cursor:pointer;font-family:inherit;font-size:12px;transition:.12s}
+  .diffbar button:hover{border-color:var(--gold)}
+  .diffbar button.active{background:rgba(240,185,11,.15);border-color:var(--gold);color:var(--gold);font-weight:700}
   .layers{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;width:min(480px,94vw);margin:0 auto}
   .layer{background:#0e141d;border:1px solid var(--border);border-radius:8px;padding:6px}
   .layer .lh{font-size:11px;color:var(--dim);text-align:center;margin-bottom:4px}
@@ -37,6 +41,7 @@
     <span class="t">TERMINAL // <b>立体四子棋</b> QUBIC 4×4×4</span></div>
   <div class="wrap">
     <div class="hud"><span>回合 TURN · <span class="st" id="turn">你 X（红）</span></span><span id="status">你执红先手</span></div>
+    <div class="diffbar" id="diffbar"></div>
     <div class="layers" id="layers"></div>
     <div class="controls">
       <button id="restart" class="ghost">重开 NEW</button>
@@ -51,6 +56,20 @@
   "use strict";
   /* ===================== 纯逻辑核心 ===================== */
   const EMPTY=0, HUMAN=1, AI=2;
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+  /* 难度：alpha-beta 搜索深度 + 随机弱化概率分级（地狱最深无随机） */
+  const DIFFICULTY = {
+    easy:   {label:'简单', depth:1, aiRandom:0.55},
+    normal: {label:'普通', depth:2, aiRandom:0.15},
+    hard:   {label:'困难', depth:3, aiRandom:0.00},
+    hell:   {label:'地狱', depth:4, aiRandom:0.00},
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
   const N=4;
   const idx=(x,y,z)=> x + y*N + z*N*N;
 
@@ -174,7 +193,15 @@
   }
   function aiTurn(){
     if(S.winner!==0 || S.turn!==AI) return null;
-    const i=aiMove(S,3);
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    let i;
+    if(cfg.aiRandom>0){
+      const moves=legalMovesState(S);
+      if(moves.length && _rand() < cfg.aiRandom){ i = moves[Math.floor(_rand()*moves.length)]; }
+      else i = aiMove(S, cfg.depth);
+    } else {
+      i = aiMove(S, cfg.depth);
+    }
     if(i!=null){ const x=i%N, y=((i/N)|0)%N, z=(i/(N*N))|0; doMove(x,y,z); }
     return i;
   }
@@ -223,15 +250,32 @@
     if(S.winner===0 && S.turn===AI) setTimeout(()=>{ aiTurn(); render(); }, 120);
   }
 
+  function buildDiffBar(){
+    const bar=$('diffbar'); if(!bar) return; bar.innerHTML='';
+    for(const k of DIFF_ORDER){
+      const btn=document.createElement('button');
+      btn.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) btn.className='active';
+      btn.addEventListener('click',()=>{
+        setDifficulty(k); newGame();
+        [...bar.children].forEach((c,i)=>c.className=(DIFF_ORDER[i]===difficulty)?'active':'');
+        if(typeof Juice!=='undefined') Juice.sfx('click');
+        render();
+      });
+      bar.appendChild(btn);
+    }
+  }
+
   /* ===================== 启动 ===================== */
   try{
-    newGame(); buildBoard(); render();
+    newGame(); buildBoard(); buildDiffBar(); render();
     const rs=$('restart'); if(rs) rs.addEventListener('click',()=>{ newGame(); render(); });
   }catch(e){ /* 桩环境忽略 */ }
 
   window.__t = {
     EMPTY, HUMAN, AI, N, LINES4, idx,
-    win4, isFull, newGame, legalMoves, applyMove:doMove, getState, setBoard, aiMove,
+    win4, isFull, newGame, legalMoves, applyMove:doMove, getState, setBoard, aiMove, aiTurn,
+    setRand, DIFFICULTY, setDifficulty, getDifficulty,
     getBoard(){ return S.board.slice(); },
   };
 })();

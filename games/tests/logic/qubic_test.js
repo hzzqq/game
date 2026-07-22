@@ -83,4 +83,30 @@ function buildNoWin(){
   eq('win4 仍判无赢', t.win4(t.getBoard()), 0);
 }
 
+// ---------- 难度系统 ----------
+{
+  eq('4 档难度', Object.keys(t.DIFFICULTY).length, 4);
+  ok('含地狱档', t.DIFFICULTY.hell.label==='地狱');
+  ok('地狱档深度 > 简单档', t.DIFFICULTY.hell.depth > t.DIFFICULTY.easy.depth);
+  eq('地狱档 aiRandom=0', t.DIFFICULTY.hell.aiRandom, 0);
+  ok('简单档随机率 > 困难档', t.DIFFICULTY.easy.aiRandom > t.DIFFICULTY.hard.aiRandom);
+  ok('setDifficulty 合法', t.setDifficulty('hard')===true);
+  eq('getDifficulty', t.getDifficulty(), 'hard');
+  ok('setDifficulty 非法 false', t.setDifficulty('zz')===false);
+  // 困难档 aiTurn（depth3）：AI 补第四格取胜
+  const b=new Array(64).fill(0);
+  b[idx(0,0,0)]=2; b[idx(1,0,0)]=2; b[idx(2,0,0)]=2;
+  t.setBoard({ board:b, turn:2, winner:0 });
+  t.setDifficulty('hard'); t.setRand(Math.random);
+  const m=t.aiTurn();
+  eq('困难档 aiTurn 补 idx(3,0,0)', m, idx(3,0,0));
+  ok('落子后 AI 胜', t.getState().winner===2);
+  // 简单档 + 强制随机流：aiTurn 走随机合法步（返回某合法索引，不抛错）
+  t.setBoard({ board:new Array(64).fill(0), turn:2, winner:0 });
+  t.setDifficulty('easy'); t.setRand(()=>0.0);
+  const m2=t.aiTurn();
+  ok('简单档随机步返回合法索引', typeof m2==='number' && m2>=0 && m2<64);
+  t.setDifficulty('normal'); t.setRand(Math.random);
+}
+
 console.log('qubic: 全部断言通过');

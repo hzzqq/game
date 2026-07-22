@@ -89,4 +89,33 @@ function findMove(moves, fr, fc, tr, tc, type){
   eq('红黑各 1 子 → 平局(3)', t.finalWinner(b), 3);
 }
 
+// ---------- 难度系统 ----------
+{
+  const D = t.DIFFICULTY;
+  ok('有 4 个难度档', Object.keys(D).length === 4);
+  ok('含地狱档', !!D.hell);
+  eq('地狱档无随机弱化', D.hell.aiRandom, 0);
+  ok('简单档随机率 > 困难档', D.easy.aiRandom > D.hard.aiRandom);
+  ok('地狱档搜索深度 >= 简单档', D.hell.depth >= D.easy.depth);
+  eq('setDifficulty 合法档返回 true', t.setDifficulty('hard'), true);
+  eq('getDifficulty 反映设置', t.getDifficulty(), 'hard');
+  eq('setDifficulty 非法档返回 false', t.setDifficulty('xxx'), false);
+  eq('非法档不改变当前难度', t.getDifficulty(), 'hard');
+
+  // 地狱档：AI 回合走出合法着法并落子
+  boardWith([[0,0,RED],[6,6,BLACK],[5,5,BLACK]], BLACK);
+  t.setDifficulty('hell');
+  const before = t.countPieces(t.getBoard(), BLACK);
+  const mv1 = t.aiTurn();
+  ok('地狱档 aiTurn 返回着法', !!mv1);
+  ok('地狱档落子后黑子数不减', t.countPieces(t.getBoard(), BLACK) >= before);
+
+  // 简单档 + 强制随机流：aiTurn 走随机合法步（不抛错、返回合法着法）
+  boardWith([[0,0,RED],[6,6,BLACK],[5,5,BLACK]], BLACK);
+  t.setDifficulty('easy'); t.setRand(()=>0.0);
+  const mv2 = t.aiTurn();
+  ok('简单档随机步返回合法着法', !!mv2 && mv2.from && mv2.to);
+  t.setDifficulty('normal'); t.setRand(Math.random);
+}
+
 console.log('ataxx: 全部断言通过');

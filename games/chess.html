@@ -43,6 +43,9 @@
   #overlay p{color:var(--dim);font-size:13px;margin-bottom:16px}
   #overlay .act{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 26px;font-family:inherit;cursor:pointer;border-radius:8px}
   .foot{width:min(560px,96vw);color:var(--dim);font-size:11px;text-align:center;margin-top:10px;line-height:1.6}
+  .diffbar{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:8px 0 2px}
+  .diffbar button{background:#0e141d;color:var(--dim);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px}
+  .diffbar button.active{background:var(--gold,#ffcf5a);color:#0a0e14;border-color:var(--gold,#ffcf5a)}
 </style>
 </head>
 <body>
@@ -58,8 +61,9 @@
       <button class="act gold" id="newBtn">新局</button>
     </div>
   </div>
+  <div class="diffbar" id="diffbar"></div>
   <div id="wrap"><canvas id="cv"></canvas></div>
-  <div class="foot">规则: 红方先手，点棋子选中 → 点高亮格落子。将/帅不可照面，被「将军」须应。双人热座 + 可选 AI。</div>
+  <div class="foot">规则: 红方先手，点棋子选中 → 点高亮格落子。将/帅不可照面，被「将军」须应。双人热座 + 可选 AI。难度越高 AI 越少走随机步。</div>
   <div id="overlay"><div class="box">
     <h2 id="ovTitle">游戏结束</h2>
     <p id="ovText"></p>
@@ -156,8 +160,26 @@
     for(let r=0;r<10;r++) for(let c=0;c<9;c++){ const p=b[r][c]; if(!p) continue; let v=VAL[p.type]; if(p.type==='S') v += (p.side==='b')?(r*0.3):((9-r)*0.3); s += (p.side==='b')? v : -v; }
     return s;
   }
+  /* ===================== 难度系统 ===================== */
+  const DIFFICULTY = {
+    easy:   { label:'简单', aiRandom:0.75, jitter:8 },
+    normal: { label:'普通', aiRandom:0.35, jitter:3 },
+    hard:   { label:'困难', aiRandom:0.10, jitter:1 },
+    hell:   { label:'地狱', aiRandom:0,    jitter:0 },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn || Math.random; }
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
   function aiPick(b){
     const moves=allLegal(b,'b'); if(!moves.length) return null;
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    // 随机弱化：低难度概率直接走随机合法步
+    if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
+      return moves[Math.floor(_rand()*moves.length)];
+    }
     let best=null, bestVal=-1e18;
     for(let i=0;i<moves.length;i++){
       const m=moves[i]; const nb=makeMove(b,m.from[0],m.from[1],m.to[0],m.to[1]);
@@ -166,7 +188,7 @@
       const replies=allLegal(nb,'r'); let redBest=1e18;
       for(let j=0;j<replies.length;j++){ const rm=replies[j]; const nb2=makeMove(nb,rm.from[0],rm.from[1],rm.to[0],rm.to[1]); let rv=evaluate(nb2); if(inCheck(nb2,'b')) rv-=400; if(rv<redBest) redBest=rv; }
       if(replies.length) val = val*0.5 + redBest*0.5;
-      val += Math.random()*3;
+      if(cfg.jitter>0) val += _rand()*cfg.jitter;
       if(val>bestVal){ bestVal=val; best=m; }
     }
     return best;
@@ -317,6 +339,19 @@
   };
   window.addEventListener('resize', fit);
 
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    const bar=document.getElementById('diffbar'); if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(function(k){
+      const b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click',function(){ setDifficulty(k); buildDiffBar(); reset(); });
+      bar.appendChild(b);
+    });
+  }
+  buildDiffBar();
   reset(); fit();
   let _gLast=0;
   function fxLoop(ts){
@@ -330,6 +365,7 @@
   window.__t = {
     initialBoard, pseudo, legalMoves, inCheck, makeMove, evaluate, aiPick,
     reset, doMove, undo, select,
+    DIFFICULTY, setDifficulty, getDifficulty, setRand,
     setBoard(b){ board=clone(b); },
     getBoard(){ return clone(board); },
     get turn(){ return turn; }, set turn(v){ turn=v; },

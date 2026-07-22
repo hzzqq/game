@@ -85,4 +85,30 @@ function setState(o){ t.setBoard(Object.assign({ micro:emptyMicro(), macro:new A
   eq('AI 占据 board2 阻断人的连线', m[0], 2);
 }
 
+// ---------- 难度系统 ----------
+{
+  eq('4 档难度', Object.keys(t.DIFFICULTY).length, 4);
+  ok('含地狱档', t.DIFFICULTY.hell.label==='地狱');
+  ok('地狱档深度 > 简单档', t.DIFFICULTY.hell.depth > t.DIFFICULTY.easy.depth);
+  eq('地狱档 aiRandom=0', t.DIFFICULTY.hell.aiRandom, 0);
+  ok('简单档随机率 > 困难档', t.DIFFICULTY.easy.aiRandom > t.DIFFICULTY.hard.aiRandom);
+  ok('setDifficulty 合法', t.setDifficulty('hard')===true);
+  eq('getDifficulty', t.getDifficulty(), 'hard');
+  ok('setDifficulty 非法 false', t.setDifficulty('nope')===false);
+  // 地狱档 aiTurn 能找到制胜手（借用上面制胜局面）
+  const micro=emptyMicro();
+  micro[2]=[2,2,0, 0,0,0, 0,0,0];
+  setState({ micro, macro:[2,2,0, 0,0,0, 0,0,0], active:-1, turn:2 });
+  t.setDifficulty('hell'); t.setRand(Math.random);
+  const m=t.aiTurn();
+  ok('地狱档 aiTurn 走制胜手', !!m && t.getState().winner===2);
+  // 简单档 + 强制随机流：aiTurn 走随机合法步（仍落一子不抛错）
+  const micro2=emptyMicro();
+  setState({ micro:micro2, macro:new Array(9).fill(0), active:-1, turn:2 });
+  t.setDifficulty('easy'); t.setRand(()=>0.0);
+  const m2=t.aiTurn();
+  ok('简单档随机步落一子', !!m2);
+  t.setDifficulty('normal'); t.setRand(Math.random);
+}
+
 console.log('ultimatettoe: 全部断言通过');

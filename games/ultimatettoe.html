@@ -16,6 +16,10 @@
   .wrap{width:min(560px,98vw)}
   .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
   .hud .st{color:var(--green);font-weight:700}
+  .diffbar{display:flex;gap:6px;margin-bottom:10px}
+  .diffbar button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:7px 0;cursor:pointer;font-family:inherit;font-size:12px;transition:.12s}
+  .diffbar button:hover{border-color:var(--gold)}
+  .diffbar button.active{background:rgba(240,185,11,.15);border-color:var(--gold);color:var(--gold);font-weight:700}
   .board{width:min(480px,94vw);aspect-ratio:1/1;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;background:var(--border);border:2px solid var(--border);border-radius:10px;padding:6px}
   .macro{position:relative;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px;background:#0e141d;border-radius:6px;padding:4px}
   .macro.act{box-shadow:inset 0 0 0 3px var(--gold)}
@@ -40,6 +44,7 @@
     <span class="t">TERMINAL // <b>终极井字棋</b> ULTIMATE TIC-TAC-TOE</span></div>
   <div class="wrap">
     <div class="hud"><span>回合 TURN · <span class="st" id="turn">你 X（红）</span></span><span id="status">你执红先手</span></div>
+    <div class="diffbar" id="diffbar"></div>
     <div class="board" id="board"></div>
     <div class="controls">
       <button id="restart" class="ghost">重开 NEW</button>
@@ -56,6 +61,22 @@
   /* ===================== 纯逻辑核心（单一状态对象 S） ===================== */
   const EMPTY=0, HUMAN=1, AI=2, DRAW=3; // HUMAN=红X, AI=绿O
   const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+  /* ===================== 难度系统 =====================
+     minimax 游戏：难度通过 alpha-beta 搜索深度 + 随机弱化概率分级。
+     地狱档最深、无随机；简单档最浅且高概率走随机步。 */
+  const DIFFICULTY = {
+    easy:   {label:'简单', depth:1, aiRandom:0.55},
+    normal: {label:'普通', depth:2, aiRandom:0.15},
+    hard:   {label:'困难', depth:3, aiRandom:0.00},
+    hell:   {label:'地狱', depth:4, aiRandom:0.00},
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
 
   let S; // {micro:[[9]x9], macro:[9], turn, active, winner}
 
@@ -205,7 +226,14 @@
   }
   function aiTurn(){
     if(S.winner!==0 || S.turn!==AI) return null;
-    const m=aiMove(S,4);
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    const moves = legalMovesState(S);
+    let m;
+    if(cfg.aiRandom>0 && moves.length && _rand() < cfg.aiRandom){
+      m = moves[Math.floor(_rand()*moves.length)]; // 难度弱化：走随机合法步
+    } else {
+      m = aiMove(S, cfg.depth);
+    }
     if(m) doMove(m[0],m[1]);
     return m;
   }
@@ -259,9 +287,25 @@
     if(S.winner===0 && S.turn===AI) setTimeout(()=>{ aiTurn(); render(); }, 120);
   }
 
+  function buildDiffBar(){
+    const bar=$('diffbar'); if(!bar) return; bar.innerHTML='';
+    for(const k of DIFF_ORDER){
+      const btn=document.createElement('button');
+      btn.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) btn.className='active';
+      btn.addEventListener('click',()=>{
+        setDifficulty(k); newGame(); history=[];
+        [...bar.children].forEach((c,i)=>c.className=(DIFF_ORDER[i]===difficulty)?'active':'');
+        if(typeof Juice!=='undefined') Juice.sfx('click');
+        render();
+      });
+      bar.appendChild(btn);
+    }
+  }
+
   /* ===================== 启动 ===================== */
   try{
-    newGame(); buildBoard(); render();
+    newGame(); buildBoard(); buildDiffBar(); render();
     const rs=$('restart'); if(rs) rs.addEventListener('click',()=>{ newGame(); history=[]; render(); });
     const ud=$('undo'); if(ud) ud.addEventListener('click',()=>{ if(history.length){ setBoard(history.pop()); render(); } });
   }catch(e){ /* 桩环境忽略 */ }
@@ -270,7 +314,8 @@
   window.__t = {
     EMPTY, HUMAN, AI, DRAW, LINES,
     winner3, globalWinner, isFull,
-    newGame, legalMoves, applyMove:doMove, getState, setBoard, aiMove,
+    newGame, legalMoves, applyMove:doMove, getState, setBoard, aiMove, aiTurn,
+    setRand, DIFFICULTY, setDifficulty, getDifficulty,
     getMacro(){ return S.macro.slice(); },
     getMicro(){ return S.micro.map(x=>x.slice()); },
   };

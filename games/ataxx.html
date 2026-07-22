@@ -28,6 +28,9 @@
   .controls button.ghost{background:#0e141d;color:var(--text);border:1px solid var(--border)}
   .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
   .msg.win{color:var(--gold);font-weight:700}
+  .diffbar{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px 0 2px}
+  .diffbar button{background:#0e141d;color:var(--dim);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px}
+  .diffbar button.active{background:var(--gold,#ffcf5a);color:#0a0e14;border-color:var(--gold,#ffcf5a)}
   .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
 </style>
 </head>
@@ -36,6 +39,7 @@
     <span class="t">TERMINAL // <b>传染棋</b> ATAXX</span></div>
   <div class="wrap">
     <div class="hud"><span>回合 TURN · <span class="st" id="turn">你 红 RED</span></span><span id="status">你执红先手</span></div>
+    <div class="diffbar" id="diffbar"></div>
     <div class="board" id="board"></div>
     <div class="controls">
       <button id="restart" class="ghost">重开 NEW</button>
@@ -172,11 +176,44 @@
     if(typeof Juice!=='undefined') Juice.sfx('click');
     return {ok:true};
   }
+  /* ===================== 难度系统 ===================== */
+  const DIFFICULTY = {
+    easy:   { label:'简单', depth:1, aiRandom:0.55 },
+    normal: { label:'普通', depth:2, aiRandom:0.15 },
+    hard:   { label:'困难', depth:3, aiRandom:0    },
+    hell:   { label:'地狱', depth:4, aiRandom:0    },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn || Math.random; }
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
   function aiTurn(){
     if(S.winner!==0 || S.turn!==BLACK) return null;
-    const mv=aiMove(S,3);
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    let mv;
+    if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
+      const moves = legalMovesState(S);
+      if(!moves.length) return null;
+      mv = moves[Math.floor(_rand()*moves.length)];
+    } else {
+      mv = aiMove(S, cfg.depth);
+    }
     if(mv) doMove(mv);
     return mv;
+  }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    const bar=document.getElementById('diffbar'); if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{
+      const b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click',()=>{ setDifficulty(k); newGame(); sel=null; curMoves=[]; buildDiffBar(); render(); });
+      bar.appendChild(b);
+    });
   }
 
   /* ===================== 渲染 ===================== */
@@ -219,15 +256,16 @@
 
   /* ===================== 启动 ===================== */
   try{
-    newGame(); buildBoard(); render();
+    newGame(); buildBoard(); buildDiffBar(); render();
     const rs=$('restart'); if(rs) rs.addEventListener('click',()=>{ newGame(); sel=null; curMoves=[]; render(); });
   }catch(e){ /* 桩环境忽略 */ }
 
   window.__t = {
     EMPTY, RED, BLACK, SIZE, idx, inB, cheb, sideOf, D8,
-    movesFrom, legalMoves, applyMove:doMove, getState, setBoard, aiMove, newGame,
+    movesFrom, legalMoves, applyMove:doMove, getState, setBoard, aiMove, aiTurn, newGame,
     countPieces, finalWinner, winnerOf(){ return S.winner; },
     getBoard(){ return S.board.slice(); },
+    DIFFICULTY, setDifficulty, getDifficulty, setRand,
   };
 })();
 </script>
