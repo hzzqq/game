@@ -67,7 +67,7 @@
     const q=region.slice();
     while(q.length){ const [r,c]=q.pop(); for(const [nr,nc] of neighbors(r,c)){ const k=nr+','+nc; if(seen.has(k)) continue; if(board[nr][nc]===color){ seen.add(k); region.push([nr,nc]); q.push([nr,nc]); } } }
     moves++;
-    over = region.length===rows*cols;
+    over = region.length===rows*cols; Juice.sfx('hit'); Juice.addTrauma(.2); over && (Juice.sfx('win'), Juice.flash('#02c076',.5));
     return true;
   }
   function getFlooded(){ return region.length; }
