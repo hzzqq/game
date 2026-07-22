@@ -70,7 +70,9 @@
     if(!canMove(id,d,n)) return false;
     const car=cars.find(c=>c.id===id);
     if(d==='R'||d==='L') car.c+=n; else car.r+=n;
-    moves++; over=isSolved(); return true;
+    moves++; over=isSolved();
+    if(over){ Juice.sfx('win'); Juice.flash('#02c076',.5); } else { Juice.sfx('hit'); Juice.addTrauma(.25); }
+    return true;
   }
   function isSolved(){ const red=cars.find(c=>c.id===0); return !!(red&&red.dir==='h'&&red.r===2&&red.c+red.len===N); }
   function getMoves(){ return moves; }
