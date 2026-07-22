@@ -53,3 +53,8 @@ s = t.getState();
 H.eq('连击: 两次命中得分=200', s.score, 200);
 H.eq('连击: 连击=2', s.combo, 2);
 H.eq('连击: 最大连击=2', s.maxCombo, 2);
+
+// 6) reset 后状态可读取（确定性，Juice 守卫不报错）
+t.reset();
+let rs = t.getState();
+H.ok('reset 后状态可读取', rs && typeof rs.score === 'number' && rs.running === false);

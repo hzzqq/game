@@ -96,7 +96,7 @@
     }
 
     function reset(){ S=fresh(); syncHud(); }
-    function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; syncHud(); }
+    function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; if(typeof Juice!=='undefined') Juice.sfx('click'); syncHud(); }
     function setRand(seed){ S.rng=mulberry32(seed>>>0); }
     function spawnNote(lane,y){ S.notes.push({lane:lane?1:0,y:y,hit:false,missed:false}); }
     function setSpeed(v){ S.speed=v; }
@@ -117,12 +117,15 @@
       if(bestDiff<=PERFECT){
         S.score+=100; S.combo++;
         if(J)J.popup&&J.popup('PERFECT');
+        if(J){ J.burst&&J.burst(W/2,S.hitLineY,{color:'#02c076',n:10}); J.sfx&&J.sfx('pickup'); }
       } else if(bestDiff<=GOOD){
         S.score+=50; S.combo++;
         if(J)J.popup&&J.popup('GOOD');
+        if(J){ J.burst&&J.burst(W/2,S.hitLineY,{color:'#02c076',n:6}); J.sfx&&J.sfx('pickup'); }
       } else {
         S.combo=0; S.misses++; best.missed=true;
         if(J)J.flash&&J.flash('#f6465d');
+        if(J)J.sfx&&J.sfx('lose');
         if(S.misses>=MAXMISS){ S.over=true; S.running=false; showOver(); }
         return;
       }
@@ -195,6 +198,7 @@
     }
     function showOver(){
       if(overlay){overlay.style.display='flex';const h1=overlay.querySelector('h1');if(h1)h1.textContent='✗ 演奏中断 · 得分 '+S.score;const b=overlay.querySelector('.start');if(b)b.textContent='再来一次';}
+      if(J){ J.sfx&&J.sfx('lose'); J.flash('#f6465d',0.3); J.achievement&&J.achievement('演奏中断'); }
     }
     if(startBtn)startBtn.addEventListener('click',start);
     if($('pauseBtn'))$('pauseBtn').addEventListener('click',()=>{S.paused=!S.paused;});
