@@ -58,9 +58,9 @@
     if(over) return;
     const p=turn;
     const ns=scores[p]-pts;
-    if(ns===0){ scores[p]=0; over=true; winner=p; }
-    else if(ns<0){ /* 爆镖：本镖作废，分数不变 */ }
-    else { scores[p]=ns; }
+    if(ns===0){ scores[p]=0; over=true; winner=p; Juice.sfx('win'); Juice.flash('#02c076',.5); }
+    else if(ns<0){ /* 爆镖：本镖作废，分数不变 */ Juice.sfx('error'); Juice.addTrauma(.25); }
+    else { scores[p]=ns; Juice.sfx('hit'); Juice.addTrauma(.25); }
   }
   function getScore(p){ return scores[p]; }
   function getTurn(){ return turn; }
