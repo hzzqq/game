@@ -19,3 +19,29 @@ t.move(0,'R',1);
 ok('被竖车挡住无法继续右移', t.canMove(0,'R',1) === false);
 ok('横向车不能竖直方向移动', t.canMove(0,'D',1) === false);
 ok('有阻挡时未通关', t.isSolved() === false);
+
+// ===== 注入：掉落道具 / 增益（确定性驱动）=====
+t.setCars([{ id:0, dir:'h', len:2, r:2, c:0 }]);
+eq('初始金币0', t.getCoins(), 0);
+eq('初始无掉落', t.getPickups().length, 0);
+// 红车右移：c=1 占据 (2,1)(2,2)，未到 (2,3)
+t.spawnPickup('coin',2,3);
+t.move(0,'R',1);
+eq('未压上掉落不拾取', t.getCoins(), 0);
+// 再右移一格：c=2 占据 (2,2)(2,3) -> 拾取
+t.move(0,'R',1);
+eq('压上掉落拾取金币+50', t.getCoins(), 50);
+eq('拾取后掉落移除', t.getPickups().length, 0);
+
+// 未碰撞不生效（红车在第2行，掉落放第0行）
+t.setCars([{ id:0, dir:'h', len:2, r:2, c:0 }]);
+t.spawnPickup('coin',0,0);
+t.move(0,'R',1);
+eq('远离掉落未拾取', t.getCoins(), 0);
+
+// 提示增益计时
+t.setCars([{ id:0, dir:'h', len:2, r:2, c:0 }]);
+t.applyPickup('hint');
+ok('提示计时>0', t.getHint().timer > 0);
+t.stepPickups(10);
+eq('提示计时归零', t.getHint().timer, 0);
