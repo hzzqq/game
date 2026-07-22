@@ -61,7 +61,7 @@
     if(!hook || !getBiting()) return null;
     let best=null,bd=1e9;
     for(const f of fish){ const d=dist(hook.x,hook.y,f.x,f.y); if(d<=R&&d<bd){ bd=d; best=f; } }
-    if(best){ fish=fish.filter(f=>f.id!==best.id); score++; return best.id; }
+    if(best){ fish=fish.filter(f=>f.id!==best.id); score++; Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(hook.x,hook.y,{color:'#f0b90b',n:12}); Juice.popup(hook.x,hook.y,'+1','#f0b90b'); return best.id; }
     return null;
   }
   function getScore(){ return score; }
