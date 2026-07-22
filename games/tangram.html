@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 七巧板拼板</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(540px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(540px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:3px;margin:0 auto 12px;width:max-content;background:var(--panel);padding:10px;border-radius:14px;border:1px solid var(--border)}
+  .cell{width:46px;height:46px;border-radius:6px;background:#0e141d;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;user-select:none}
+  .cell.out{background:#0a0e14;opacity:.35}
+  .cell.sel{box-shadow:inset 0 0 0 3px var(--gold)}
+  .palette{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:10px}
+  .pc{display:grid;gap:2px;padding:6px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:#0e141d}
+  .pc.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(240,185,11,.4)}
+  .pc.used{opacity:.4}
+  .pc i{width:12px;height:12px;background:var(--green);border-radius:2px;display:block}
+  .pc i.off{background:transparent}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(540px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>七巧板拼板</b> TANGRAM</span></div>
+  <div class="wrap">
+    <div class="hud"><span>碎片 PIECES · <span class="st" id="pieces">0</span></span><span id="status">把碎片旋转后铺满轮廓</span></div>
+    <div class="board" id="board"></div>
+    <div class="palette" id="palette"></div>
+    <div class="controls">
+      <button id="rot">旋转 ROTATE</button>
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点选下方碎片→点棋盘放它；再点旋转调整方向；点已放碎片可取回。铺满金色轮廓即过关。</div>
+  </div>
+  <div class="foot">七巧板拼板：给定一组多连块碎片（Polyomino），旋转后摆进目标轮廓，恰好铺满且不重叠即过关。每局由棋盘随机切分而成，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const N = 6;
+  const PIECE_COLORS = ['#02c076','#f0b90b','#3aa0ff','#b388ff','#ff8a3d','#27e0c8','#f6465d','#e0e0e0'];
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let N_local = N;
+  let target = [];        // N×N 0/1
+  let pieces = [];        // [{id, cells:[[dr,dc]...]}]
+  let placements = {};    // id -> {rot, r, c} 或 null
+  let won = false;
+
+  function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
+
+  function rotate(cells, rot){
+    let p = cells.map(c=>c.slice());
+    rot = ((rot%4)+4)%4;
+    for(let k=0;k<rot;k++){
+      const maxR = Math.max.apply(null, p.map(x=>x[0]));
+      p = p.map(([r,c])=>[c, maxR - r]);
+    }
+    const minR=Math.min.apply(null,p.map(x=>x[0]));
+    const minC=Math.min.apply(null,p.map(x=>x[1]));
+    return p.map(([r,c])=>[r-minR, c-minC]);
+  }
+
+  // 碎片 id 在 (rot,r,c) 下的绝对格
+  function pieceCells(id, rot, r, c){
+    const p = pieces.find(x=>x.id===id); if(!p) return [];
+    return rotate(p.cells, rot).map(([dr,dc])=>[r+dr, c+dc]);
+  }
+  function isPlaced(id){ return placements[id]!=null; }
+
+  function occupiedGrid(){
+    const g=Array.from({length:N_local},()=>new Array(N_local).fill(0));
+    for(const p of pieces){
+      const pl=placements[p.id];
+      if(!pl) continue;
+      for(const [ar,ac] of pieceCells(p.id, pl.rot, pl.r, pl.c)) g[ar][ac]=p.id+1;
+    }
+    return g;
+  }
+  function coveredCount(){ let n=0; const g=occupiedGrid(); for(let r=0;r<N_local;r++)for(let c=0;c<N_local;c++) if(g[r][c]) n++; return n; }
+  function targetCount(){ let n=0; for(let r=0;r<N_local;r++)for(let c=0;c<N_local;c++) n+=target[r][c]; return n; }
+
+  // 放置钩子（玩家行动）
+  function place(id, rot, r, c){
+    if(id==null || !pieces.find(x=>x.id===id)) return false;
+    const cells = pieceCells(id, rot, r, c);
+    for(const [ar,ac] of cells){
+      if(!inb(ar,ac)) return false;
+      if(!target[ar][ac]) return false; // 必须在轮廓内
+    }
+    const g = occupiedGrid();
+    for(const [ar,ac] of cells){
+      if(g[ar][ac] && g[ar][ac]!==id+1) return false; // 与他片重叠
+    }
+    placements[id] = {rot:((rot%4)+4)%4, r, c};
+    if(isWin()){ won=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('tangram', pieces.length); } }
+    return true;
+  }
+  function remove(id){ if(id in placements){ delete placements[id]; won=false; } }
+
+  function isWin(){
+    if(!pieces.length) return false;
+    if(!pieces.every(p=>placements[p.id]!=null)) return false;
+    const g=occupiedGrid();
+    for(let r=0;r<N_local;r++)for(let c=0;c<N_local;c++){
+      if(target[r][c] && !g[r][c]) return false; // 轮廓未铺满
+    }
+    return true;
+  }
+
+  // 由已知解构造（测试用）：target 为 N×N 0/1，shapes 为相对碎片列表
+  function setBoard(tg, shapes){
+    N_local = tg.length;
+    target = tg.map(row=>row.slice());
+    pieces = shapes.map((s,i)=>({id:i, cells:s.map(c=>c.slice())}));
+    placements = {};
+    won=false;
+    return {N:N_local, pieces:pieces.length, target:targetCount()};
+  }
+
+  /* ---- 随机可解布局：哈密顿路径切分为多连块 ---- */
+  function hamiltonianPath(n, rand){
+    const order=[];
+    for(let r=0;r<n;r++){
+      const cols = r%2===0 ? [...Array(n).keys()] : [...Array(n).keys()].reverse();
+      for(const c of cols) order.push([r,c]);
+    }
+    order.forEach((p,i)=>p._i=i);
+    const idx = new Map(); order.forEach(p=>idx.set(p[0]*n+p[1], p._i));
+    function kk(r,c){ return r*n+c; }
+    const K = 6*n*n;
+    for(let s=0;s<K;s++){
+      const ei = rand()<0.5 ? 0 : order.length-1;
+      const [er,ec]=order[ei];
+      const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+      const d=dirs[Math.floor(rand()*4)];
+      const nr=er+d[0], nc=ec+d[1];
+      if(nr<0||nr>=n||nc<0||nc>=n) continue;
+      const j=idx.get(kk(nr,nc));
+      if(j===undefined) continue;
+      if(ei===0){ if(j===1) continue; reverse(order,0,j); }
+      else { if(j===order.length-2) continue; reverse(order,j,order.length-1); }
+      order.forEach((p,i)=>idx.set(kk(p[0],p[1]),i));
+    }
+    return order;
+  }
+  function reverse(arr,a,b){ while(a<b){ const t=arr[a]; arr[a]=arr[b]; arr[b]=t; a++; b--; } }
+
+  function newGame(){
+    N_local = N;
+    const k = 4 + Math.floor(_rand()*3); // 4~6 片
+    const order = hamiltonianPath(N, _rand);
+    const cuts=[];
+    let guard=0;
+    while(cuts.length<k-1 && guard++<800){
+      const c = 3 + Math.floor(_rand()*(order.length-5));
+      if(c<3 || c>order.length-3) continue;
+      if(cuts.every(x=>Math.abs(x-c)>=3)) cuts.push(c);
+    }
+    cuts.sort((a,b)=>a-b);
+    pieces=[]; placements={}; won=false;
+    let prev=0;
+    for(let i=0;i<k;i++){
+      const end = (i===k-1) ? order.length : cuts[i];
+      const seg = order.slice(prev,end);
+      if(seg.length>=3){
+        const minR=Math.min.apply(null,seg.map(p=>p[0]));
+        const minC=Math.min.apply(null,seg.map(p=>p[1]));
+        pieces.push({id:pieces.length, cells:seg.map(([r,c])=>[r-minR, c-minC])});
+      }
+      prev=end;
+    }
+    pieces.forEach((p,i)=>p.id=i);
+    // 目标 = 整盘
+    target = Array.from({length:N},()=>new Array(N).fill(1));
+  }
+  function reset(){ newGame(); }
+
+  function getState(){
+    return {
+      N: N_local,
+      pieces: pieces.length,
+      placed: pieces.filter(p=>placements[p.id]!=null).length,
+      covered: coveredCount(),
+      target: targetCount(),
+      won,
+      placements: Object.fromEntries(Object.entries(placements).map(([id,v])=>[id,{rot:v.rot,r:v.r,c:v.c}])),
+      piecesDef: pieces.map(p=>({id:p.id, cells:p.cells.map(x=>x.slice())})),
+    };
+  }
+  function update(){ return getState(); }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let sel=null;
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.style.gridTemplateColumns='repeat('+N+',46px)';
+    b.innerHTML='';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const el=document.createElement('div');
+      el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>clickCell(r,c));
+      b.appendChild(el);
+    }
+  }
+  function buildPalette(){
+    if(typeof document==='undefined') return;
+    const pl=$('palette'); if(!pl) return;
+    pl.innerHTML='';
+    for(const p of pieces){
+      const d=document.createElement('div');
+      d.className='pc'; d.dataset.id=p.id;
+      d.addEventListener('click',()=>{ sel = (sel===p.id)?null:p.id; render(); });
+      const w=Math.max.apply(null,p.cells.map(x=>x[1]))+1;
+      const h=Math.max.apply(null,p.cells.map(x=>x[0]))+1;
+      d.style.gridTemplateColumns='repeat('+w+',12px)';
+      d.style.gridTemplateRows='repeat('+h+',12px)';
+      for(let r=0;r<h;r++) for(let c=0;c<w;c++){
+        const i=document.createElement('i');
+        i.className = p.cells.some(([dr,dc])=>dr===r&&dc===c)?'':'off';
+        d.appendChild(i);
+      }
+      pl.appendChild(d);
+    }
+  }
+  function clickCell(r,c){
+    if(sel!=null){
+      if(place(sel, 0, r, c)){ if(isPlaced(sel)) sel=null; render(); return; }
+    }
+    // 取回已放碎片
+    const g=occupiedGrid();
+    const id=g[r][c];
+    if(id){ remove(id-1); render(); }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'),pc=$('pieces'),msg=$('msg'),st=$('status');
+    if(!b) return;
+    const g=occupiedGrid();
+    const cells=b.children;
+    for(let i=0;i<cells.length;i++){
+      const r=+cells[i].dataset.r, c=+cells[i].dataset.c;
+      const out = !target[r][c];
+      const occ=g[r][c];
+      cells[i].className='cell'+(out?' out':'');
+      cells[i].style.background = occ ? PIECE_COLORS[(occ-1)%PIECE_COLORS.length] : (out?'#0a0e14':'#0e141d');
+    }
+    if(pc) pc.textContent=pieces.length;
+    if($('palette')) [...$('palette').children].forEach(d=>{
+      const id=+d.dataset.id;
+      d.classList.toggle('sel', sel===id);
+      d.classList.toggle('used', isPlaced(id));
+    });
+    if(st) st.textContent = won?'已通关':(sel!=null?'放置中…':'把碎片旋转后铺满轮廓');
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 轮廓铺满！用了 '+pieces.length+' 片。'; }
+      else { msg.className='msg'; msg.textContent='点碎片→点棋盘放置；旋转调整方向；点已放处取回。'; } }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset'),rt=$('rot');
+    if(nb) nb.onclick=()=>{ newGame(); sel=null; buildPalette(); render(); };
+    if(rb) rb.onclick=()=>{ placements={}; won=false; sel=null; render(); };
+    if(rt) rt.onclick=()=>{ if(sel!=null){ const pl=placements[sel]; const rot=((pl?pl.rot:0)+1)%4; place(sel,rot, pl?pl.r:0, pl?pl.c:0); render(); } };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); buildPalette(); bindUI(); render(); });
+    else { buildBoard(); buildPalette(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      N, setRand, newGame, reset, setBoard, place, remove, rotate, isWin,
+      getState, update, pieceCells, occupiedGrid, coveredCount, targetCount, isPlaced,
+    };
+  }
+})();
+</script>
+</body>
+</html>
