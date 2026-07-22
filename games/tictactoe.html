@@ -44,6 +44,7 @@
 <script>
 (function(){
   "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
   /* ===================== 纯逻辑核心 ===================== */
   const HUMAN=1, AI=2, EMPTY=0;
   const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -110,6 +111,7 @@
     if(w!==null){
       over=true; cur=null;
       winLine = LINES.find(l=>board[l[0]]===w && board[l[1]]===w && board[l[2]]===w);
+      if(J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
       if(w===HUMAN){ record.w++; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076'); } }
       else { record.l++; if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.flash('#f6465d'); } }
       return true;
