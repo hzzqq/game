@@ -47,27 +47,68 @@
   "use strict";
   const DIRS={ up:[-1,0], down:[1,0], left:[0,-1], right:[0,1] };
   let W,H,p0,p1,winner;
+  // ---- 注入：掉落道具/增益系统（纯附加，不改核心光轮/轨迹逻辑判定）----
+  let shieldP=[false,false], heartP=[false,false], boostP=[0,0], pickups=[], pkid=0;
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  const _prng = mk(0x3c8e2f1a);
+  const PICK = { SHIELD:'shield', BOOST:'boost', HEART:'heart' };
+  const GLY = { shield:'🛡', boost:'🚀', heart:'❤' };
+  function makePickup(type,x,y){ return { type, x, y, age:0, id:pkid++ }; }
+  function spawnPickup(type,x,y){ const p=makePickup(type,x,y); pickups.push(p); return p; }
+  function spawnPickupAtRandom(){ const types=[PICK.SHIELD,PICK.BOOST,PICK.HEART]; const t=types[Math.floor(_prng()*types.length)]; const x=Math.floor(_prng()*W), y=Math.floor(_prng()*H); return spawnPickup(t,x,y); }
+  function applyPickup(type, side){ side=side||0; if(type===PICK.SHIELD){ shieldP[side]=true; } else if(type===PICK.BOOST){ boostP[side]=5; } else if(type===PICK.HEART){ heartP[side]=true; } if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); } }
+  function collectAt(x,y,side){ for(let i=pickups.length-1;i>=0;i--){ if(pickups[i].x===x&&pickups[i].y===y){ const p=pickups.splice(i,1)[0]; applyPickup(p.type, side||0); return p; } } return null; }
+  function updatePickups(dt){ for(let i=pickups.length-1;i>=0;i--){ pickups[i].age+=(dt||0); if(pickups[i].age>30) pickups.splice(i,1); } }
+  function saveFromDeath(pl, isWall){ if(isWall && shieldP[pl.id]){ shieldP[pl.id]=false; pl._saved=true; return true; } if(heartP[pl.id]){ heartP[pl.id]=false; pl._saved=true; return true; } return false; }
+  function takeHit(side){ side=side||0; if(shieldP[side]){ shieldP[side]=false; return false; } if(heartP[side]){ heartP[side]=false; return false; } return true; }
+  function getPickups(){ return pickups.map(p=>({type:p.type,x:p.x,y:p.y})); }
+  function getShield(side){ return shieldP[side||0]; }
+  function setShield(side,v){ shieldP[side||0]=!!v; }
+  function getHeart(side){ return heartP[side||0]; }
+  function setHeart(side,v){ heartP[side||0]=!!v; }
+  function getBoost(side){ return boostP[side||0]; }
+  function setBoost(side,v){ boostP[side||0]=Math.max(0,v); }
   function setup(w,h,pA,pB){
     W=w; H=h;
-    p0={ id:0, x:pA.x, y:pA.y, dir:pA.dir, trail:new Set([pA.y+','+pA.x]), dead:false };
-    p1={ id:1, x:pB.x, y:pB.y, dir:pB.dir, trail:new Set([pB.y+','+pB.x]), dead:false };
+    p0={ id:0, x:pA.x, y:pA.y, dir:pA.dir, trail:new Set([pA.y+','+pA.x]), dead:false, _saved:false };
+    p1={ id:1, x:pB.x, y:pB.y, dir:pB.dir, trail:new Set([pB.y+','+pB.x]), dead:false, _saved:false };
     winner=-1;
+    shieldP=[false,false]; heartP=[false,false]; boostP=[0,0]; pickups=[];
   }
   function setDir(p,d){ const pl=p===0?p0:p1; if(!pl.dead) pl.dir=d; }
-  function step(){
-    if(winner!==-1) return;
+  function tickOnce(){
     const next={};
     for(const pl of [p0,p1]){ if(pl.dead) continue; const [dr,dc]=DIRS[pl.dir]; next[pl.id]=[pl.y+dr, pl.x+dc]; }
     const occ=new Set([...p0.trail, ...p1.trail]);
     for(const pl of [p0,p1]){
       if(pl.dead) continue;
       const [nr,nc]=next[pl.id];
-      if(nr<0||nc<0||nr>=H||nc>=W){ pl.dead=true; continue; }
-      if(occ.has(nr+','+nc)){ pl.dead=true; continue; }
+      if(nr<0||nc<0||nr>=H||nc>=W){ if(!saveFromDeath(pl,true)) pl.dead=true; continue; }
+      if(occ.has(nr+','+nc)){ if(!saveFromDeath(pl,false)) pl.dead=true; continue; }
       const other = pl.id===0?p1:p0;
-      if(other.id in next && next[other.id][0]===nr && next[other.id][1]===nc){ pl.dead=true; if(!other.dead) other.dead=true; }
+      if(other.id in next && next[other.id][0]===nr && next[other.id][1]===nc){
+        const a=saveFromDeath(pl,false); const b=saveFromDeath(other,false);
+        if(!a) pl.dead=true;
+        if(!b && !other.dead) other.dead=true;
+      }
     }
-    for(const pl of [p0,p1]){ if(pl.dead) continue; const [nr,nc]=next[pl.id]; pl.trail.add(pl.y+','+pl.x); pl.y=nr; pl.x=nc; }
+    for(const pl of [p0,p1]){ if(pl.dead||pl._saved) continue; const [nr,nc]=next[pl.id]; pl.trail.add(pl.y+','+pl.x); pl.y=nr; pl.x=nc; collectAt(pl.x,pl.y,pl.id); }
+  }
+  function advanceOne(pl){
+    if(pl.dead||pl._saved) return;
+    const [dr,dc]=DIRS[pl.dir]; const nr=pl.y+dr, nc=pl.x+dc;
+    if(nr<0||nc<0||nr>=H||nc>=W){ if(!saveFromDeath(pl,true)) pl.dead=true; return; }
+    const occ=new Set([...p0.trail, ...p1.trail]);
+    if(occ.has(nr+','+nc)){ if(!saveFromDeath(pl,false)) pl.dead=true; return; }
+    pl.trail.add(pl.y+','+pl.x); pl.y=nr; pl.x=nc; collectAt(pl.x,pl.y,pl.id);
+  }
+  function step(){
+    if(winner!==-1) return;
+    p0._saved=false; p1._saved=false;
+    tickOnce();
+    for(const pl of [p0,p1]){ if(!pl.dead && !pl._saved && boostP[pl.id]>0) advanceOne(pl); }
+    if(boostP[0]>0) boostP[0]--; if(boostP[1]>0) boostP[1]--;
+    updatePickups(1);
     if(p0.dead&&p1.dead) winner=-1; else if(p0.dead) winner=1; else if(p1.dead) winner=0;
     if(winner!==-1){ Juice.sfx('win'); Juice.addTrauma(.4); Juice.flash('#02c076', .5); }
   }
@@ -76,8 +117,8 @@
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
-    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',22px)'; bd.innerHTML=''; for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); let cls='cell'; const k=r+','+c; if(p0.trail.has(k))cls+=' p0'; if(p1.trail.has(k))cls+=' p1'; if(p0.x===c&&p0.y===r)cls+=' h0'; if(p1.x===c&&p1.y===r)cls+=' h1'; d.className=cls; bd.appendChild(d); } } }
-    const st=$('st'); if(st)st.textContent=winner===-1?'平局/进行中':('玩家'+winner+' 胜');
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',22px)'; bd.innerHTML=''; for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); let cls='cell'; const k=r+','+c; if(p0.trail.has(k))cls+=' p0'; if(p1.trail.has(k))cls+=' p1'; if(p0.x===c&&p0.y===r)cls+=' h0'; if(p1.x===c&&p1.y===r)cls+=' h1'; for(const p of pickups){ if(p.x===c&&p.y===r){ d.textContent=GLY[p.type]; d.style.background='rgba(240,185,11,.4)'; } } d.className=cls; bd.appendChild(d); } } }
+    const st=$('st'); const hasBuff=shieldP[0]||shieldP[1]||heartP[0]||heartP[1]||boostP[0]>0||boostP[1]>0; if(st)st.textContent=(winner===-1?'进行中':('玩家'+winner+' 胜'))+(hasBuff?' · BUFF':'');
   }
   function bindKeys(){
     if(typeof document==='undefined') return;
@@ -85,7 +126,13 @@
   }
   function loop(){ if(typeof requestAnimationFrame==='undefined') return; step(); render(); requestAnimationFrame(loop); }
   if(typeof document!=='undefined'){ const nb=$('new'); if(nb) nb.onclick=()=>{ setup(W,H,{x:1,y:1,dir:'right'},{x:W-2,y:H-2,dir:'left'}); render(); }; bindKeys(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); render(); loop(); }); else { setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); render(); loop(); } }
-  if(typeof window!=='undefined'){ window.__t={ setup, setDir, step, getWinner, getState }; }
+  if(typeof window!=='undefined'){ window.__t={ setup, setDir, step, getWinner, getState,
+    PICK, spawnPickup, spawnPickupAtRandom, applyPickup, collectAt, updatePickups, takeHit,
+    getPickups, getShield, setShield, getHeart, setHeart, getBoost, setBoost,
+    getState2(){ return { shieldP:shieldP.slice(), heartP:heartP.slice(), boostP:boostP.slice(), pickups:pickups.length }; },
+    stepPickups(dt){ updatePickups(dt); },
+    reset(){ setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); }
+  }; }
 })();
 </script>
 </body>
