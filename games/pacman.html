@@ -217,6 +217,18 @@
   var pac, ghosts, score, lives, dotsLeft, running, paused, gameOver, win, frightTimer;
   var SPEED = 3; // divides TILE (24) exactly -> no drift
 
+  // 局部种子 PRNG（mulberry32）：注入掉落随机必须走它，禁止 Math.random
+  function mk(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var _rng = mk(0x9ACF00D ^ (COLS*1009 + ROWS));
+  function reseed(s){ _rng = mk((s>>>0) || 1); }
+  function nowMs(){ return (typeof performance!=='undefined' && performance.now) ? performance.now() : 0; }
+
+  // 掉落道具（纯注入，不改核心玩法）
+  var pickups = [];
+  var boostUntil = 0;   // ⭐加速
+  var invulnUntil = 0;  // 🛡护盾（免一次鬼撞）
+  var pickupTimer = 0;   // 自动掉落计时（仅真实循环 loop 驱动）
+
   function atCenter(e){
     return (((e.x - TILE/2) % TILE) === 0) && (((e.y - TILE/2) % TILE) === 0);
   }
@@ -246,6 +258,8 @@
     dotsLeft = totalDots;
     score = 0; lives = 3; gameOver = false; win = false; paused = false;
     frightTimer = 0;
+    pickups = []; boostUntil = 0; invulnUntil = 0; pickupTimer = 0;
+    reseed(0x9ACF00D ^ (COLS*1009 + ROWS));
     ghostStarts = findOpenNearCenter();
     if (ghostStarts.length === 0) ghostStarts = [{c:pacStart.c, r:pacStart.r}];
 
@@ -280,7 +294,8 @@
   }
 
   function movePac(){
-    if (!atCenter(pac)) { pac.x += pac.dir.x*SPEED; pac.y += pac.dir.y*SPEED; return; }
+    var spd = (nowMs() < boostUntil) ? SPEED*2 : SPEED; // ⭐加速（仍为 6，整除 TILE，无漂移）
+    if (!atCenter(pac)) { pac.x += pac.dir.x*spd; pac.y += pac.dir.y*spd; return; }
     var t = tileOf(pac);
     // try desired direction
     if ((pac.want.x || pac.want.y) && !isWall(t.c+pac.want.x, t.r+pac.want.y)) {
@@ -290,8 +305,9 @@
       // blocked -> stop and eat at this tile
       pac.dir = {x:0, y:0};
     }
-    pac.x += pac.dir.x*SPEED; pac.y += pac.dir.y*SPEED;
+    pac.x += pac.dir.x*spd; pac.y += pac.dir.y*spd;
     eatAt(t.c, t.r);
+    checkPickups(); // 拾取检测分支：pickups 为空时无害
   }
 
   function eatAt(c, r){
@@ -318,6 +334,65 @@
     }
     updateHUD();
     if (dotsLeft <= 0){ winGame(); }
+  }
+
+  // ---------- 掉落道具（纯注入，不改核心玩法）----------
+  function makePickup(type, c, r){ return { c:c, r:r, type:type }; }
+  const PICKUP_TYPES = ['ghost','star','gem'];
+  // 随机投放（局部 PRNG）：最多 2 个，避开墙/起点/已有道具
+  function spawnPickupAtRandom(){
+    if(pickups.length >= 2) return;
+    let cells = [];
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      if(isWall(c,r)) continue;
+      if(c===pacStart.c && r===pacStart.r) continue;
+      let taken=false;
+      for(const p of pickups) if(p.c===c && p.r===r){ taken=true; break; }
+      if(!taken) cells.push({c,r});
+    }
+    if(!cells.length) return;
+    const cl = cells[(_rng()*cells.length)|0];
+    const type = PICKUP_TYPES[(_rng()*PICKUP_TYPES.length)|0];
+    pickups.push(makePickup(type, cl.c, cl.r));
+  }
+  // 拾取生效：返回 true 表示已应用
+  function applyPickup(type){
+    if(!pac) return false;
+    const cx = pac.x, cy = pac.y;
+    if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.burst(cx, cy, {color:'#f0b90b', n:10, speed:150}); }
+    if(type==='ghost'){
+      frightTimer = Math.max(frightTimer, 7*60) + 120; // 幽灵畏惧暂停
+      for(const g of ghosts){ g.frightened = true; g.eaten = false; }
+      if(typeof Juice!=='undefined') Juice.popup(cx, cy-10, '👻', '#3aa0ff', {size:16});
+    } else if(type==='star'){
+      boostUntil = nowMs() + 5000; // ⭐加速
+      if(typeof Juice!=='undefined') Juice.popup(cx, cy-10, '⭐', '#f0b90b', {size:16});
+    } else if(type==='gem'){
+      score += 50; // 💰加分
+      if(typeof Juice!=='undefined') Juice.popup(cx, cy-10, '+50', '#f0b90b', {size:16});
+      updateHUD();
+    } else { // shield：免一次鬼撞
+      invulnUntil = nowMs() + 6000;
+      if(typeof Juice!=='undefined') Juice.popup(cx, cy-10, '🛡', '#02c076', {size:16});
+    }
+    return true;
+  }
+  // 拾取检测：pac 处于道具格即拾取并移除
+  function checkPickups(){
+    if(!pac) return;
+    const t = tileOf(pac);
+    for(let i=pickups.length-1;i>=0;i--){
+      if(pickups[i].c===t.c && pickups[i].r===t.r){ applyPickup(pickups[i].type); pickups.splice(i,1); }
+    }
+  }
+  // 致死分支（护盾优先免死，无盾才扣命）
+  function pacHit(){
+    if(invulnUntil > nowMs()) return;
+    lives--;
+    updateHUD();
+    if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.5); Juice.flash('#f6465d',0.35); }
+    if(lives <= 0){ loseGame(); }
+    else { resetPositions(); }
   }
 
   function ghostPickDir(g, pacTile){
@@ -394,14 +469,8 @@
           Juice.burst(g.x, g.y, {color:g.color, n:14, speed:200});
           Juice.popup(g.x, g.y-10, '+200', '#f0b90b', {size:16});
         } else {
-          // pac dies
-          lives--;
-          updateHUD();
-          Juice.sfx('hit');
-          Juice.addTrauma(0.5);
-          Juice.flash('#f6465d', 0.35);
-          if (lives <= 0){ loseGame(); }
-          else { resetPositions(); }
+          // pac dies（经 pacHit：护盾优先免死）
+          pacHit();
           return;
         }
       }
@@ -475,6 +544,25 @@
     }
     drawPac();
     for (var k=0; k<ghosts.length; k++) drawGhost(ghosts[k]);
+    // 掉落道具（辉光圆 + emoji）
+    for (var pi=0; pi<pickups.length; pi++){
+      var pp = pickups[pi];
+      var pcx = pp.c*TILE + TILE/2, pcy = pp.r*TILE + TILE/2;
+      var pcol = pp.type==='ghost' ? '#3aa0ff' : (pp.type==='star' ? '#f0b90b' : (pp.type==='gem' ? '#f0b90b' : '#02c076'));
+      var psym = pp.type==='ghost' ? '👻' : (pp.type==='star' ? '⭐' : (pp.type==='gem' ? '💰' : '🛡'));
+      ctx.save();
+      ctx.shadowColor = pcol; ctx.shadowBlur = 12; ctx.fillStyle = pcol;
+      ctx.beginPath(); ctx.arc(pcx, pcy, TILE*0.34, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#0a0e14'; ctx.font = 'bold 13px JetBrains Mono, monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(psym, pcx, pcy+1);
+    }
+    // 当前激活增益（左上角）
+    var bx = 8, by = 8;
+    if (frightTimer > 0){ ctx.fillStyle = '#3aa0ff'; ctx.font = 'bold 14px JetBrains Mono, monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('👻', bx, by); by += 18; }
+    if (nowMs() < boostUntil){ ctx.fillStyle = '#f0b90b'; ctx.font = 'bold 14px JetBrains Mono, monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('⭐', bx, by); by += 18; }
+    if (nowMs() < invulnUntil){ ctx.fillStyle = '#02c076'; ctx.font = 'bold 14px JetBrains Mono, monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('🛡', bx, by); by += 18; }
     Juice.mid(ctx);
     Juice.end(ctx);
   }
@@ -540,6 +628,9 @@
       movePac();
       for (var i=0; i<ghosts.length; i++) moveGhost(ghosts[i], pt);
       checkCollisions();
+      // 自动掉落（仅真实循环触发；测试直接调 movePac 等不受影响）
+      pickupTimer += 0.016;
+      if(pickupTimer >= 5){ pickupTimer = 0; if(pickups.length < 2) spawnPickupAtRandom(); }
       if (frightTimer > 0){
         frightTimer--;
         if (frightTimer <= 0){
@@ -620,6 +711,23 @@
       getLives: () => lives,
       getGameOver: () => gameOver,
       getWin: () => win,
+      // —— 标准掉落钩子 ——
+      start: startGame,
+      spawnPickup: (type, c, r) => { pickups.push(makePickup(type, c, r)); },
+      applyPickup: (type) => applyPickup(type),
+      getPickups: () => pickups.map(p => ({ c:p.c, r:p.r, type:p.type })),
+      setPickups: (arr) => { pickups = (arr||[]).map(p => ({ c:p.c, r:p.r, type:p.type })); },
+      stepPickups: () => { /* 网格静态道具：无移动逻辑 */ },
+      makePickup: (type, c, r) => makePickup(type, c, r),
+      getBoost: () => nowMs() < boostUntil,
+      setBoost: (v) => { boostUntil = v ? nowMs() + 1e9 : 0; },
+      getShield: () => nowMs() < invulnUntil,
+      setShield: (v) => { invulnUntil = v ? nowMs() + 1e9 : 0; },
+      getState: () => ({
+        score, lives, dotsLeft, gameOver, win,
+        boost: nowMs() < boostUntil, shield: nowMs() < invulnUntil,
+        frightTimer, pickups: pickups.map(p => ({ c:p.c, r:p.r, type:p.type }))
+      }),
       setPacTile(c,r){ if(pac){ pac.x = c*TILE + TILE/2; pac.y = r*TILE + TILE/2; pac.dir = {x:0,y:0}; pac.want = {x:0,y:0}; } },
       setScore(n){ score = n; },
       setLives(n){ lives = n; }

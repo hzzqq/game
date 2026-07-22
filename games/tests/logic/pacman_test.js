@@ -75,3 +75,57 @@ H.ok('吃豆人 边界(0,0)是墙', t.isWall(0,0) === true);
   H.ok('吃豆人 吃fright鬼加分+200', t.getScore() === before + 200, '得到 '+(t.getScore()-before));
   H.ok('吃豆人 吃鬼后 eaten=true', g.eaten === true);
 })();
+
+// 8) 掉落-gem：拾取后分数+50、道具移除
+(() => {
+  t.startGame(); t.setScore(0);
+  const pac = t.getPac();
+  const tc = Math.round((pac.x - t.TILE/2)/t.TILE), tr = Math.round((pac.y - t.TILE/2)/t.TILE);
+  t.spawnPickup('gem', tc, tr);
+  t.movePac();
+  H.eq('吃豆人 拾取gem分数+50', t.getScore(), 50, '得到 '+t.getScore());
+  H.eq('吃豆人 gem拾取后移除', t.getPickups().length, 0);
+})();
+
+// 9) 未碰撞不生效：道具在别处 → 分数不变、道具仍在
+(() => {
+  t.startGame(); t.setScore(0);
+  t.spawnPickup('gem', 1, 1); // (1,1) 为开放格
+  t.movePac();
+  H.eq('吃豆人 未碰撞分数不变', t.getScore(), 0);
+  H.eq('吃豆人 未碰撞道具仍在', t.getPickups().length, 1);
+})();
+
+// 10) 护盾免死：持盾撞鬼不扣命
+(() => {
+  t.startGame(); t.setLives(3);
+  const g = t.getGhosts()[0];
+  const gt = t.tileOf(g);
+  t.setPacTile(gt.c, gt.r);
+  t.setShield(true);
+  t.checkCollisions();
+  H.eq('吃豆人 护盾免死命不减', t.getLives(), 3, '得到 '+t.getLives());
+  H.ok('吃豆人 护盾已激活', t.getShield() === true);
+})();
+
+// 11) star 加速：拾取后 getBoost 为真
+(() => {
+  t.startGame();
+  const pac = t.getPac();
+  const tc = Math.round((pac.x - t.TILE/2)/t.TILE), tr = Math.round((pac.y - t.TILE/2)/t.TILE);
+  t.spawnPickup('star', tc, tr);
+  t.movePac();
+  H.ok('吃豆人 拾取star获得加速', t.getBoost() === true);
+})();
+
+// 12) ghost 幽灵畏惧：拾取后 frightTimer>0 且全部鬼畏惧
+(() => {
+  t.startGame();
+  const pac = t.getPac();
+  const tc = Math.round((pac.x - t.TILE/2)/t.TILE), tr = Math.round((pac.y - t.TILE/2)/t.TILE);
+  t.spawnPickup('ghost', tc, tr);
+  t.movePac();
+  H.ok('吃豆人 拾取ghost frightTimer>0', t.getState().frightTimer > 0);
+  H.ok('吃豆人 拾取ghost全部鬼畏惧', t.getGhosts().every(g => g.frightened));
+})();
+
