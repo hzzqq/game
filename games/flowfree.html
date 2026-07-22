@@ -48,6 +48,7 @@
 <script>
 (function(){
   "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
   /* ===================== 纯逻辑核心 ===================== */
   const N = 5;
   const PALETTE = ['#f6465d','#02c076','#f0b90b','#3aa0ff','#b388ff','#ff8a3d','#27e0c8','#e0e0e0'];
@@ -106,7 +107,7 @@
   function setPath(color, cells){
     if(!validatePath(color, cells)) return false;
     paths[color] = cells.map(p=>p.slice());
-    if(isWin()){ won=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('flowfree', countColors()); } }
+    if(isWin()){ won=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('flowfree', countColors()); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
     return true;
   }
   function clearPath(color){ if(color in paths) delete paths[color]; won=false; }
