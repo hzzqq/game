@@ -41,6 +41,9 @@
   button:hover:not(:disabled){ border-color:var(--red); }
   .btn-main{ background:var(--red); color:#0a0e14; border-color:var(--red); font-weight:700; box-shadow:0 0 12px rgba(246,70,93,.35); }
   .hint{ padding:0 14px 12px; color:var(--sub); font-size:11px; text-align:center; }
+  .diffbar{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap; padding:0 14px 12px; }
+  .diffbar button{ background:var(--panel,#121821); color:var(--sub,#6b7785); border:1px solid var(--border); border-radius:8px; padding:6px 13px; font-weight:700; cursor:pointer; font-family:inherit; font-size:12px; }
+  .diffbar button.active{ background:var(--gold,#f0b90b); color:#0a0e14; border-color:var(--gold,#f0b90b); }
 </style>
 </head>
 <body>
@@ -57,6 +60,7 @@
       <button id="btnMute">🔊 音效</button>
     </div>
     <div class="hint">空格 / ↑ / W / 点按 拍翅 · 穿过管道得分 · 撞管或落地即结束</div>
+    <div class="diffbar" id="diffbar"></div>
   </div>
 
   <script src="juice.js"></script>
@@ -71,9 +75,26 @@
     var GRAV = 1150;       // 重力 px/s^2
     var FLAP = -360;       // 拍翅初速
     var PIPE_W = 62;
-    var GAP = 158;         // 管道间隙
-    var PIPE_SPD = 155;    // 管道左移速度
+    var BASE_GAP = 158;        // 基准管道间隙
+    var BASE_PIPE_SPD = 155;   // 基准管道左移速度
+    var GAP = BASE_GAP;        // 当前间隙（随难度在 reset 时重设）
+    var PIPE_SPD = BASE_PIPE_SPD; // 当前左移速度
     var SPAWN_DX = 230;    // 相邻管道水平间距
+
+    // ---------- 难度系统（简单/普通/困难/地狱）----------
+    // gapMult=间隙倍率（越小越难）；spdMult=管道速度倍率（越大越难）
+    // normal=1.0 保持原有手感（避免破坏既有单测）
+    var DIFFICULTY = {
+      easy:   { label:'简单', gapMult:1.22, spdMult:0.82 },
+      normal: { label:'普通', gapMult:1.0,  spdMult:1.0 },
+      hard:   { label:'困难', gapMult:0.82, spdMult:1.22 },
+      hell:   { label:'地狱', gapMult:0.66, spdMult:1.45 }
+    };
+    var DIFF_ORDER = ['easy','normal','hard','hell'];
+    var difficulty = 'normal';
+    function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+    function getDifficulty(){ return difficulty; }
+    function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
 
     var state, bird, pipes, score, best, spawnX, flashMsg, groundHit;
     best = (typeof Juice !== 'undefined') ? (Juice.load('best_flappy', 0) || 0) : 0;
@@ -100,6 +121,8 @@
       flashMsg = '';
       groundHit = false;
       lives = 1; boostUntil = 0; shieldUntil = 0; pickups = []; pickupTimer = 0;
+      GAP = Math.round(BASE_GAP * diffCfg().gapMult);
+      PIPE_SPD = BASE_PIPE_SPD * diffCfg().spdMult;
       reseed(0xF1A9B0B & 0xFFFFFFFF);
       spawnPipe(W + 120);
       spawnPipe(W + 120 + SPAWN_DX);
@@ -302,9 +325,25 @@
       if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W') { e.preventDefault(); flap(); }
     });
 
+    function buildDiffBar(){
+      if (typeof document === 'undefined') return;
+      var bar = document.getElementById('diffbar'); if (!bar) return;
+      bar.innerHTML = '';
+      DIFF_ORDER.forEach(function (k) {
+        var b = document.createElement('button');
+        b.textContent = DIFFICULTY[k].label;
+        if (k === difficulty) b.className = 'active';
+        b.addEventListener('click', function () { setDifficulty(k); reset(); buildDiffBar(); });
+        bar.appendChild(b);
+      });
+    }
+    buildDiffBar();
+
     // 测试钩子（不影响正常玩法）
     window.__t = {
       reset: reset, update: update, flap: flap,
+      DIFFICULTY: DIFFICULTY, setDifficulty: setDifficulty, getDifficulty: getDifficulty,
+      getGap: function () { return GAP; }, getPipeSpd: function () { return PIPE_SPD; },
       start: function () { reset(); state = 'play'; },
       step: function (dt) { update(dt); },
       spawnPipe: spawnPipe,

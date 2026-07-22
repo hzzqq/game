@@ -78,4 +78,34 @@ t.setShield(false); t.setPLives(3);
 t.takeHit(1);
 H.eq('胶囊: 无盾扣血 PLives-1', t.getPLives(), 2);
 
+// ---- 难度选择系统：4 档 / normal 基线 / setDifficulty / startRows & colorCount 缩放 ----
+(function(){
+  // 4 档存在
+  H.ok('难度 4 档存在', !!(t.DIFFICULTY.easy && t.DIFFICULTY.normal && t.DIFFICULTY.hard && t.DIFFICULTY.hell));
+  // normal 基线：5 行 5 色（保既有单测语义）
+  H.eq('难度 normal startRows=5', t.DIFFICULTY.normal.startRows, 5);
+  H.eq('难度 normal colorCount=5', t.DIFFICULTY.normal.colorCount, 5);
+  // setDifficulty 合法/非法
+  H.ok('难度 setDifficulty(hard) 合法', t.setDifficulty('hard') === true);
+  H.ok('难度 setDifficulty(bogus) 非法', t.setDifficulty('bogus') === false);
+  // normal → newGame 后填满 5 行、5 种活跃色
+  t.setDifficulty('normal'); t.newGame();
+  H.eq('难度 normal newGame 填满 5 行', t.countFilledRows(), 5);
+  H.eq('难度 normal newGame 活跃色 5 种', t.getActiveColors().length, 5);
+  // 地狱档 → 更多起始行、更多颜色
+  t.setDifficulty('hell'); t.newGame();
+  H.ok('难度 地狱起始行 > 普通', t.countFilledRows() > 5, 'rows=' + t.countFilledRows());
+  H.eq('难度 地狱活跃色 6 种', t.getActiveColors().length, 6);
+  // 简单档 → 更少起始行、更少颜色
+  t.setDifficulty('easy'); t.newGame();
+  H.eq('难度 简单起始行 = 4', t.countFilledRows(), 4);
+  H.eq('难度 简单活跃色 4 种', t.getActiveColors().length, 4);
+  // 递增单调性：easy < normal < hard <= hell（起始行）
+  H.ok('难度 起始行单调 easy<normal<hard<=hell',
+    t.DIFFICULTY.easy.startRows < t.DIFFICULTY.normal.startRows &&
+    t.DIFFICULTY.normal.startRows < t.DIFFICULTY.hard.startRows &&
+    t.DIFFICULTY.hard.startRows <= t.DIFFICULTY.hell.startRows);
+  t.setDifficulty('normal'); t.newGame(); // 还原
+})();
+
 module.exports = {};

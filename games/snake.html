@@ -38,6 +38,9 @@
   .act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px}
   .act:hover{border-color:var(--dim)}
   .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+  .diffbar{width:min(520px,96vw);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+  .diffbar button{background:#0e141d;color:var(--dim);border:1px solid var(--border);border-radius:8px;padding:6px 13px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px}
+  .diffbar button.active{background:var(--gold,#f0b90b);color:#0a0e14;border-color:var(--gold,#f0b90b)}
 
   #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.92)}
   #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;text-align:center;min-width:260px}
@@ -72,6 +75,8 @@
   </div>
 
   <div id="tip">方向键 / WASD 转向 · 空格 / P 暂停 · 手机滑动转向 · 吃 ⚡加速 / 🛡护盾 / 💎宝石 · 撞墙或撞到自己即结束</div>
+
+  <div class="diffbar" id="diffbar"></div>
 
   <div id="overlay">
     <div class="box">
@@ -115,6 +120,21 @@
   var snake, dir, nextDir, food, score, best, alive, paused, level;
   var powerups=[], boostUntil=0, shieldUntil=0;
   var stepMs, acc, lastT, raf;
+
+  // ---------- 难度系统（简单/普通/困难/地狱）----------
+  // stepMult=步进间隔倍率（越小越快越难）；越大越慢越简单。normal=1.0 保基线
+  var BASE_STEP = 140;
+  var DIFFICULTY = {
+    easy:   { label:'简单', stepMult:1.35 },
+    normal: { label:'普通', stepMult:1.0 },
+    hard:   { label:'困难', stepMult:0.75 },
+    hell:   { label:'地狱', stepMult:0.55 }
+  };
+  var DIFF_ORDER = ['easy','normal','hard','hell'];
+  var difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+  function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
   var milestone10 = false;
   const J = (typeof Juice !== 'undefined') ? Juice : null;
 
@@ -129,7 +149,7 @@
     nextDir = {x:1,y:0};
     score = 0;
     level = 0;
-    stepMs = 140;
+    stepMs = Math.round(BASE_STEP * diffCfg().stepMult);
     acc = 0;
     lastT = 0;
     alive = true;
@@ -249,7 +269,7 @@
       Juice.burst(fx, fy, {color:'#02c076', n:6, speed:140});
       if(score % 4 === 0 && level < 8){   // ramp speed, capped
         level += 1;
-        stepMs = Math.max(60, 140 - level*10);
+        stepMs = Math.round(Math.max(60, 140 - level*10) * diffCfg().stepMult);
         Juice.sfx('levelup');
         Juice.achievement('加速 → '+(140/stepMs).toFixed(1)+'x');
       }
@@ -434,12 +454,27 @@
   newBtn.addEventListener('click', reset);
   goBtn.addEventListener('click', reset);
 
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    var bar=document.getElementById('diffbar'); if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(function(k){
+      var b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click',function(){ setDifficulty(k); reset(); buildDiffBar(); });
+      bar.appendChild(b);
+    });
+  }
+  buildDiffBar();
+
   reset();
   raf = requestAnimationFrame(loop);
 
   // 测试钩子（不影响正常玩法）
   window.__t = {
     GRID,
+    DIFFICULTY, setDifficulty, getDifficulty, getStepMs(){ return stepMs; },
     reset, step, spawnFood, spawnPowerup, applyPower, occupied, setDir, nowMs, makePickup,
     // —— 标准掉落钩子（别名 / 扩展）——
     spawnPickup(type, x, y) { powerups.push(makePickup(type, x, y)); },

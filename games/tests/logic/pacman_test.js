@@ -129,3 +129,33 @@ H.ok('吃豆人 边界(0,0)是墙', t.isWall(0,0) === true);
   H.ok('吃豆人 拾取ghost全部鬼畏惧', t.getGhosts().every(g => g.frightened));
 })();
 
+// 13) 难度选择系统：4 档 / normal 基线 / setDifficulty / 幽灵速度整除TILE / 畏惧时长缩放
+(() => {
+  // 4 档存在
+  H.ok('难度 4 档存在', !!(t.DIFFICULTY.easy && t.DIFFICULTY.normal && t.DIFFICULTY.hard && t.DIFFICULTY.hell));
+  // normal 基线：ghostSpeed=3=SPEED, frightMult=1（保既有单测）
+  H.eq('难度 normal ghostSpeed=3', t.DIFFICULTY.normal.ghostSpeed, 3);
+  H.eq('难度 normal frightMult=1', t.DIFFICULTY.normal.frightMult, 1);
+  // 所有档位 ghostSpeed 必须整除 TILE(24) 以免漂移
+  ['easy','normal','hard','hell'].forEach(function(k){
+    H.eq('难度 '+k+' ghostSpeed 整除TILE', t.TILE % t.DIFFICULTY[k].ghostSpeed, 0);
+  });
+  // setDifficulty 合法/非法
+  H.ok('难度 setDifficulty(hell) 合法', t.setDifficulty('hell') === true);
+  H.ok('难度 setDifficulty(bogus) 非法', t.setDifficulty('bogus') === false);
+  // 地狱档 startGame 后 ghostSpeed=6 > normal
+  t.setDifficulty('hell'); t.startGame();
+  H.eq('难度 地狱 ghostSpeed=6', t.getGhostSpeed(), 6);
+  // normal 档 startGame 后 ghostSpeed=3
+  t.setDifficulty('normal'); t.startGame();
+  H.eq('难度 普通 ghostSpeed=3', t.getGhostSpeed(), 3);
+  // ghostSpeed 单调递增 easy<normal<hard<hell
+  H.ok('难度 幽灵速度单调递增',
+    t.DIFFICULTY.easy.ghostSpeed < t.DIFFICULTY.normal.ghostSpeed &&
+    t.DIFFICULTY.normal.ghostSpeed < t.DIFFICULTY.hard.ghostSpeed &&
+    t.DIFFICULTY.hard.ghostSpeed < t.DIFFICULTY.hell.ghostSpeed);
+  // 能量豆畏惧时长：简单 > 地狱
+  H.ok('难度 简单畏惧时长 > 地狱', t.DIFFICULTY.easy.frightMult > t.DIFFICULTY.hell.frightMult);
+  t.setDifficulty('normal'); t.startGame(); // 还原
+})();
+

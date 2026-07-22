@@ -101,4 +101,38 @@ H.ok(T.getStatus() === 'menu', 'flappy: 重置回菜单');
   H.eq('flappy 复活后扣 1 命', T.getLives(), 1, '得到 ' + T.getLives());
 })();
 
+// N) 难度系统：4 档 + 普通档基线不变
+(() => {
+  H.ok('flappy DIFFICULTY 4 档', ['easy','normal','hard','hell'].every(k => T.DIFFICULTY[k]));
+  H.eq('flappy normal gapMult=1', T.DIFFICULTY.normal.gapMult, 1.0);
+  H.eq('flappy normal spdMult=1', T.DIFFICULTY.normal.spdMult, 1.0);
+})();
+
+// N+1) setDifficulty 合法/非法 + getDifficulty
+(() => {
+  H.ok('flappy setDifficulty hell 合法', T.setDifficulty('hell') === true);
+  H.eq('flappy getDifficulty=hell', T.getDifficulty(), 'hell');
+  H.ok('flappy setDifficulty 非法 false', T.setDifficulty('nope') === false);
+  H.eq('flappy 非法后仍 hell', T.getDifficulty(), 'hell');
+  T.setDifficulty('normal');
+})();
+
+// N+2) 普通档 reset 后间隙=基准158、速度=155（保基线）
+(() => {
+  T.setDifficulty('normal'); T.reset();
+  H.eq('flappy normal 间隙=158', T.getGap(), 158);
+  H.eq('flappy normal 速度=155', T.getPipeSpd(), 155);
+})();
+
+// N+3) 地狱档间隙更小、速度更快；简单档相反
+(() => {
+  T.setDifficulty('easy'); T.reset();
+  const easyGap = T.getGap(), easySpd = T.getPipeSpd();
+  T.setDifficulty('hell'); T.reset();
+  const hellGap = T.getGap(), hellSpd = T.getPipeSpd();
+  H.ok('flappy 地狱间隙 < 简单间隙', hellGap < easyGap);
+  H.ok('flappy 地狱速度 > 简单速度', hellSpd > easySpd);
+  T.setDifficulty('normal'); T.reset();
+})();
+
 module.exports = {};

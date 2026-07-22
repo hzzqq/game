@@ -112,6 +112,35 @@ t.applyPickup('bomb');
 let aliveAfter = t.getBricks().filter(b=>b.alive).length;
 ok('胶囊: 炸行清除至少一行砖', aliveAfter < aliveBefore);
 
+// 14. 难度系统：4 档 + 普通档基线不变
+ok('DIFFICULTY 4 档', ['easy','normal','hard','hell'].every(k => t.DIFFICULTY[k]));
+eq('normal spdMult=1', t.DIFFICULTY.normal.spdMult, 1.0);
+eq('normal rowBonus=0', t.DIFFICULTY.normal.rowBonus, 0);
+
+// 15. setDifficulty 合法/非法 + getDifficulty
+ok('setDifficulty hell 合法', t.setDifficulty('hell') === true);
+eq('getDifficulty=hell', t.getDifficulty(), 'hell');
+ok('setDifficulty 非法 false', t.setDifficulty('bad') === false);
+eq('非法后仍 hell', t.getDifficulty(), 'hell');
+t.setDifficulty('normal');
+
+// 16. 普通档 level=1 仍 40 砖块（保基线）
+t.setDifficulty('normal'); t.setLevel(1); t.buildLevel();
+eq('normal level=1 → 40 砖块', t.getBricks().length, 40);
+
+// 17. 地狱档同 level 砖块更多（rowBonus 生效）
+t.setDifficulty('hell'); t.setLevel(1); t.buildLevel();
+ok('地狱 level=1 砖块 > 40', t.getBricks().length > 40);
+t.setDifficulty('normal'); t.buildLevel();
+
+// 18. 地狱档球速倍率 > 简单档（targetSpeed 应用 spdMult）
+t.setDifficulty('easy'); t.setLevel(1); t.setNow(0);
+const easySpd = t.targetSpeed();
+t.setDifficulty('hell'); t.setLevel(1); t.setNow(0);
+const hellSpd = t.targetSpeed();
+ok('地狱档球速 > 简单档', hellSpd > easySpd);
+t.setDifficulty('normal');
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

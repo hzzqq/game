@@ -75,6 +75,9 @@
     color:var(--text2);
   }
   .titlebar .actions{display:flex;gap:8px}
+  .diffbar{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:0 0 10px}
+  .diffbar button{background:var(--panel,#121821);color:var(--text2,#6b7785);border:1px solid var(--border);border-radius:8px;padding:6px 13px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px}
+  .diffbar button.active{background:var(--gold,#f0b90b);color:#0a0e14;border-color:var(--gold,#f0b90b)}
   .btn{
     font-family:inherit;
     font-size:12px;
@@ -224,6 +227,8 @@
       </div>
     </div>
 
+    <div class="diffbar" id="diffbar"></div>
+
     <div class="body">
       <div class="board-wrap">
         <canvas id="board" width="300" height="600"></canvas>
@@ -344,6 +349,22 @@
   let score, level, linesCleared, dropInterval, dropCounter, lastTime;
   let paused, gameOver, running;
   let particles = [];
+
+  // ---------- 难度系统（简单/普通/困难/地狱）----------
+  // dropMult=自动下落间隔倍率（越小越快越难）。normal=1.0 保基线（不影响计分/等级单测）
+  const DIFFICULTY = {
+    easy:   { label:'简单', dropMult:1.4 },
+    normal: { label:'普通', dropMult:1.0 },
+    hard:   { label:'困难', dropMult:0.7 },
+    hell:   { label:'地狱', dropMult:0.45 }
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+  function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
+  // 依据当前等级 + 难度计算下落间隔
+  function computeDropInterval(){ return Math.round(Math.max(80, 1000 - (level-1)*80) * diffCfg().dropMult); }
 
   function emptyGrid(){
     const g = [];
@@ -529,7 +550,7 @@
       Juice.popup(window.innerWidth/2, window.innerHeight*0.4, (cleared>=4?'TETRIS! ':'')+'+'+net, '#f0b90b', {size:22});
       if(cleared>=4){ Juice.achievement('⚡ TETRIS！一次消 4 行'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       if(level!==before){
-        dropInterval = Math.max(80, 1000 - (level-1)*80);
+        dropInterval = computeDropInterval();
       }
       updateHud();
     }
@@ -760,7 +781,7 @@
     grid = emptyGrid();
     bag = newBag();
     score = 0; level = 1; linesCleared = 0;
-    dropInterval = 1000; dropCounter = 0; lastTime = performance.now();
+    dropInterval = computeDropInterval(); dropCounter = 0; lastTime = performance.now();
     holdType = null; holdUsed = false;
     particles = [];
     charges = 0; slowUntil = 0; shieldCharge = false;
@@ -837,6 +858,20 @@
   restartBtn.addEventListener('click', startGame);
   pauseBtn.addEventListener('click', togglePause);
 
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    const bar=document.getElementById('diffbar'); if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{
+      const b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click',()=>{ setDifficulty(k); startGame(); buildDiffBar(); });
+      bar.appendChild(b);
+    });
+  }
+  buildDiffBar();
+
   // ====== 启动 ======
   startGame();
   requestAnimationFrame(tick);
@@ -847,6 +882,8 @@
       ROWS, COLS, SHAPES, SCORE_TABLE,
       collides, rotateCW, clearLines, makePiece, emptyGrid, usePower,
       hardDrop, softDrop, lockPiece,
+      DIFFICULTY, setDifficulty, getDifficulty,
+      getDropInterval: () => dropInterval, computeDropInterval,
       getGrid: () => grid,
       setGrid(g){ grid = g; },
       getCurrent: () => current,
@@ -854,6 +891,7 @@
       getScore: () => score,
       getLines: () => linesCleared,
       getLevel: () => level,
+      setLevel(n){ level = n; },
       getCharges: () => charges,
       addCharge(n){ charges = Math.min(3, charges + (n||1)); },
       getShield: () => shieldCharge,

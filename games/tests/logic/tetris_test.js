@@ -163,3 +163,35 @@ H.eq('俄罗斯 rotateCW', t.rotateCW([[1,2],[3,4]]), [[3,1],[4,2]]);
   H.eq('不变量 升级阈值 level=floor(20/10)+1', Math.floor(20 / 10) + 1, 3);
   t.setRand(Math.random); // 还原随机源（若被 setRand 改写）
 })();
+
+// 14) 难度选择系统：4 档 / normal 基线 / setDifficulty / dropInterval 缩放 / 随等级递减
+(() => {
+  const { t } = H.loadGame('../tetris.html');
+  // 4 档存在
+  H.ok('难度 4 档存在', !!(t.DIFFICULTY.easy && t.DIFFICULTY.normal && t.DIFFICULTY.hard && t.DIFFICULTY.hell));
+  // normal 基线 dropMult=1（不破坏既有 dropInterval 单测）
+  H.eq('难度 normal dropMult=1', t.DIFFICULTY.normal.dropMult, 1);
+  // setDifficulty 合法/非法
+  H.ok('难度 setDifficulty(hard) 合法', t.setDifficulty('hard') === true);
+  H.ok('难度 setDifficulty(hell) 合法', t.setDifficulty('hell') === true);
+  H.ok('难度 setDifficulty(bogus) 非法', t.setDifficulty('bogus') === false);
+  // normal + level1 → dropInterval=1000
+  t.setDifficulty('normal'); t.startGame();
+  H.eq('难度 normal level1 dropInterval=1000', t.computeDropInterval(), 1000);
+  // 地狱档 level1 → dropInterval < normal（更快）
+  t.setDifficulty('hell'); t.startGame();
+  const hellDI = t.computeDropInterval();
+  t.setDifficulty('normal'); t.startGame();
+  const normDI = t.computeDropInterval();
+  t.setDifficulty('easy'); t.startGame();
+  const easyDI = t.computeDropInterval();
+  H.ok('难度 地狱 dropInterval < 普通', hellDI < normDI, 'hell=' + hellDI + ' norm=' + normDI);
+  H.ok('难度 简单 dropInterval > 普通', easyDI > normDI, 'easy=' + easyDI + ' norm=' + normDI);
+  // computeDropInterval 随等级递减（同一难度下）
+  t.setDifficulty('normal'); t.startGame();
+  const di1 = t.computeDropInterval();
+  t.setLevel(5);
+  const di5 = t.computeDropInterval();
+  H.ok('难度 computeDropInterval 随 level 递减', di5 < di1, 'lvl1=' + di1 + ' lvl5=' + di5);
+  t.setRand(Math.random);
+})();

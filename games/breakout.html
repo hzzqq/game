@@ -79,6 +79,9 @@
     margin-top:10px; text-align:center; font-size:11px; color:var(--sub);
     letter-spacing:1px;
   }
+  .diffbar{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:10px; }
+  .diffbar button{ background:var(--panel,#121821); color:var(--sub,#6b7785); border:1px solid var(--border); border-radius:8px; padding:6px 13px; font-weight:700; cursor:pointer; font-family:inherit; font-size:12px; }
+  .diffbar button.active{ background:var(--gold,#f0b90b); color:#0a0e14; border-color:var(--gold,#f0b90b); }
 </style>
 </head>
 <body>
@@ -96,6 +99,7 @@
     <div class="stage">
       <canvas id="game" width="780" height="540"></canvas>
       <div class="hint">鼠标 / ←→ / 触屏拖动 移动挡板 · 接住掉落道具（宽/多/慢/♥/炸）· 打碎所有砖块过关</div>
+      <div class="diffbar" id="diffbar"></div>
     </div>
   </div>
 
@@ -125,6 +129,21 @@
   let levelClearTime=0;
   let shakeTime=0, slowUntil=0, wideUntil=0;
   const baseSpeed = 4.2;
+
+  // ---------- 难度系统（简单/普通/困难/地狱）----------
+  // spdMult=球速倍率；rowBonus=额外砖块行数（越多越难）；capBonus=球速上限加成
+  // normal=1.0/0 保持原有平衡（避免破坏既有单测）
+  const DIFFICULTY = {
+    easy:   { label:'简单', spdMult:0.82, rowBonus:0, capBonus:0 },
+    normal: { label:'普通', spdMult:1.0,  rowBonus:0, capBonus:0 },
+    hard:   { label:'困难', spdMult:1.2,  rowBonus:1, capBonus:1.5 },
+    hell:   { label:'地狱', spdMult:1.45, rowBonus:2, capBonus:3 }
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+  function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
 
   const paddle = { baseW:110, w:110, h:12, x:0, y:H-34 };
   paddle.x = W/2 - paddle.w/2;
@@ -159,15 +178,16 @@
   }
 
   function targetSpeed(){
-    let s = baseSpeed + (level-1)*0.5;
+    const cfg = diffCfg();
+    let s = (baseSpeed + (level-1)*0.5) * cfg.spdMult;
     if(now < slowUntil) s *= 0.6;
-    return Math.min(s, 11);
+    return Math.min(s, 11 + cfg.capBonus);
   }
 
   // ---- 关卡 / 球 / 砖块 ----
   function buildLevel(){
     bricks=[];
-    const rows = Math.min(3 + level, 9);
+    const rows = Math.min(3 + level + diffCfg().rowBonus, 9);
     const cols = 10;
     const marginX=16, gap=8, top=HUD_H+20, bh=22;
     const bw = (W - marginX*2 - gap*(cols-1))/cols;
@@ -691,6 +711,20 @@
   });
   pauseBtn.addEventListener('click', togglePause);
 
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    var bar=document.getElementById('diffbar'); if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(function(k){
+      var b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click',function(){ setDifficulty(k); buildDiffBar(); });
+      bar.appendChild(b);
+    });
+  }
+  buildDiffBar();
+
   // ---- 启动 ----
   buildLevel(); // 仅为初始化（菜单态不显示）
   setState('menu');
@@ -701,6 +735,8 @@
     buildLevel: buildLevel, applyPower: applyPower, makeBall: makeBall,
     resetBall: resetBall, startGame: startGame, maybeDrop: maybeDrop, launch: launch,
     clamp: clamp,
+    DIFFICULTY: DIFFICULTY, setDifficulty: setDifficulty, getDifficulty: getDifficulty,
+    targetSpeed: targetSpeed,
     getBricks: function(){ return bricks.map(function(b){ return {x:b.x,y:b.y,w:b.w,h:b.h,color:b.color,points:b.points,alive:b.alive}; }); },
     getBalls: function(){ return balls.map(function(b){ return {x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r,stuck:b.stuck}; }); },
     getPowerups: function(){ return powerups.map(function(p){ return {x:p.x,y:p.y,w:p.w,h:p.h,vy:p.vy,type:p.type}; }); },

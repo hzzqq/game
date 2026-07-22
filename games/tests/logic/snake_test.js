@@ -119,3 +119,31 @@ function head() { return t.getSnake()[0]; }
   H.ok('蛇 applyPower(speed) 返回 false', t.applyPower('speed', 1, 1) === false);
   H.ok('蛇 applyPower(shield) 返回 false', t.applyPower('shield', 1, 1) === false);
 })();
+
+// 11) 难度系统：4 档 + 普通档基线不变
+(() => {
+  H.ok('snake DIFFICULTY 4 档', ['easy','normal','hard','hell'].every(k => t.DIFFICULTY[k]));
+  H.eq('snake normal stepMult=1', t.DIFFICULTY.normal.stepMult, 1.0);
+})();
+
+// 12) setDifficulty 合法/非法 + getDifficulty
+(() => {
+  H.ok('snake setDifficulty hell 合法', t.setDifficulty('hell') === true);
+  H.eq('snake getDifficulty=hell', t.getDifficulty(), 'hell');
+  H.ok('snake setDifficulty 非法 false', t.setDifficulty('nope') === false);
+  H.eq('snake 非法后仍 hell', t.getDifficulty(), 'hell');
+  t.setDifficulty('normal');
+})();
+
+// 13) 普通档 reset 后步进=140（保基线）；地狱更快、简单更慢
+(() => {
+  t.setDifficulty('normal'); t.reset();
+  H.eq('snake normal 步进=140', t.getStepMs(), 140);
+  t.setDifficulty('easy'); t.reset();
+  const easyStep = t.getStepMs();
+  t.setDifficulty('hell'); t.reset();
+  const hellStep = t.getStepMs();
+  H.ok('snake 地狱步进 < 简单步进（更快）', hellStep < easyStep);
+  H.ok('snake 地狱步进 < 140（比普通快）', hellStep < 140);
+  t.setDifficulty('normal'); t.reset();
+})();

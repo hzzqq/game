@@ -70,6 +70,10 @@
   }
   #overlay button:active { background:var(--green); color:var(--bg); }
   .hint { color:var(--dim); font-size:11px; padding:6px 14px; text-align:center; border-top:1px solid var(--border); background:var(--panel); }
+  .diffbar { display:flex; gap:6px; justify-content:center; padding:6px 10px; background:var(--panel); border-top:1px solid var(--border); }
+  .diffbar button { flex:0 0 auto; font:600 11px/1 ui-monospace,monospace; color:var(--dim); background:transparent; border:1px solid var(--border); border-radius:6px; padding:5px 10px; cursor:pointer; transition:.12s; }
+  .diffbar button:hover { color:#fff; border-color:#666; }
+  .diffbar button.active { color:#0b0e11; background:var(--gold,#ffcf5a); border-color:var(--gold,#ffcf5a); }
 </style>
 </head>
 <body>
@@ -92,6 +96,7 @@
     </div>
   </div>
   <div class="hint">移动瞄准 · 点击/空格发射 · ←→ 旋转 · 三连同色消除 · 蓄力可得 💣炸弹(炸两圈)/🌈彩虹(通配) 特殊泡</div>
+  <div class="diffbar" id="diffbar"></div>
 </div>
 
 <script src="input.js"></script>
@@ -116,6 +121,20 @@
   // 特殊泡哨兵值（保持在 [0,5] 颜色索引之外）
   var RAINBOW = 98;   // 彩虹泡：通配，落点解析为相邻最大同色组颜色
   var BOMB = 99;      // 炸弹泡：落点后炸掉周围两圈
+
+  // ---- 难度选择系统（简单/普通/困难/地狱）----
+  // startRows: 初始铺满行数越多越难；colorCount: 参与颜色越多越难匹配。normal=基线(5行/5色) 保既有单测
+  var DIFFICULTY = {
+    easy:   { label:'简单', startRows:4, colorCount:4 },
+    normal: { label:'普通', startRows:5, colorCount:5 },
+    hard:   { label:'困难', startRows:7, colorCount:6 },
+    hell:   { label:'地狱', startRows:9, colorCount:6 }
+  };
+  var DIFF_ORDER = ['easy','normal','hard','hell'];
+  var difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+  function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
 
   var cv = document.getElementById("cv");
   cv.width = W; cv.height = H;
@@ -179,15 +198,16 @@
       for (var c = 0; c < n; c++) row.push(-1);
       grid.push(row);
     }
-    // pick 5 active colors
+    // pick active colors (按难度：normal=5)
     activeColors = [];
     var pool = COLORS.map(function (_, i) { return i; });
-    for (var k = 0; k < 5; k++) {
+    var _cc = Math.min(diffCfg().colorCount, pool.length);
+    for (var k = 0; k < _cc; k++) {
       var idx = Math.floor(Math.random() * pool.length);
       activeColors.push(pool.splice(idx, 1)[0]);
     }
-    // fill top 5 rows
-    var startRows = 5;
+    // fill top rows (按难度：normal=5)
+    var startRows = diffCfg().startRows;
     for (var rr = 0; rr < startRows; rr++) {
       var nc = evenCols(rr);
       for (var cc = 0; cc < nc; cc++) {
@@ -785,11 +805,29 @@
 
   restartBtn.addEventListener("click", function () { newGame(); });
 
+  // ---- 难度选择条 ----
+  function buildDiffBar(){
+    var bar = document.getElementById('diffbar');
+    if(!bar) return;
+    bar.innerHTML = '';
+    DIFF_ORDER.forEach(function(k){
+      var b = document.createElement('button');
+      b.textContent = DIFFICULTY[k].label;
+      if(k === difficulty) b.className = 'active';
+      b.addEventListener('click', function(){ setDifficulty(k); newGame(); buildDiffBar(); });
+      bar.appendChild(b);
+    });
+  }
+  buildDiffBar();
+
   // 测试钩子（不影响正常玩法）
   window.__t = {
     newGame: newGame, fire: fire, update: update,
     neighbors: neighbors, cellCenter: cellCenter, floodSameColor: floodSameColor,
     COLS: COLS, MAXROWS: MAXROWS, RAINBOW: RAINBOW, BOMB: BOMB,
+    DIFFICULTY: DIFFICULTY, setDifficulty: setDifficulty, getDifficulty: getDifficulty,
+    getActiveColors: function(){ return activeColors.slice(); },
+    countFilledRows: function(){ var n=0; for(var r=0;r<MAXROWS;r++){ var any=false; for(var c=0;c<grid[r].length;c++){ if(grid[r][c]>=0){any=true;break;} } if(any)n++; } return n; },
     setGrid: function(g){ grid = g; },
     getGrid: function(){ return grid.map(function(row){ return row.slice(); }); },
     setCurrent: function(v){ current = v; },
