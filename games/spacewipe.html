@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // SPACEWIPE</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace}
+  #stage{position:fixed;inset:0;z-index:0}
+  #stage canvas{display:block;touch-action:none}
+  #scan{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px}
+  .titlebar{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:10px;
+    padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border-bottom:1px solid var(--border)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .titlebar .btn{margin-left:auto;background:transparent;color:var(--dim);border:1px solid var(--border);
+    border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px}
+  .titlebar .btn:hover{color:var(--red);border-color:var(--red)}
+  #hud{position:fixed;top:52px;left:16px;right:16px;z-index:5;display:flex;justify-content:space-between;align-items:flex-start}
+  .stat{background:rgba(18,24,33,.85);border:1px solid var(--border);border-radius:8px;padding:8px 14px;backdrop-filter:blur(4px)}
+  .stat .k{color:var(--dim);font-size:11px;letter-spacing:.5px}
+  .stat .v{font-size:19px;margin-top:2px}
+  .v.score{color:var(--gold)} .v.lives{color:var(--red)} .v.level{color:var(--green)}
+  #overlay{position:fixed;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,.88)}
+  #overlay .box{text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;max-width:90vw}
+  #overlay h1{font-size:26px;letter-spacing:2px;margin-bottom:10px;text-shadow:0 0 18px rgba(246,70,93,.35)}
+  #overlay p{color:var(--dim);font-size:13px;line-height:1.9;margin-bottom:18px}
+  #overlay .start{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;box-shadow:0 0 14px rgba(246,70,93,.4)}
+  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;color:var(--dim);font-size:12px;text-align:center;width:100%}
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="scan"></div>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>SPACEWIPE</b> · 太空清屏</span>
+    <button class="btn" id="muteBtn">🔊</button>
+    <button class="btn" id="pauseBtn">暂停</button>
+  </div>
+  <div id="hud">
+    <div class="stat"><div class="k">得分</div><div class="v score" id="score">0</div></div>
+    <div class="stat"><div class="k">波次</div><div class="v level" id="wave">1</div></div>
+    <div class="stat"><div class="k">余机</div><div class="v lives" id="lives">♥♥♥</div></div>
+    <div class="stat"><div class="k">剩余敌机</div><div class="v" id="left">0</div></div>
+  </div>
+  <div id="hint">移动：← → / A D（手机拖拽）· 自动开火 · P 暂停 · 清空整波敌人进入下一波</div>
+  <div id="overlay">
+    <div class="box">
+      <h1>▲ 太空清屏</h1>
+      <p>驾驶红色战机清剿每一波来犯敌机，<b style="color:var(--green)">清空整波</b>即进入下一关。<br/>方向键移动，自动开火；敌机触底会损失余机，余机耗尽即失败。</p>
+      <button class="start" id="startBtn">开始战斗</button>
+    </div>
+  </div>
+
+  <script src="juice.js"></script>
+  <script>
+  (function(){
+    if('ontouchstart' in window) document.body.classList.add('touch');
+    const stage=document.getElementById('stage');
+    let W=window.innerWidth, H=window.innerHeight;
+    const cv=document.createElement('canvas');
+    cv.width=W; cv.height=H; stage.appendChild(cv);
+    const ctx=cv.getContext('2d');
+    const J=(typeof Juice!=='undefined')?Juice:null;
+
+    // ===== 状态 =====
+    let S=null;
+    function fresh(){
+      return {
+        player:{x:W/2,y:H-60,r:16,speed:360,fireCd:0},
+        bullets:[], enemies:[],
+        score:0, wave:1, lives:3,
+        running:false, paused:false, over:false,
+        autoFire:true, autoWave:true, waveDelay:0,
+        keys:{left:false,right:false}
+      };
+    }
+
+    function spawnWave(n){
+      const count=4+n;
+      const arr=[];
+      const span=W-160, step=count>1?span/(count-1):0;
+      for(let i=0;i<count;i++){
+        arr.push({x:80+i*step, y:70, r:18, hp:1+Math.floor(n/3), vy:30+n*10});
+      }
+      S.enemies=arr; S.wave=n; S.waveDelay=0;
+    }
+
+    function fire(){
+      const p=S.player;
+      S.bullets.push({x:p.x, y:p.y-p.r, vx:0, vy:-700, r:4});
+      if(J)J.sfx&&J.sfx('shoot');
+    }
+
+    function reset(){
+      S=fresh();
+      syncHud();
+    }
+    function start(){
+      reset(); S.running=true; S.over=false;
+      spawnWave(1);
+      if(overlay) overlay.style.display='none';
+      syncHud();
+    }
+    function startWave(n){ S.running=true; S.over=false; spawnWave(n); syncHud(); }
+
+    function update(dt){
+      if(!S||!S.running||S.paused||S.over) return;
+      const p=S.player;
+      // 输入移动
+      let dx=0; if(S.keys.left)dx-=1; if(S.keys.right)dx+=1;
+      p.x+=(dx*p.speed)*dt;
+      if(p.x<p.r)p.x=p.r; if(p.x>W-p.r)p.x=W-p.r;
+      // 自动开火
+      p.fireCd-=dt;
+      if(S.autoFire && p.fireCd<=0){ fire(); p.fireCd=0.18; }
+      // 子弹移动
+      for(const b of S.bullets){ b.y+=b.vy*dt; }
+      // 敌机移动 + 触底
+      for(const e of S.enemies){
+        e.y+=e.vy*dt;
+        if(e.y+e.r>=p.y-p.r){
+          e.dead=true; S.lives--; if(J)J.flash&&J.flash('#f6465d');
+        }
+      }
+      // 碰撞
+      for(const b of S.bullets){
+        if(b.dead)continue;
+        for(const e of S.enemies){
+          if(e.dead)continue;
+          const ddx=b.x-e.x, ddy=b.y-e.y;
+          if(ddx*ddx+ddy*ddy<(b.r+e.r)*(b.r+e.r)){
+            b.dead=true; e.hp--;
+            if(J)J.burst&&J.burst(e.x,e.y,'#f6465d');
+            if(e.hp<=0){ e.dead=true; S.score+=100; }
+            break;
+          }
+        }
+      }
+      S.bullets=S.bullets.filter(b=>!b.dead && b.y>-20);
+      S.enemies=S.enemies.filter(e=>!e.dead);
+      // 失败
+      if(S.lives<=0){ S.over=true; S.running=false; showOver(); }
+      // 波次推进
+      if(S.enemies.length===0 && S.autoWave){
+        S.waveDelay-=dt;
+        if(S.waveDelay<=0){ spawnWave(S.wave+1); }
+      }
+      syncHud();
+    }
+
+    function getState(){
+      return {
+        score:S.score, wave:S.wave, lives:S.lives,
+        running:S.running, paused:S.paused, over:S.over,
+        autoFire:S.autoFire,
+        player:{x:S.player.x,y:S.player.y,r:S.player.r},
+        bullets:S.bullets.map(b=>({x:b.x,y:b.y,r:b.r})),
+        enemies:S.enemies.map(e=>({x:e.x,y:e.y,r:e.r,hp:e.hp})),
+        enemyCount:S.enemies.length, bulletCount:S.bullets.length
+      };
+    }
+
+    // ===== 测试钩子 =====
+    window.__t={
+      reset, start, startWave, update, getState,
+      setAutoFire(v){S.autoFire=v;},
+      setAutoWave(v){S.autoWave=!!v;},
+      setPlayerX(x){S.player.x=x;},
+      setKeys(l,r){S.keys.left=!!l;S.keys.right=!!r;},
+      fire(){S.player.fireCd=0; fire();},
+      clearBullets(){S.bullets=[];},
+      clearEnemies(){S.enemies=[];},
+      spawnEnemyAt(x,y,hp,vy){S.enemies.push({x,y,r:18,hp:hp||1,vy:vy||0});},
+      setLives(n){S.lives=n;}
+    };
+
+    // ===== 渲染（沙箱下 ctx 为桩，无副作用）=====
+    function render(){
+      ctx.clearRect(0,0,W,H);
+      // 敌机
+      for(const e of S.enemies){
+        ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,7);ctx.fillStyle='#f6465d';ctx.fill();
+        ctx.fillStyle='#0a0e14';ctx.fillRect(e.x-2,e.y-6,4,12);
+      }
+      // 子弹
+      for(const b of S.bullets){ ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fillStyle='#f0b90b';ctx.fill(); }
+      // 玩家
+      const p=S.player;
+      ctx.beginPath();ctx.moveTo(p.x,p.y-p.r);ctx.lineTo(p.x-p.r,p.y+p.r);ctx.lineTo(p.x+p.r,p.y+p.r);ctx.closePath();
+      ctx.fillStyle='#02c076';ctx.fill();
+    }
+
+    // ===== HUD / 覆盖层 =====
+    const $=id=>document.getElementById(id);
+    const overlay=$('overlay'); const startBtn=$('startBtn');
+    function syncHud(){
+      if($('score'))$('score').textContent=S.score;
+      if($('wave'))$('wave').textContent=S.wave;
+      if($('lives'))$('lives').textContent='♥'.repeat(Math.max(0,S.lives));
+      if($('left'))$('left').textContent=S.enemies.length;
+    }
+    function showOver(){
+      if(overlay){ overlay.style.display='flex';
+        const h1=overlay.querySelector('h1'); if(h1)h1.textContent='☠ 任务失败 · 得分 '+S.score;
+        const b=overlay.querySelector('.start'); if(b)b.textContent='再战一次'; }
+    }
+    if(startBtn)startBtn.addEventListener('click',start);
+    if($('pauseBtn'))$('pauseBtn').addEventListener('click',()=>{S.paused=!S.paused;});
+    if($('muteBtn'))$('muteBtn').addEventListener('click',()=>{ if(J&&J.toggleMute)J.toggleMute(); });
+
+    // 键盘
+    window.addEventListener('keydown',e=>{
+      if(e.code==='ArrowLeft'||e.code==='KeyA')S.keys.left=true;
+      if(e.code==='ArrowRight'||e.code==='KeyD')S.keys.right=true;
+      if(e.code==='KeyP')S.paused=!S.paused;
+    });
+    window.addEventListener('keyup',e=>{
+      if(e.code==='ArrowLeft'||e.code==='KeyA')S.keys.left=false;
+      if(e.code==='ArrowRight'||e.code==='KeyD')S.keys.right=false;
+    });
+    // 触屏拖拽
+    let dragId=null;
+    cv.addEventListener('pointerdown',e=>{dragId=e.pointerId; moveTo(e.clientX,e.clientY);});
+    cv.addEventListener('pointermove',e=>{if(e.pointerId===dragId)moveTo(e.clientX,e.clientY);});
+    const endD=e=>{if(e.pointerId===dragId)dragId=null;};
+    cv.addEventListener('pointerup',endD);cv.addEventListener('pointercancel',endD);
+    function moveTo(cx,cy){const r=cv.getBoundingClientRect();S.player.x=cx-r.left;}
+
+    reset();
+    // 主循环（沙箱 requestAnimationFrame 为 no-op，不会自走）
+    let last=0;
+    function frame(t){
+      const dt=Math.min(0.05,(t-last)/1000||0.016); last=t;
+      update(dt); render();
+      if(typeof requestAnimationFrame!=='undefined')requestAnimationFrame(frame);
+    }
+    if(typeof requestAnimationFrame!=='undefined')requestAnimationFrame(frame);
+  })();
+  </script>
+</body>
+</html>
