@@ -94,7 +94,7 @@
     const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',28px)'; bd.innerHTML=''; const path=solve()||[]; const pset=new Set(path.map(p=>p[0]+','+p[1])); for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); const cell=maze[r][c]; let cls='cell'; if(cell.N)cls+=' wallN'; if(cell.S)cls+=' wallS'; if(cell.E)cls+=' wallE'; if(cell.W)cls+=' wallW'; if(pset.has(r+','+c))cls+=' path'; if(r===H-1&&c===W-1)cls+=' goal'; d.className=cls; bd.appendChild(d); } } }
     const sz=$('size'),st=$('st'); if(sz)sz.textContent=W+'×'+H; if(st)st.textContent=isSolved()?'可解':'无解';
   }
-  function newGame(){ carve(); render(); }
+  function newGame(){ carve(); if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.addTrauma(0.12); } render(); }
   if(typeof document!=='undefined'){ const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); }; }
   newGame();
   if(typeof document!=='undefined'){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
