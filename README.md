@@ -1,18 +1,19 @@
 # 🎮 HTML5 游戏大厅 · Game Hub
 
 > 一个纯前端、零构建、暗色「金融终端」风格的 HTML5 游戏合集。
-> 31 款游戏 + 大厅 + 自动化测试套件，全部用原生 HTML/CSS/JS 写成，双击即玩。
+> 106 款游戏 + 大厅 + 自动化测试套件，全部用原生 HTML/CSS/JS 写成，双击即玩。
 
 ## ✨ 特性
 
-- **31 款游戏**，覆盖经典类型：益智 / 棋牌 / 动作 / 射击 / 竞速 / 解谜 / 文字 / 多人竞技 / 社交推理 / 策略桌游 / 枪战
+- **106 款游戏**，覆盖经典类型：益智 / 棋牌 / 动作 / 射击 / 竞速 / 解谜 / 文字 / 多人竞技 / 社交推理 / 策略桌游 / 枪战
 - **零依赖离线运行**：绝大多数游戏为单文件内联脚本，断网也能玩
 - **统一暗色终端风**：`#0a0e14` 背景、红涨绿跌配色（`#f6465d` / `#02c076` / `#f0b90b`）、等宽字体、三圆点标题栏
-- **可复用手感引擎 `juice.js`**：屏幕震动 / 粒子爆发 / 浮动文字 / 屏幕闪光 / WebAudio 合成音效 / 最佳分 / 成就 toast / 段位——一套引擎驱动全厅「打击感」
+- **可复用手感引擎 `juice.js`**：屏幕震动 / 粒子爆发 / 浮动文字 / 屏幕闪光 / 庆祝纸屑 / WebAudio 合成音效 / 最佳分 / 成就 toast / 段位——一套引擎驱动全厅「打击感」
 - **统一输入层 `input.js`**：边沿检测 + 动作缓冲（`consume`）+ 失焦/切后台清空，从根上解决按键与手机触控「断触」；键鼠与 `data-action` 虚拟按钮通用
+- **大厅体验**：分类筛选 / 名称·标签排序 / ★收藏 / 🎲随机一局 / 🔊全局静音 / ↑回到顶部，移动端 sticky 搜索栏
 - **留存设计**：连击倍率、黄金可变奖励、段位晋升（青铜→宗师）、每日挑战、错题本，套用成熟「即时反馈 + 可变奖励 + 心流」留存框架（合规版，不含诱导沉迷的幼年暗模式）
 - **移动端适配**：viewport + 触控事件 + 虚拟按键，手机可玩
-- **自动化测试**：CLI 静态检测 + 浏览器内运行断言，全套 200+ 项全绿
+- **自动化测试**：CLI 静态检测（618 项）+ node 逻辑单测（2700+ 项），全套全绿
 
 ## 🚀 快速开始
 
@@ -32,7 +33,9 @@
 cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
 ```
 
-## 🎯 游戏清单（31 款）
+## 🎯 游戏清单（106 款）
+
+> 完整清单以大厅 `games/index.html` 为准（含 NEW 标签与实时筛选）。下表为初始 31 款代表：
 
 | 卡片 | 游戏 | 类型 | 文件 |
 |----|------|------|------|
@@ -68,7 +71,7 @@ cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
 | AD | 大富翁 | 策略桌游 | [monopoly.html](games/monopoly.html) |
 | AE | 枪战突袭 | 俯视射击 | [gun.html](games/gun.html) |
 
-> ⚡ `cubecity`（Three.js）与 `battle`（PeerJS）需联网加载 CDN 资源；其余 29 款均为纯离线脚本。`plane.html`/`words.html` 引用同目录 `juice.js` 手感引擎，`fight/gun` 等同时引用 `juice.js`+`input.js`，`sgs/werewolf/airchess/monopoly` 引用同目录 `input.js` 输入层（均为本地文件，离线可用）。
+> ⚡ `cubecity`（Three.js）与 `battle`（PeerJS）需联网加载 CDN 资源；其余均为纯离线脚本。多数游戏引用同目录 `juice.js` 手感引擎，`fight/gun` 等同时引用 `juice.js`+`input.js`，`sgs/werewolf/airchess/monopoly` 引用同目录 `input.js` 输入层（均为本地文件，离线可用）。
 
 ## 🧪 测试
 
@@ -93,8 +96,8 @@ cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
 ├── games/
 │   ├── index.html            # 游戏大厅入口
 │   ├── 启动游戏大厅.bat        # 一键启动（双击）
-│   ├── 2048.html … gun.html   # 31 款游戏
-│   ├── juice.js                # 可复用手感/留存引擎（plane、words 等引用）
+│   ├── 2048.html … gun.html   # 106 款游戏
+│   ├── juice.js                # 可复用手感/留存引擎（sfx/trauma/burst/flash/confetti/achievement…）
 │   ├── input.js                # 统一输入层（修复断触，fight/sgs/werewolf/airchess/monopoly 等引用）
 │   └── tests/                # 自动化测试套件
 │       ├── test-runner.js    # CLI 静态检测
