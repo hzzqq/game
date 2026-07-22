@@ -56,6 +56,7 @@
   function inRect(x,y,r){ return x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h; }
   function hit(angleDeg,power){
     if(inHole) return;
+    Juice.sfx('click'); Juice.addTrauma(.15);
     strokes++;
     const a=angleDeg*Math.PI/180, dx=Math.cos(a), dy=Math.sin(a);
     for(let i=0;i<power;i++){
@@ -66,6 +67,7 @@
       ball.x=nx; ball.y=ny;
     }
     if(dist(ball.x,ball.y,hole.x,hole.y)<=HOLE_R) inHole=true;
+    if(inHole){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.burst(hole.x,hole.y,{color:'#02c076',n:14}); }
   }
   function getStrokes(){ return strokes; }
   function isInHole(){ return inHole; }
