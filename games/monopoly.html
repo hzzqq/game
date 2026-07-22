@@ -112,6 +112,9 @@
 <script>
 (function(){
   "use strict";
+  /* mulberry32 PRNG — 取代裸 Math.random，保证沙箱/浏览器一致 */
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var _rng = mk(0x51ed270b);
 
   /* ---------- 棋盘数据 ---------- */
   const TILES = [
@@ -197,7 +200,7 @@
   const turnDot = document.getElementById('turnDot');
   const diceEl = document.getElementById('dice');
 
-  function rand(){ return 1 + Math.floor(Math.random()*6); }
+  function rand(){ return 1 + Math.floor(_rng()*6); }
   function houseLabel(n){ if(n===0) return '空地'; if(n>=5) return '旅馆'; return n+'栋'; }
   function houseCostOf(t){ return Math.round(t.price/2); }
   function playerById(id){ return players[id]; }
@@ -324,7 +327,7 @@
     let remaining=steps, passedGo=false;
     function step(){
       if(remaining<=0){
-        if(passedGo){ p.cash+=SALARY; log(p.name+' 经过起点，领薪 ¥'+SALARY); }
+        if(passedGo){ p.cash+=SALARY; log(p.name+' 经过起点，领薪 ¥'+SALARY); if(typeof Juice!=='undefined') Juice.popup(window.innerWidth/2, window.innerHeight*0.3, '+¥'+SALARY, '#02c076', {size:16}); }
         done(p);
         return;
       }
@@ -451,7 +454,7 @@
   function sendToJail(p){ p.pos=10; p.displayPos=10; p.inJail=true; p.jailTurns=0; }
 
   function drawCard(p){
-    const type=CARD_TYPES[Math.floor(Math.random()*CARD_TYPES.length)];
+    const type=CARD_TYPES[Math.floor(_rng()*CARD_TYPES.length)];
     log(p.name+' 抽到 '+CARD_INFO[type].emoji+' '+CARD_INFO[type].name);
     applyCard(p,type);
   }
