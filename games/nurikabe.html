@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 涂黑 NURIKABE</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(240,185,11,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--gold)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:4px;margin:0 auto 10px;width:max-content;background:var(--panel);padding:10px;border-radius:14px;border:1px solid var(--border)}
+  .cell{width:54px;height:54px;border-radius:8px;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer;user-select:none}
+  .cell.wht{background:#dbe4ec;color:var(--gold)}
+  .cell.blk{background:#0e141d;color:var(--text)}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>涂黑</b> NURIKABE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">5</span></span><span id="status">留白连通且每块大小=数字，黑格连通无 2x2</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点空格切换黑/白（数字格恒白）。每数字格所属白色块恰含该数格；白块互不相邻；黑格整体连通且不含 2×2 全黑。</div>
+  </div>
+  <div class="foot">Nurikabe（涂黑）：把网格涂成黑白色。每个数字格所在的白色连通块恰好包含该数量的格子，不同白色块不能相邻；所有黑色格子连通且不存在 2×2 全黑。每局由随机生成的解派生，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  let _rng = mk(0x0c0ffee);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const N=5;
+  let clue;   // 0=无，>0=数字（白块大小）
+  let grid;   // 0 白, 1 黑（玩家）
+  let sol;    // 0 白, 1 黑（规范解）
+  let won=false;
+
+  function inb(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+
+  function blackOK(g){
+    const blacks=[]; for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(g[r][c]===1) blacks.push([r,c]);
+    if(blacks.length===0) return true;
+    const seen=new Set(); const stack=[blacks[0]]; seen.add(blacks[0][0]+','+blacks[0][1]);
+    while(stack.length){ const [r,c]=stack.pop();
+      for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){ if(inb(nr,nc)&&g[nr][nc]===1&&!seen.has(nr+','+nc)){ seen.add(nr+','+nc); stack.push([nr,nc]); } }
+    }
+    if(seen.size!==blacks.length) return false;
+    for(let r=0;r<N-1;r++) for(let c=0;c<N-1;c++){ if(g[r][c]===1&&g[r+1][c]===1&&g[r][c+1]===1&&g[r+1][c+1]===1) return false; }
+    return true;
+  }
+
+  function fallback(){
+    const cl=Array.from({length:N},()=>new Array(N).fill(0));
+    const g=Array.from({length:N},()=>new Array(N).fill(1)); // 默认黑
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(r%2===0&&c%2===0){ g[r][c]=0; cl[r][c]=1; }
+    return {clue:cl, sol:g};
+  }
+
+  function genNurikabe(){
+    for(let attempt=0; attempt<400; attempt++){
+      const cl=Array.from({length:N},()=>new Array(N).fill(0));
+      const owner=Array.from({length:N},()=>new Array(N).fill(-1)); // 白区归属
+      // 选 K 个互不相邻的数字格
+      const cells=[]; for(let r=0;r<N;r++) for(let c=0;c<N;c++) cells.push([r,c]); shuffle(cells);
+      const K=4+Math.floor(_rng()*3); // 4..6
+      const cluesPos=[];
+      for(const [r,c] of cells){
+        if(cluesPos.length>=K) break;
+        let adj=false; for(const [rr,cc] of cluesPos){ if(Math.abs(rr-r)+Math.abs(cc-c)===1){ adj=true; break; } }
+        if(!adj) cluesPos.push([r,c]);
+      }
+      if(cluesPos.length<K) continue;
+      const sizes=cluesPos.map(()=>1+Math.floor(_rng()*4)); // 1..5
+      // 先给所有数字格归属，保证扩张时互不相邻（包括尚未扩张的其它数字格）
+      let id=0;
+      for(let k=0;k<cluesPos.length;k++){ const [r,c]=cluesPos[k]; owner[r][c]=id++; cl[r][c]=sizes[k]; }
+      let ok=true;
+      for(let k=0;k<cluesPos.length;k++){
+        const sz=sizes[k]; const myId=k;
+        let cnt=1; // 数字格本身已占 1
+        while(cnt<sz){
+          const frontier=[];
+          for(let rr=0;rr<N;rr++) for(let cc=0;cc<N;cc++){
+            if(owner[rr][cc]!==myId) continue;
+            for(const [nr,nc] of [[rr-1,cc],[rr+1,cc],[rr,cc-1],[rr,cc+1]]){
+              if(!inb(nr,nc)) continue;
+              if(owner[nr][nc]!==-1) continue; // 已占
+              // 不能与其它任意白格（含其它数字格）相邻（保持分离）
+              let sep=true;
+              for(const [ar,ac] of [[nr-1,nc],[nr+1,nc],[nr,nc-1],[nr,nc+1]]){
+                if(inb(ar,ac) && owner[ar][ac]!==-1 && owner[ar][ac]!==myId){ sep=false; break; }
+              }
+              if(sep) frontier.push([nr,nc]);
+            }
+          }
+          if(frontier.length===0) break;
+          const pick=frontier[Math.floor(_rng()*frontier.length)];
+          owner[pick[0]][pick[1]]=myId; cnt++;
+        }
+        if(cnt<sz){ ok=false; break; }
+      }
+      if(!ok) continue;
+      // 构建解：白区=白(0)，其余=黑(1)
+      const g=Array.from({length:N},()=>new Array(N).fill(1));
+      for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(owner[r][c]!==-1) g[r][c]=0;
+      if(!blackOK(g)) continue;
+      return {clue:cl, sol:g};
+    }
+    return fallback();
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    const g=genNurikabe();
+    clue=g.clue.map(r=>r.slice());
+    sol=g.sol.map(r=>r.slice());
+    grid=Array.from({length:N},()=>new Array(N).fill(0));
+    won=false;
+    return getState();
+  }
+
+  function whiteComponents(){
+    const seen=Array.from({length:N},()=>new Array(N).fill(false));
+    const comps=[];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(seen[r][c]||grid[r][c]!==0) continue;
+      const stack=[[r,c]]; seen[r][c]=true; let size=0; const nums=[];
+      while(stack.length){ const [cr,cc]=stack.pop(); size++;
+        if(clue[cr][cc]>0) nums.push(clue[cr][cc]);
+        for(const [nr,nc] of [[cr-1,cc],[cr+1,cc],[cr,cc-1],[cr,cc+1]]){
+          if(inb(nr,nc)&&!seen[nr][nc]&&grid[nr][nc]===0){ seen[nr][nc]=true; stack.push([nr,nc]); }
+        }
+      }
+      comps.push({size,nums});
+    }
+    return comps;
+  }
+  function isWin(){
+    const comps=whiteComponents();
+    for(const cm of comps){
+      if(cm.nums.length!==1) return false;       // 每白块恰一数字
+      if(cm.size!==cm.nums[0]) return false;       // 大小=数字
+    }
+    // 黑格连通 + 无 2x2 黑
+    const blacks=[]; for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(grid[r][c]===1) blacks.push([r,c]);
+    if(blacks.length>0){
+      const seen=new Set(); const stack=[blacks[0]]; seen.add(blacks[0][0]+','+blacks[0][1]);
+      while(stack.length){ const [r,c]=stack.pop();
+        for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]) if(inb(nr,nc)&&grid[nr][nc]===1&&!seen.has(nr+','+nc)){ seen.add(nr+','+nc); stack.push([nr,nc]); }
+      }
+      if(seen.size!==blacks.length) return false;
+      for(let r=0;r<N-1;r++) for(let c=0;c<N-1;c++) if(grid[r][c]===1&&grid[r+1][c]===1&&grid[r][c+1]===1&&grid[r+1][c+1]===1) return false;
+    }
+    return true;
+  }
+
+  function setBlack(r,c,bool){
+    if(!inb(r,c)) return false;
+    if(clue[r][c]>0) return false; // 数字格恒白
+    grid[r][c]=(bool?1:0);
+    won=isWin();
+    if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    return true;
+  }
+  function toggleBlack(r,c){ if(clue[r][c]>0) return false; return setBlack(r,c, grid[r][c]!==1); }
+  function reset(){ grid=Array.from({length:N},()=>new Array(N).fill(0)); won=false; return getState(); }
+  function applySolution(){ grid=sol.map(row=>row.slice()); won=isWin(); return won; }
+  function getSolution(){ return sol.map(row=>row.slice()); }
+  function getState(){ return { N, clue:clue.map(r=>r.slice()), grid:grid.map(r=>r.slice()), won }; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.style.gridTemplateColumns='repeat('+N+',54px)';
+    b.innerHTML='';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const el=document.createElement('div'); el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>{ toggleBlack(r,c); render(); });
+      b.appendChild(el);
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'),nEl=$('n'),msg=$('msg'),st=$('status');
+    if(!b) return;
+    const cells=b.children;
+    for(let i=0;i<cells.length;i++){
+      const r=+cells[i].dataset.r, c=+cells[i].dataset.c;
+      const black=grid[r][c]===1;
+      cells[i].className='cell '+(black?'blk':'wht');
+      cells[i].textContent = (clue[r][c]>0)? clue[r][c] : '';
+    }
+    if(nEl) nEl.textContent=N;
+    if(st) st.textContent = won?'已通关':'留白连通且每块大小=数字，黑格连通无 2x2';
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！白块大小匹配、互不相邻，黑格连通无 2×2。'; } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newPuzzle(); buildBoard(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setBlack, toggleBlack, applySolution, getSolution, getState, whiteComponents };
+  }
+})();
+</script>
+</body>
+</html>
