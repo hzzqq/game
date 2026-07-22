@@ -35,6 +35,10 @@
   .act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px}
   .act:hover{border-color:var(--dim)}
   .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+  .diffbar{width:min(560px,96vw);display:flex;gap:6px;margin-bottom:12px}
+  .diffbar button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:7px 0;cursor:pointer;font-family:inherit;font-size:12px;transition:.12s}
+  .diffbar button:hover{border-color:var(--gold)}
+  .diffbar button.active{background:rgba(240,185,11,.15);border-color:var(--gold);color:var(--gold);font-weight:700}
 
   #wrap{width:min(560px,96vw);aspect-ratio:1;position:relative}
   canvas{width:100%;height:100%;display:block;background:#0d1320;border:1px solid var(--border);border-radius:10px;touch-action:manipulation;cursor:pointer}
@@ -60,6 +64,8 @@
       <button class="act gold" id="newBtn">新局</button>
     </div>
   </div>
+
+  <div class="diffbar" id="diffbar"></div>
 
   <div id="wrap"><canvas id="cv"></canvas></div>
 
@@ -89,6 +95,22 @@
 
   function idx(r,c){ return r*N + c; }
   function inB(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+  /* ===================== 难度系统 =====================
+     难度通过 AI 走随机候选点（放弃攻防计算）的概率来分级。
+     地狱档 aiRandom=0 → 完整启发式，全力封堵与进攻。 */
+  const DIFFICULTY = {
+    easy:   {label:'简单', aiRandom:0.80},
+    normal: {label:'普通', aiRandom:0.40},
+    hard:   {label:'困难', aiRandom:0.12},
+    hell:   {label:'地狱', aiRandom:0.00},
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
 
   function reset(){
     board = new Array(N*N).fill(EMPTY);
@@ -299,6 +321,15 @@
   function aiTurn(){
     if(gameOver) return;
     const cands = getCandidates();
+    // 难度弱化：一定概率直接走随机候选点，放弃攻防计算（地狱档概率为 0）
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    if(cfg.aiRandom>0 && cands.length && _rand() < cfg.aiRandom){
+      const mv = cands[Math.floor(_rand()*cands.length)];
+      doMove(mv.r, mv.c, A);
+      if(gameOver) return;
+      current = P; setTurn(); draw();
+      return;
+    }
     let winMove=null, blockWin=null, blockThreat=null, makeThreat=null, best=null, bestVal=-1;
     for(const {r,c} of cands){
       const atk = evalPoint(r,c,A);
@@ -344,11 +375,27 @@
     placePlayer(r,c);
   });
 
+  function buildDiffBar(){
+    const bar=document.getElementById('diffbar'); if(!bar) return; bar.innerHTML='';
+    for(const k of DIFF_ORDER){
+      const btn=document.createElement('button');
+      btn.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) btn.className='active';
+      btn.onclick=()=>{
+        setDifficulty(k); reset();
+        [...bar.children].forEach((c,i)=>c.className=(DIFF_ORDER[i]===difficulty)?'active':'');
+        if(typeof Juice!=='undefined') Juice.sfx('click');
+      };
+      bar.appendChild(btn);
+    }
+  }
+
   document.getElementById('newBtn').onclick = reset;
   document.getElementById('ovBtn').onclick = reset;
   document.getElementById('undoBtn').onclick = undo;
   window.addEventListener('resize', fit);
 
+  buildDiffBar();
   reset();
   fit();
 
@@ -366,6 +413,7 @@
   window.__t = {
     N, EMPTY, P, A,
     reset, checkWin, doMove, placePlayer, undo, aiTurn,
+    setRand, DIFFICULTY, setDifficulty, getDifficulty,
     setBoard(arr) { board = arr.slice(); },
     getBoard() { return board.slice(); },
     get gameOver() { return gameOver; },

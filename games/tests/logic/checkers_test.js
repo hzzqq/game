@@ -113,4 +113,31 @@ ok('isKing', t.isKing(t.REDking) && t.isKing(t.BLACKking) && !t.isKing(t.REDman)
   ok('aiMove 后无异常且轮转/结束', t.getTurn()==='red' || t.winner()!==null);
 }
 
+// ---------- 难度系统 ----------
+{
+  eq('跳棋 4 档难度', Object.keys(t.DIFFICULTY).length, 4);
+  ok('跳棋 含地狱档', t.DIFFICULTY.hell.label==='地狱');
+  eq('跳棋 地狱档 aiRandom=0', t.DIFFICULTY.hell.aiRandom, 0);
+  ok('跳棋 简单档随机率 > 困难档', t.DIFFICULTY.easy.aiRandom > t.DIFFICULTY.hard.aiRandom);
+  ok('跳棋 setDifficulty 合法', t.setDifficulty('normal')===true);
+  eq('跳棋 getDifficulty', t.getDifficulty(), 'normal');
+  ok('跳棋 setDifficulty 非法返回 false', t.setDifficulty('qq')===false);
+  // 地狱档择优：黑方在"升王"与"普通前进"间应选升王
+  const board = Array.from({length:8},()=>new Array(8).fill(0));
+  board[6][1]=t.BLACKman;  // 可走到 (7,0)/(7,2) → 升王
+  board[1][4]=t.BLACKman;  // 只能普通前进到 row2
+  t.setBoard(board); t.setTurn('black'); t.setPending(null);
+  t.setDifficulty('hell'); t.setRand(Math.random);
+  t.aiMove();
+  const nb=t.getBoard();
+  const kinged = nb[7].some(x=>x===t.BLACKking);
+  ok('跳棋 地狱档优先升王', kinged===true);
+  // 简单档 + 强制随机流：AI 走随机步，仍完成走子（轮转到红或结束）
+  t.setBoard(board.map(r=>r.slice())); t.setTurn('black'); t.setPending(null);
+  t.setDifficulty('easy'); t.setRand(()=>0.0);
+  t.aiMove();
+  ok('跳棋 简单档随机步完成回合', t.getTurn()==='red' || t.winner()!==null);
+  t.setDifficulty('normal'); t.setRand(Math.random);
+}
+
 console.log('checkers: 全部断言通过');

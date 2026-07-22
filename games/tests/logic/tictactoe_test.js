@@ -1,6 +1,9 @@
 const { loadGame, eq, ok } = require('./harness');
 const { t } = loadGame('../tictactoe.html');
 
+// 锁定地狱档：aiRandom=0 → 纯 minimax，保证以下确定性断言不受随机弱化影响
+t.setDifficulty('hell');
+
 // ---------- 常量 ----------
 eq('HUMAN=1', t.HUMAN, 1);
 eq('AI=2', t.AI, 2);
@@ -87,6 +90,31 @@ eq('LINES 8 条', t.LINES.length, 8);
   let okk=true;
   try{ for(const p of seq){ if(!t.isOver()) t.humanMove(p); } }catch(e){ okk=false; }
   ok('连续 humanMove 不抛错', okk);
+}
+
+// ---------- 难度系统 ----------
+{
+  eq('4 档难度', Object.keys(t.DIFFICULTY).length, 4);
+  ok('含简单', t.DIFFICULTY.easy.label==='简单');
+  ok('含地狱', t.DIFFICULTY.hell.label==='地狱');
+  eq('地狱档 aiRandom=0', t.DIFFICULTY.hell.aiRandom, 0);
+  ok('简单档随机率 > 困难档', t.DIFFICULTY.easy.aiRandom > t.DIFFICULTY.hard.aiRandom);
+  // setDifficulty 合法/非法
+  ok('setDifficulty(easy) 成功', t.setDifficulty('easy')===true);
+  eq('getDifficulty=easy', t.getDifficulty(), 'easy');
+  ok('setDifficulty(bad) 失败', t.setDifficulty('nope')===false);
+  eq('非法档不改变现值', t.getDifficulty(), 'easy');
+  // 简单档：注入固定随机流，验证会走随机步（而非最优封堵）
+  t.setDifficulty('easy');
+  {
+    // 局面：人占 3,4（行1 两子）→ 最优应封堵位5；avail[0]=1≠5，可区分随机与最优
+    const b=[2,0,0, 1,1,0, 0,0,0];
+    t.setDifficulty('hell'); t.setRand(Math.random);
+    eq('地狱档封堵人行→位5', t.aiMove(b.slice()), 5);
+    t.setDifficulty('easy'); t.setRand(()=>0.0);
+    eq('简单档随机→首个空位1', t.aiMove(b.slice()), 1);
+  }
+  t.setDifficulty('hell'); t.setRand(Math.random); // 复位
 }
 
 console.log('tictactoe: 全部断言通过');

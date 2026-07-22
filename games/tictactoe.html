@@ -16,6 +16,10 @@
   .wrap{width:min(420px,98vw)}
   .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
   .hud .sc{color:var(--gold);font-weight:700}
+  .diffbar{display:flex;gap:6px;margin-bottom:10px}
+  .diffbar button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:7px 0;cursor:pointer;font-family:inherit;font-size:12px;transition:.12s}
+  .diffbar button:hover{border-color:var(--gold)}
+  .diffbar button.active{background:rgba(240,185,11,.15);border-color:var(--gold);color:var(--gold);font-weight:700}
   .board{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:var(--border);border:2px solid var(--border);border-radius:12px;padding:8px}
   .cell{aspect-ratio:1;background:#0c121a;border:1px solid #16202c;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:54px;font-weight:700;cursor:pointer;user-select:none;transition:.1s}
   .cell:hover{border-color:var(--green)}
@@ -34,6 +38,7 @@
     <span class="t">TERMINAL // <b>井字棋</b> TIC-TAC-TOE</span></div>
   <div class="wrap">
     <div class="hud"><span>你 <b style="color:var(--red)">✕</b> · AI <b style="color:var(--green)">◯</b></span><span id="record">胜 0 · 负 0 · 平 0</span></div>
+    <div class="diffbar" id="diffbar"></div>
     <div class="board" id="board"></div>
     <div class="msg" id="msg">你先手（✕）。点空格落子。</div>
     <div class="controls"><button id="restart">重开</button></div>
@@ -51,6 +56,20 @@
 
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
+
+  /* ===================== 难度系统（可复用样板） =====================
+     难度通过 AI 走随机步的概率来分级：概率越高 AI 越弱。
+     地狱档 aiRandom=0 → 纯 minimax，永不落败。 */
+  const DIFFICULTY = {
+    easy:   {label:'简单', aiRandom:0.85},
+    normal: {label:'普通', aiRandom:0.45},
+    hard:   {label:'困难', aiRandom:0.12},
+    hell:   {label:'地狱', aiRandom:0.00},
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
 
   function winner(board){
     for(const [a,b,c] of LINES){ if(board[a]!==EMPTY && board[a]===board[b] && board[b]===board[c]) return board[a]; }
@@ -79,6 +98,9 @@
   function aiMove(board){
     const moves = avail(board);
     if(moves.length===0) return -1;
+    // 难度：一定概率走随机步以弱化 AI（地狱档概率为 0 → 纯 minimax）
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){ return moves[Math.floor(_rand()*moves.length)]; }
     let best=-Infinity, pick=moves[0];
     for(const m of moves){
       board[m]=AI;
@@ -144,14 +166,30 @@
     }
   }
   function onCell(i){ if(over||cur!==HUMAN) return; humanMove(i); render(); }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    const bar=$('diffbar'); if(!bar) return; bar.innerHTML='';
+    for(const k of DIFF_ORDER){
+      const btn=document.createElement('button');
+      btn.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) btn.className='active';
+      btn.onclick=()=>{
+        setDifficulty(k); reset();
+        [...bar.children].forEach((c,i)=>c.className=(DIFF_ORDER[i]===difficulty)?'active':'');
+        if(typeof Juice!=='undefined') Juice.sfx('click');
+        render();
+      };
+      bar.appendChild(btn);
+    }
+  }
   function bindUI(){
     if(typeof document==='undefined') return;
     const rs=$('restart'); if(rs) rs.onclick=()=>{ reset(); render(); };
   }
   reset();
   if(typeof document!=='undefined'){
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
-    else { buildBoard(); bindUI(); render(); }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); buildDiffBar(); bindUI(); render(); });
+    else { buildBoard(); buildDiffBar(); bindUI(); render(); }
   }
 
   if(typeof window!=='undefined'){
@@ -159,6 +197,7 @@
       HUMAN, AI, EMPTY, LINES,
       setRand, winner, isFull, avail, minimax, aiMove,
       reset, humanMove,
+      DIFFICULTY, setDifficulty, getDifficulty,
       getBoard:()=>board, getCur:()=>cur, isOver:()=>over, getWinLine:()=>winLine,
       getRecord:()=>record, setRecord:(r)=>{record=r;},
     };

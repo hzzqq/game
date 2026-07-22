@@ -16,6 +16,10 @@
   .wrap{width:min(560px,98vw)}
   .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
   .hud .st{color:var(--green);font-weight:700}
+  .diffbar{display:flex;gap:6px;margin-bottom:10px}
+  .diffbar button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:7px 0;cursor:pointer;font-family:inherit;font-size:12px;transition:.12s}
+  .diffbar button:hover{border-color:var(--gold)}
+  .diffbar button.active{background:rgba(240,185,11,.15);border-color:var(--gold);color:var(--gold);font-weight:700}
   .board{width:min(480px,94vw);aspect-ratio:1/1;margin:0 auto;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);border:2px solid var(--border);border-radius:8px;overflow:hidden}
   .cell{position:relative;display:flex;align-items:center;justify-content:center}
   .cell.dark{background:#1a2330}
@@ -40,6 +44,7 @@
     <span class="t">TERMINAL // <b>西洋跳棋</b> CHECKERS</span></div>
   <div class="wrap">
     <div class="hud"><span>回合 TURN · <span class="st" id="turn">红 RED</span></span><span id="status">你执红先手</span></div>
+    <div class="diffbar" id="diffbar"></div>
     <div class="board" id="board"></div>
     <div class="controls">
       <button id="restart" class="ghost">重开 NEW</button>
@@ -56,6 +61,22 @@
   /* ===================== 纯逻辑核心 ===================== */
   const SIZE = 8;
   const EMPTY = 0, REDman = 1, BLACKman = 2, REDking = 3, BLACKking = 4;
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+  /* ===================== 难度系统 =====================
+     难度通过 AI 走随机合法步（放弃择优）的概率来分级。
+     地狱档 aiRandom=0 → 择优：吃子 > 升王 > 前进。 */
+  const DIFFICULTY = {
+    easy:   {label:'简单', aiRandom:0.85},
+    normal: {label:'普通', aiRandom:0.45},
+    hard:   {label:'困难', aiRandom:0.12},
+    hell:   {label:'地狱', aiRandom:0.00},
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
 
   let board, turn, pending; // pending=[r,c] 必须继续连吃的棋子，或 null
 
@@ -158,13 +179,30 @@
   function setTurn(s){ turn = s; }
   function setPending(v){ pending = v; }
 
-  // 简单 AI：黑方走合法第一步（有吃子强制吃子，已隐含在 legalMoves）。执行整个黑方回合（含连吃）。
+  // AI 走子评估：吃子最重，其次升王，其次向底线推进（黑方行号增大为前进）
+  function scoreMoveAI(m){
+    let s = 0;
+    if(m.capture) s += 10;
+    const p = board[m.from[0]][m.from[1]];
+    if(p===BLACKman && m.to[0]===SIZE-1) s += 5; // 升王
+    s += m.to[0] * 0.5;                          // 前进
+    return s;
+  }
+  // 黑方 AI 回合（含连吃）。难度：一定概率走随机合法步，地狱档则始终择优。
   function aiMove(){
     let guard=0;
     while(turn==='black' && guard++<40){
       const mv = legalMoves();
       if(!mv.length) break;
-      applyMove(mv[0]);
+      const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+      let pick;
+      if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
+        pick = mv[Math.floor(_rand()*mv.length)];
+      } else {
+        let best=-Infinity; pick=mv[0];
+        for(const m of mv){ const sc=scoreMoveAI(m); if(sc>best){ best=sc; pick=m; } }
+      }
+      applyMove(pick);
       if(typeof Juice!=='undefined') Juice.sfx('click');
     }
   }
@@ -223,6 +261,21 @@
     }
     render();
   }
+  function buildDiffBar(){
+    const bar=$('diffbar'); if(!bar) return; bar.innerHTML='';
+    for(const k of DIFF_ORDER){
+      const btn=document.createElement('button');
+      btn.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) btn.className='active';
+      btn.onclick=()=>{
+        setDifficulty(k); newGame(); selected=null;
+        [...bar.children].forEach((c,i)=>c.className=(DIFF_ORDER[i]===difficulty)?'active':'');
+        if(typeof Juice!=='undefined') Juice.sfx('click');
+        render();
+      };
+      bar.appendChild(btn);
+    }
+  }
   function bindUI(){
     if(typeof document==='undefined') return;
     const rb=$('restart');
@@ -230,8 +283,8 @@
   }
   newGame();
   if(typeof document!=='undefined'){
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
-    else { bindUI(); render(); }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildDiffBar(); bindUI(); render(); });
+    else { buildDiffBar(); bindUI(); render(); }
   }
 
   if(typeof window!=='undefined'){
@@ -240,7 +293,8 @@
       inBoard, isDark, sideOf, isKing, fwdDirs,
       newGame, capturesFrom, simpleFrom, legalMoves, applyMove,
       countPieces, winner, pieceAt, getBoard, getTurn, getPending,
-      setBoard, setTurn, setPending, aiMove,
+      setBoard, setTurn, setPending, aiMove, scoreMoveAI,
+      setRand, DIFFICULTY, setDifficulty, getDifficulty,
     };
   }
 })();

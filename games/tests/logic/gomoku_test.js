@@ -3,6 +3,9 @@ const H = require('./harness');
 const { t } = H.loadGame('../gomoku.html');
 const N = t.N, EMPTY = t.EMPTY, P = t.P, A = t.A;
 
+// 锁定地狱档：aiRandom=0 → 完整启发式，保证 AI 封堵等确定性断言不被随机弱化干扰
+t.setDifficulty('hell');
+
 function flat(rows) { return rows.flat(); }
 function get(r, c) { return t.getBoard()[r * N + c]; }
 
@@ -83,4 +86,30 @@ function get(r, c) { return t.getBoard()[r * N + c]; }
   H.ok('五子棋 落子生效', get(7, 7) === P);
   t.undo();
   H.ok('五子棋 悔棋清空该格', get(7, 7) === EMPTY);
+})();
+
+// 9) 难度系统
+(() => {
+  H.eq('五子棋 4 档难度', Object.keys(t.DIFFICULTY).length, 4);
+  H.ok('五子棋 含地狱档', t.DIFFICULTY.hell.label === '地狱');
+  H.eq('五子棋 地狱档 aiRandom=0', t.DIFFICULTY.hell.aiRandom, 0);
+  H.ok('五子棋 简单档随机率 > 困难档', t.DIFFICULTY.easy.aiRandom > t.DIFFICULTY.hard.aiRandom);
+  H.ok('五子棋 setDifficulty 合法', t.setDifficulty('easy') === true);
+  H.eq('五子棋 getDifficulty', t.getDifficulty(), 'easy');
+  H.ok('五子棋 setDifficulty 非法返回 false', t.setDifficulty('xx') === false);
+  // 地狱档必封堵活四（对照组：完整启发式）
+  const b = Array(N * N).fill(EMPTY);
+  for (let c = 3; c <= 6; c++) b[7 * N + c] = P; // 玩家活四，两端 (7,2)/(7,7) 空
+  t.reset(); t.setBoard(b.slice()); t.current = A;
+  t.setDifficulty('hell'); t.setRand(Math.random);
+  t.aiTurn();
+  H.ok('五子棋 地狱档必封堵活四', get(7, 2) === A || get(7, 7) === A);
+  // 简单档 + 强制随机流：走随机候选点（不进入攻防计算），AI 仍会落一子且不抛错
+  t.reset(); t.setBoard(b.slice()); t.current = A;
+  t.setDifficulty('easy'); t.setRand(() => 0.0);
+  let cnt0 = t.getBoard().filter(v => v === A).length;
+  t.aiTurn();
+  let cnt1 = t.getBoard().filter(v => v === A).length;
+  H.ok('五子棋 简单档随机步仍落一子', cnt1 === cnt0 + 1);
+  t.setDifficulty('hell'); t.setRand(Math.random); // 复位
 })();

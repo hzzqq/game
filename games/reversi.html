@@ -38,6 +38,10 @@
   .act:hover{border-color:var(--dim)}
   .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
   .act.on{background:var(--red);color:#0a0e14;border-color:var(--red)}
+  .diffbar{width:min(560px,96vw);display:flex;gap:6px;margin-bottom:12px}
+  .diffbar button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:7px 0;cursor:pointer;font-family:inherit;font-size:12px;transition:.12s}
+  .diffbar button:hover{border-color:var(--gold)}
+  .diffbar button.active{background:rgba(240,185,11,.15);border-color:var(--gold);color:var(--gold);font-weight:700}
   #wrap{width:min(560px,96vw);position:relative}
   canvas{width:100%;height:auto;display:block;background:#0d1320;border:1px solid var(--border);border-radius:10px;touch-action:none;cursor:pointer}
   #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.9)}
@@ -62,8 +66,9 @@
       <button class="act" id="newBtn">新局</button>
     </div>
   </div>
+  <div class="diffbar" id="diffbar"></div>
   <div id="wrap"><canvas id="cv"></canvas></div>
-  <div class="foot">规则: 落子必须夹住对方棋子并翻面，无子可翻则跳过，终局子多者胜。双人热座 + 可选 AI。</div>
+  <div class="foot">规则: 落子必须夹住对方棋子并翻面，无子可翻则跳过，终局子多者胜。双人热座 + 可选 AI。难度仅在 AI 对手下生效。</div>
   <div id="overlay"><div class="box">
     <h2 id="ovTitle">游戏结束</h2>
     <p id="ovText"></p>
@@ -79,6 +84,21 @@
   const EMPTY = 0, R = 1, G = 2;
   const RED = '#f6465d', GREEN = '#02c076';
   const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+  /* ===================== 难度系统 =====================
+     难度通过 AI 走随机合法步（放弃评估）的概率来分级。地狱档 aiRandom=0 → 全力评估。 */
+  const DIFFICULTY = {
+    easy:   {label:'简单', aiRandom:0.80},
+    normal: {label:'普通', aiRandom:0.40},
+    hard:   {label:'困难', aiRandom:0.12},
+    hell:   {label:'地狱', aiRandom:0.00},
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
 
   const canvas = document.getElementById('cv');
   const ctx = canvas.getContext('2d');
@@ -228,6 +248,13 @@
     if(gameOver) return;
     const moves = legalMoves(G);
     if(moves.length===0) return;
+    // 难度弱化：一定概率直接走随机合法步（放弃评估，地狱档概率为 0）
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
+      const m = moves[Math.floor(_rand()*moves.length)];
+      step(m[0], m[1], G);
+      return;
+    }
     // 评估：优先角、避免边危、最大化翻子
     let best=null, bestVal=-1e9;
     for(const [r,c] of moves){
@@ -242,7 +269,7 @@
     let v = flips*10;
     if((r===0||r===N-1)&&(c===0||c===N-1)) v += 40;       // 角
     else if(r===0||r===N-1||c===0||c===N-1) v -= (r===0||r===N-1)&&(c===1||c===N-2)?12:6; // 边危
-    return v + Math.random()*3;
+    return v + _rand()*3;
   }
 
   function endGame(){
@@ -285,6 +312,21 @@
     step(r,c,current);
   });
 
+  function buildDiffBar(){
+    const bar=document.getElementById('diffbar'); if(!bar) return; bar.innerHTML='';
+    for(const k of DIFF_ORDER){
+      const btn=document.createElement('button');
+      btn.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) btn.className='active';
+      btn.onclick=()=>{
+        setDifficulty(k);
+        [...bar.children].forEach((c,i)=>c.className=(DIFF_ORDER[i]===difficulty)?'active':'');
+        if(typeof Juice!=='undefined') Juice.sfx('click');
+      };
+      bar.appendChild(btn);
+    }
+  }
+
   document.getElementById('newBtn').onclick = reset;
   document.getElementById('ovBtn').onclick = reset;
   document.getElementById('undoBtn').onclick = undo;
@@ -296,6 +338,7 @@
   };
   window.addEventListener('resize', fit);
 
+  buildDiffBar();
   reset(); fit();
 
   let _gLast = 0;
@@ -309,7 +352,8 @@
 
   window.__t = {
     N, EMPTY, R, G, DIRS,
-    reset, legalMoves, flipsFor, place, step, undo,
+    reset, legalMoves, flipsFor, place, step, undo, aiTurn,
+    setRand, DIFFICULTY, setDifficulty, getDifficulty,
     setBoard(b){ board = b.map(function(row){ return row.slice(); }); },
     getBoard(){ return board.map(function(row){ return row.slice(); }); },
     get current(){ return current; }, set current(v){ current=v; },
