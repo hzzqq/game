@@ -106,6 +106,12 @@
 
   var BEST_KEY = 'term_snake_best';
 
+  // 局部种子 PRNG（mulberry32）：注入代码里的随机必须走它，禁止 Math.random，
+  // 以免污染 node 测试 harness 跨游戏共享的 Math.random 流。
+  function mk(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var _rng = mk(0x5EED ^ (GRID*2654435761));
+  function reseed(s){ _rng = mk((s>>>0) || 1); }
+
   var snake, dir, nextDir, food, score, best, alive, paused, level;
   var powerups=[], boostUntil=0, shieldUntil=0;
   var stepMs, acc, lastT, raf;
@@ -129,6 +135,7 @@
     powerups = [];
     boostUntil = 0;
     shieldUntil = 0;
+    reseed(0x5EED ^ (GRID*2654435761));
     spawnFood();
     overlay.style.display = 'none';
     pauseBtn.textContent = '⏸ 暂停 (空格)';
@@ -154,8 +161,8 @@
       }
     }
     if(free.length===0){ food=null; return; }   // win-ish: board full
-    food = free[Math.floor(Math.random()*free.length)];
-    if(Math.random() < 0.18) spawnPowerup();
+    food = free[Math.floor(_rng()*free.length)];
+    if(_rng() < 0.18) spawnPowerup();
   }
 
   // 在空格随机掉落一个道具（最多同时存在 2 个，不与食物/蛇身重叠）
@@ -168,10 +175,13 @@
       }
     }
     if(free.length===0) return;
-    var cell = free[Math.floor(Math.random()*free.length)];
+    var cell = free[Math.floor(_rng()*free.length)];
     var types = ['speed','shield','gem'];
-    powerups.push({ x:cell.x, y:cell.y, type:types[Math.floor(Math.random()*types.length)] });
+    powerups.push({ x:cell.x, y:cell.y, type:types[Math.floor(_rng()*types.length)] });
   }
+
+  // 标准掉落构造器（供 hook 直接投放）
+  function makePickup(type, x, y){ return { x:x, y:y, type:type }; }
 
   // 拾取道具：返回 true 表示蛇身应增长一格（仅宝石）
   function applyPower(type, x, y){
@@ -426,7 +436,21 @@
   // 测试钩子（不影响正常玩法）
   window.__t = {
     GRID,
-    reset, step, spawnFood, spawnPowerup, applyPower, occupied, setDir, nowMs,
+    reset, step, spawnFood, spawnPowerup, applyPower, occupied, setDir, nowMs, makePickup,
+    // —— 标准掉落钩子（别名 / 扩展）——
+    spawnPickup(type, x, y) { powerups.push(makePickup(type, x, y)); },
+    applyPickup(type, x, y) { return applyPower(type, x, y); },
+    getPickups() { return powerups.map(p => ({ x:p.x, y:p.y, type:p.type })); },
+    stepPickups() { /* 网格静态道具：无移动逻辑 */ },
+    setShield(v) { shieldUntil = v ? nowMs() + 1e9 : 0; },
+    setBoost(v) { boostUntil = v ? nowMs() + 1e9 : 0; },
+    getState() { return {
+      score: score, alive: alive,
+      boost: nowMs() < boostUntil, shield: nowMs() < shieldUntil,
+      snake: snake.map(p => ({ x: p.x, y: p.y })),
+      food: food ? { x: food.x, y: food.y } : null,
+      powerups: powerups.map(p => ({ x: p.x, y: p.y, type: p.type }))
+    }; },
     setSnake(arr) { snake = arr.map(p => ({ x: p.x, y: p.y })); },
     setFood(obj) { food = obj ? { x: obj.x, y: obj.y } : null; },
     setPowerups(arr) { powerups = (arr||[]).map(p => ({ x:p.x, y:p.y, type:p.type })); },
