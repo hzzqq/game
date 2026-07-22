@@ -64,3 +64,69 @@ H.ok('敌机触底: 余机-1', t.getState().lives === livesBefore - 1);
 t.reset();
 let rs = t.getState();
 H.ok('reset 后状态可读取', rs && typeof rs.score === 'number' && rs.running === false);
+
+// ===== 注入式掉落/增益系统（确定性驱动，setRand 控制掉落 PRNG）=====
+t.setRand(123);
+
+// 1. 生成掉落物 + 金币计分
+t.reset(); t.start();
+t.spawnPickup('coin', 400, 100);
+H.eq('生成 1 个掉落物', t.getPickups(), 1);
+const coinsBefore = t.getCoins(), scoreBefore = t.getState().score;
+t.applyPickup(0);
+H.eq('拾取 💰 金币计数+1', t.getCoins(), coinsBefore + 1);
+H.eq('拾取 💰 加分(+10)', t.getState().score, scoreBefore + 10);
+H.eq('拾取后掉落物移除', t.getPickups(), 0);
+
+// 2. 护盾：有盾受击（敌机触底）不扣血，护盾被消耗
+t.reset(); t.start(); t.setLives(3); t.setShield(1); t.clearEnemies();
+t.spawnEnemyAt(400, 540 - 16 + 2, 1, 0); // 紧贴玩家上方下一步触底
+const lb = t.getLives();
+t.update(0.02);
+H.eq('有护盾: 触底不扣血', t.getLives(), lb);
+H.eq('护盾被消耗', t.getShield(), 0);
+// 无盾受击扣血
+t.reset(); t.start(); t.setLives(3); t.clearEnemies();
+t.spawnEnemyAt(400, 540 - 16 + 2, 1, 0);
+const lb2 = t.getLives();
+t.update(0.02);
+H.eq('无盾: 触底扣血', t.getLives(), lb2 - 1);
+
+// 3. 加速增益：boost 置位
+t.reset(); t.start();
+t.spawnPickup('boost', 400, 100);
+H.eq('生成 boost 掉落物', t.getPickup(0).type, 'boost');
+t.applyPickup(0);
+H.ok('拾取 🚀 加速生效(boostTimer>0)', t.getBoost() > 0);
+
+// 4. 回血增益：heal 增加余机
+t.reset(); t.start(); t.setLives(2);
+t.spawnPickup('heal', 400, 100);
+t.applyPickup(0);
+H.eq('拾取 ❤ 余机+1', t.getLives(), 3);
+
+// 5. 碰撞自动拾取
+t.reset(); t.start();
+t.setPlayerX(400);
+t.spawnPickup('shield', 400, 540);
+t.update(0.02);
+H.eq('掉落到玩家自动拾取护盾', t.getShield(), 1);
+H.eq('自动拾取后移除', t.getPickups(), 0);
+
+// 6. 非法索引被拒
+t.reset(); t.start();
+t.applyPickup(99);
+H.eq('非法索引不报错且掉落物=0', t.getPickups(), 0);
+
+// 7. 回归：无 buff 时清屏得分逻辑不变（干净基线）
+t.reset(); t.startWave(1); t.setAutoFire(false); t.setAutoWave(false);
+const targets2 = t.getState().enemies.map(e => e.x);
+for (const tx of targets2) {
+  const before = t.getState().enemyCount;
+  t.setPlayerX(tx); t.fire();
+  let guard = 0;
+  while (t.getState().enemyCount >= before && guard < 300) { t.update(0.02); guard++; }
+}
+H.eq('回归: 清屏得分=500', t.getState().score, 500);
+// 还原掉落 PRNG 为默认随机流（确定性块结束）
+t.setRand(Math.random);
