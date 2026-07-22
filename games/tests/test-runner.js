@@ -121,6 +121,21 @@ const FILES = {
   'futoshiki.html':   { name:'不等号数独 Futoshiki',         offline:true },
   'towers.html':      { name:'摩天楼 Towers',                offline:true },
   'bridges.html':     { name:'连桥 Hashi',                   offline:true },
+  'slitherlink.html': { name:'数回 Slitherlink',             offline:true },
+  'masyu.html':       { name:'珍珠 Masyu',                   offline:true },
+  'hashi.html':       { name:'建桥 Hashi',                   offline:true },
+  'akari.html':       { name:'数灯 Akari',                   offline:true },
+  'shikaku.html':     { name:'四角 Shikaku',                 offline:true },
+  'fillomino.html':   { name:'多连块 Fillomino',             offline:true },
+  'kakurasu.html':    { name:'累加 Kakurasu',                offline:true },
+  'nurikabe.html':    { name:'涂黑 Nurikabe',                offline:true },
+  'hexcells.html':    { name:'六边扫雷 Hexcells',            offline:true },
+  'wordsearch.html':  { name:'单词搜索 Word Search',         offline:true },
+  'lunarlander.html': { name:'登月舱 Lunar Lander',          offline:true },
+  'missilecommand.html':{ name:'导弹指挥官 Missile Command',  offline:true },
+  'towerstack.html':  { name:'叠塔 Tower Stack',             offline:true },
+  'pipes.html':       { name:'管道 Pipes',                   offline:true },
+  'pyramid.html':     { name:'金字塔纸牌 Pyramid',            offline:true },
 };
 
 let totalPass=0, totalFail=0;
