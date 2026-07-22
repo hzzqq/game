@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 累加 KAKURASU</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(240,185,11,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--gold)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:4px;margin:0 auto 10px;width:max-content;background:var(--panel);padding:10px;border-radius:14px;border:1px solid var(--border)}
+  .cell{width:46px;height:46px;border-radius:8px;background:#0e141d;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;cursor:pointer;user-select:none;color:var(--text)}
+  .cell.sel{background:var(--green);color:#0a0e14;box-shadow:0 0 0 2px var(--green)}
+  .cell.tgt{background:transparent;border:none;color:var(--gold);font-weight:700;cursor:default}
+  .cell.corner{background:transparent;border:none;cursor:default}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>累加</b> KAKURASU</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">5</span></span><span id="status">选中格列权值和 = 右目标</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点格选中（列权 1,2,4,8,16）。每行选中格的列权之和须等于右侧目标，每列选中格的行权之和须等于底部目标。</div>
+  </div>
+  <div class="foot">Kakurasu（累加）：在网格中选格。每行所选格的「列权重」之和 = 右侧目标；每列所选格的「行权重」之和 = 底部目标。每局由随机选格派生目标，必可解且唯一。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  // ---- 局部 mulberry32 PRNG（禁止裸 Math.random）----
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  let _rng = mk(0x9E3779B9);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const N = 5;
+  const colW = Array.from({length:N},(_,c)=>1<<c); // 2^c
+  const rowW = Array.from({length:N},(_,r)=>1<<r); // 2^r
+  let sel;        // N×N boolean 玩家选中
+  let rowTarget;  // 长度 N
+  let colTarget;  // 长度 N
+  let sol;        // N×N boolean 规范解
+  let won = false;
+
+  function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    sel = Array.from({length:N},()=>new Array(N).fill(false));
+    let s = Array.from({length:N},()=>new Array(N).fill(false));
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){ if(_rng()<0.42) s[r][c]=true; }
+    sol = s;
+    rowTarget = s.map((row,r)=>row.reduce((a,v,c)=>a+(v?colW[c]:0),0));
+    colTarget = new Array(N).fill(0);
+    for(let c=0;c<N;c++) for(let r=0;r<N;r++) if(s[r][c]) colTarget[c]+=rowW[r];
+    won = false;
+    return getState();
+  }
+
+  function isWin(){
+    for(let r=0;r<N;r++){ let sum=0; for(let c=0;c<N;c++) if(sel[r][c]) sum+=colW[c]; if(sum!==rowTarget[r]) return false; }
+    for(let c=0;c<N;c++){ let sum=0; for(let r=0;r<N;r++) if(sel[r][c]) sum+=rowW[r]; if(sum!==colTarget[c]) return false; }
+    return true;
+  }
+
+  function setCell(r,c,v){
+    if(!inb(r,c)) return false;
+    sel[r][c]=!!v;
+    won = isWin();
+    if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    return true;
+  }
+  function toggle(r,c){ return setCell(r,c, !sel[r][c]); }
+
+  function reset(){
+    sel = Array.from({length:N},()=>new Array(N).fill(false));
+    won=false;
+    return getState();
+  }
+  function applySolution(){ for(let r=0;r<N;r++) for(let c=0;c<N;c++) sel[r][c]=!!sol[r][c]; won=isWin(); return won; }
+  function getSolution(){ return sol.map(row=>row.slice()); }
+  function getState(){
+    return { N, sel:sel.map(r=>r.slice()), rowTarget:rowTarget.slice(), colTarget:colTarget.slice(), won,
+             colW:colW.slice(), rowW:rowW.slice() };
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.style.gridTemplateColumns='repeat('+(N+1)+',46px)';
+    b.innerHTML='';
+    for(let r=0;r<N;r++){
+      for(let c=0;c<=N;c++){
+        const el=document.createElement('div');
+        if(c<N){
+          el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+          el.addEventListener('click',()=>{ if(toggle(r,c)) render(); });
+        } else {
+          el.className='cell tgt'; el.textContent=rowTarget[r];
+        }
+        b.appendChild(el);
+      }
+    }
+    // 底部目标行
+    for(let c=0;c<=N;c++){
+      const el=document.createElement('div');
+      if(c<N){ el.className='cell tgt'; el.textContent=colTarget[c]; }
+      else { el.className='cell corner'; }
+      b.appendChild(el);
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'),nEl=$('n'),msg=$('msg'),st=$('status');
+    if(!b) return;
+    const cells=b.children;
+    for(let i=0;i<cells.length;i++){
+      const r=+cells[i].dataset.r, c=+cells[i].dataset.c;
+      if(r===undefined||isNaN(r)||c===undefined||isNaN(c)) continue;
+      if(c<N){
+        cells[i].className='cell'+(sel[r][c]?' sel':'');
+        cells[i].textContent='';
+      }
+    }
+    if(nEl) nEl.textContent=N;
+    if(st) st.textContent = won?'已通关':'选中格列权值和 = 右目标';
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！每行/列标值和均匹配目标。'; }
+      else { msg.className='msg'; msg.textContent='点格选中，使每行/列标值和等于目标。'; } }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newPuzzle(); buildBoard(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setCell, toggle, applySolution, getSolution, getState, colW, rowW };
+  }
+})();
+</script>
+</body>
+</html>
