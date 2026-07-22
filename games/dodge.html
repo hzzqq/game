@@ -30,7 +30,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>闪避</b> DODGE</span></div>
   <div class="wrap">
-    <div class="hud"><span>存活 · <span class="st" id="t">0</span>s</span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="hud"><span>存活 · <span class="st" id="t">0</span>s</span><span>状态 · <span class="st" id="st">进行中</span></span><span id="buff"></span></div>
     <canvas id="cv" width="400" height="300"></canvas>
     <div class="msg" id="msg">左右移动躲避从天而降的陨石，被砸中即结束。坚持越久得分越高。</div>
     <div class="controls">
@@ -46,17 +46,28 @@
 (function(){
   "use strict";
   const W=400, H=300, PY=H-20, PR=16, HR=16;
-  let player, obstacles, dead, time;
-  function reset(){ player={x:W/2}; obstacles=[]; dead=false; time=0; }
+  let player, obstacles, dead, time, pickups, boostTimer, shield, lives, spawnTimer;
+  function reset(){ player={x:W/2}; obstacles=[]; dead=false; time=0; pickups=[]; boostTimer=0; shield=0; lives=1; spawnTimer=3; }
   function setPlayer(x){ player={x}; }
   function setObstacles(arr){ obstacles=arr.map(o=>({x:o.x,y:o.y,vy:o.vy||5})); }
   function move(d){ if(dead) return; player.x += d==='left'?-20:20; if(player.x<PR)player.x=PR; if(player.x>W-PR)player.x=W-PR; }
+  // ---- 注入式掉落道具系统（本地种子 PRNG，禁止 Math.random）----
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  const pickupRng = mk(0x27d4eb2f);
+  function makePickup(type,x,y){ return {type:type, x:x, y:y, vy:240, r:10, life:9}; }
+  function spawnPickupAtRandom(){ const types=['heart','shield','boost']; const type=types[Math.floor(pickupRng()*types.length)%types.length]; pickups.push(makePickup(type, pickupRng()*W, -10)); }
+  function applyPickup(p){ if(!p) return; if(p.type==='heart'){ lives=Math.min(lives+1,3); if(typeof Juice!=='undefined') Juice.popup('❤ 回血'); } else if(p.type==='shield'){ shield=Math.min(shield+1,2); if(typeof Juice!=='undefined') Juice.popup('🛡'); } else if(p.type==='boost'){ boostTimer=8; if(typeof Juice!=='undefined') Juice.popup('🚀'); } const idx=pickups.indexOf(p); if(idx>=0) pickups.splice(idx,1); }
+  function updatePickups(dt){ for(let i=pickups.length-1;i>=0;i--){ const p=pickups[i]; p.y+=p.vy*dt; p.life-=dt; const dx=p.x-player.x, dy=p.y-PY; if(dx*dx+dy*dy < (p.r+PR)*(p.r+PR)){ applyPickup(p); continue; } if(p.life<=0 || p.y>H+20) pickups.splice(i,1); } if(boostTimer>0) boostTimer=Math.max(0,boostTimer-dt); }
+  function drawPickups(ctx){ for(const p of pickups){ const sym=p.type==='heart'?'❤':p.type==='shield'?'🛡':'🚀'; ctx.save(); ctx.beginPath(); ctx.arc(p.x,p.y,p.r+4,0,Math.PI*2); ctx.fillStyle='rgba(2,192,118,.15)'; ctx.fill(); ctx.strokeStyle='rgba(2,192,118,.6)'; ctx.stroke(); ctx.fillStyle='#fff'; ctx.font='16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(sym,p.x,p.y); ctx.restore(); } }
+  function takeHit(){ if(shield>0){ shield--; if(typeof Juice!=='undefined') Juice.flash('#02c076',.3); return; } if(lives>1){ lives--; } else { dead=true; if(typeof Juice!=='undefined') Juice.flash('#f6465d',.5); } }
   function tick(){
     if(dead) return;
-    time++;
+    time += (boostTimer>0?2:1);
     for(const o of obstacles){ o.y+=o.vy; }
-    for(const o of obstacles){ if(o.y>=PY && Math.abs(o.x-player.x)<=HR+PR-10){ dead=true; Juice.sfx('lose'); Juice.flash('#f6465d',.5); Juice.addTrauma(.5); Juice.burst(player.x,PY,{color:'#f6465d',n:14}); break; } }
+    for(const o of obstacles){ if(o.y>=PY && Math.abs(o.x-player.x)<=HR+PR-10){ takeHit(); Juice.sfx('lose'); Juice.flash('#f6465d',.5); Juice.addTrauma(.5); Juice.burst(player.x,PY,{color:'#f6465d',n:14}); break; } }
     obstacles=obstacles.filter(o=>o.y<H+20);
+    spawnTimer-=1/60; if(spawnTimer<=0){ spawnPickupAtRandom(); spawnTimer=3+pickupRng()*3; }
+    updatePickups(1/60);
   }
   function isDead(){ return dead; }
   function getPlayer(){ return {x:player.x}; }
@@ -68,13 +79,26 @@
     const cv=$('cv'); if(!cv||!cv.getContext) return; const ctx=cv.getContext('2d');
     ctx.fillStyle='#0e141d'; ctx.fillRect(0,0,W,H);
     ctx.fillStyle='#f6465d'; for(const o of obstacles){ ctx.beginPath(); ctx.arc(o.x,o.y,12,0,Math.PI*2); ctx.fill(); }
+    drawPickups(ctx);
     ctx.fillStyle='#02c076'; ctx.fillRect(player.x-PR/2,PY-PR/2,PR,PR);
-    const t=$('t'),st=$('st'); if(t)t.textContent=time; if(st)st.textContent=dead?'结束':'进行中';
+    const t=$('t'),st=$('st'),bf=$('buff'); if(t)t.textContent=time; if(st)st.textContent=dead?'结束':'进行中'; if(bf){ let s=''; if(lives>1)s+='❤'+lives+' '; if(shield>0)s+='🛡'+shield+' '; if(boostTimer>0)s+='🚀'+Math.ceil(boostTimer)+'s'; bf.textContent=s; }
   }
   function loop(){ if(typeof requestAnimationFrame==='undefined') return; tick(); render(); requestAnimationFrame(loop); }
   reset();
   if(typeof document!=='undefined'){ document.querySelectorAll('.controls button[data-d]').forEach(b=>{ b.onclick=()=>{ move(b.getAttribute('data-d')); render(); }; }); const nb=$('new'); if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
-  if(typeof window!=='undefined'){ window.__t={ reset, setPlayer, setObstacles, move, tick, isDead, getPlayer, getObstacles, getTime }; }
+  if(typeof window!=='undefined'){ window.__t={ reset, setPlayer, setObstacles, move, tick, isDead, getPlayer, getObstacles, getTime,
+    getState(){ return {time, shield, boostTimer, lives, dead, pickups:pickups.length, spawnTimer}; },
+    spawnPickup(type,x,y){ pickups.push(makePickup(type||'heart', x, y)); },
+    stepPickups(dt){ updatePickups(dt); },
+    applyPickup(p){ applyPickup(p); },
+    getPickups(){ return pickups.length; },
+    getPickup(i){ return pickups[i]; },
+    getShield(){ return shield; }, setShield(v){ shield=v; },
+    getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
+    getLives(){ return lives; }, setLives(v){ lives=v; },
+    getPY(){ return PY; },
+    takeHit, getOver(){ return dead; }
+  }; }
 })();
 </script>
 </body>
