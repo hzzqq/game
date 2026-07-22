@@ -34,3 +34,50 @@ t.reset();
 t.setBall(200,5,0,-5); // 向上，贴近上墙
 t.step(5); // y→0 反弹为向下
 ok('上墙反弹后 vy 变正', t.getBall().vy > 0);
+
+// ===== 注入：掉落道具 / 增益（确定性驱动）=====
+t.reset();
+eq('初始无掉落', t.getPickups().length, 0);
+eq('初始金币0', t.getCoins(), 0);
+// 球碰撞拾取：掉落放在球初始位置
+t.spawnPickup('coin',200,150);
+t.stepPickups(0.001);
+eq('球碰撞拾取金币+50', t.getCoins(), 50);
+eq('拾取后掉落移除', t.getPickups().length, 0);
+
+// 护盾免失分一次（左方漏球 -> 本应右方得分）
+t.reset();
+t.applyPickup('shield','L');
+ok('左护盾生效', t.getShield('L')===true);
+t.setBall(5,150,-5,0);
+t.step(2); // ball.x → -5 < 0，左方漏球，护盾抵消
+eq('护盾免失分：比分仍 0:0', t.getScore(), [0,0]);
+ok('护盾已消耗', t.getShield('L')===false);
+// 无护盾则正常失分
+t.reset();
+t.setBall(5,150,-5,0);
+t.step(2);
+eq('无护盾左方漏球 -> 右方得分', t.getScore(), [0,1]);
+
+// 球速增益：左板接球后 vx 放大
+t.reset();
+t.applyPickup('boost','L');
+t.setBall(20,150,-5,0);
+t.setPaddle('left',150);
+t.step(2);
+ok('左板加速后 vx 放大(>5)', t.getBall().vx > 5);
+
+// boost 计时衰减
+t.reset();
+t.applyPickup('boost','R');
+ok('右boost>0', t.getBoost('R')>0);
+t.stepPickups(5);
+eq('右boost 计时归零', t.getBoost('R'), 0);
+
+// 未碰撞不生效
+t.reset();
+t.spawnPickup('coin',50,30);
+eq('生成掉落但金币仍0', t.getCoins(), 0);
+t.stepPickups(0.001); // 球在(200,150)，远离(50,30)，不拾取
+eq('远离则未拾取', t.getCoins(), 0);
+eq('掉落仍保留', t.getPickups().length, 1);
