@@ -89,6 +89,7 @@
     function start(){
       reset();
       if(typeof document!=='undefined'){const o=document.getElementById('overlay');if(o)o.style.display='none';}
+      if(typeof Juice!=='undefined') Juice.sfx('click');
       syncHud();
     }
 
@@ -100,7 +101,8 @@
       const k=key(x,y); const cur=S.mirrors[k];
       S.mirrors[k] = cur==='/' ? '\\' : '/';
       S.moves++; recompute();
-      if(S.won && J)J.burst&&J.burst(0,0,'#02c076');
+      if(typeof Juice!=='undefined') Juice.sfx('click');
+      if(S.won && J){ J.burst&&J.burst(W/2,H/2,{color:'#02c076',n:14}); J.sfx&&J.sfx('win'); J.achievement&&J.achievement('命中目标'); }
     }
 
     function reflect(dx,dy,type){
@@ -132,7 +134,7 @@
       return {
         grid:S.grid, start:{x:S.start.x,y:S.start.y,dir:S.start.dir},
         target:{x:S.target.x,y:S.target.y}, mirrors:Object.assign({},S.mirrors),
-        beam:S.beam.map(p=>({x:p.x,y:p.y})), won:S.won, moves:S.moves
+        beam:S.beam.map(p=>({x:p.x,y:p.y})), won:S.won, moves:S.moves, running:S.running
       };
     }
 

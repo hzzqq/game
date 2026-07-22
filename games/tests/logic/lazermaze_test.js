@@ -46,3 +46,8 @@ H.eq('旋转(6,0)后: 脱靶', t.getState().won, false);
 t.rotateMirror(6, 0); // / -> \\
 H.eq('再旋转(6,0)后: 镜面变回 \\', t.getState().mirrors['6,0'], '\\');
 H.eq('再旋转(6,0)后: 重新命中', t.getState().won, true);
+
+// reset 后状态可读取（确定性，Juice 守卫不报错）
+t.reset();
+let rs = t.getState();
+H.ok('reset 后状态可读取', rs && typeof rs.moves === 'number' && rs.running === true);
