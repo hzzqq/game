@@ -50,4 +50,55 @@ T.reset();
 H.ok(T.getScore() === 0, 'flappy: 重置分数归零');
 H.ok(T.getStatus() === 'menu', 'flappy: 重置回菜单');
 
+// 9) 掉落-heart：拾取后额外命 +1
+(() => {
+  T.reset(); T.setStatus('play'); T.setLives(1);
+  const b = T.getState().bird;
+  T.spawnPickup('heart', b.x, b.y);
+  T.stepPickups(0.016);
+  H.eq('flappy 拾取heart命+1', T.getLives(), 2, '得到 ' + T.getLives());
+  H.eq('flappy heart拾取后移除', T.getPickups().length, 0);
+})();
+
+// 10) 未碰撞不生效：道具远离鸟 → 分数不变、道具仍在
+(() => {
+  T.reset(); T.setStatus('play'); T.setScore(0);
+  T.spawnPickup('gem', 10, 10); // 远离鸟(约 x96,y252)
+  T.stepPickups(0.016);
+  H.eq('flappy 未碰撞分数不变', T.getScore(), 0);
+  H.eq('flappy 未碰撞道具仍在', T.getPickups().length, 1);
+})();
+
+// 11) 掉落-gem：拾取加分 +10
+(() => {
+  T.reset(); T.setStatus('play'); T.setScore(0);
+  const b = T.getState().bird;
+  T.spawnPickup('gem', b.x, b.y);
+  T.stepPickups(0.016);
+  H.eq('flappy 拾取gem分数+10', T.getScore(), 10, '得到 ' + T.getScore());
+  H.eq('flappy gem拾取后移除', T.getPickups().length, 0);
+})();
+
+// 12) 掉落-rocket：拾取获得加速且加分 +5
+(() => {
+  T.reset(); T.setStatus('play'); T.setScore(0);
+  const b = T.getState().bird;
+  T.spawnPickup('rocket', b.x, b.y);
+  T.stepPickups(0.016);
+  H.ok('flappy 拾取rocket获得加速', T.getBoost() === true);
+  H.eq('flappy 拾取rocket分数+5', T.getScore(), 5, '得到 ' + T.getScore());
+})();
+
+// 13) 护盾免死（heart 复活）：有额外命撞地后仍存活、扣 1 命
+(() => {
+  T.reset(); T.setStatus('play'); T.setLives(1);
+  const b = T.getState().bird;
+  T.spawnPickup('heart', b.x, b.y);
+  T.stepPickups(0.016); // 命→2
+  T.setBird(T.GROUND + 5, 0);
+  T.step(0.016);          // 撞地 → 应复活
+  H.ok('flappy 有额外命撞地仍存活', T.getStatus() === 'play');
+  H.eq('flappy 复活后扣 1 命', T.getLives(), 1, '得到 ' + T.getLives());
+})();
+
 module.exports = {};
