@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 肯肯 KENKEN</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .board{display:grid;gap:4px;justify-content:center;margin:6px auto;width:max-content}
+  .cell{width:64px;height:64px;border:1px solid var(--border);border-radius:8px;background:#0e141d;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;padding:3px 5px;position:relative;overflow:hidden}
+  .clue{font-size:11px;color:var(--green);line-height:1.1;font-weight:700}
+  .val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--gold);font-weight:700}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .controls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+  .controls input{width:64px;background:#0e141d;border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;font-family:inherit;text-align:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button.gold{background:var(--gold);color:#0a0e14}
+  .controls button:hover{filter:brightness(1.1)}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>肯肯</b> KENKEN</span></div>
+  <div class="wrap">
+    <div class="hud"><span>进度 · <span class="st" id="prog">0/0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="board" id="board"></div>
+    <div class="msg" id="msg">在每行每列填入 1..n 各一次，并使每个笼满足其运算目标（+ 和 / − 差 / × 积 / ÷ 商）。</div>
+    <div class="controls">
+      <input id="r" placeholder="行0起" /><input id="c" placeholder="列0起" /><input id="v" placeholder="值1..n" />
+      <button id="set">填入 SET</button>
+      <button id="check" class="ghost">检查 CHECK</button>
+      <button id="hint" class="gold">提示 HINT</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+  </div>
+  <div class="foot">肯肯（KenKen）：拉丁方约束 + 笼运算。每行每列 1..n 不重复，每个笼格按 + − × ÷ 达成目标值即胜。</div>
+
+<script src="juice.js"></script>
+<script src="input.js"></script>
+<script>
+(function(){
+  "use strict";
+  let n=4, grid=[], cages=[], sol=[], cellCage={}, cageSat=[];
+  let rand = Math.random;
+
+  // ---- 确定性 RNG（mulberry32） ----
+  function makeRng(seed){
+    let a = seed >>> 0;
+    return function(){
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function range(a,b){ const o=[]; for(let i=a;i<b;i++) o.push(i); return o; }
+  function shuffle(arr,rng){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+
+  // ---- 生成合法拉丁方解 ----
+  function genSolution(nn,rng){
+    const base=[];
+    for(let r=0;r<nn;r++){ base[r]=[]; for(let c=0;c<nn;c++) base[r][c]=((r+c)%nn)+1; }
+    const sym=shuffle(range(1,nn+1),rng);
+    const rp=shuffle(range(0,nn),rng);
+    const cp=shuffle(range(0,nn),rng);
+    const out=[];
+    for(let r=0;r<nn;r++){ out[r]=[]; for(let c=0;c<nn;c++){ out[r][c]=sym[base[rp[r]][cp[c]]-1]; } }
+    return out;
+  }
+
+  // ---- 划分笼 ----
+  const DIRS=[[0,1],[1,0],[0,-1],[-1,0]];
+  function addFrontier(r,c,frontier,assigned,nn){
+    for(const pr of DIRS){
+      const nr=r+pr[0],nc=c+pr[1];
+      if(nr>=0&&nc>=0&&nr<nn&&nc<nn&&!assigned[nr][nc]){
+        if(!frontier.some(p=>p[0]===nr&&p[1]===nc)) frontier.push([nr,nc]);
+      }
+    }
+  }
+  function makeCage(cells,ss,nn,rng){
+    const vals=cells.map(p=>ss[p[0]][p[1]]);
+    const size=cells.length;
+    if(size===1) return {cells,op:'+',target:vals[0]};
+    if(size===2){
+      const a=vals[0],b=vals[1];
+      const valid=['+','*','-'];
+      if(Math.max(a,b)%Math.min(a,b)===0) valid.push('/');
+      const op=valid[Math.floor(rng()*valid.length)];
+      let target;
+      if(op==='+') target=a+b;
+      else if(op==='*') target=a*b;
+      else if(op==='-') target=Math.abs(a-b);
+      else target=Math.max(a,b)/Math.min(a,b);
+      return {cells,op,target};
+    }
+    const op = rng()<0.5 ? '+' : '*';
+    const target = op==='+' ? vals.reduce((s,v)=>s+v,0) : vals.reduce((s,v)=>s*v,1);
+    return {cells,op,target};
+  }
+  function genCages(ss,nn,rng){
+    const assigned=Array.from({length:nn},()=>Array(nn).fill(false));
+    const out=[];
+    for(let r=0;r<nn;r++) for(let c=0;c<nn;c++){
+      if(assigned[r][c]) continue;
+      const cage=[[r,c]]; assigned[r][c]=true;
+      const frontier=[]; addFrontier(r,c,frontier,assigned,nn);
+      const maxSize = 2 + Math.floor(rng() * (nn>=6?4:3)); // 目标 2..4 / 2..5
+      while(cage.length<maxSize && frontier.length){
+        const idx=Math.floor(rng()*frontier.length);
+        const cell=frontier.splice(idx,1)[0];
+        if(assigned[cell[0]][cell[1]]) continue;
+        assigned[cell[0]][cell[1]]=true; cage.push(cell);
+        addFrontier(cell[0],cell[1],frontier,assigned,nn);
+      }
+      out.push(makeCage(cage,ss,nn,rng));
+    }
+    return out;
+  }
+
+  // ---- 校验 ----
+  function cageComplete(cage){ return cage.cells.every(p=>grid[p[0]][p[1]]>=1 && grid[p[0]][p[1]]<=n); }
+  function checkCage(cage){
+    const vals=cage.cells.map(p=>grid[p[0]][p[1]]);
+    if(vals.some(v=>v<1||v>n)) return false;
+    if(cage.op==='+') return vals.reduce((s,v)=>s+v,0)===cage.target;
+    if(cage.op==='*') return vals.reduce((s,v)=>s*v,1)===cage.target;
+    if(cage.op==='-') return vals.length===2 && Math.abs(vals[0]-vals[1])===cage.target;
+    if(cage.op==='/'){ if(vals.length!==2) return false; const mx=Math.max(vals[0],vals[1]),mn=Math.min(vals[0],vals[1]); return mn!==0 && mx/mn===cage.target; }
+    return false;
+  }
+  function rowHasDup(r){ const v=grid[r].filter(x=>x>=1); return new Set(v).size!==v.length; }
+  function colHasDup(c){ const v=[]; for(let r=0;r<n;r++) if(grid[r][c]>=1) v.push(grid[r][c]); return new Set(v).size!==v.length; }
+  function isComplete(){ for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(grid[r][c]<1||grid[r][c]>n) return false; return true; }
+  function isSolved(){
+    if(!isComplete()) return false;
+    for(let r=0;r<n;r++) if(rowHasDup(r)) return false;
+    for(let c=0;c<n;c++) if(colHasDup(c)) return false;
+    return cages.every(checkCage);
+  }
+  function computeMistakes(){
+    let m=0;
+    for(let r=0;r<n;r++) if(rowHasDup(r)) m++;
+    for(let c=0;c<n;c++) if(colHasDup(c)) m++;
+    for(const cage of cages) if(cageComplete(cage) && !checkCage(cage)) m++;
+    return m;
+  }
+  function recomputeCageSat(){ cageSat = cages.map(c=>cageComplete(c) && checkCage(c)); }
+  function cageIndexOf(r,c){ return cellCage[r+','+c]; }
+
+  // ---- 对外钩子 ----
+  function setRand(fn){ rand=fn; return true; }
+  function reset(size){ n = (typeof size==='number'&&size>=4) ? size : 4; newPuzzle(); }
+  function newPuzzle(seed){
+    if(typeof seed==='number'){ rand = makeRng(seed>>>0); }
+    sol = genSolution(n,rand);
+    cages = genCages(sol,n,rand);
+    grid = Array.from({length:n},()=>Array(n).fill(0));
+    cellCage={}; cages.forEach((cage,i)=>cage.cells.forEach(p=>{ cellCage[p[0]+','+p[1]]=i; }));
+    recomputeCageSat();
+  }
+  function setValue(r,c,v){
+    if(r<0||c<0||r>=n||c>=n) return false;
+    if(v<0||v>n) return false;
+    const idx=cageIndexOf(r,c);
+    const beforeSat = idx!=null ? cageSat[idx] : false;
+    grid[r][c]=v;
+    if(v>=1) Juice.sfx('click');
+    recomputeCageSat();
+    if(idx!=null && cageSat[idx] && !beforeSat){ Juice.sfx('pickup'); Juice.addTrauma(.15); }
+    if(v>=1 && (rowHasDup(r)||colHasDup(c))) Juice.sfx('error');
+    if(isSolved()){ Juice.sfx('win'); Juice.flash('#02c076',.5); }
+    return true;
+  }
+  function getState(){
+    return {
+      n,
+      grid: grid.map(x=>x.slice()),
+      cages: cages.map(c=>({ cells:c.cells.map(p=>p.slice()), op:c.op, target:c.target })),
+      solved: isSolved(),
+      mistakes: computeMistakes()
+    };
+  }
+  function solution(){ return sol.map(x=>x.slice()); }
+
+  // ---- 渲染 / UI ----
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function clueText(cage){
+    if(cage.cells.length===1) return String(cage.target);
+    const sym = cage.op==='*'?'×':cage.op==='/'?'÷':cage.op;
+    return cage.target+sym;
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const bd=$('board'); if(!bd) return;
+    bd.style.gridTemplateColumns='repeat('+n+',64px)';
+    bd.innerHTML='';
+    const clueMap={};
+    cages.forEach(cage=>{ const p=cage.cells[0]; clueMap[p[0]+','+p[1]]=clueText(cage); });
+    for(let r=0;r<n;r++) for(let c=0;c<n;c++){
+      const d=document.createElement('div'); d.className='cell';
+      const clue=clueMap[r+','+c]||'';
+      const val=grid[r][c]?grid[r][c]:'';
+      d.innerHTML='<div class="clue">'+clue+'</div><div class="val">'+val+'</div>';
+      bd.appendChild(d);
+    }
+    const s=getState();
+    const pr=$('prog'),st=$('st'),msg=$('msg');
+    let f=0; for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(grid[r][c]>=1) f++;
+    if(pr) pr.textContent=f+'/'+(n*n);
+    if(st) st.textContent=s.solved?'已解':'进行中';
+    if(msg&&s.solved){ msg.className='msg win'; msg.textContent='✅ 全部笼运算达成，通关！'; }
+  }
+  function check(){
+    const s=getState();
+    const msg=$('msg');
+    if(s.solved){ Juice.sfx('win'); Juice.flash('#02c076',.5); if(msg){msg.className='msg win';msg.textContent='✅ 全部笼运算达成，通关！';} }
+    else if(s.mistakes>0){ Juice.sfx('error'); if(msg){msg.className='msg';msg.textContent='⚠ 发现 '+s.mistakes+' 处冲突，检查行/列重复与笼运算。';} }
+    else { if(msg){msg.className='msg';msg.textContent='进行中：还有空格未填或笼未满足。';} }
+    render();
+  }
+  function hint(){
+    for(let r=0;r<n;r++) for(let c=0;c<n;c++){
+      if(grid[r][c]!==sol[r][c]){ setValue(r,c,sol[r][c]); render(); return; }
+    }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const set=$('set'),nb=$('new'),chk=$('check'),hnt=$('hint'),ri=$('r'),ci=$('c'),vi=$('v');
+    if(set) set.onclick=()=>{ setValue((+ri.value||0),(+ci.value||0),(+vi.value||0)); render(); };
+    if(chk) chk.onclick=()=>check();
+    if(hnt) hnt.onclick=()=>hint();
+    if(nb) nb.onclick=()=>{ newPuzzle(); render(); };
+  }
+
+  // ---- boot ----
+  newPuzzle(1); // 固定 seed 保证确定性，避免随机改变干扰逻辑单测
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof window!=='undefined'){ window.__t={ reset, newPuzzle, setValue, getState, setRand, solution }; }
+})();
+</script>
+</body>
+</html>
