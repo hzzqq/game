@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 流水连线</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(520px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(520px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:4px;margin:0 auto 12px;width:max-content;background:var(--panel);padding:10px;border-radius:14px;border:1px solid var(--border)}
+  .cell{width:50px;height:50px;border-radius:8px;background:#0e141d;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;cursor:pointer;user-select:none;transition:transform .06s}
+  .cell.end{box-shadow:inset 0 0 0 3px rgba(255,255,255,.85)}
+  .cell:active{transform:scale(.94)}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(520px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>流水连线</b> FLOW FREE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>颜色 COLORS · <span class="st" id="colors">0</span></span><span id="status">连通所有同色端点并铺满全格</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点一个端点开始拉线，沿相邻空格延伸到另一个同色端点。所有格子都必须被填满。</div>
+  </div>
+  <div class="foot">流水连线：每对同色圆点之间拉出一条不交叉的管道，铺满整个棋盘即过关。数学上每个随机布局都由一条哈密顿路径切分而成，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const N = 5;
+  const PALETTE = ['#f6465d','#02c076','#f0b90b','#3aa0ff','#b388ff','#ff8a3d','#27e0c8','#e0e0e0'];
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let endpoints = [];   // [{color, a:[r,c], b:[r,c]}]
+  let paths = {};       // color -> [[r,c],...] 已绘路径
+  let won = false;
+  let N_local = N;
+
+  function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
+  function key(r,c){ return r*N_local+c; }
+  function colorAt(r,c){
+    for(const e of endpoints){
+      const p = paths[e.color];
+      if(p) for(const [pr,pc] of p){ if(pr===r && pc===c) return e.color; }
+    }
+    return 0;
+  }
+  function isEndpoint(r,c){
+    for(const e of endpoints){
+      if((e.a[0]===r&&e.a[1]===c)||(e.b[0]===r&&e.b[1]===c)) return e.color;
+    }
+    return 0;
+  }
+  function endpointOf(color){ return endpoints.find(e=>e.color===color); }
+
+  // 校验一条候选路径是否合法（仅针对 color 自身，可覆盖自己旧路径）
+  function validatePath(color, cells){
+    if(!cells || cells.length<2) return false;
+    for(const [r,c] of cells){ if(!inb(r,c)) return false; }
+    for(let i=1;i<cells.length;i++){
+      const dr=Math.abs(cells[i][0]-cells[i-1][0]);
+      const dc=Math.abs(cells[i][1]-cells[i-1][1]);
+      if(dr+dc!==1) return false;
+    }
+    const e = endpointOf(color);
+    if(!e) return false;
+    const first=cells[0], last=cells[cells.length-1];
+    const okA = (first[0]===e.a[0]&&first[1]===e.a[1]&&last[0]===e.b[0]&&last[1]===e.b[1]);
+    const okB = (first[0]===e.b[0]&&first[1]===e.b[1]&&last[0]===e.a[0]&&last[1]===e.a[1]);
+    if(!okA && !okB) return false;
+    for(let i=1;i<cells.length-1;i++){
+      if(isEndpoint(cells[i][0],cells[i][1])) return false;
+    }
+    const selfSet = new Set((paths[color]||[]).map(p=>key(p[0],p[1])));
+    for(const [r,c] of cells){
+      const occ = colorAt(r,c);
+      if(occ && occ!==color && !selfSet.has(key(r,c))) return false;
+    }
+    return true;
+  }
+
+  function setPath(color, cells){
+    if(!validatePath(color, cells)) return false;
+    paths[color] = cells.map(p=>p.slice());
+    if(isWin()){ won=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('flowfree', countColors()); } }
+    return true;
+  }
+  function clearPath(color){ if(color in paths) delete paths[color]; won=false; }
+
+  function filledCount(){
+    let n=0; for(const e of endpoints){ const p=paths[e.color]; if(p) n+=p.length; } return n;
+  }
+  function countColors(){ return endpoints.length; }
+
+  function isWin(){
+    if(!endpoints.length) return false;
+    for(const e of endpoints){ const p=paths[e.color]; if(!p || p.length<2) return false; }
+    return filledCount() === N_local*N_local;
+  }
+
+  // 由已知解构造（测试用）
+  function setBoard(solGrid, ep){
+    N_local = solGrid.length;
+    endpoints = ep.map(e=>({color:e.color, a:e.a.slice(), b:e.b.slice()}));
+    paths = {};
+    for(const e of endpoints){
+      const path = [];
+      const visited = new Set();
+      let cur = e.a.slice();
+      while(cur){
+        path.push(cur.slice()); visited.add(key(cur[0],cur[1]));
+        let nxt=null;
+        const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+        for(const d of dirs){
+          const nr=cur[0]+d[0], nc=cur[1]+d[1];
+          if(inb(nr,nc) && solGrid[nr][nc]===e.color && !visited.has(key(nr,nc))) { nxt=[nr,nc]; break; }
+        }
+        cur=nxt;
+      }
+      paths[e.color]=path;
+    }
+    won=false;
+    if(isWin()) won=true;
+    return {N:N_local, colors:countColors(), won};
+  }
+
+  /* ---- 随机可解布局生成：哈密顿路径切分 ---- */
+  function hamiltonianPath(n, rand){
+    const order=[];
+    for(let r=0;r<n;r++){
+      const cols = r%2===0 ? [...Array(n).keys()] : [...Array(n).keys()].reverse();
+      for(const c of cols) order.push([r,c]);
+    }
+    const idx = new Map();
+    order.forEach((p,i)=>idx.set(p[0]*n+p[1],i));
+    function kkey(r,c){ return r*n+c; }
+    const K = 6*n*n;
+    for(let s=0;s<K;s++){
+      const ei = rand()<0.5 ? 0 : order.length-1;
+      const [er,ec]=order[ei];
+      const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+      const d=dirs[Math.floor(rand()*4)];
+      const nr=er+d[0], nc=ec+d[1];
+      if(nr<0||nr>=n||nc<0||nc>=n) continue;
+      const j=idx.get(kkey(nr,nc));
+      if(j===undefined) continue;
+      if(ei===0){ if(j===1) continue; reverse(order,0,j); }
+      else { if(j===order.length-2) continue; reverse(order,j,order.length-1); }
+      order.forEach((p,i)=>idx.set(kkey(p[0],p[1]),i));
+    }
+    return order;
+  }
+  function reverse(arr,a,b){ while(a<b){ const t=arr[a]; arr[a]=arr[b]; arr[b]=t; a++; b--; } }
+
+  function newGame(){
+    const k = 4 + Math.floor(_rand()*3); // 4~6 色
+    const order = hamiltonianPath(N, _rand);
+    const cuts=[];
+    let guard=0;
+    while(cuts.length<k-1 && guard++<800){
+      const c = 2 + Math.floor(_rand()*(order.length-3));
+      if(c<2 || c>order.length-2) continue;
+      if(cuts.every(x=>Math.abs(x-c)>=2)) cuts.push(c);
+    }
+    cuts.sort((a,b)=>a-b);
+    endpoints=[]; paths={}; won=false;
+    let prev=0;
+    for(let i=0;i<k;i++){
+      const end = (i===k-1) ? order.length : cuts[i];
+      const seg = order.slice(prev,end);
+      if(seg.length>=2) endpoints.push({color:endpoints.length+1, a:seg[0].slice(), b:seg[seg.length-1].slice()});
+      prev=end;
+    }
+    endpoints.forEach((e,i)=>e.color=i+1);
+  }
+  function reset(){ newGame(); }
+
+  function getState(){
+    return {
+      N: N_local,
+      colors: countColors(),
+      filled: filledCount(),
+      won,
+      endpoints: endpoints.map(e=>({color:e.color, a:e.a.slice(), b:e.b.slice()})),
+      paths: Object.fromEntries(Object.entries(paths).map(([c,p])=>[c,p.map(x=>x.slice())])),
+    };
+  }
+  function update(){ return getState(); }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let draw=null; // {color, cells}
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.style.gridTemplateColumns='repeat('+N+',50px)';
+    b.innerHTML='';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const el=document.createElement('div');
+      el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>clickCell(r,c));
+      b.appendChild(el);
+    }
+  }
+  function clickCell(r,c){
+    const epColor = isEndpoint(r,c);
+    if(epColor){
+      if(draw && draw.color===epColor){
+        const e=endpointOf(epColor);
+        if((r===e.a[0]&&c===e.a[1])||(r===e.b[0]&&c===e.b[1])){
+          const ok=setPath(epColor, draw.cells);
+          draw=null;
+          render(); return;
+        }
+      }
+      clearPath(epColor);
+      draw={color:epColor, cells:[[r,c]]};
+      render(); return;
+    }
+    if(draw){
+      const last=draw.cells[draw.cells.length-1];
+      const adj = Math.abs(last[0]-r)+Math.abs(last[1]-c)===1;
+      const occ = colorAt(r,c);
+      const inSelf = draw.cells.some(p=>p[0]===r&&p[1]===c);
+      if(adj && !occ && !inSelf){ draw.cells.push([r,c]); render(); }
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'),col=$('colors'),msg=$('msg'),st=$('status');
+    if(!b) return;
+    const cells=b.children;
+    for(let i=0;i<cells.length;i++){
+      const r=+cells[i].dataset.r, c=+cells[i].dataset.c;
+      const occ=colorAt(r,c);
+      const ep=isEndpoint(r,c);
+      cells[i].className='cell'+(ep?' end':'');
+      cells[i].style.background = occ ? PALETTE[(occ-1)%PALETTE.length] : '#0e141d';
+      cells[i].style.color = occ ? '#0a0e14' : 'transparent';
+      cells[i].textContent = ep ? '●' : '';
+    }
+    if(col) col.textContent=countColors();
+    if(st) st.textContent = won?'已通关':(draw?'拉线中…':'连通所有同色端点并铺满全格');
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 全部连通！铺满 '+N_local*N_local+' 格。'; }
+      else { msg.className='msg'; msg.textContent='点端点拉线，铺满所有格子。'; } }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newGame(); draw=null; render(); };
+    if(rb) rb.onclick=()=>{ paths={}; won=false; draw=null; render(); };
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      N, setRand, newGame, reset, setBoard, setPath, clearPath,
+      isWin, getState, update, colorAt, isEndpoint, validatePath, filledCount, countColors,
+    };
+  }
+})();
+</script>
+</body>
+</html>
