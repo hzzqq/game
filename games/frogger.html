@@ -35,7 +35,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>青蛙过河</b> FROGGER</span></div>
   <div class="wrap">
-    <div class="hud"><span>位置 · <span class="st" id="pos">--</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="hud"><span>位置 · <span class="st" id="pos">--</span></span><span>状态 · <span class="st" id="st">进行中</span></span><span>BUFF · <span class="st" id="buff">-</span></span></div>
     <div class="board" id="board"></div>
     <div class="msg" id="msg">方向键移动青蛙，躲开马路车流、踩着河面浮木过河，抵达顶部终点即胜。被撞或落水即失败。</div>
     <div class="controls">
@@ -51,6 +51,7 @@
   "use strict";
   const ROWS=13, COLS=11;
   let frog, rows, dead, goal;
+  let pickups, shield, boostTimer, lives, score, _dropTimer;
   function defaultRows(){
     rows=[];
     for(let r=0;r<ROWS;r++){
@@ -61,7 +62,7 @@
       rows.push({ type, dir: r%2===0?1:-1, speed:1, obstacles:[] });
     }
   }
-  function reset(){ frog={row:ROWS-1,col:Math.floor(COLS/2)}; defaultRows(); dead=false; goal=false; }
+  function reset(){ frog={row:ROWS-1,col:Math.floor(COLS/2)}; defaultRows(); dead=false; goal=false; pickups=[]; shield=0; boostTimer=0; lives=1; score=0; _dropTimer=4; }
   function setFrog(r,c){ frog.row=r; frog.col=c; }
   function setRow(r,type){ rows[r].type=type; }
   function setObstacles(r,cols){ rows[r].obstacles=cols.slice(); }
@@ -75,30 +76,71 @@
     else if(d==='left') frog.col=Math.max(0,frog.col-1);
     else if(d==='right') frog.col=Math.min(COLS-1,frog.col+1);
     if(frog.row===0){ goal=true; Juice.sfx('win'); Juice.flash('#02c076',.5); }
+    if(!dead && !goal){
+      _dropTimer -= 1;
+      if(_dropTimer<=0){ spawnPickupAtRandom(); _dropTimer = 4; }
+      updatePickups(0);
+    }
   }
   function tick(dt){
     if(dead||goal) return;
     dt=dt||1;
     for(const row of rows){ for(let i=0;i<row.obstacles.length;i++){ let c=row.obstacles[i]+row.dir*row.speed*dt; if(c<0)c+=COLS; if(c>=COLS)c-=COLS; row.obstacles[i]=c; } }
     const row=rows[frog.row];
-    if(row.type==='road'){ if(row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)){ dead=true; Juice.sfx('lose'); Juice.flash('#f6465d',.5); } }
+    if(row.type==='road'){ if(row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)){ takeHit(); } }
     else if(row.type==='water'){
-      if(!row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)){ dead=true; Juice.sfx('lose'); Juice.flash('#f6465d',.5); }
+      if(!row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)){ takeHit(); }
       else {
         const nc=frog.col + row.dir*row.speed*dt;
-        if(nc<0 || nc>COLS-1){ dead=true; Juice.sfx('lose'); Juice.flash('#f6465d',.5); }   // 被浮木带出边界→落水身亡（青蛙不能随浮木 wrap）
+        if(nc<0 || nc>COLS-1){ takeHit(); }   // 被浮木带出边界→落水身亡（青蛙不能随浮木 wrap）
         else frog.col=nc;
       }
     }
+    if(!dead && !goal) updatePickups(dt);
   }
   function isDead(){ return dead; }
   function isGoal(){ return goal || frog.row===0; }
   function getFrog(){ return {row:frog.row,col:frog.col}; }
+
+  // ---- 注入：掉落道具 / 增益系统（不改核心玩法） ----
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return((t^t>>>14)>>>0)/4294967296; }; }
+  const _prng = mk(0x7e2c1b3a);
+  function makePickup(type,r,c){ return { type:type, x:r, y:c, r:9 }; }
+  const PICKUP_EMOJI = { coin:'💰', shield:'🛡', boost:'🚀', heart:'❤' };
+  function spawnPickupAtRandom(){
+    // 在随机非终点格生成掉落物（局部 PRNG，绝不用 Math.random）
+    let r,c,tries=0;
+    do { r=Math.floor(_prng()*ROWS); c=Math.floor(_prng()*COLS); tries++; } while((r===0) && tries<20);
+    const t=_prng();
+    const type = t<0.45?'coin':(t<0.75?'shield':(t<0.9?'boost':'heart'));
+    pickups.push(makePickup(type,r,c));
+  }
+  function applyPickup(type){
+    if(type==='coin'){ score+=5; if(typeof Juice!=='undefined'){ Juice.sfx('coin'); Juice.popup(frog.col*30,frog.row*24,'+5','#f0b90b'); } }
+    else if(type==='shield'){ shield=Math.min(3,shield+1); if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(frog.col*30,frog.row*24,'护盾+1','#3aa0ff'); } }
+    else if(type==='boost'){ boostTimer=8; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.popup(frog.col*30,frog.row*24,'加速!','#f0b90b'); } }
+    else if(type==='heart'){ lives=Math.min(3,lives+1); if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(frog.col*30,frog.row*24,'回血+1','#02c076'); } }
+  }
+  function updatePickups(dt){
+    for(let i=pickups.length-1;i>=0;i--){
+      const p=pickups[i];
+      if(Math.abs(p.x-frog.row)<0.6 && Math.abs(p.y-frog.col)<0.6){ applyPickup(p.type); pickups.splice(i,1); }
+    }
+  }
+  function takeHit(){
+    if(shield>0){ shield--; if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.flash('#3aa0ff',.25); } }
+    else { dead=true; lives=0; if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.flash('#f6465d',.5); } }
+  }
+  function update(dt){
+    if(boostTimer>0) boostTimer-=dt;
+    if(!dead && !goal) updatePickups(dt);
+  }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
-    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+COLS+',30px)'; bd.innerHTML=''; for(let r=0;r<ROWS;r++){ for(let c=0;c<COLS;c++){ const d=document.createElement('div'); let cls='cell'; const row=rows[r]; const hasObs=row.obstacles.some(o=>Math.abs(o-c)<0.6); if(row.type==='goal') cls+=' goal'; else if(row.type==='road'&&hasObs) cls+=' car'; else if(row.type==='water'&&hasObs) cls+=' log'; if(frog.row===r&&frog.col===c) cls+=' frog'; d.className=cls; d.textContent=(frog.row===r&&frog.col===c)?'🐸':''; bd.appendChild(d); } } }
-    const p=$('pos'),st=$('st'); if(p)p.textContent='('+frog.row+','+frog.col+')'; if(st)st.textContent=goal?'已到达':(dead?'失败':'进行中');
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+COLS+',30px)'; bd.innerHTML=''; for(let r=0;r<ROWS;r++){ for(let c=0;c<COLS;c++){ const d=document.createElement('div'); let cls='cell'; const row=rows[r]; const hasObs=row.obstacles.some(o=>Math.abs(o-c)<0.6); if(row.type==='goal') cls+=' goal'; else if(row.type==='road'&&hasObs) cls+=' car'; else if(row.type==='water'&&hasObs) cls+=' log'; if(frog.row===r&&frog.col===c) cls+=' frog'; d.className=cls; let txt=(frog.row===r&&frog.col===c)?'🐸':''; const pk=pickups.find(pp=>Math.abs(pp.x-r)<0.6&&Math.abs(pp.y-c)<0.6); if(pk) txt+=(PICKUP_EMOJI[pk.type]||'❓'); d.textContent=txt; bd.appendChild(d); } } }
+    const p=$('pos'),st=$('st'),buff=$('buff'); if(p)p.textContent='('+frog.row+','+frog.col+')'; if(st)st.textContent=goal?'已到达':(dead?'失败':'进行中');
+    if(buff){ let b=[]; if(shield>0)b.push('🛡'+shield); if(boostTimer>0)b.push('🚀'+Math.ceil(boostTimer)+'s'); if(lives>1)b.push('❤'+lives); b.push('💰'+score); buff.textContent=b.length?b.join(' '):'-'; }
     const msg=$('msg'); if(msg){ if(goal){msg.className='msg win';msg.textContent='🎉 青蛙成功过河！';} else if(dead){msg.className='msg';msg.textContent='💀 被撞或落水，失败。';} }
   }
   function bindUI(){
@@ -108,7 +150,17 @@
   }
   reset();
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
-  if(typeof window!=='undefined'){ window.__t={ reset, setFrog, setRow, setObstacles, setRowDir, setRowSpeed, move, tick, isDead, isGoal, getFrog }; }
+  if(typeof window!=='undefined'){ window.__t={ reset, setFrog, setRow, setObstacles, setRowDir, setRowSpeed, move, tick, isDead, isGoal, getFrog, update, takeHit,
+    getState(){ return {dead,goal,shield,boostTimer,lives,score,pickups:pickups.length}; },
+    spawnPickup(type,r,c){ pickups.push(makePickup(type,r,c)); },
+    stepPickups(dt){ updatePickups(dt); },
+    spawnPickupAtRandom,
+    applyPickup,
+    getPickups(){ return pickups.length; },
+    getShield(){ return shield; }, setShield(v){ shield=v; },
+    getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
+    getLives(){ return lives; }, setLives(v){ lives=v; },
+    getScore(){ return score; } }; }
 })();
 </script>
 </body>
