@@ -56,6 +56,7 @@
 <script>
 (function(){
   "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
   /* ===================== 纯逻辑核心 ===================== */
   const N = 5;
   let _rand = Math.random;
@@ -95,7 +96,7 @@
     if(v!==0 && (v<1||v>N_local)) return false;
     grid[r][c]=v;
     won=isWin();
-    if(won && typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('towers', N_local); }
+    if(won && typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('towers', N_local); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     return true;
   }
 
