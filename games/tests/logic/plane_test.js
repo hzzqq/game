@@ -294,6 +294,49 @@ const hpB = t.getPlayer().hp;
 t.update(0.016);
 ok('update 敌弹击中玩家扣血', t.getPlayer().hp < hpB || t.getPlayer().invuln > 0);
 
+// ===== 14. 注入：胶囊掉落 / 增益（确定性，经 __t 钩子驱动） =====
+t.start();
+t.reset();
+// 14a power 拾取 +1 火力（注入 capPower）
+const px = t.getPlayer().x, py = t.getPlayer().y;
+t.spawnPickup('power', px, py);
+eq('胶囊 power 已生成', t.getPickups().length, 1);
+t.stepPickups(0.001);
+eq('胶囊 power 拾取后移除', t.getPickups().length, 0);
+ok('胶囊 power 增益 capPower=2', t.getCapPower() === 2);
+// 14b shield 拾取 → capShield true
+t.reset();
+t.spawnPickup('shield', px, py);
+t.stepPickups(0.001);
+eq('胶囊 shield 拾取 capShield', t.getShield(), true);
+// 14c boost 拾取 → capBoost=6
+t.reset();
+t.spawnPickup('boost', px, py);
+t.stepPickups(0.001);
+eq('胶囊 boost 拾取 capBoost=6', t.getBoost(), 6);
+// 14d 远处胶囊：无碰撞不生效、不移除
+t.reset();
+t.spawnPickup('power', 50, 50);
+const cp0 = t.getCapPower();
+t.stepPickups(0.001);
+eq('胶囊 远处不移除', t.getPickups().length, 1);
+ok('胶囊 远处不生效', t.getCapPower() === cp0);
+// 14e 护盾挡死：生命不变、护盾消耗
+t.reset();
+t.setShield(true);
+const cl0 = t.getCapLives();
+t.takeHit(5);
+eq('胶囊 护盾挡死 生命不变', t.getCapLives(), cl0);
+eq('胶囊 护盾挡死 已消耗', t.getShield(), false);
+// 14f 无护盾损命，归零置 dead
+t.reset();
+t.setShield(false);
+const cl1 = t.getCapLives();
+t.takeHit(1);
+eq('胶囊 无护盾 生命-1', t.getCapLives(), cl1 - 1);
+t.takeHit(99);
+ok('胶囊 生命归零 capDead', t.getCapDead() === true);
+
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;

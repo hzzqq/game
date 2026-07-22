@@ -288,6 +288,11 @@
       // 关卡推进
       if(!boss && score>=bossNext) spawnBoss();
       if(boss) document.getElementById('bosshp').style.width=Math.max(0,boss.hp/boss.maxhp*100)+'%';
+
+      // 注入：胶囊自动掉落 + 下落
+      capSpawn -= dt;
+      if(capSpawn<=0){ capSpawn=12; spawnPickupAtRandom(); }
+      updatePickups(dt);
     }
 
     function maybeDrop(x,y){
@@ -365,6 +370,8 @@
         ctx.fillStyle='#0a0e14'; ctx.font='bold 11px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText(m.g,d.x,d.y+1);
       }
+      // 注入：胶囊渲染（发光圆 + emoji）
+      drawPickup(ctx);
       // 敌方子弹
       for(const b of eBullets){ ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fillStyle='#f6465d'; ctx.shadowColor='#f6465d'; ctx.shadowBlur=8; ctx.fill(); ctx.shadowBlur=0; }
       // 敌人
@@ -417,6 +424,7 @@
       player.x=W/2; player.y=H-90; player.lives=3; player.power=1; player.invuln=0; player.fireCd=0;
       player.hp=player.maxhp; player.shield=0; player.rapid=0;
       bullets=[]; enemies=[]; eBullets=[]; particles=[]; drops=[];
+      capPickups=[]; capBoost=0; capShield=false; capLives=3; capDead=false; capSpawn=12; capPower=1;
       score=0; level=1; spawnT=0.6; boss=null; over=false; paused=false; running=true;
       document.getElementById('bossbar').style.display='none';
       document.getElementById('overlay').style.display='none';
@@ -429,6 +437,62 @@
     document.getElementById('pauseBtn').onclick=togglePause;
     document.getElementById('muteBtn').onclick=()=>{ const m=Juice.toggleMute(); document.getElementById('muteBtn').textContent=m?'🔇':'🔊'; };
     window.addEventListener('resize',()=>{ W=window.innerWidth; H=window.innerHeight; cv.width=W; cv.height=H; });
+
+    // ===== 注入：胶囊掉落 / 增益（纯注入，与核心 drops/player 平行，互不干扰） =====
+    function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+    var _rng = mk(0x9ABC);
+    var capPickups=[];        // 注入：场上胶囊
+    var capBoost=0;           // 注入：加速计时（秒）
+    var capShield=false;      // 注入：护盾（布尔）
+    var capLives=3;           // 注入：额外生命（与 player.lives 平行）
+    var capDead=false;        // 注入：是否阵亡
+    var capSpawn=12;          // 注入：下次自动掉落计时（长，避免干扰既有测试）
+    var capPower=1;           // 注入：火力增益计数
+    var PICKUP_TYPES=['power','shield','boost'];
+    var PICKUP_EMOJI={power:'🔥', shield:'🛡', boost:'⚡'};
+    var PICKUP_COLOR={power:'#f0b90b', shield:'#3aa0ff', boost:'#ff8a96'};
+
+    function makePickup(type, x, y){ return {type:type, x:x, y:y, r:13, vy:70, t:0}; }
+    function spawnPickupAtRandom(){
+      const t=PICKUP_TYPES[(_rng()*PICKUP_TYPES.length)|0];
+      const x=24 + _rng()*(W-48);
+      const y=40 + _rng()*(H*0.5);
+      capPickups.push(makePickup(t, x, y));
+    }
+    function applyPickup(p){
+      if(p.type==='power'){ capPower=Math.min(6, capPower+1); if(typeof Juice!=='undefined') Juice.sfx('pickup'); }
+      else if(p.type==='shield'){ capShield=true; if(typeof Juice!=='undefined') Juice.sfx('pickup'); }
+      else if(p.type==='boost'){ capBoost=6; if(typeof Juice!=='undefined') Juice.sfx('pickup'); }
+    }
+    function updatePickups(dt){
+      if(!capPickups.length) return;
+      const px=player.x, py=player.y, pr=player.r;
+      for(let i=capPickups.length-1;i>=0;i--){
+        const p=capPickups[i];
+        p.y += p.vy*dt; p.t += dt;
+        if(Math.hypot(p.x-px, p.y-py) < p.r+pr){ applyPickup(p); capPickups.splice(i,1); continue; }
+        if(p.y > H+20) capPickups.splice(i,1);
+      }
+    }
+    function drawPickup(ctx){
+      for(const p of capPickups){
+        const col=PICKUP_COLOR[p.type]||'#fff';
+        ctx.save();
+        ctx.shadowColor=col; ctx.shadowBlur=14;
+        ctx.fillStyle=col; ctx.globalAlpha=0.9;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill();
+        ctx.shadowBlur=0; ctx.globalAlpha=1;
+        ctx.fillStyle='#0a0e14'; ctx.font='bold 14px monospace';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(PICKUP_EMOJI[p.type]||'?', p.x, p.y+1);
+        ctx.restore();
+      }
+    }
+    function takeHit(i){
+      if(capShield){ capShield=false; return; }
+      capLives=Math.max(0, capLives-(i||1));
+      if(capLives<=0) capDead=true;
+    }
 
     /* ==== 逻辑测试钩子（纯逻辑/状态访问，不触发动效与渲染） ==== */
     window.__t = {
@@ -478,7 +542,23 @@
       getSpawnT: function(){ return spawnT; },
       setSpawnT: function(v){ spawnT = v; },
       getW: function(){ return W; },
-      getH: function(){ return H; }
+      getH: function(){ return H; },
+
+      /* 注入：胶囊系统测试钩子（与核心 drops/player 平行） */
+      reset: function(){ capPickups=[]; capBoost=0; capShield=false; capLives=3; capDead=false; capSpawn=12; capPower=1; },
+      getState: function(){ return { running, over, paused, pickups: capPickups.slice(), capLives, capShield, capBoost, capPower, capDead, capSpawn }; },
+      spawnPickup: function(type, x, y){ capPickups.push(makePickup(type, x, y)); },
+      stepPickups: function(dt){ updatePickups(dt); },
+      applyPickup: function(p){ applyPickup(p); },
+      getPickups: function(){ return capPickups.slice(); },
+      getShield: function(){ return capShield; },
+      setShield: function(v){ capShield = !!v; },
+      getBoost: function(){ return capBoost; },
+      setBoost: function(v){ capBoost = v; },
+      getCapPower: function(){ return capPower; },
+      getCapLives: function(){ return capLives; },
+      getCapDead: function(){ return capDead; },
+      takeHit: function(i){ takeHit(i); }
     };
 
     // 初始渲染一帧（菜单背景）
