@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // ヤジリン YAJILIN</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>ヤジリン</b> YAJILIN</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">7</span></span><span id="status">画一条单环穿过所有白格，避开黑格</span></div>
+    <div class="boardwrap"><canvas id="board" width="376" height="376"></canvas></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点相邻白格之间的边画线/取消，使形成一条闭合单环，穿过全部白格且不经过黑格。箭头数字表示同方向连续黑格数量。</div>
+  </div>
+  <div class="foot">Yajilin（ヤジリン）：网格中预置若干黑格（部分带箭头数字）。画一条不自交的闭合单环，穿过所有白格、且不经过任何黑格。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(seed){let s=seed>>>0;return ()=>{s=(s*1664525+1013904223)>>>0;return (s&0x7fffffff)/0x7fffffff;};}
+  let _rng = mk(0xabcdef01);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+  const J = (typeof Juice!=='undefined')?Juice:null;
+
+  const N = 7;
+  const CELL = 48, PAD = 20;
+  let black;   // N×N bool，黑格（不可通行）
+  let arrows;  // N×N {dir:'U'|'D'|'L'|'R', num} 或 null
+  let he;      // N×(N-1) 水平环边
+  let ve;      // (N-1)×N 垂直环边
+  let sol;     // {he,ve}
+  let won = false;
+  let confettiFired = false;
+
+  const DIRS = { 'U':[-1,0], 'D':[1,0], 'L':[0,-1], 'R':[0,1] };
+
+  // ---- 在 N×N 单元图上找一条简单环 ----
+  function findCellCycle(minLen){
+    for(let attempt=0; attempt<400; attempt++){
+      const start=[Math.floor(_rng()*N), Math.floor(_rng()*N)];
+      const visited=new Set([start[0]+','+start[1]]);
+      const path=[start];
+      let result=null, nodes=0;
+      function key(p){return p[0]+','+p[1];}
+      function nbrs(p){ const [x,y]=p,res=[];
+        const cand=[[x+1,y],[x-1,y],[x,y+1],[x,y-1]];
+        for(const [nx,ny] of cand){ if(nx>=0&&nx<N&&ny>=0&&ny<N) res.push([nx,ny]); }
+        return res; }
+      function dfs(cur,depth){
+        if(result || nodes>6000) return;
+        nodes++;
+        if(depth>=minLen){
+          for(const nb of nbrs(cur)){ if(nb[0]===start[0]&&nb[1]===start[1]){ result=path.slice(); return; } }
+        }
+        let ns=nbrs(cur);
+        for(let i=ns.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=ns[i]; ns[i]=ns[j]; ns[j]=t; }
+        for(const nb of ns){
+          if(!visited.has(key(nb))){
+            visited.add(key(nb)); path.push(nb);
+            dfs(nb,depth+1);
+            if(result) return;
+            path.pop(); visited.delete(key(nb));
+          }
+        }
+      }
+      dfs(start,1);
+      if(result) return result;
+    }
+    return null;
+  }
+  function borderRing(){
+    if(N<2) return null;
+    const cyc=[];
+    for(let c=0;c<N;c++) cyc.push([0,c]);
+    for(let r=1;r<N;r++) cyc.push([r,N-1]);
+    for(let c=N-2;c>=0;c--) cyc.push([N-1,c]);
+    for(let r=N-2;r>=1;r--) cyc.push([r,0]);
+    return cyc;
+  }
+  function cycleToEdges(cycle){
+    const hh=Array.from({length:N},()=>new Array(N-1).fill(false));
+    const vv=Array.from({length:N-1},()=>new Array(N).fill(false));
+    for(let i=0;i<cycle.length;i++){
+      const a=cycle[i], b=cycle[(i+1)%cycle.length];
+      if(a[0]===b[0]) hh[a[0]][Math.min(a[1],b[1])]=true;
+      else vv[Math.min(a[0],b[0])][a[1]]=true;
+    }
+    return {he:hh,ve:vv};
+  }
+  function placeArrows(){
+    const arr = Array.from({length:N},()=>new Array(N).fill(null));
+    const blacks=[];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(black[r][c]) blacks.push([r,c]);
+    for(let i=blacks.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=blacks[i]; blacks[i]=blacks[j]; blacks[j]=t; }
+    const k = Math.min(blacks.length, Math.max(1, Math.floor(N*0.8)));
+    const dirKeys=['U','D','L','R'];
+    for(let i=0;i<k;i++){
+      const [r,c]=blacks[i];
+      const dir = dirKeys[Math.floor(_rng()*4)];
+      const [dr,dc]=DIRS[dir];
+      let cnt=1, nr=r+dr, nc=c+dc;
+      while(nr>=0&&nr<N&&nc>=0&&nc<N&&black[nr][nc]){ cnt++; nr+=dr; nc+=dc; }
+      arr[r][c]={dir, num:cnt};
+    }
+    return arr;
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    const cyc = findCellCycle(8) || borderRing();
+    const edges = cycleToEdges(cyc);
+    sol = edges;
+    black = Array.from({length:N},()=>new Array(N).fill(true));
+    for(const [r,c] of cyc) black[r][c]=false;   // 环上单元 = 白格
+    arrows = placeArrows();
+    he = Array.from({length:N},()=>new Array(N-1).fill(false));
+    ve = Array.from({length:N-1},()=>new Array(N).fill(false));
+    won=false;
+    return getState();
+  }
+
+  function cellDeg(r,c){
+    let d=0;
+    if(c>0&&he[r][c-1]) d++;
+    if(c<N-1&&he[r][c]) d++;
+    if(r>0&&ve[r-1][c]) d++;
+    if(r<N-1&&ve[r][c]) d++;
+    return d;
+  }
+  function edgesEqual(aHe,aVe,bHe,bVe){
+    for(let r=0;r<N;r++) for(let c=0;c<N-1;c++) if(!!aHe[r][c]!==!!bHe[r][c]){ console.error('DBG h diff',r,c,aHe[r][c],bHe[r][c],'solTag=',(typeof sol!=='undefined'&&sol._tag)); return false; }
+    for(let r=0;r<N-1;r++) for(let c=0;c<N;c++) if(!!aVe[r][c]!==!!bVe[r][c]){ console.error('DBG v diff',r,c,aVe[r][c],bVe[r][c]); return false; }
+    return true;
+  }
+  function isWin(){
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const d=cellDeg(r,c);
+      if(black[r][c]){ if(d!==0) return false; }
+      else { if(d!==2) return false; }
+    }
+    let start=null;
+    for(let r=0;r<N&&!start;r++) for(let c=0;c<N;c++) if(!black[r][c]){ start=[r,c]; break; }
+    if(!start) return false;
+    const seen=new Set([start[0]+','+start[1]]); const st=[start];
+    while(st.length){ const [r,c]=st.pop();
+      const nbs=[];
+      if(c>0&&he[r][c-1]) nbs.push([r,c-1]);
+      if(c<N-1&&he[r][c]) nbs.push([r,c+1]);
+      if(r>0&&ve[r-1][c]) nbs.push([r-1,c]);
+      if(r<N-1&&ve[r][c]) nbs.push([r+1,c]);
+      for(const [nr,nc] of nbs) if(!seen.has(nr+','+nc)){ seen.add(nr+','+nc); st.push([nr,nc]); }
+    }
+    let whiteCnt=0; for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(!black[r][c]) whiteCnt++;
+    if(seen.size!==whiteCnt) return false;
+    if(!edgesEqual(he,ve,sol.he,sol.ve)) return false;
+    return true;
+  }
+
+  function setEdge(type,r,c,val){
+    if(type!=='h'&&type!=='v') return false;
+    if(type==='h'){
+      if(r<0||r>=N||c<0||c>=N-1) return false;
+      if(black[r][c]||black[r][c+1]) return false;
+      he[r][c]=!!val;
+    } else {
+      if(r<0||r>=N-1||c<0||c>=N) return false;
+      if(black[r][c]||black[r+1][c]) return false;
+      ve[r][c]=!!val;
+    }
+    won=isWin();
+    if(won&&J) J.sfx('levelup');
+    return true;
+  }
+  function toggleEdge(type,r,c){ const cur=(type==='h')?he[r][c]:ve[r][c]; return setEdge(type,r,c,!cur); }
+  function reset(){ he=Array.from({length:N},()=>new Array(N-1).fill(false)); ve=Array.from({length:N-1},()=>new Array(N).fill(false)); won=false; return getState(); }
+  function applySolution(){ he=sol.he.map(row=>row.slice()); ve=sol.ve.map(row=>row.slice()); won=isWin(); return won; }
+  function getSolution(){ return { h:sol.he.map(r=>r.slice()), v:sol.ve.map(r=>r.slice()) }; }
+  function getState(){ return { N, black:black.map(r=>r.slice()), arrows:arrows.map(r=>r.slice()), h:he.map(r=>r.slice()), v:ve.map(r=>r.slice()), won }; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function cx(c){ return PAD + c*CELL + CELL/2; }
+  function cy(r){ return PAD + r*CELL + CELL/2; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    const Wd=cv.width, Hd=cv.height;
+    ctx.clearRect(0,0,Wd,Hd);
+    // 黑格
+    ctx.fillStyle='#1f2a38';
+    ctx.font='bold 13px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const x=PAD+c*CELL, y=PAD+r*CELL;
+      if(black[r][c]){
+        ctx.fillRect(x+2,y+2,CELL-4,CELL-4);
+        const a=arrows[r][c];
+        if(a){ ctx.fillStyle='#f0b90b'; ctx.fillText(a.num, x+CELL/2, y+CELL/2-4);
+          const ar=({U:'↑',D:'↓',L:'←',R:'→'})[a.dir]; ctx.fillStyle='#6b7785'; ctx.fillText(ar, x+CELL/2, y+CELL/2+9); }
+      }
+    }
+    // 环边
+    ctx.strokeStyle='#02c076'; ctx.lineWidth=4; ctx.lineCap='round';
+    for(let r=0;r<N;r++) for(let c=0;c<N-1;c++) if(he[r][c]){ ctx.beginPath(); ctx.moveTo(cx(c),cy(r)); ctx.lineTo(cx(c+1),cy(r)); ctx.stroke(); }
+    for(let r=0;r<N-1;r++) for(let c=0;c<N;c++) if(ve[r][c]){ ctx.beginPath(); ctx.moveTo(cx(c),cy(r)); ctx.lineTo(cx(c),cy(r+1)); ctx.stroke(); }
+    // 网格
+    ctx.strokeStyle='#1f2a38'; ctx.lineWidth=1;
+    for(let i=0;i<=N;i++){
+      ctx.beginPath(); ctx.moveTo(PAD,PAD+i*CELL); ctx.lineTo(PAD+N*CELL,PAD+i*CELL); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(PAD+i*CELL,PAD); ctx.lineTo(PAD+i*CELL,PAD+N*CELL); ctx.stroke();
+    }
+    const stt=$('status'); if(stt) stt.textContent = won?'已通关':'画一条单环穿过所有白格，避开黑格';
+    const msg=$('msg'); if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！单环穿过全部白格且不经过黑格。'; if(!confettiFired){ confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } else { msg.className='msg'; confettiFired=false; } }
+  }
+  function hit(mx,my){
+    const gx=(mx-PAD)/CELL - 0.5, gy=(my-PAD)/CELL - 0.5;
+    if(gx< -0.5 || gy< -0.5 || gx> N-0.5 || gy> N-0.5) return null;
+    const fx=gx-Math.round(gx), fy=gy-Math.round(gy);
+    if(Math.abs(fy)<Math.abs(fx)){ const r=Math.round(gy), c=Math.round(gx); if(r>=0&&r<N&&c>=0&&c<N-1) return {type:'h',r,c}; }
+    else { const c=Math.round(gx), r=Math.round(gy); if(c>=0&&c<N&&r>=0&&r<N-1) return {type:'v',r,c}; }
+    return null;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'),nb=$('new'),rb=$('reset');
+    if(cv) cv.addEventListener('click',e=>{
+      const rect=cv.getBoundingClientRect();
+      const mx=(e.clientX-rect.left)*(cv.width/rect.width);
+      const my=(e.clientY-rect.top)*(cv.height/rect.height);
+      const k=hit(mx,my); if(k){ toggleEdge(k.type,k.r,k.c); render(); }
+    });
+    if(nb) nb.onclick=()=>{ newPuzzle(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setEdge, toggleEdge, applySolution, getSolution, getState, cellDeg };
+  }
+})();
+</script>
+</body>
+</html>
