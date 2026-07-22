@@ -71,3 +71,14 @@ const { t } = loadGame('../yahtzee.html');
   ok('全部分配后终局', t.isOver()===true);
   eq('终局时已用 13 类', Object.keys(t.getUsedCats()).length, 13);
 }
+
+// ===== 7. 默认 PRNG 投掷（验证 _rng 默认路径 + 得分 Juice 不抛错） =====
+{
+  t.newGame();
+  t.roll(); // 默认 _rng
+  ok('默认投掷后 rolls=1', t.getRolls()===1);
+  const d=t.getDice();
+  ok('默认投掷骰子均在 1-6', d.every(v=>v>=1&&v<=6));
+  t.assign('chance'); // 触发得分 Juice 路径（沙箱为 no-op）
+  ok('默认投掷后可记分且总分 > 0', t.getTotal() > 0);
+}
