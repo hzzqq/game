@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 生命游戏 LIFE</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(520px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(520px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:8px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .controls button{flex:1;min-width:64px;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .foot{width:min(520px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>生命游戏</b> CONWAY'S LIFE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>代数 · <span class="st" id="gen">0</span></span><span>存活 · <span class="st" id="alive">0</span></span></div>
+    <div class="boardwrap"><canvas id="board" width="400" height="400"></canvas></div>
+    <div class="controls">
+      <button id="step">步进 STEP</button>
+      <button id="play" class="ghost">播放 PLAY</button>
+      <button id="clear" class="ghost">清空 CLEAR</button>
+      <button id="rand" class="ghost">随机 RAND</button>
+    </div>
+    <div class="msg" id="msg">点击格子切换生死，按 STEP 应用一代规则：活细胞邻居为 2/3 存活，否则死亡；死细胞邻居恰为 3 复活。</div>
+  </div>
+  <div class="foot">Conway's Game of Life：二维细胞自动机。经典图样：方块(block)静止、闪烁(blinker)周期2、滑翔机(glider)每4代平移一格。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const J = (typeof Juice!=='undefined') ? Juice : null;
+  function mk(s){ return function(){ s|=0; s=s+0x6D2B79F5|0; var t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  let _rng = mk(0x11fe1234);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  let ROWS = 24, COLS = 24;
+  let grid, gen;
+
+  function emptyGrid(){
+    grid = Array.from({length:ROWS},()=>new Array(COLS).fill(false));
+    gen = 0;
+  }
+  function newGame(rows, cols){
+    ROWS = rows || ROWS; COLS = cols || COLS;
+    emptyGrid();
+    return getState();
+  }
+  function reset(rows, cols){ return newGame(rows, cols); }
+
+  function inb(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS; }
+  function setCell(r,c,alive){ if(inb(r,c)) grid[r][c] = !!alive; }
+  function clear(){ emptyGrid(); }
+  function randomize(){
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) grid[r][c] = _rng() < 0.28;
+  }
+
+  function neighbors(r,c){
+    let n = 0;
+    for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+      if(dr===0 && dc===0) continue;
+      const nr=r+dr, nc=c+dc;
+      if(inb(nr,nc) && grid[nr][nc]) n++;
+    }
+    return n;
+  }
+
+  function step(){
+    const next = Array.from({length:ROWS},()=>new Array(COLS).fill(false));
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      const n = neighbors(r,c);
+      if(grid[r][c]) next[r][c] = (n === 2 || n === 3);   // 活：2/3 存活
+      else next[r][c] = (n === 3);                         // 死：恰 3 复活
+    }
+    grid = next;
+    gen += 1;
+  }
+
+  function getState(){
+    const alive = [];
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(grid[r][c]) alive.push([r,c]);
+    return { rows: ROWS, cols: COLS, gen, alive, grid: grid.map(row => row.slice()) };
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined') ? document.getElementById(id) : null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv = $('board'); if(!cv) return;
+    const vw = (typeof window!=='undefined') ? window.innerWidth : 800;
+    const size = Math.min(cv.width, cv.height, vw - 40);
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0,0,cv.width,cv.height);
+    const cell = size / Math.max(ROWS, COLS);
+    const ox = (cv.width - cell*COLS)/2, oy = (cv.height - cell*ROWS)/2;
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      if(grid[r][c]){ ctx.fillStyle = '#02c076'; ctx.fillRect(ox+c*cell+1, oy+r*cell+1, cell-2, cell-2); }
+    }
+    const g = $('gen'); if(g) g.textContent = String(gen);
+    const a = $('alive'); if(a) a.textContent = String(getState().alive.length);
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cv = $('board');
+    if(cv) cv.addEventListener('click', e => {
+      const vw = (typeof window!=='undefined') ? window.innerWidth : 800;
+      const size = Math.min(cv.width, cv.height, vw - 40);
+      const cell = size / Math.max(ROWS, COLS);
+      const ox = (cv.width - cell*COLS)/2, oy = (cv.height - cell*ROWS)/2;
+      const rect = cv.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) * (cv.width/rect.width);
+      const my = (e.clientY - rect.top) * (cv.height/rect.height);
+      const c = Math.floor((mx-ox)/cell), r = Math.floor((my-oy)/cell);
+      if(inb(r,c)){ grid[r][c] = !grid[r][c]; if(J) J.sfx('click'); render(); }
+    });
+    const st = $('step'); if(st) st.onclick = () => { step(); render(); };
+    const cl = $('clear'); if(cl) cl.onclick = () => { clear(); render(); };
+    const rnd = $('rand'); if(rnd) rnd.onclick = () => { randomize(); render(); };
+  }
+
+  emptyGrid();
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render(); }
+  if(typeof window!=='undefined'){
+    window.__t = { setRand, newGame, reset, setCell, clear, randomize, step, getState };
+  }
+})();
+</script>
+</body>
+</html>
