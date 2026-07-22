@@ -191,9 +191,9 @@
     return true;
   }
   function winBlind(){
-    if(J){ J.sfx('win'); J.flash('#02c076', .5); J.confetti(innerWidth/2, innerHeight*0.32, {n:46}); }
+    if(J){ J.sfx('win'); J.flash('#02c076', .5); if(J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.32, {n:46}); }
     if(S.blindIdx===2){
-      if(S.ante>=MAXANTE){ S.won=true; if(J) J.confetti(innerWidth/2, innerHeight*0.28, {n:160, life:2.6}); S.screen='win'; return; }
+      if(S.ante>=MAXANTE){ S.won=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.28, {n:160, life:2.6}); S.screen='win'; return; }
       S.ante++; S.blindIdx=0;
     } else S.blindIdx++;
     S.reward={cards:shuffle(JOKER_IDS.slice()).slice(0,3)};
