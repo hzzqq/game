@@ -276,6 +276,7 @@
   "use strict";
   const SIZE = 4;
   const BEST_KEY = "terminal2048_best";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
 
   // 读取与 CSS 同步的尺寸
   const cs = getComputedStyle(document.documentElement);
@@ -500,7 +501,10 @@
           fx.style.top = (GAP + next.r * (CELL + GAP) + CELL / 2) + 'px';
           tileLayer.appendChild(fx);
           setTimeout(() => { if (fx.parentNode) fx.parentNode.removeChild(fx); }, 560);
-          if (nextTile.value === 2048) won = true;
+          if (nextTile.value === 2048) {
+            won = true;
+            if (J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, { n: 120, life: 2.4 });
+          }
           mergedAway.push(tile);
           moved = true;
         } else if (farthest.r !== r || farthest.c !== c) {
