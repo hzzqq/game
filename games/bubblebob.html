@@ -238,6 +238,7 @@ function startGame(m){
   genMap();
   players=spawnConfig(mode);
   bombs=[]; explosions=[]; powerups=[];
+  capPickups=[]; capBoost=0; capShield=false; capLives=3; capDead=false; capSpawn=12; capBombCleared=0;
   state='playing';
   // 重置炸弹通行标记
   for(const p of players) p.bombsActive=0;
@@ -252,6 +253,7 @@ function nextRound(){
   const cfg=spawnConfig(mode);
   players=cfg.map((np,i)=>{ np.score=players[i]?players[i].score:0; return np; });
   bombs=[]; explosions=[]; powerups=[];
+  capPickups=[]; capBoost=0; capShield=false; capLives=3; capDead=false; capSpawn=12; capBombCleared=0;
   state='playing'; aliveCount=players.length;
   roundNo++;
   hideOverlay('roundover');
@@ -528,7 +530,85 @@ function update(dt){
     if(lastWinner) lastWinner.score++;
     showRoundOver();
   }
+
+  // 注入：胶囊自动掉落 + 下落
+  capSpawn -= dt;
+  if(capSpawn<=0){ capSpawn=12; spawnPickupAtRandom(); }
+  updatePickups(dt);
+
   updateHud();
+}
+
+// ===================== 注入：胶囊掉落 / 增益（纯注入，核心玩法不动） =====================
+function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+var _rng = mk(0x9ABC);
+var capPickups=[];        // 注入：场上胶囊
+var capBoost=0;           // 注入：加速计时（秒）
+var capShield=false;      // 注入：护盾（布尔）
+var capLives=3;           // 注入：额外生命（与核心 alive 平行）
+var capDead=false;        // 注入：是否阵亡
+var capSpawn=12;          // 注入：下次自动掉落计时（长，避免干扰既有测试）
+var capBombCleared=0;     // 注入：bomb 清除软砖计数
+var FIELD_W=W, FIELD_H=H;
+var PICKUP_TYPES=['bomb','heal'];
+var PICKUP_EMOJI={bomb:'💣', heal:'❤'};
+var PICKUP_COLOR={bomb:'#f0b90b', heal:'#02c076'};
+
+function makePickup(type, x, y){
+  return {type:type, x:x, y:y, r:13, vy:60, t:0};
+}
+function spawnPickupAtRandom(){
+  const t=PICKUP_TYPES[(_rng()*PICKUP_TYPES.length)|0];
+  const x=24 + _rng()*(FIELD_W-48);
+  const y=24 + _rng()*(FIELD_H-48);
+  capPickups.push(makePickup(t, x, y));
+}
+function playerPositions(){
+  // 仅用存活玩家做拾取碰撞（默认 P1 玩家0）
+  return players.filter(p=>p.alive).map(p=>({x:p.px, y:p.py, r:TILE*0.34}));
+}
+function applyPickup(p){
+  if(p.type==='bomb'){
+    // 炸掉第 1 行所有软砖，记录清除数量（确定性数值效果）
+    let cleared=0;
+    for(let x=1;x<COLS-1;x++){ if(grid[1] && grid[1][x]===SOFT){ grid[1][x]=EMPTY; cleared++; } }
+    capBombCleared += cleared;
+    if(typeof Juice!=='undefined') Juice.sfx('boom');
+  } else if(p.type==='heal'){
+    capLives = Math.min(9, capLives+1);
+    if(typeof Juice!=='undefined') Juice.sfx('pickup');
+  }
+}
+function updatePickups(dt){
+  if(!capPickups.length) return;
+  const ps=playerPositions();
+  for(let i=capPickups.length-1;i>=0;i--){
+    const p=capPickups[i];
+    p.y += p.vy*dt; p.t += dt;
+    let hit=false;
+    for(const pl of ps){ if(Math.hypot(p.x-pl.x, p.y-pl.y) < p.r+pl.r){ hit=true; break; } }
+    if(hit){ applyPickup(p); capPickups.splice(i,1); continue; }
+    if(p.y > FIELD_H+20){ capPickups.splice(i,1); }
+  }
+}
+function drawPickup(ctx){
+  for(const p of capPickups){
+    const col=PICKUP_COLOR[p.type]||'#fff';
+    ctx.save();
+    ctx.shadowColor=col; ctx.shadowBlur=14;
+    ctx.fillStyle=col; ctx.globalAlpha=0.9;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill();
+    ctx.shadowBlur=0; ctx.globalAlpha=1;
+    ctx.fillStyle='#0a0e14'; ctx.font='bold 14px monospace';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(PICKUP_EMOJI[p.type]||'?', p.x, p.y+1);
+    ctx.restore();
+  }
+}
+function takeHit(i){ // i = 伤害（用于扣减额外生命）
+  if(capShield){ capShield=false; return; }
+  capLives = Math.max(0, capLives - (i||1));
+  if(capLives<=0) capDead=true;
 }
 
 // ===================== 渲染 =====================
@@ -582,6 +662,7 @@ function draw(){
     let ex=0,ey=0; if(p.dir){ex=p.dir.x*4;ey=p.dir.y*4;}
     ctx.beginPath(); ctx.arc(cx-6+ex,cy-4+ey,3,0,7); ctx.arc(cx+6+ex,cy-4+ey,3,0,7); ctx.fill();
   }
+  drawPickup(ctx);
   Juice.mid(ctx); Juice.end(ctx);
 }
 
@@ -657,6 +738,25 @@ const __bb={
   forceStep:(id,dx,dy)=>{ const p=players.find(p=>p.id===id); if(p){ p.intent={dx,dy,bomb:false}; } },
   killBombsSoon:()=>{ for(const b of bombs) b.t=Math.min(b.t,0.01); },
   gridSet:(x,y,v)=>{ if(inBounds(x,y)) grid[y][x]=v; },
+  // ---- 注入：胶囊系统测试钩子（不影响核心玩法；本游戏沿用 __bb 约定） ----
+  get capPickups(){return capPickups;},
+  get capLives(){return capLives;},
+  get capShield(){return capShield;},
+  get capBoost(){return capBoost;},
+  get capDead(){return capDead;},
+  get capSpawn(){return capSpawn;},
+  get capBombCleared(){return capBombCleared;},
+  reset:()=>{ capPickups=[]; capBoost=0; capShield=false; capLives=3; capDead=false; capSpawn=12; capBombCleared=0; },
+  getState:()=>({state, capPickups:capPickups.slice(), capLives, capShield, capBoost, capDead, capSpawn, capBombCleared}),
+  spawnPickup:(type,x,y)=>{ capPickups.push(makePickup(type,x,y)); },
+  stepPickups:(dt)=>updatePickups(dt),
+  applyPickup:(p)=>applyPickup(p),
+  getPickups:()=>capPickups.slice(),
+  getShield:()=>capShield,
+  setShield:(v)=>{ capShield=!!v; },
+  getBoost:()=>capBoost,
+  setBoost:(v)=>{ capBoost=v; },
+  takeHit:(i)=>takeHit(i),
 };
 if(typeof window!=='undefined') window.__bb=__bb;
 

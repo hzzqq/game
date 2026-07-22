@@ -93,3 +93,46 @@ P(2).score = 5;
 bb.nextRound();
 H.ok('泡泡堂 回合号+1', bb.roundNo === 2);
 H.ok('泡泡堂 分数保留', bb.players.find(p => p.id === 2).score === 5);
+
+// [9] 注入：胶囊掉落 / 增益（确定性，经 __bb 钩子驱动）
+bb.startGame('1v1');
+bb.players.forEach(p => { p.isAI = false; });
+const P0 = P(0);
+align(P0);
+bb.reset();
+// 9a bomb 落到玩家脚下 → 清除软砖 + 移除
+const bombBefore = bb.capBombCleared;
+bb.spawnPickup('bomb', P0.px, P0.py);
+H.ok('胶囊 bomb 已生成', bb.capPickups.length === 1);
+bb.stepPickups(0.001);
+H.ok('胶囊 bomb 被拾取后移除', bb.capPickups.length === 0);
+H.ok('胶囊 bomb 清除软砖(capBombCleared+)', bb.capBombCleared > bombBefore);
+// 9b heal 拾取 +1 生命 + 移除
+bb.reset(); align(P0);
+const livesBefore = bb.capLives;
+bb.spawnPickup('heal', P0.px, P0.py);
+bb.stepPickups(0.001);
+H.ok('胶囊 heal 拾取后移除', bb.capPickups.length === 0);
+H.ok('胶囊 heal 生命+1', bb.capLives === livesBefore + 1);
+// 9c 远处胶囊：无碰撞不生效、不移除
+bb.reset(); align(P0);
+bb.spawnPickup('heal', 300, 500);
+const lvFar = bb.capLives, bcFar = bb.capBombCleared;
+bb.stepPickups(0.001);
+H.ok('胶囊 远处不拾取(仍存在)', bb.capPickups.length === 1);
+H.ok('胶囊 远处不生效', bb.capLives === lvFar && bb.capBombCleared === bcFar);
+// 9d 护盾挡死：生命不变、护盾消耗
+bb.reset(); align(P0);
+bb.setShield(true);
+const lvShield = bb.capLives;
+bb.takeHit(5);
+H.ok('胶囊 护盾挡死 生命不变', bb.capLives === lvShield);
+H.ok('胶囊 护盾挡死 已消耗', bb.capShield === false);
+// 9e 无护盾损命，归零置 dead
+bb.reset(); align(P0);
+bb.setShield(false);
+const lvNo = bb.capLives;
+bb.takeHit(1);
+H.ok('胶囊 无护盾 生命-1', bb.capLives === lvNo - 1);
+bb.takeHit(99);
+H.ok('胶囊 生命归零 capDead', bb.capDead === true);
