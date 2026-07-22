@@ -74,6 +74,7 @@
 <script>
 (function(){
   "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
   const N = 8;
   const EMPTY = 0, R = 1, G = 2;
   const RED = '#f6465d', GREEN = '#02c076';
@@ -256,8 +257,8 @@
     document.getElementById('ovTitle').style.color=col;
     document.getElementById('ovText').textContent=sub;
     if(typeof Juice!=='undefined'){
-      if(s.r>s.g){ Juice.sfx('win'); Juice.flash(RED,0.26); Juice.addTrauma(0.45); const b=Juice.best('reversi',s.r); Juice.rank(s.r); if(b.isNew) Juice.achievement('红方新高 '+s.r+' 子'); }
-      else if(s.g>s.r){ Juice.sfx('win'); Juice.flash(GREEN,0.26); Juice.addTrauma(0.45); const b=Juice.best('reversi',s.g); Juice.rank(s.g); if(b.isNew) Juice.achievement('绿方新高 '+s.g+' 子'); }
+      if(s.r>s.g){ Juice.sfx('win'); Juice.flash(RED,0.26); Juice.addTrauma(0.45); const b=Juice.best('reversi',s.r); Juice.rank(s.r); if(b.isNew) Juice.achievement('红方新高 '+s.r+' 子'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      else if(s.g>s.r){ Juice.sfx('win'); Juice.flash(GREEN,0.26); Juice.addTrauma(0.45); const b=Juice.best('reversi',s.g); Juice.rank(s.g); if(b.isNew) Juice.achievement('绿方新高 '+s.g+' 子'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       else { Juice.sfx('click'); }
     }
     ov.style.display='flex';
