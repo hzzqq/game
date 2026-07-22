@@ -62,15 +62,16 @@
     pocketed=[];
     const a=angleDeg*Math.PI/180, dx=Math.cos(a), dy=Math.sin(a);
     cue.vx=dx*1.5; cue.vy=dy*1.5;
+    if(typeof Juice!=='undefined'){ Juice.sfx('shoot'); Juice.addTrauma(0.2); }
     // 母球行进
     for(let s=0;s<power;s++){
       cue.x+=cue.vx; cue.y+=cue.vy;
       if(cue.x<R){cue.x=R;cue.vx=Math.abs(cue.vx);} if(cue.x>W-R){cue.x=W-R;cue.vx=-Math.abs(cue.vx);}
       if(cue.y<R){cue.y=R;cue.vy=Math.abs(cue.vy);} if(cue.y>H-R){cue.y=H-R;cue.vy=-Math.abs(cue.vy);}
-      if(inPocket(cue.x,cue.y)){ pocketed.push('cue'); cue.vx=0; cue.vy=0; break; }
+      if(inPocket(cue.x,cue.y)){ pocketed.push('cue'); cue.vx=0; cue.vy=0; if(typeof Juice!=='undefined'){ Juice.sfx('error'); Juice.addTrauma(0.3);} break; }
       let hit=null;
       for(const b of balls){ if(dist(cue.x,cue.y,b.x,b.y)<=2*R){ hit=b; break; } }
-      if(hit){ hit.vx=cue.vx; hit.vy=cue.vy; cue.vx=0; cue.vy=0; break; }
+      if(hit){ hit.vx=cue.vx; hit.vy=cue.vy; cue.vx=0; cue.vy=0; if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.25); Juice.burst(cue.x,cue.y,{color:'#f0b90b',n:12}); } break; }
     }
     // 目标球行进
     for(const b of balls){
@@ -79,9 +80,10 @@
         b.x+=b.vx; b.y+=b.vy;
         if(b.x<R){b.x=R;b.vx=Math.abs(b.vx);} if(b.x>W-R){b.x=W-R;b.vx=-Math.abs(b.vx);}
         if(b.y<R){b.y=R;b.vy=Math.abs(b.vy);} if(b.y>H-R){b.y=H-R;b.vy=-Math.abs(b.vy);}
-        if(inPocket(b.x,b.y)){ pocketed.push(b.id); b.vx=0; b.vy=0; b.x=-100; b.y=-100; break; }
+        if(inPocket(b.x,b.y)){ const px=b.x, py=b.y; pocketed.push(b.id); b.vx=0; b.vy=0; b.x=-100; b.y=-100; if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.burst(px,py,{color:'#02c076',n:16}); Juice.popup(px,py,'+1','#02c076'); } break; }
       }
     }
+    if(typeof Juice!=='undefined'){ const tgt=pocketed.filter(x=>x!=='cue'); if(tgt.length>=balls.length){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4); } }
   }
   function getBalls(){ return balls.map(b=>({id:b.id,x:b.x,y:b.y})); }
   function getCue(){ return {x:cue.x,y:cue.y}; }
