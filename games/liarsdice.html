@@ -59,7 +59,7 @@
   function setDice(d){ dice=d.map(x=>x.slice()); cur=null; }
   function getCount(face){ let c=0; for(const p of dice) for(const v of p) if(v===face) c++; return c; }
   function getDice(){ return dice.map(p=>p.slice()); }
-  function placeBid(n,face){ if(!isValidRaise(n,face)) return false; cur={n,face}; return true; }
+  function placeBid(n,face){ if(!isValidRaise(n,face)) return false; cur={n,face}; if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.addTrauma(0.15); } return true; }
   function isValidRaise(n,face){
     if(!cur) return true;
     if(n>cur.n) return true;
@@ -70,6 +70,11 @@
     if(!cur) return null;
     const count=getCount(cur.face);
     const bidderWin = count>=cur.n;
+    if(typeof Juice!=='undefined'){
+      if(bidderWin){ Juice.sfx('lose'); Juice.flash('#f6465d',.5); }
+      else { Juice.sfx('win'); Juice.flash('#02c076',.5); }
+      Juice.addTrauma(.3);
+    }
     return { winner: bidderWin?0:1, count, bid:cur };
   }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
