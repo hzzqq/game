@@ -38,7 +38,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>迷宫</b> MAZE</span></div>
   <div class="wrap">
-    <div class="hud"><span>尺寸 · <span class="st" id="size">--</span></span><span>状态 · <span class="st" id="st">可解</span></span></div>
+    <div class="hud"><span>尺寸 · <span class="st" id="size">--</span></span><span>状态 · <span class="st" id="st">可解</span></span><span>BUFF · <span class="st" id="buff">-</span></span></div>
     <div class="board" id="board"></div>
     <div class="msg" id="msg">从起点 (左上) 走到终点 (右下)。迷宫随机生成保证连通，可用方向键或按钮寻路。</div>
     <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
@@ -51,6 +51,54 @@
   "use strict";
   let W=12, H=12, maze;
   let _rand=Math.random;
+
+  // ---- 注入：掉落道具 / 增益系统（玩家 + 掉落物，不改核心生成/求解逻辑） ----
+  let player, pickups, shield, boostTimer, lives, score;
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return((t^t>>>14)>>>0)/4294967296; }; }
+  const _prng = mk(0x2c6f9b4d);
+  function makePickup(type,r,c){ return { type:type, x:r, y:c, r:9 }; }
+  const PICKUP_EMOJI = { coin:'💰', shield:'🛡', boost:'⚡' };
+  function spawnPickup(type,r,c){ pickups.push(makePickup(type,r,c)); }
+  function spawnPickupAtRandom(){
+    const path=solve()||[];
+    const cell = path.length ? path[Math.floor(_prng()*(path.length-1))] : [Math.floor(_prng()*H), Math.floor(_prng()*W)];
+    const t=_prng();
+    const type = t<0.5?'coin':(t<0.8?'shield':'boost');
+    pickups.push(makePickup(type, cell[0], cell[1]));
+  }
+  function applyPickup(type){
+    if(type==='coin'){ score+=5; if(typeof Juice!=='undefined'){ Juice.sfx('coin'); } }
+    else if(type==='shield'){ shield=Math.min(3,shield+1); if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); } }
+    else if(type==='boost'){ boostTimer=8; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); } }
+  }
+  function updatePickups(dt){
+    for(let i=pickups.length-1;i>=0;i--){
+      const p=pickups[i];
+      if(player && p.x===player.r && p.y===player.c){ applyPickup(p.type); pickups.splice(i,1); }
+    }
+  }
+  function takeHit(){
+    if(shield>0){ shield--; if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); } }
+    else { lives--; if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.flash('#f6465d',.3); } }
+  }
+  function update(dt){
+    if(boostTimer>0) boostTimer-=dt;
+    updatePickups(dt);
+  }
+  function movePlayer(d){
+    if(!maze || !player) return;
+    const dirs={N:[-1,0],S:[1,0],W:[0,-1],E:[0,1]};
+    const dd=dirs[d]; if(!dd) return;
+    const steps = (boostTimer>0)?2:1;
+    for(let s=0;s<steps;s++){
+      const nr=player.r+dd[0], nc=player.c+dd[1];
+      if(!inb(nr,nc)) break;
+      if(!open(player.r,player.c,d)) break;
+      player.r=nr; player.c=nc;
+      if(player.r===H-1 && player.c===W-1){ if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } break; }
+    }
+    updatePickups(0);
+  }
   function setRand(fn){ _rand=fn; }
   function carve(){
     maze=[]; for(let r=0;r<H;r++){ const row=[]; for(let c=0;c<W;c++) row.push({N:true,E:true,S:true,W:true,vis:false}); maze.push(row); }
@@ -91,14 +139,40 @@
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
-    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',28px)'; bd.innerHTML=''; const path=solve()||[]; const pset=new Set(path.map(p=>p[0]+','+p[1])); for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); const cell=maze[r][c]; let cls='cell'; if(cell.N)cls+=' wallN'; if(cell.S)cls+=' wallS'; if(cell.E)cls+=' wallE'; if(cell.W)cls+=' wallW'; if(pset.has(r+','+c))cls+=' path'; if(r===H-1&&c===W-1)cls+=' goal'; d.className=cls; bd.appendChild(d); } } }
-    const sz=$('size'),st=$('st'); if(sz)sz.textContent=W+'×'+H; if(st)st.textContent=isSolved()?'可解':'无解';
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',28px)'; bd.innerHTML=''; const path=solve()||[]; const pset=new Set(path.map(p=>p[0]+','+p[1]));
+      const pmap={}; for(const p of pickups) pmap[p.x+','+p.y]=(pmap[p.x+','+p.y]||'')+PICKUP_EMOJI[p.type];
+      for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); const cell=maze[r][c]; let cls='cell'; if(cell.N)cls+=' wallN'; if(cell.S)cls+=' wallS'; if(cell.E)cls+=' wallE'; if(cell.W)cls+=' wallW'; if(pset.has(r+','+c))cls+=' path'; if(r===H-1&&c===W-1)cls+=' goal'; d.className=cls; let txt=''; if(player&&player.r===r&&player.c===c) txt+='🚶'; if(pmap[r+','+c]) txt+=pmap[r+','+c]; if(txt) d.textContent=txt; bd.appendChild(d); } } }
+    const sz=$('size'),st=$('st'),buff=$('buff'); if(sz)sz.textContent=W+'×'+H; if(st)st.textContent=isSolved()?'可解':'无解';
+    if(buff){ let b=[]; if(shield>0)b.push('🛡'+shield); if(boostTimer>0)b.push('⚡'+Math.ceil(boostTimer)+'s'); b.push('💰'+score); buff.textContent=b.length?b.join(' '):'-'; }
   }
-  function newGame(){ carve(); if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.addTrauma(0.12); } render(); }
+  function newGame(){ carve(); player={r:0,c:0}; pickups=[]; shield=0; boostTimer=0; lives=3; score=0; if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.addTrauma(0.12); } render(); }
   if(typeof document!=='undefined'){ const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); }; }
   newGame();
-  if(typeof document!=='undefined'){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
-  if(typeof window!=='undefined'){ window.__t={ solve, isSolved, getPath, setMaze, getMazeSize, setRand, carve }; }
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render();
+    window.addEventListener('keydown', function(e){
+      const k=e.key;
+      if(k==='ArrowUp'||k==='w'||k==='W') movePlayer('N');
+      else if(k==='ArrowDown'||k==='s'||k==='S') movePlayer('S');
+      else if(k==='ArrowLeft'||k==='a'||k==='A') movePlayer('W');
+      else if(k==='ArrowRight'||k==='d'||k==='D') movePlayer('E');
+      else return;
+      e.preventDefault(); render();
+    });
+  }
+  if(typeof window!=='undefined'){
+    window.__t={ reset:newGame, solve, isSolved, getPath, setMaze, getMazeSize, setRand, carve, movePlayer, getPlayer(){ return player?{r:player.r,c:player.c}:null; }, update, takeHit,
+      getState(){ return {player,shield,boostTimer,lives,score,pickups:pickups.length}; },
+      spawnPickup,
+      stepPickups(dt){ updatePickups(dt); },
+      spawnPickupAtRandom,
+      applyPickup,
+      getPickups(){ return pickups.length; },
+      getShield(){ return shield; }, setShield(v){ shield=v; },
+      getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
+      getLives(){ return lives; }, setLives(v){ lives=v; },
+      getScore(){ return score; } };
+  }
 })();
 </script>
 </body>
