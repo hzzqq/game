@@ -30,7 +30,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>小行星</b> ASTEROIDS</span></div>
   <div class="wrap">
-    <div class="hud"><span>得分 · <span class="st" id="sc">0</span></span><span>剩余 · <span class="st" id="rem">0</span></span></div>
+    <div class="hud"><span>得分 · <span class="st" id="sc">0</span></span><span>剩余 · <span class="st" id="rem">0</span></span><span id="buff"></span></div>
     <canvas id="cv" width="400" height="300"></canvas>
     <div class="msg" id="msg">方向键转向、空格射击。击碎小行星：大块裂成两块，全部清空即胜。</div>
     <div class="controls">
@@ -44,10 +44,20 @@
 <script>
 (function(){
   "use strict";
-  const W=400, H=300, BR=2;
+  const W=400, H=300, BR=2, SH=8;
   let ship, asteroids, bullets, score;
-  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; spawnWave(); }
+  let pickups, boostTimer, shield, lives, over, spawnTimer;
+  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; lives=3; over=false; spawnTimer=4; spawnWave(); }
   function spawnWave(){ for(let i=0;i<4;i++) asteroids.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()*2-1)*30,vy:(Math.random()*2-1)*30,r:30}); }
+  // ---- 注入式掉落道具系统（本地种子 PRNG，禁止 Math.random）----
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  const pickupRng = mk(0x9e3779b9);
+  function makePickup(type,x,y){ return {type:type,x:x,y:y,vy:25,r:9,life:9}; }
+  function spawnPickupAtRandom(){ const types=['coin','shield','boost']; const type=types[Math.floor(pickupRng()*types.length)%types.length]; pickups.push(makePickup(type, pickupRng()*W, -10)); }
+  function applyPickup(p){ if(!p) return; if(p.type==='coin'){ score+=50; if(typeof Juice!=='undefined') Juice.popup('+50 💰'); } else if(p.type==='shield'){ shield=Math.min(shield+1,3); if(typeof Juice!=='undefined') Juice.popup('🛡'); } else if(p.type==='boost'){ boostTimer=8; if(typeof Juice!=='undefined') Juice.popup('🚀'); } const idx=pickups.indexOf(p); if(idx>=0) pickups.splice(idx,1); }
+  function updatePickups(dt){ for(let i=pickups.length-1;i>=0;i--){ const p=pickups[i]; p.y+=p.vy*dt; p.life-=dt; const dx=p.x-ship.x, dy=p.y-ship.y; if(dx*dx+dy*dy < (p.r+SH)*(p.r+SH)){ applyPickup(p); continue; } if(p.life<=0 || p.y>H+20) pickups.splice(i,1); } if(boostTimer>0) boostTimer=Math.max(0,boostTimer-dt); }
+  function drawPickups(ctx){ for(const p of pickups){ const sym=p.type==='coin'?'💰':p.type==='shield'?'🛡':'🚀'; ctx.save(); ctx.beginPath(); ctx.arc(p.x,p.y,p.r+4,0,Math.PI*2); ctx.fillStyle='rgba(240,185,11,.15)'; ctx.fill(); ctx.strokeStyle='rgba(240,185,11,.6)'; ctx.stroke(); ctx.fillStyle='#fff'; ctx.font='14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(sym,p.x,p.y); ctx.restore(); } }
+  function takeHit(){ if(shield>0){ shield--; if(typeof Juice!=='undefined') Juice.flash('#02c076',.3); return; } lives--; if(lives<=0){ over=true; if(typeof Juice!=='undefined') Juice.flash('#f6465d',.5); } }
   function setAsteroids(a){ asteroids=a.map(o=>({...o})); }
   function setBullets(b){ bullets=b.map(o=>({...o})); }
   function getAsteroids(){ return asteroids.map(o=>({...o})); }
@@ -58,12 +68,15 @@
     dt=Math.max(dt||0.016,0);
     for(const a of asteroids){ a.x+=a.vx*dt; a.y+=a.vy*dt; if(a.x<0)a.x+=W; if(a.x>W)a.x-=W; if(a.y<0)a.y+=H; if(a.y>H)a.y-=H; }
     for(const b of bullets){ b.x+=b.vx*dt; b.y+=b.vy*dt; if(b.x<0)b.x+=W; if(b.x>W)b.x-=W; if(b.y<0)b.y+=H; if(b.y>H)b.y-=H; }
+    if(!over){ for(let i=0;i<asteroids.length;i++){ const a=asteroids[i]; const dx=a.x-ship.x, dy=a.y-ship.y; if(dx*dx+dy*dy < (a.r+SH)*(a.r+SH)){ takeHit(); asteroids.splice(i,1); break; } } }
     const hit=[];
     for(let i=0;i<asteroids.length;i++){ for(let j=0;j<bullets.length;j++){ const a=asteroids[i],b=bullets[j]; const dx=a.x-b.x,dy=a.y-b.y; if(dx*dx+dy*dy<(a.r+BR)*(a.r+BR)){ hit.push([i,j]); break; } } }
     const deadA=new Set(),deadB=new Set();
-    for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= a.r>20?20:10; Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(a.x, a.y, {color:'#f0b90b'}); if(a.r>20){ for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(Math.random()*2-1)*60,vy:(Math.random()*2-1)*60,r:20}); } }
+    for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= (a.r>20?20:10)*(boostTimer>0?2:1); Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(a.x, a.y, {color:'#f0b90b'}); if(a.r>20){ for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(Math.random()*2-1)*60,vy:(Math.random()*2-1)*60,r:20}); } }
     asteroids=asteroids.filter((_,i)=>!deadA.has(i));
     bullets=bullets.filter((_,j)=>!deadB.has(j));
+    spawnTimer-=dt; if(spawnTimer<=0){ spawnPickupAtRandom(); spawnTimer=3+pickupRng()*3; }
+    updatePickups(dt);
   }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
@@ -73,13 +86,25 @@
     ctx.strokeStyle='#f0b90b'; ctx.lineWidth=2;
     for(const a of asteroids){ ctx.beginPath(); ctx.arc(a.x,a.y,a.r,0,Math.PI*2); ctx.stroke(); }
     ctx.fillStyle='#f6465d'; for(const b of bullets){ ctx.fillRect(b.x-2,b.y-2,4,4); }
+    drawPickups(ctx);
     ctx.fillStyle='#02c076'; ctx.save(); ctx.translate(ship.x,ship.y); ctx.rotate(ship.angle); ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-6,5); ctx.lineTo(-6,-5); ctx.closePath(); ctx.fill(); ctx.restore();
-    const sc=$('sc'),rem=$('rem'); if(sc)sc.textContent=score; if(rem)rem.textContent=asteroids.length;
+    const sc=$('sc'),rem=$('rem'),bf=$('buff'); if(sc)sc.textContent=score; if(rem)rem.textContent=asteroids.length; if(bf){ let s=''; if(shield>0)s+='🛡'+shield+' '; if(boostTimer>0)s+='🚀'+Math.ceil(boostTimer)+'s'; bf.textContent=s; }
   }
   function loop(){ if(typeof requestAnimationFrame==='undefined') return; step(0.016); render(); requestAnimationFrame(loop); }
   reset();
   if(typeof document!=='undefined'){ const sh=$('shoot'),nb=$('new'); if(sh)sh.onclick=()=>{ shoot(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
-  if(typeof window!=='undefined'){ window.__t={ reset, setAsteroids, setBullets, getAsteroids, getBullets, getScore, shoot, step }; }
+  if(typeof window!=='undefined'){ window.__t={ reset, setAsteroids, setBullets, getAsteroids, getBullets, getScore, shoot, step,
+    getState(){ return {score, shield, boostTimer, lives, over, pickups:pickups.length, spawnTimer}; },
+    spawnPickup(type,x,y){ pickups.push(makePickup(type||'coin', x, y)); },
+    stepPickups(dt){ updatePickups(dt); },
+    applyPickup(p){ applyPickup(p); },
+    getPickups(){ return pickups.length; },
+    getPickup(i){ return pickups[i]; },
+    getShield(){ return shield; }, setShield(v){ shield=v; },
+    getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
+    getLives(){ return lives; }, setLives(v){ lives=v; },
+    takeHit, getShip(){ return {x:ship.x,y:ship.y}; }, getOver(){ return over; }
+  }; }
 })();
 </script>
 </body>
