@@ -59,8 +59,8 @@
     hand.splice(idx,1);
     if(cap){ const before=table.length; const rm=[]; for(let i=0;i<table.length;i++) if(cap.mask&(1<<i)) rm.push(i);
       rm.sort((a,b)=>b-a).forEach(i=>table.splice(i,1));
-      captured+=rm.length+1; if(table.length===0) scopaCount++; return true; }
-    table.push(card); return false;
+      captured+=rm.length+1; if(table.length===0) scopaCount++; Juice.sfx('hit'); Juice.addTrauma(.25); return true; }
+    table.push(card); Juice.sfx('click'); return false;
   }
   function getTable(){ return table.map(c=>({...c})); }
   function getHand(){ return hand.map(c=>({...c})); }
