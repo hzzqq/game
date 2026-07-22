@@ -56,3 +56,65 @@ H.eq('撞毁: 结束', t.getState().over, true);
 t.reset();
 let rs = t.getState();
 H.ok('reset 后状态可读取', rs && typeof rs.distance === 'number' && rs.running === false);
+
+// ===== 注入式掉落/增益系统（确定性驱动，setRand 控制掉落 PRNG）=====
+t.setRand(123);
+
+// 1. 生成掉落物 + 金币计数
+t.reset(); t.start();
+t.spawnPickup('coin', 300, 100);
+H.eq('生成 1 个掉落物', t.getPickups(), 1);
+const coinsBefore = t.getCoins();
+t.applyPickup(0);
+H.eq('拾取 💰 金币计数+1', t.getCoins(), coinsBefore + 1);
+H.eq('拾取后掉落物移除', t.getPickups(), 0);
+
+// 2. 护盾：有盾受击（撞障碍）不扣血，护盾被消耗
+t.reset(); t.start(); t.setSpawnEnabled(false); t.clearObstacles(); t.setLives(3); t.setShield(1);
+t.spawnObstacle(t.getState().playerLane, t.getState().playerY);
+const lb = t.getLives();
+t.update(0.02);
+H.eq('有护盾: 撞障碍不扣血', t.getLives(), lb);
+H.eq('护盾被消耗', t.getShield(), 0);
+// 无盾受击扣血
+t.reset(); t.start(); t.setSpawnEnabled(false); t.clearObstacles(); t.setLives(3);
+t.spawnObstacle(t.getState().playerLane, t.getState().playerY);
+const lb2 = t.getLives();
+t.update(0.02);
+H.eq('无盾: 撞障碍扣血', t.getLives(), lb2 - 1);
+
+// 3. 加速增益：boost 置位且加快距离累积
+t.reset(); t.start(); t.setSpawnEnabled(false); t.clearObstacles();
+t.spawnPickup('boost', 300, 100);
+H.eq('生成 boost 掉落物', t.getPickup(0).type, 'boost');
+t.applyPickup(0);
+H.ok('拾取 🚀 加速生效(boostTimer>0)', t.getBoost() > 0);
+t.setSpeed(100);
+t.update(1.0);
+H.ok('加速期距离累积明显增大(>140m)', t.getState().distance > 140);
+
+// 4. 回血增益：heal 增加余机
+t.reset(); t.start(); t.setSpawnEnabled(false); t.clearObstacles(); t.setLives(2);
+t.spawnPickup('heal', 300, 100);
+t.applyPickup(0);
+H.eq('拾取 ❤ 余机+1', t.getLives(), 3);
+
+// 5. 碰撞自动拾取：掉落物落到玩家位置自动生效
+t.reset(); t.start(); t.setSpawnEnabled(false); t.clearObstacles();
+const px = t.getPlayerX(), pyy = t.getState().playerY;
+t.spawnPickup('shield', px, pyy);
+t.update(0.02);
+H.eq('掉落到玩家自动拾取护盾', t.getShield(), 1);
+H.eq('自动拾取后移除', t.getPickups(), 0);
+
+// 6. 非法索引被拒
+t.reset(); t.start();
+t.applyPickup(99);
+H.eq('非法索引不报错且掉落物=0', t.getPickups(), 0);
+
+// 7. 回归：无 buff 时距离/碰撞逻辑不变
+t.reset(); t.start(); t.setSpawnEnabled(false); t.clearObstacles(); t.setSpeed(100);
+t.update(1.0);
+H.ok('回归: 距离累计 ≈100m', t.getState().distance > 95 && t.getState().distance < 110);
+// 还原掉落 PRNG 为默认随机流（确定性块结束）
+t.setRand(Math.random);

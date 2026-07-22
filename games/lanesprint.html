@@ -84,13 +84,24 @@
         lanes:4, playerLane:1, playerY:PLAYER_Y,
         obstacles:[], distance:0, speed:260, lives:3,
         running:false, paused:false, over:false, invuln:0,
-        spawnTimer:0, spawnEnabled:true, rng:mulberry32(7)
+        spawnTimer:0, spawnEnabled:true, rng:mulberry32(7),
+        pickups:[], coins:0, shield:0, boostTimer:0
       };
     }
 
+    // ---- 注入式掉落/增益系统（局部 PRNG，禁止 Math.random）----
+    function mk(seed){let s=seed>>>0;return ()=>{s=(s*1664525+1013904223)>>>0;return (s&0x7fffffff)/0x7fffffff;};}
+    let pickupRng = mk(0x3d003);
+    function makePickup(type,x,y){ return {type:type,x:x,y:y,vy:80,r:11,life:14}; }
+    function spawnPickupAtRandom(seed){ const r=(seed!==undefined)?mk(seed>>>0):pickupRng; const types=['coin','shield','boost','heal']; const type=types[Math.floor(r()*types.length)%types.length]; S.pickups.push(makePickup(type, r()*W, -20)); return S.pickups.length-1; }
+    function applyPickup(p){ if(!p) return; if(p.type==='coin'){ S.coins++; S.score=(S.score||0)+10; if(J)J.popup&&J.popup('+💰'); } else if(p.type==='shield'){ S.shield=Math.min(S.shield+1,3); if(J)J.popup&&J.popup('🛡'); } else if(p.type==='boost'){ S.boostTimer=8; if(J)J.popup&&J.popup('🚀'); } else if(p.type==='heal'){ S.lives=Math.min(S.lives+1,5); if(J)J.popup&&J.popup('❤'); } const idx=S.pickups.indexOf(p); if(idx>=0) S.pickups.splice(idx,1); }
+    function updatePickups(dt){ const px=laneX(S.playerLane), py=S.playerY; for(let i=S.pickups.length-1;i>=0;i--){ const pk=S.pickups[i]; pk.y+=pk.vy*dt; pk.life-=dt; const dx=pk.x-px, dy=pk.y-py; if(dx*dx+dy*dy < (pk.r+CAR_H/2)*(pk.r+CAR_H/2)){ applyPickup(pk); continue; } if(pk.life<=0 || pk.y>H+OBS_H) S.pickups.splice(i,1); } if(S.boostTimer>0) S.boostTimer=Math.max(0,S.boostTimer-dt); }
+    function drawPickups(ctx){ const laneW=W/S.lanes; for(const pk of S.pickups){ const sym=pk.type==='coin'?'💰':pk.type==='shield'?'🛡':pk.type==='boost'?'🚀':'❤'; ctx.save(); ctx.beginPath();ctx.arc(pk.x,pk.y,pk.r+4,0,7);ctx.fillStyle='rgba(240,185,11,.15)';ctx.fill();ctx.strokeStyle='rgba(240,185,11,.6)';ctx.stroke();ctx.fillStyle='#fff';ctx.font='14px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(sym,pk.x,pk.y);ctx.restore(); } }
+    function takeHit(){ if(S.shield>0){ S.shield--; if(J)J.flash&&J.flash('#02c076',.3); return; } S.lives--; }
+
     function reset(){ S=fresh(); syncHud(); }
     function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; if(typeof Juice!=='undefined') Juice.sfx('click'); syncHud(); }
-    function setRand(seed){ S.rng=mulberry32(seed>>>0); }
+    function setRand(seed){ S.rng=mulberry32(seed>>>0); pickupRng=mk(seed>>>0); }
     function setLanes(n){ S.lanes=Math.max(2,n|0); S.playerLane=Math.min(S.playerLane,S.lanes-1); }
     function setPlayerLane(i){ S.playerLane=Math.max(0,Math.min(S.lanes-1,i|0)); }
     function moveLeft(){ setPlayerLane(S.playerLane-1); }
@@ -107,7 +118,7 @@
       if(!S||!S.running||S.paused||S.over) return;
       if(S.invuln>0)S.invuln=Math.max(0,S.invuln-dt);
       // 距离 / 速度增长
-      const curSpeed=S.speed*(1+S.distance/4000);
+      const curSpeed=S.speed*(1+S.distance/4000) * (S.boostTimer>0?1.5:1);
       S.distance+=curSpeed*dt;
       // 障碍生成
       S.spawnTimer-=dt;
@@ -123,7 +134,7 @@
         for(const o of S.obstacles){
           if(o.dead)continue;
           if(o.lane===S.playerLane && Math.abs(o.y-S.playerY) < (OBS_H/2+CAR_H/2)){
-            S.lives--; S.invuln=0.8; o.dead=true;
+            takeHit(); S.invuln=0.8; o.dead=true;
             if(J)J.flash&&J.flash('#f6465d');
             if(J){ J.burst(laneX(o.lane),S.playerY,{color:'#f6465d',n:8}); J.addTrauma(0.25); }
             break;
@@ -132,6 +143,7 @@
       }
       S.obstacles=S.obstacles.filter(o=>!o.dead && o.y < H+OBS_H);
       if(S.lives<=0){ S.over=true; S.running=false; showOver(); if(J){ J.sfx&&J.sfx('lose'); J.flash('#f6465d',0.3); J.achievement&&J.achievement('撞毁'); } }
+      updatePickups(dt);
       syncHud();
     }
 
@@ -140,6 +152,7 @@
         lanes:S.lanes, playerLane:S.playerLane, playerY:S.playerY,
         distance:+S.distance.toFixed(2), speed:+S.speed.toFixed(2),
         lives:S.lives, running:S.running, over:S.over, invuln:+S.invuln.toFixed(3),
+        coins:S.coins, shield:S.shield, boostTimer:+S.boostTimer.toFixed(3), pickups:S.pickups.length,
         obstacles:S.obstacles.map(o=>({lane:o.lane,y:+o.y.toFixed(2)})),
         obstacleCount:S.obstacles.length
       };
@@ -150,7 +163,18 @@
       setLanes, setPlayerLane, moveLeft, moveRight,
       spawnObstacle, clearObstacles(){S.obstacles=[];},
       setSpeed, setLives(n){S.lives=n;}, setSpawnEnabled(v){S.spawnEnabled=!!v;},
-      setInvuln(v){S.invuln=v;}
+      setInvuln(v){S.invuln=v;},
+      // ---- 掉落/增益钩子 ----
+      getPickups(){ return S.pickups.length; },
+      getPickup(i){ return S.pickups[i]; },
+      spawnPickup(a,b,c){ if(typeof a==='number') return spawnPickupAtRandom(a>>>0); S.pickups.push(makePickup(a,b,c)); return S.pickups.length-1; },
+      spawnPickupAtRandom,
+      applyPickup(i){ applyPickup(S.pickups[i]); },
+      takeHit, getShield(){ return S.shield; }, setShield(v){ S.shield=v; },
+      getCoins(){ return S.coins; }, setCoins(v){ S.coins=v; },
+      getBoost(){ return S.boostTimer; }, setBoost(v){ S.boostTimer=v; },
+      getLives(){ return S.lives; },
+      getPlayerX(){ return laneX(S.playerLane); }
     };
 
     function render(){
@@ -162,6 +186,7 @@
         const cx=laneX(o.lane);
         ctx.fillStyle='#f6465d';ctx.fillRect(cx-laneW*0.3,o.y-OBS_H/2,laneW*0.6,OBS_H);
       }
+      drawPickups(ctx);
       const px=laneX(S.playerLane);
       ctx.fillStyle=S.invuln>0?'#6b7785':'#02c076';
       ctx.fillRect(px-laneW*0.3,S.playerY-CAR_H/2,laneW*0.6,CAR_H);
