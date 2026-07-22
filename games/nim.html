@@ -61,8 +61,9 @@
     if(pileIdx<0||pileIdx>=piles.length) return false;
     if(n<1||n>piles[pileIdx]) return false;
     piles[pileIdx]-=n;
-    if(piles.every(x=>x===0)){ over=true; winner=turn; return true; }
+    if(piles.every(x=>x===0)){ over=true; winner=turn; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} return true; }
     turn = turn===0?1:0;
+    if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.2); }
     return true;
   }
   function getPiles(){ return piles.slice(); }
