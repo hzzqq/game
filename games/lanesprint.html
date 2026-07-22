@@ -89,7 +89,7 @@
     }
 
     function reset(){ S=fresh(); syncHud(); }
-    function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; syncHud(); }
+    function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; if(typeof Juice!=='undefined') Juice.sfx('click'); syncHud(); }
     function setRand(seed){ S.rng=mulberry32(seed>>>0); }
     function setLanes(n){ S.lanes=Math.max(2,n|0); S.playerLane=Math.min(S.playerLane,S.lanes-1); }
     function setPlayerLane(i){ S.playerLane=Math.max(0,Math.min(S.lanes-1,i|0)); }
@@ -125,12 +125,13 @@
           if(o.lane===S.playerLane && Math.abs(o.y-S.playerY) < (OBS_H/2+CAR_H/2)){
             S.lives--; S.invuln=0.8; o.dead=true;
             if(J)J.flash&&J.flash('#f6465d');
+            if(J){ J.burst(laneX(o.lane),S.playerY,{color:'#f6465d',n:8}); J.addTrauma(0.25); }
             break;
           }
         }
       }
       S.obstacles=S.obstacles.filter(o=>!o.dead && o.y < H+OBS_H);
-      if(S.lives<=0){ S.over=true; S.running=false; showOver(); }
+      if(S.lives<=0){ S.over=true; S.running=false; showOver(); if(J){ J.sfx&&J.sfx('lose'); J.flash('#f6465d',0.3); J.achievement&&J.achievement('撞毁'); } }
       syncHud();
     }
 

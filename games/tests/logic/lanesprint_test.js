@@ -51,3 +51,8 @@ t.spawnObstacle(1, py);
 t.update(0.02);
 H.eq('撞毁: 余机=0', t.getState().lives, 0);
 H.eq('撞毁: 结束', t.getState().over, true);
+
+// 7) reset 后状态可读取（确定性，Juice 守卫不报错）
+t.reset();
+let rs = t.getState();
+H.ok('reset 后状态可读取', rs && typeof rs.distance === 'number' && rs.running === false);
