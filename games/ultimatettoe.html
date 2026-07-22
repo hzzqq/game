@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 终极井字棋</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{width:min(480px,94vw);aspect-ratio:1/1;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;background:var(--border);border:2px solid var(--border);border-radius:10px;padding:6px}
+  .macro{position:relative;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px;background:#0e141d;border-radius:6px;padding:4px}
+  .macro.act{box-shadow:inset 0 0 0 3px var(--gold)}
+  .macro.win1{background:rgba(246,70,93,.18);box-shadow:inset 0 0 0 2px var(--red)}
+  .macro.win2{background:rgba(2,192,118,.18);box-shadow:inset 0 0 0 2px var(--green)}
+  .macro.draw{background:rgba(107,119,133,.18)}
+  .cell{display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;border-radius:3px;background:#16202c;cursor:pointer;user-select:none;transition:background .12s}
+  .cell:hover{background:#1f2a38}
+  .cell.x{color:var(--red)}
+  .cell.o{color:var(--green)}
+  .cell.big{font-size:46px}
+  .controls{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:#0e141d;color:var(--text);border:1px solid var(--border)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>终极井字棋</b> ULTIMATE TIC-TAC-TOE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>回合 TURN · <span class="st" id="turn">你 X（红）</span></span><span id="status">你执红先手</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="restart" class="ghost">重开 NEW</button>
+      <button id="undo" class="ghost">悔棋 UNDO</button>
+    </div>
+    <div class="msg" id="msg">点任意高亮小棋盘里的空格落子；你落下后，对方必须走你所指的小棋盘（已分胜负的小棋盘可任意走）。先连成一条大线者胜。</div>
+  </div>
+  <div class="foot">终极井字棋：9 个小棋盘构成一个大棋盘，赢得小棋盘即占领该格。AI 采用极小化极大（alpha-beta）+ 启发式评估，非随机。暗色终端风 + 反馈音效。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心（单一状态对象 S） ===================== */
+  const EMPTY=0, HUMAN=1, AI=2, DRAW=3; // HUMAN=红X, AI=绿O
+  const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+  let S; // {micro:[[9]x9], macro:[9], turn, active, winner}
+
+  function newGame(){
+    S={ micro:[], macro:new Array(9).fill(0), turn:HUMAN, active:-1, winner:0 };
+    for(let i=0;i<9;i++) S.micro.push(new Array(9).fill(0));
+  }
+
+  // 标准 3x3 胜负：返回 1/2（仅）/ 0
+  function winner3(arr){
+    for(const l of LINES){
+      const a=arr[l[0]], b=arr[l[1]], c=arr[l[2]];
+      if(a===1 && a===b && b===c) return 1;
+      if(a===2 && a===b && b===c) return 2;
+    }
+    return 0;
+  }
+  function globalWinner(m){ return winner3(m); }
+  function isFull(arr){ return arr.every(x=>x!==0); }
+
+  function legalMovesState(s){
+    if(s.winner!==0) return [];
+    let board = s.active;
+    if(board!==-1 && s.macro[board]!==0) board=-1;
+    const res=[];
+    if(board===-1){
+      for(let b=0;b<9;b++){
+        if(s.macro[b]!==0) continue;
+        for(let c=0;c<9;c++) if(s.micro[b][c]===0) res.push([b,c]);
+      }
+    } else {
+      for(let c=0;c<9;c++) if(s.micro[board][c]===0) res.push([board,c]);
+    }
+    return res;
+  }
+
+  // 在状态 s 上落子（假定合法），原地修改
+  function applyMoveState(s,b,c){
+    s.micro[b][c]=s.turn;
+    const w=winner3(s.micro[b]);
+    if(w!==0) s.macro[b]=w;
+    else if(isFull(s.micro[b])) s.macro[b]=DRAW;
+    const gw=globalWinner(s.macro);
+    if(gw!==0) s.winner=gw;
+    else if(isFull(s.macro)) s.winner=DRAW;
+    if(s.winner===0) s.active = (s.macro[c]===0) ? c : -1;
+    else s.active=-1;
+    s.turn = (s.turn===HUMAN)?AI:HUMAN;
+  }
+
+  function cloneState(s){
+    return {micro:s.micro.map(x=>x.slice()), macro:s.macro.slice(), turn:s.turn, active:s.active, winner:s.winner};
+  }
+
+  /* ---------- AI：极小化极大 + alpha-beta + 启发式 ---------- */
+  function microScore(b){
+    let s=0;
+    for(const l of LINES){
+      let h=0,a=0,e=0;
+      for(const i of l){ const v=b[i]; if(v===HUMAN)h++; else if(v===AI)a++; else e++; }
+      if(h>0 && a>0) continue;
+      if(a===2 && e===1) s+=18; else if(a===1 && e===2) s+=2;
+      if(h===2 && e===1) s-=18; else if(h===1 && e===2) s-=2;
+      s += a - h;
+    }
+    return s;
+  }
+  function macroScore(m){
+    let s=0;
+    for(const l of LINES){
+      let h=0,a=0,e=0;
+      for(const i of l){ const v=m[i]; if(v===HUMAN)h++; else if(v===AI)a++; else e++; }
+      if(h>0 && a>0) continue;
+      if(a===2 && e===1) s+=90; else if(a===1 && e===2) s+=10;
+      if(h===2 && e===1) s-=90; else if(h===1 && e===2) s-=10;
+    }
+    for(let i=0;i<9;i++){ if(m[i]===AI)s+=30; else if(m[i]===HUMAN)s-=30; }
+    return s;
+  }
+  function evalState(s){
+    if(s.winner===AI) return 100000;
+    if(s.winner===HUMAN) return -100000;
+    if(s.winner===DRAW) return 0;
+    let v=macroScore(s.macro);
+    for(let b=0;b<9;b++) if(s.macro[b]===0) v += microScore(s.micro[b])*2;
+    return v;
+  }
+  function orderMoves(s,moves){
+    const scored=moves.map(m=>{
+      const ns=cloneState(s); applyMoveState(ns,m[0],m[1]);
+      let v = ns.winner===AI?1000 : ns.winner===HUMAN?-1000 : 0;
+      v += (s.turn===AI?1:-1)*microScore(ns.micro[m[0]]);
+      return {m,v};
+    });
+    scored.sort((p,q)=> (s.turn===AI? q.v-p.v : p.v-q.v));
+    return scored.map(x=>x.m);
+  }
+  function search(s,depth,alpha,beta){
+    if(s.winner!==0){
+      if(s.winner===AI) return 100000+depth;
+      if(s.winner===HUMAN) return -100000-depth;
+      return 0;
+    }
+    if(depth===0) return evalState(s);
+    const moves=orderMoves(s,legalMovesState(s));
+    if(!moves.length) return evalState(s);
+    if(s.turn===AI){
+      let best=-Infinity;
+      for(const m of moves){ const ns=cloneState(s); applyMoveState(ns,m[0],m[1]); const v=search(ns,depth-1,alpha,beta); if(v>best)best=v; if(best>alpha)alpha=best; if(alpha>=beta)break; }
+      return best;
+    } else {
+      let best=Infinity;
+      for(const m of moves){ const ns=cloneState(s); applyMoveState(ns,m[0],m[1]); const v=search(ns,depth-1,alpha,beta); if(v<best)best=v; if(best<beta)beta=best; if(alpha>=beta)break; }
+      return best;
+    }
+  }
+  function aiMove(s, depth){
+    s = s || cloneState(S);
+    if(s.winner!==0 || s.turn!==AI) return null;
+    depth = depth || 4;
+    const moves=legalMovesState(s);
+    if(!moves.length) return null;
+    let best=null, bestV=-Infinity;
+    for(const m of orderMoves(s,moves)){
+      const ns=cloneState(s); applyMoveState(ns,m[0],m[1]);
+      if(ns.winner===AI) return m;
+      const v=search(ns,depth-1,-Infinity,Infinity);
+      if(v>bestV){ bestV=v; best=m; }
+    }
+    return best;
+  }
+
+  /* ===================== 对外状态 / 操作 ===================== */
+  function getState(){ return cloneState(S); }
+  function setBoard(st){
+    if(!st) return;
+    S = cloneState(st);
+  }
+  function legalMoves(){ return legalMovesState(S); }
+  function doMove(b,c){
+    if(S.winner!==0) return {ok:false,reason:'over'};
+    const mv=legalMovesState(S);
+    if(!mv.some(m=>m[0]===b&&m[1]===c)) return {ok:false,reason:'illegal'};
+    applyMoveState(S,b,c);
+    if(typeof Juice!=='undefined') Juice.sfx('click');
+    return {ok:true};
+  }
+  function aiTurn(){
+    if(S.winner!==0 || S.turn!==AI) return null;
+    const m=aiMove(S,4);
+    if(m) doMove(m[0],m[1]);
+    return m;
+  }
+
+  /* ===================== 渲染（DOM 桩下安全） ===================== */
+  const $ = id => (typeof document!=='undefined') ? document.getElementById(id) : null;
+  let boardEl=null, history=[];
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    boardEl=$('board'); if(!boardEl) return;
+    boardEl.innerHTML='';
+    for(let b=0;b<9;b++){
+      const mb=document.createElement('div'); mb.className='macro'; mb.dataset.b=b;
+      for(let c=0;c<9;c++){
+        const cd=document.createElement('div'); cd.className='cell'; cd.dataset.b=b; cd.dataset.c=c;
+        cd.addEventListener('click',()=>onCell(b,c));
+        mb.appendChild(cd);
+      }
+      boardEl.appendChild(mb);
+    }
+  }
+  function sym(v,big){ if(v===HUMAN)return big?'✕':'X'; if(v===AI)return big?'◯':'O'; return ''; }
+  function render(){
+    if(typeof document==='undefined'||!boardEl) return;
+    for(let b=0;b<9;b++){
+      const mb=boardEl.children[b];
+      mb.className='macro'+(S.macro[b]===HUMAN?' win1':S.macro[b]===AI?' win2':S.macro[b]===DRAW?' draw':'')+(S.active===b?' act':'');
+      const big = S.macro[b]!==0;
+      for(let c=0;c<9;c++){
+        const cd=mb.children[c];
+        const v=S.micro[b][c];
+        cd.className='cell'+(v===HUMAN?' x':v===AI?' o':'')+(big?' big':'');
+        cd.textContent = big ? sym(S.macro[b],true) : sym(v,false);
+      }
+    }
+    const t=$('turn');
+    if(t) t.textContent = S.winner===0 ? (S.turn===HUMAN?'你 X（红）':'AI O（绿）') : (S.winner===DRAW?'平局':'胜者 '+(S.winner===HUMAN?'你 X':'AI O'));
+    const msg=$('msg');
+    if(msg){
+      if(S.winner===HUMAN){ msg.textContent='🎉 你赢了！'; msg.className='msg win'; }
+      else if(S.winner===AI){ msg.textContent='AI 获胜，再接再厉。'; msg.className='msg win'; }
+      else if(S.winner===DRAW){ msg.textContent='平局。'; msg.className='msg win'; }
+    }
+  }
+  function onCell(b,c){
+    if(S.winner!==0 || S.turn!==HUMAN) return;
+    history.push(getState());
+    const r=doMove(b,c);
+    if(!r.ok){ history.pop(); return; }
+    render();
+    if(S.winner===0 && S.turn===AI) setTimeout(()=>{ aiTurn(); render(); }, 120);
+  }
+
+  /* ===================== 启动 ===================== */
+  try{
+    newGame(); buildBoard(); render();
+    const rs=$('restart'); if(rs) rs.addEventListener('click',()=>{ newGame(); history=[]; render(); });
+    const ud=$('undo'); if(ud) ud.addEventListener('click',()=>{ if(history.length){ setBoard(history.pop()); render(); } });
+  }catch(e){ /* 桩环境忽略 */ }
+
+  // 暴露测试钩子
+  window.__t = {
+    EMPTY, HUMAN, AI, DRAW, LINES,
+    winner3, globalWinner, isFull,
+    newGame, legalMoves, applyMove:doMove, getState, setBoard, aiMove,
+    getMacro(){ return S.macro.slice(); },
+    getMicro(){ return S.micro.map(x=>x.slice()); },
+  };
+})();
+</script>
+</body>
+</html>
