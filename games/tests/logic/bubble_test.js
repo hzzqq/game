@@ -51,4 +51,31 @@ function put(g, r, c, v){ if (g[r] && g[r][c] !== undefined) g[r][c] = v; }
   H.ok(t.getScore() > 0, 'bubble: 炸弹泡得分 (score=' + t.getScore() + ')');
 })();
 
+// 4) 注入：能量胶囊系统（确定性，不破坏核心玩法）
+t.newGame();
+// 4a 加速掉落生效 + 拾取后移除
+t.spawnPickup('boost', 220, 674);
+t.stepPickups(0.001);
+H.ok('胶囊: 加速拾取 getBoost>0', t.getBoost() > 0);
+H.eq('胶囊: 加速拾取后移除', t.getPickups().length, 0);
+// 4b 回血掉落生效 + 拾取后移除
+t.spawnPickup('heal', 220, 674);
+t.stepPickups(0.001);
+H.eq('胶囊: 回血拾取 PLives+1', t.getPLives(), 4);
+H.eq('胶囊: 回血拾取后移除', t.getPickups().length, 0);
+// 4c 未碰撞不生效
+t.spawnPickup('boost', 220, 100);
+t.stepPickups(0.001);
+H.eq('胶囊: 远处未拾取仍保留', t.getPickups().length, 1);
+H.eq('胶囊: 远处未触发加速', t.getBoost(), 6);
+// 4d 护盾免死（手动持盾）
+t.setShield(true); t.setPLives(3);
+t.takeHit(1);
+H.eq('胶囊: 护盾免死 shield 消耗', t.getShield(), false);
+H.eq('胶囊: 护盾免死 PLives 不变', t.getPLives(), 3);
+// 4e 无盾扣血
+t.setShield(false); t.setPLives(3);
+t.takeHit(1);
+H.eq('胶囊: 无盾扣血 PLives-1', t.getPLives(), 2);
+
 module.exports = {};

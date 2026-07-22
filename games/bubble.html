@@ -196,6 +196,7 @@
     }
     score = 0; shots = 0; clears = 0;
     flying = null; popFx = [];
+    pickups=[]; boostTimer=0; shield=false; spawnTimer=12; plives=3; pdead=false;
     aimAngle = -Math.PI / 2;
     pickNext();
     current = next; pickNext();
@@ -493,8 +494,67 @@
     }
   }
 
+  // ============================================================
+  // 注入：能量胶囊掉落 / 增益系统（纯注入，不改动核心玩法逻辑）
+  // ============================================================
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var _rng = mk(0x9ABC);
+  var pickups=[]; var boostTimer=0; var shield=false; var plives=3; var pdead=false; var spawnTimer=12;
+  var FIELD_W=W, FIELD_H=H;
+  var PICKUP_TYPES=['boost','heal'];
+  var PICKUP_EMOJI={boost:'🚀',heal:'❤'};
+  var PICKUP_COLOR={boost:'#02c076',heal:'#f6465d'};
+  function makePickup(type,x,y){ var p={type:type,x:x,y:y,vy:70,r:14,dead:false}; pickups.push(p); return p; }
+  function spawnPickupAtRandom(){
+    var t=PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+    var x=_rng()*(FIELD_W-40)+20;
+    return makePickup(t,x,-20);
+  }
+  function applyPickup(p){
+    if(typeof Juice!=='undefined') Juice.sfx('pickup');
+    if(p.type==='boost'){ boostTimer=6; if(typeof Juice!=='undefined') Juice.popup(p.x,p.y,'🚀','#02c076',{size:16}); }
+    else if(p.type==='heal'){ plives=Math.min(plives+1,9); if(typeof Juice!=='undefined') Juice.popup(p.x,p.y,'❤','#02c076',{size:16}); }
+  }
+  function playerPositions(){ return [{x:W/2, y:SHOOTER_Y}]; }
+  function updatePickups(dt){
+    var pr=28;
+    for(var i=0;i<pickups.length;i++){
+      var p=pickups[i]; if(p.dead) continue;
+      p.y += p.vy*dt;
+      var ps=playerPositions(), hit=false;
+      for(var j=0;j<ps.length;j++){ var dx=p.x-ps[j].x, dy=p.y-ps[j].y; if(dx*dx+dy*dy<(p.r+pr)*(p.r+pr)){ hit=true; applyPickup(p); break; } }
+      if(hit || p.y>FIELD_H+30) p.dead=true;
+    }
+    pickups=pickups.filter(function(p){return !p.dead;});
+  }
+  function drawPickup(ctx){
+    for(var i=0;i<pickups.length;i++){
+      var p=pickups[i];
+      ctx.save();
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=PICKUP_COLOR[p.type]||'#02c076';
+      ctx.shadowColor=PICKUP_COLOR[p.type]||'#02c076'; ctx.shadowBlur=14; ctx.fill(); ctx.shadowBlur=0;
+      ctx.fillStyle='#0a0e14'; ctx.font='bold 13px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(PICKUP_EMOJI[p.type]||'?', p.x, p.y+1);
+      ctx.restore();
+    }
+    ctx.save(); ctx.font='14px monospace'; ctx.textAlign='left'; ctx.textBaseline='middle';
+    var bx=14, by=20;
+    if(shield){ ctx.fillStyle='#3aa0ff'; ctx.fillText('🛡 护盾', bx, by); bx+=78; }
+    if(boostTimer>0){ ctx.fillStyle='#02c076'; ctx.fillText('🚀'+boostTimer.toFixed(1)+'s', bx, by); }
+    ctx.restore();
+  }
+  function takeHit(i){
+    i=i||1;
+    if(shield){ shield=false; if(typeof Juice!=='undefined'){ Juice.flash('#3aa0ff',0.2); Juice.popup(FIELD_W/2, FIELD_H/2, '🛡 抵消', '#3aa0ff',{size:16}); } return; }
+    plives=Math.max(0,plives-i);
+    if(typeof Juice!=='undefined'){ Juice.addTrauma(0.3); Juice.flash('#f6465d',0.25); }
+    if(plives<=0) pdead=true;
+  }
+
   // ---- Update ----
-  function update() {
+  function update(dt) {
+    dt = dt || 0.016;
     if (flying) {
       flying.x += flying.vx;
       flying.y += flying.vy;
@@ -509,6 +569,10 @@
       f.x += f.vx; f.y += f.vy; f.life -= 0.05;
       if (f.life <= 0) popFx.splice(i, 1);
     }
+    // ===== 注入：能量胶囊掉落系统 =====
+    spawnTimer -= dt;
+    if(spawnTimer<=0){ spawnTimer = 6 + _rng()*4; spawnPickupAtRandom(); }
+    updatePickups(dt);
   }
 
   // ---- Draw ----
@@ -636,6 +700,8 @@
       drawCell(flying.x, flying.y, flying.color, 1);
     }
 
+    drawPickup(ctx);
+
     // fx
     for (var i = 0; i < popFx.length; i++) {
       var f = popFx[i];
@@ -731,7 +797,18 @@
     getNext: function(){ return next; },
     getScore: function(){ return score; },
     getState: function(){ return state; },
-    resolveAt: function(r, c, color){ flying = { x: cellCenter(r, c).x, y: cellCenter(r, c).y, vx: 0, vy: 0, color: color }; snapAndResolve(); }
+    resolveAt: function(r, c, color){ flying = { x: cellCenter(r, c).x, y: cellCenter(r, c).y, vx: 0, vy: 0, color: color }; snapAndResolve(); },
+    // ===== 注入：能量胶囊钩子 =====
+    reset: newGame,
+    spawnPickup: makePickup,
+    stepPickups: updatePickups,
+    applyPickup: function(p){ if(typeof p==='string') p=makePickup(p, FIELD_W/2, FIELD_H/2); applyPickup(p); return p; },
+    getPickups: function(){ return pickups.map(function(p){ return {type:p.type,x:p.x,y:p.y,dead:p.dead}; }); },
+    getShield: function(){ return shield; }, setShield: function(v){ shield=!!v; },
+    getBoost: function(){ return boostTimer; }, setBoost: function(v){ boostTimer=v; },
+    takeHit: takeHit,
+    getPLives: function(){ return plives; }, setPLives: function(v){ plives=v; }, getDead: function(){ return pdead; },
+    getSpawnTimer: function(){ return spawnTimer; }
   };
 
   newGame();
