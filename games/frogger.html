@@ -69,23 +69,24 @@
   function setRowSpeed(r,s){ rows[r].speed=s; }
   function move(d){
     if(dead||goal) return;
+    Juice.sfx('click'); Juice.addTrauma(.12);
     if(d==='up') frog.row=Math.max(0,frog.row-1);
     else if(d==='down') frog.row=Math.min(ROWS-1,frog.row+1);
     else if(d==='left') frog.col=Math.max(0,frog.col-1);
     else if(d==='right') frog.col=Math.min(COLS-1,frog.col+1);
-    if(frog.row===0) goal=true;
+    if(frog.row===0){ goal=true; Juice.sfx('win'); Juice.flash('#02c076',.5); }
   }
   function tick(dt){
     if(dead||goal) return;
     dt=dt||1;
     for(const row of rows){ for(let i=0;i<row.obstacles.length;i++){ let c=row.obstacles[i]+row.dir*row.speed*dt; if(c<0)c+=COLS; if(c>=COLS)c-=COLS; row.obstacles[i]=c; } }
     const row=rows[frog.row];
-    if(row.type==='road'){ if(row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)) dead=true; }
+    if(row.type==='road'){ if(row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)){ dead=true; Juice.sfx('lose'); Juice.flash('#f6465d',.5); } }
     else if(row.type==='water'){
-      if(!row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)) dead=true;
+      if(!row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)){ dead=true; Juice.sfx('lose'); Juice.flash('#f6465d',.5); }
       else {
         const nc=frog.col + row.dir*row.speed*dt;
-        if(nc<0 || nc>COLS-1) dead=true;   // 被浮木带出边界→落水身亡（青蛙不能随浮木 wrap）
+        if(nc<0 || nc>COLS-1){ dead=true; Juice.sfx('lose'); Juice.flash('#f6465d',.5); }   // 被浮木带出边界→落水身亡（青蛙不能随浮木 wrap）
         else frog.col=nc;
       }
     }
