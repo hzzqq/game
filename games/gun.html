@@ -62,6 +62,7 @@
     <div class="pill">波次 <b id="wavetxt">1</b></div>
     <div class="pill">得分 <b id="scoretxt">0</b></div>
     <div class="pill">最佳 <b id="besttxt">0</b></div>
+    <div class="pill" id="bufftxt" style="color:var(--gold)"></div>
     <button class="btn" id="muteBtn">🔊</button>
     <button class="btn" id="pauseBtn">暂停</button>
   </div>
@@ -97,6 +98,10 @@
   var W=cv.width, H=cv.height;
   var COL={red:'#f6465d',green:'#02c076',blue:'#3aa0ff',gold:'#f0b90b',txt:'#d7e0ea'};
 
+  // 局部 PRNG（mulberry32）——所有随机必须走这里，禁止裸 Math.random
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var _rng = mk(0x5678);
+
   var WEAPONS={
     pistol:{name:'手枪',dmg:16,rate:.16,spread:.05,spd:540,ammo:12,reload:1.0,pellets:1,color:'#f0b90b'},
     smg:{name:'冲锋枪',dmg:8,rate:.065,spread:.14,spd:560,ammo:35,reload:1.4,pellets:1,color:'#3aa0ff'},
@@ -113,14 +118,14 @@
     {t:'gun',icon:'🔫',label:'武器'}
   ];
 
-  var player, enemies, bullets, items, particles, state, score, best, wave, waveT, spawnQ, itemT, mouse, useMouse, mouseDown, last, combo;
+  var player, enemies, bullets, items, particles, state, score, best, wave, waveT, spawnQ, spawnTimer, mouse, useMouse, mouseDown, last, combo;
 
   function reset(){
     player={x:W/2,y:H/2,r:13,hp:100,maxhp:100,shield:0,speed:185,aim:0,
       weapon:'pistol',ammo:WEAPONS.pistol.ammo,lastShot:0,reload:0,
       invuln:0,dashT:0,dashCd:0,speedT:0};
     enemies=[]; bullets=[]; items=[]; particles=[];
-    score=0; wave=0; waveT=0; spawnQ=0; itemT=6; mouseDown=false; useMouse=false;
+    score=0; wave=0; waveT=0; spawnQ=0; spawnTimer=6; mouseDown=false; useMouse=false;
     combo=0;
     best=Juice.load('best_gun',0);
     document.getElementById('besttxt').textContent=best;
@@ -135,15 +140,15 @@
   }
 
   function spawnEnemy(){
-    var edge=Math.floor(Math.random()*4), x,y;
-    if(edge===0){x=Math.random()*W;y=-20;} else if(edge===1){x=W+20;y=Math.random()*H;}
-    else if(edge===2){x=Math.random()*W;y=H+20;} else {x=-20;y=Math.random()*H;}
-    var r=Math.random(), hpMul=1+wave*0.12, spMul=1+wave*0.02;
+    var edge=Math.floor(_rng()*4), x,y;
+    if(edge===0){x=_rng()*W;y=-20;} else if(edge===1){x=W+20;y=_rng()*H;}
+    else if(edge===2){x=_rng()*W;y=H+20;} else {x=-20;y=_rng()*H;}
+    var r=_rng(), hpMul=1+wave*0.12, spMul=1+wave*0.02;
     var e;
-    if(r<0.4) e={type:'grunt',r:13,hp:30*hpMul,maxhp:30*hpMul,spd:55*spMul,shootCd:0.8+Math.random(),dmg:8};
+    if(r<0.4) e={type:'grunt',r:13,hp:30*hpMul,maxhp:30*hpMul,spd:55*spMul,shootCd:0.8+_rng(),dmg:8};
     else if(r<0.68) e={type:'runner',r:11,hp:20*hpMul,maxhp:20*hpMul,spd:135*spMul,dmg:12};
-    else if(r<0.9) e={type:'gunner',r:12,hp:26*hpMul,maxhp:26*hpMul,spd:70*spMul,shootCd:0.6+Math.random(),dmg:7,stand:210};
-    else e={type:'brute',r:20,hp:95*hpMul,maxhp:95*hpMul,spd:42*spMul,shootCd:1.2+Math.random(),dmg:11};
+    else if(r<0.9) e={type:'gunner',r:12,hp:26*hpMul,maxhp:26*hpMul,spd:70*spMul,shootCd:0.6+_rng(),dmg:7,stand:210};
+    else e={type:'brute',r:20,hp:95*hpMul,maxhp:95*hpMul,spd:42*spMul,shootCd:1.2+_rng(),dmg:11};
     e.x=x; e.y=y; e.flash=0; enemies.push(e);
   }
 
@@ -156,7 +161,7 @@
     player.lastShot=now; player.ammo--;
     var base=player.aim;
     for(var i=0;i<w.pellets;i++){
-      var a=base+(Math.random()-0.5)*w.spread;
+      var a=base+(_rng()-0.5)*w.spread;
       bullets.push({x:player.x+Math.cos(base)*player.r,y:player.y+Math.sin(base)*player.r,
         vx:Math.cos(a)*w.spd,vy:Math.sin(a)*w.spd,r:3.5,dmg:w.dmg,from:'p',life:1.2,color:w.color});
     }
@@ -172,11 +177,11 @@
   }
 
   function dropItem(x,y){
-    var it=ITEMS[Math.floor(Math.random()*ITEMS.length)];
+    var it=ITEMS[Math.floor(_rng()*ITEMS.length)];
     items.push({x:x,y:y,t:it.t,icon:it.icon,label:it.label,life:11});
   }
   function spawnItem(){
-    items.push({x:30+Math.random()*(W-60),y:30+Math.random()*(H-60),
+    items.push({x:30+_rng()*(W-60),y:30+_rng()*(H-60),
       t:'gun',icon:'🔫',label:'武器',life:13});
   }
 
@@ -185,6 +190,41 @@
     for(var i=0;i<enemies.length;i++){var e=enemies[i];var d=Math.hypot(e.x-player.x,e.y-player.y);if(d<bd){bd=d;best=e;}}
     return best;
   }
+
+  /* ---------- 注入：标准化掉落/增益系统（纯注入，不改动核心玩法） ---------- */
+  var PICKUP_TYPES=['med','ammo','shield','speed'];   // gun：🚑回血 / 🔫弹药 / 🛡护盾 / ⚡加速
+  function makePickup(type,x,y){
+    var it = (typeof ITEMS!=='undefined' && ITEMS.find) ? ITEMS.find(function(i){return i.t===type;}) : null;
+    var p = { x:x, y:y, t:type, icon: it?it.icon:'❓', label: it?it.label:type, life:12, age:0 };
+    items.push(p); return p;
+  }
+  function spawnPickupAtRandom(){
+    var type = PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+    var x = 30+_rng()*(W-60), y = 30+_rng()*(H-60);
+    return makePickup(type,x,y);
+  }
+  function applyPickup(p){ if(p) applyItem(p.t); }   // p 为掉落对象 {t:type,...}
+  function updatePickups(dt){
+    for(var k=items.length-1;k>=0;k--){
+      var it=items[k]; it.life-=dt;
+      if(it.life<=0){ items.splice(k,1); continue; }
+      if(Math.hypot(it.x-player.x,it.y-player.y) < player.r+14){
+        applyItem(it.t); items.splice(k,1);
+      }
+    }
+  }
+  function drawPickup(ctx){
+    for(var k=0;k<items.length;k++){ var it=items[k];
+      var pulse=1+0.12*Math.sin(performance.now()*0.006);
+      ctx.globalAlpha=it.life<3?(it.life/3):1;
+      ctx.fillStyle='#131a24'; ctx.strokeStyle=COL.gold; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(it.x,it.y,15*pulse,0,7); ctx.fill(); ctx.stroke();
+      ctx.font='16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff';
+      ctx.fillText(it.icon,it.x,it.y);
+      ctx.globalAlpha=1;
+    }
+  }
+  function takeHit(i){ hurtPlayer(i); }   // 护盾优先消耗、无盾才扣血/失败（hurtPlayer 已实现）
 
   function update(dt){
     // 计时器
@@ -264,16 +304,10 @@
       }
     }
 
-    // 道具
-    itemT-=dt;
-    if(itemT<=0){ itemT=9+Math.random()*4; spawnItem(); }
-    for(var k=items.length-1;k>=0;k--){
-      var it=items[k]; it.life-=dt;
-      if(it.life<=0){ items.splice(k,1); continue; }
-      if(Math.hypot(it.x-player.x,it.y-player.y)<player.r+14){
-        applyItem(it.t); items.splice(k,1);
-      }
-    }
+    // 道具：按 spawnTimer 随机刷新补给箱，末尾 updatePickups 处理下落/碰撞拾取
+    spawnTimer-=dt;
+    if(spawnTimer<=0){ spawnTimer=9+_rng()*4; spawnPickupAtRandom(); }
+    updatePickups(dt);
   }
 
   function killEnemy(j){
@@ -284,7 +318,7 @@
     Juice.popup(e.x,e.y-e.r-6,'+'+pts,'#f6465d',{life:.8,size:15});
     Juice.addTrauma(0.12); Juice.sfx('hit');
     enemies.splice(j,1);
-    if(Math.random()<0.45) dropItem(e.x,e.y);
+    if(_rng()<0.45) dropItem(e.x,e.y);
     document.getElementById('scoretxt').textContent=score;
     document.getElementById('rankTxt').textContent=Juice.rank(score);
   }
@@ -309,7 +343,7 @@
       Juice.popup(player.x,player.y-20,'清屏!','#f0b90b',{life:.9,big:true});
     }
     else if(t==='gun'){
-      player.weapon=CRATE[Math.floor(Math.random()*CRATE.length)];
+      player.weapon=CRATE[Math.floor(_rng()*CRATE.length)];
       player.ammo=WEAPONS[player.weapon].ammo; player.reload=0;
       Juice.popup(player.x,player.y-20,'武器:'+WEAPONS[player.weapon].name,'#f0b90b',{life:.9});
       Juice.achievement('获得武器 · '+WEAPONS[player.weapon].name);
@@ -322,6 +356,10 @@
     document.getElementById('hptxt').textContent=Math.max(0,Math.round(player.hp));
     document.getElementById('wname').textContent=WEAPONS[player.weapon].name;
     document.getElementById('ammotxt').textContent=player.reload>0?('装弹'+Math.ceil(player.reload)):player.ammo;
+    var bf='';
+    if(player.shield>0) bf+='🛡护盾 '+Math.round(player.shield);
+    if(player.speedT>0) bf+=' ⚡加速';
+    document.getElementById('bufftxt').textContent=bf;
   }
   function gameOver(){
     state='over';
@@ -343,16 +381,8 @@
     for(var gy=0;gy<=H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
 
     Juice.begin(ctx);
-    // 道具
-    for(var k=0;k<items.length;k++){ var it=items[k];
-      var pulse=1+0.12*Math.sin(performance.now()*0.006);
-      ctx.globalAlpha=it.life<3?(it.life/3):1;
-      ctx.fillStyle='#131a24'; ctx.strokeStyle=COL.gold; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(it.x,it.y,15*pulse,0,7); ctx.fill(); ctx.stroke();
-      ctx.font='16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff';
-      ctx.fillText(it.icon,it.x,it.y);
-      ctx.globalAlpha=1;
-    }
+    // 道具（玩家前绘制）
+    drawPickup(ctx);
     // 子弹
     for(var b=0;b<bullets.length;b++){ var bl=bullets[b];
       ctx.fillStyle=bl.color; ctx.beginPath(); ctx.arc(bl.x,bl.y,bl.r,0,7); ctx.fill();
@@ -373,7 +403,7 @@
       ctx.beginPath(); ctx.moveTo(player.r,0); ctx.lineTo(-player.r*0.8,player.r*0.8); ctx.lineTo(-player.r*0.4,0); ctx.lineTo(-player.r*0.8,-player.r*0.8); ctx.closePath(); ctx.fill();
       ctx.restore();
       if(player.shield>0){ ctx.strokeStyle='rgba(58,160,255,.8)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(player.x,player.y,player.r+6,0,7); ctx.stroke(); }
-      if(player.dashT>0){ ctx.strokeStyle='rgba(58,160,255,.6)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(player.x,player.y,player.r+3+Math.random()*4,0,7); ctx.stroke(); }
+      if(player.dashT>0){ ctx.strokeStyle='rgba(58,160,255,.6)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(player.x,player.y,player.r+3+_rng()*4,0,7); ctx.stroke(); }
     }
     Juice.mid(ctx);
     Juice.end(ctx);
@@ -430,7 +460,17 @@
     getScore: function(){ return score; }, setScore: function(v){ score = v; },
     getWave: function(){ return wave; }, setWave: function(v){ wave = v; },
     getCombo: function(){ return combo; }, setCombo: function(v){ combo = v; },
-    getW: function(){ return W; }, getH: function(){ return H; }
+    getW: function(){ return W; }, getH: function(){ return H; },
+    // ---- 注入：标准化掉落/增益系统钩子 ----
+    spawnPickup: function(type,x,y){ if(type===undefined) return spawnPickupAtRandom(); return makePickup(type, x!==undefined?x:player.x, y!==undefined?y:player.y); },
+    stepPickups: function(dt){ updatePickups(dt); },
+    applyPickup: function(p){ applyPickup(p); },
+    getPickups: function(){ return items.length; },
+    getShield: function(){ return player.shield; },
+    setShield: function(v){ player.shield=v; },
+    getBoost: function(){ return player.speedT; },
+    setBoost: function(v){ player.speedT=v; },
+    takeHit: function(dmg){ hurtPlayer(dmg); }
   };
 
   requestAnimationFrame(frame);

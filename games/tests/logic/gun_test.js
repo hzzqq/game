@@ -199,6 +199,57 @@ t.setEnemies([{x:100,y:100,r:20,hp:95,maxhp:95,type:'brute'}]);
 t.killEnemy(0);
 eq('killEnemy brute +200', t.getScore(), 200);
 
+// 23. 标准化掉落系统：spawnPickup + stepPickups 生效（med 回血）
+t.reset();
+t.getPlayer().hp = 50;
+t.spawnPickup('med', t.getPlayer().x, t.getPlayer().y);
+eq('spawnPickup 生成 1 个', t.getPickups(), 1);
+t.stepPickups(0.016);
+eq('stepPickups med 回血 +30 → 80', t.getPlayer().hp, 80);
+eq('stepPickups 拾取后移除', t.getPickups(), 0);
+
+// 24. 未碰撞不生效
+t.reset();
+t.getPlayer().hp = 50;
+t.spawnPickup('med', 0, 0);
+t.stepPickups(0.016);
+eq('未碰撞 hp 不变', t.getPlayer().hp, 50);
+eq('未碰撞 pickup 仍在', t.getPickups(), 1);
+
+// 25. 护盾免死：有盾时受伤不扣血、不结束
+t.reset();
+t.getPlayer().hp = 100; t.setShield(100); t.getPlayer().invuln = 0;
+t.takeHit(30);
+eq('护盾免死 hp 不变', t.getPlayer().hp, 100);
+ok('护盾免死 未结束', t.getState() !== 'over');
+
+// 26. 无盾扣血/失败
+t.reset();
+t.getPlayer().hp = 10; t.setShield(0); t.getPlayer().invuln = 0;
+t.takeHit(50);
+ok('无盾 takeHit 触发 gameOver', t.getState() === 'over');
+
+// 27. 弹药 pickup
+t.reset();
+t.getPlayer().ammo = 3;
+t.applyPickup({t:'ammo'});
+eq('applyPickup ammo 补满', t.getPlayer().ammo, 12);
+
+// 28. 加速 boost
+t.reset();
+t.applyPickup({t:'speed'});
+eq('applyPickup speed boost=8', t.getBoost(), 8);
+
+// 29. 护盾 get/set
+t.reset();
+t.setShield(40);
+eq('getShield=40', t.getShield(), 40);
+
+// 30. 加速 get/set
+t.reset();
+t.setBoost(5);
+eq('getBoost=5', t.getBoost(), 5);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;
