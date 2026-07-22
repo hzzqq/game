@@ -60,6 +60,9 @@
     const correct = questions[idx].answer===i;
     if(correct) score++;
     idx++;
+    if(correct){ Juice.sfx('hit'); Juice.addTrauma(.25); }
+    else { Juice.sfx('error'); }
+    if(isFinished()){ Juice.sfx('win'); Juice.flash('#02c076', .5); }
     return correct;
   }
   function getScore(){ return score; }
