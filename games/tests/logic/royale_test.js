@@ -31,4 +31,37 @@ T.stepLoot(0.5);
 H.ok(T.getElixir('me') === e2, 'royale: age<0.9 不生效');
 H.ok(T.getLoot() === 1, 'royale: age<0.9 未移除');
 
+// 5) 标准化补给箱：heal 回血生效 + 拾取后移除
+var meKing5 = T.getState().towers.find(t=>t.side==='me'&&t.kind==='king');
+meKing5.hp = 1000;
+T.spawnPickup('heal', meKing5.x, meKing5.y);
+H.ok(T.getPickups() === 1, 'royale: 补给箱生成 1 个');
+T.stepPickups(0.016);
+H.ok(meKing5.hp > 1000, 'royale: heal 回血生效 (hp '+meKing5.hp+')');
+H.ok(T.getPickups() === 0, 'royale: 拾取后移除');
+
+// 6) 未碰撞不生效
+T.spawnPickup('heal', 0, 0);
+T.stepPickups(0.016);
+H.ok(T.getPickups() === 1, 'royale: 未碰撞 pickup 仍在');
+
+// 7) 护盾免死：有盾时受伤不扣血、不结束
+T.setShield(6);
+var k7 = T.getState().towers.find(t=>t.side==='me'&&t.kind==='king');
+var hp7 = k7.hp;
+T.takeHit(50);
+H.ok(k7.hp === hp7, 'royale: 护盾免死 hp 不变 (hp '+k7.hp+')');
+H.ok(T.getState().over !== true, 'royale: 护盾免死未结束');
+
+// 8) 无盾扣血/失败
+T.setShield(0);
+var k8 = T.getState().towers.find(t=>t.side==='me'&&t.kind==='king');
+k8.hp = 100;
+T.takeHit(2000);
+H.ok(T.getState().over === true, 'royale: 无盾致命 king 失守 → over');
+
+// 9) 加速 buff 数值
+T.setBoost(6);
+H.ok(T.getBoost() === 6, 'royale: 加速 buff=6');
+
 module.exports = {};

@@ -111,6 +111,7 @@
       <div class="crow">
         <div class="c me">⛨ <b id="myTowers">3</b></div>
         <div class="c ai">⛨ <b id="aiTowers">3</b></div>
+        <div class="c" id="buff" style="color:var(--gold)"></div>
       </div>
     </div>
     <div class="stage">
@@ -145,6 +146,10 @@
   const dpr = window.devicePixelRatio || 1;
   canvas.width = W * dpr; canvas.height = H * dpr;
   ctx.scale(dpr, dpr);
+
+  // 局部 PRNG（mulberry32）——所有随机必须走这里，禁止裸 Math.random
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var _rng = mk(0x5678);
 
   // ---------- 卡牌定义 ----------
   const CARDS = {
@@ -181,6 +186,10 @@
     state.towers = [].concat(makeTowers('me'), makeTowers('ai'));
     state.effects = [];
     state.loot = [];
+    state.pickups = [];          // 注入：📦补给箱掉落
+    state.boostTimer = 0;        // 注入：加速增益计时
+    state.shieldMe = 0;          // 注入：护盾增益计时
+    state.spawnTimer = 6;        // 注入：补给箱刷新计时
     state.rage = { me:0, ai:0 };
     state.elixirMe = 5; state.elixirAi = 5;
     state.deckMe = DECK.slice(); state.deckAi = DECK.slice();
@@ -245,6 +254,7 @@
   }
 
   function damage(ent, dmg){
+    if(ent.w && ent.side==='me' && state.shieldMe>0) dmg *= 0.5;   // 注入：护盾减免
     ent.hp -= dmg;
     if(ent.hp <= 0){
       ent.hp = 0; ent.dead = true;
@@ -256,13 +266,71 @@
         state.effects.push({type:'boom', x:ent.x, y:ent.y, age:0, life:0.3, r:ent.r*2});
         if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.burst(ent.x, ent.y, {color:ent.color||'#e6edf3', n:12, speed:180}); }
         // 击杀掉落战利品（能量或狂暴），归击杀方所有
-        if(Math.random() < 0.4){
+        if(_rng() < 0.4){
           const side = ent.side==='me' ? 'ai' : 'me';
-          const type = Math.random() < 0.28 ? 'rage' : 'energy';
+          const type = _rng() < 0.28 ? 'rage' : 'energy';
           state.loot.push({ side, type, x:ent.x, y:ent.y, age:0, done:false });
         }
       }
     }
+  }
+
+  /* ---------- 注入：标准化掉落/增益系统（纯注入，不改动核心玩法） ---------- */
+  var PICKUP_TYPES=['shield','speed','heal'];   // 📦补给箱：护盾 / 加速 / 回血
+  function makePickup(type,x,y){
+    const pk = { type:type, x:x, y:y, age:0, life:14 };
+    state.pickups.push(pk); return pk;
+  }
+  function spawnPickupAtRandom(){
+    const type = PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+    const x = _rng()*W, y = 20 + _rng()*40;     // 从顶部落下
+    return makePickup(type, x, y);
+  }
+  function applyPickup(p){
+    if(!p) return;
+    if(typeof Juice!=='undefined') Juice.sfx('pickup');
+    if(p.type==='shield'){
+      state.shieldMe = 6;
+      if(typeof Juice!=='undefined'){ Juice.popup(p.x,p.y,'护盾!','#3aa0ff',{size:14}); Juice.burst(p.x,p.y,{color:'#3aa0ff',n:10,speed:160}); }
+    } else if(p.type==='speed'){
+      state.boostTimer = 6;
+      if(typeof Juice!=='undefined'){ Juice.popup(p.x,p.y,'加速!','#f0b90b',{size:14}); Juice.burst(p.x,p.y,{color:'#f0b90b',n:10,speed:160}); }
+    } else if(p.type==='heal'){
+      for(const t of state.towers){ if(t.side==='me' && !t.dead) t.hp=Math.min(t.maxHp, t.hp+200); }
+      if(typeof Juice!=='undefined'){ Juice.popup(p.x,p.y,'回血!','#02c076',{size:14}); Juice.burst(p.x,p.y,{color:'#02c076',n:10,speed:160}); }
+    }
+  }
+  function updatePickups(dt){
+    state.spawnTimer -= dt;
+    if(state.spawnTimer<=0){ state.spawnTimer = 8 + _rng()*5; spawnPickupAtRandom(); }
+    const king = state.towers.find(t=>t.side==='me' && t.kind==='king');
+    for(let k=state.pickups.length-1;k>=0;k--){
+      const pk=state.pickups[k]; pk.age += dt;
+      if(pk.age >= pk.life){ state.pickups.splice(k,1); continue; }
+      pk.y += 22*dt;                               // 随场下落
+      if(pk.y > H+20){ state.pickups.splice(k,1); continue; }
+      if(king && Math.hypot(pk.x-king.x, pk.y-king.y) < 60){ applyPickup(pk); state.pickups.splice(k,1); }
+    }
+  }
+  function drawPickup(ctx){
+    for(const pk of state.pickups){
+      const bob = Math.sin((pk.age||0)*4) * 3;
+      ctx.save();
+      ctx.translate(pk.x, pk.y + bob);
+      ctx.shadowBlur = 12; ctx.shadowColor = '#f0b90b';
+      ctx.fillStyle = '#1b2531'; ctx.strokeStyle = '#f0b90b'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0,0,14,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.font='16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff';
+      ctx.fillText(pk.type==='shield'?'🛡':(pk.type==='speed'?'⚡':'❤'), 0, 1);
+      ctx.restore();
+    }
+  }
+  function takeHit(i){
+    const king = state.towers.find(t=>t.side==='me' && t.kind==='king');
+    if(!king) return;
+    if(state.shieldMe>0){ state.shieldMe = Math.max(0, state.shieldMe - 1); if(typeof Juice!=='undefined') Juice.popup(king.x, king.y, '护盾抵消!', '#3aa0ff', {size:14}); return; }
+    damage(king, i);
   }
 
   // ---------- 手牌 ----------
@@ -318,7 +386,7 @@
       for(let i=0;i<h.length;i++) if(CARDS[h[i]].cost <= state.elixirAi){ idx=i; break; }
     } else if(state.aiTimer <= 0){
       const aff = h.map((k,i)=>CARDS[k].cost<=state.elixirAi? i : -1).filter(i=>i>=0);
-      if(aff.length){ idx = aff[Math.floor(Math.random()*aff.length)]; state.aiTimer = 1.8 + Math.random()*1.8; }
+      if(aff.length){ idx = aff[Math.floor(_rng()*aff.length)]; state.aiTimer = 1.8 + _rng()*1.8; }
     }
     if(idx<0) return;
     const key = playFromDeck('ai', idx);
@@ -332,8 +400,8 @@
       x = t? t.x : W/2; y = t? t.y : H/2;
     } else {
       const lanes = [64, W/2, W-64];
-      x = lanes[Math.floor(Math.random()*lanes.length)] + (Math.random()*30-15);
-      y = RIVER - 40 - Math.random()*70; // AI 半场
+      x = lanes[Math.floor(_rng()*lanes.length)] + (_rng()*30-15);
+      y = RIVER - 40 - _rng()*70; // AI 半场
     }
     deploy('ai', key, x, y);
   }
@@ -356,7 +424,7 @@
       const tgt = nearest(u, pool);
       if(!tgt) continue;
       const d = (tgt.w? distToRect(u.x,u.y,tgt) : Math.hypot(tgt.x-u.x, tgt.y-u.y));
-      const rage = state.rage[u.side] > 0;
+      const rage = state.rage[u.side] > 0 || (u.side==='me' && state.boostTimer>0);
       if(d > u.range){
         const dx=tgt.x-u.x, dy=tgt.y-u.y, m=Math.hypot(dx,dy)||1;
         const spd = u.speed * (rage?1.5:1);
@@ -403,6 +471,9 @@
     state.loot = state.loot.filter(lo => !lo.done);
     // 狂暴计时
     for(const s of ['me','ai']) if(state.rage[s] > 0) state.rage[s] = Math.max(0, state.rage[s] - dt);
+    // 注入：加速增益计时 + 补给箱刷新/下落/拾取
+    if(state.boostTimer>0) state.boostTimer = Math.max(0, state.boostTimer - dt);
+    updatePickups(dt);
 
     // 清理
     state.units = state.units.filter(u=>!u.dead);
@@ -450,6 +521,8 @@
 
     // 塔
     for(const t of state.towers) drawTower(t);
+    // 注入：补给箱（玩家前绘制）
+    drawPickup(ctx);
     // 单位
     for(const u of state.units) drawUnit(u);
     // 战利品
@@ -528,6 +601,10 @@
     document.getElementById('aiTowers').textContent = aliveTowers('ai').length;
     const m = Math.max(0, Math.floor(state.time/60)), s = Math.max(0, Math.floor(state.time%60));
     document.getElementById('clock').textContent = m + ':' + (s<10?'0':'') + s;
+    const buff = [];
+    if(state.shieldMe>0) buff.push('🛡护盾');
+    if(state.boostTimer>0) buff.push('⚡加速');
+    const be = document.getElementById('buff'); if(be) be.textContent = buff.join(' ');
     renderPips();
     renderHandAfford();
   }
@@ -645,7 +722,19 @@
     getLoot(){ return state.loot.length; },
     getRage(side){ return state.rage[side]; },
     getElixir(side){ return side==='me' ? state.elixirMe : state.elixirAi; },
-    setElixir(side, v){ if(side==='me') state.elixirMe=v; else state.elixirAi=v; }
+    setElixir(side, v){ if(side==='me') state.elixirMe=v; else state.elixirAi=v; },
+    // ---- 注入：标准化掉落/增益系统钩子 ----
+    reset: resetState,
+    getState: function(){ return state; },
+    spawnPickup: function(type,x,y){ if(type===undefined) return spawnPickupAtRandom(); return makePickup(type, x!==undefined?x:W/2, y!==undefined?y:H/2); },
+    stepPickups: function(dt){ updatePickups(dt); },
+    applyPickup: function(p){ applyPickup(p); },
+    getPickups: function(){ return state.pickups.length; },
+    getShield: function(){ return state.shieldMe; },
+    setShield: function(v){ state.shieldMe=v; },
+    getBoost: function(){ return state.boostTimer; },
+    setBoost: function(v){ state.boostTimer=v; },
+    takeHit: function(dmg){ takeHit(dmg); }
   };
 })();
 </script>
