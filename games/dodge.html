@@ -55,7 +55,7 @@
     if(dead) return;
     time++;
     for(const o of obstacles){ o.y+=o.vy; }
-    for(const o of obstacles){ if(o.y>=PY && Math.abs(o.x-player.x)<=HR+PR-10){ dead=true; break; } }
+    for(const o of obstacles){ if(o.y>=PY && Math.abs(o.x-player.x)<=HR+PR-10){ dead=true; Juice.sfx('lose'); Juice.flash('#f6465d',.5); Juice.addTrauma(.5); Juice.burst(player.x,PY,{color:'#f6465d',n:14}); break; } }
     obstacles=obstacles.filter(o=>o.y<H+20);
   }
   function isDead(){ return dead; }
