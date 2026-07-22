@@ -89,7 +89,7 @@
     }
 
     function reset(){ S=fresh(); syncHud(); }
-    function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; syncHud(); }
+    function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; if(typeof Juice!=='undefined') Juice.sfx('click'); syncHud(); }
     function setRand(seed){ S.rng=mulberry32(seed>>>0); }
 
     function spawnBullet(x,y,vx,vy,r){ S.bullets.push({x,y,vx,vy,r:r||8}); }
@@ -127,18 +127,20 @@
           if(ddx*ddx+ddy*ddy<(b.r+p.r)*(b.r+p.r)){
             S.lives--; p.invuln=1.0; b.dead=true;
             if(J)J.flash&&J.flash('#f6465d');
+            if(J){ J.burst(p.x,p.y,{color:'#f6465d',n:8}); J.addTrauma(0.25); }
             break;
           }
         }
       }
       S.bullets=S.bullets.filter(b=>!b.dead && b.x>-30 && b.x<W+30 && b.y>-30 && b.y<H+30);
       // 失败
-      if(S.lives<=0){ S.over=true; S.running=false; showOver(); }
+      if(S.lives<=0){ S.over=true; S.running=false; showOver(); if(J){ J.sfx&&J.sfx('lose'); J.flash('#f6465d',0.3); J.achievement&&J.achievement('被弹幕吞没'); } }
       // 波次推进（生存满 DURATION）
       S.time+=dt;
       if(S.time>=DURATION){
         S.time-=DURATION; S.wave++; S.score+=50*S.wave;
         if(J)J.popup&&J.popup('WAVE '+S.wave);
+        if(J){ J.sfx&&J.sfx('levelup'); J.burst(S.player.x,S.player.y,{color:'#02c076',n:10}); }
       }
       syncHud();
     }

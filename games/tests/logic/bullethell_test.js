@@ -60,3 +60,8 @@ t.update(0.02);
 s = t.getState();
 H.eq('边界: x 夹紧到 r', s.player.x, 12);
 H.eq('边界: y 夹紧到 r', s.player.y, 12);
+
+// 7) reset 后状态可读取（确定性，Juice 守卫不报错）
+t.reset();
+let rs = t.getState();
+H.ok('reset 后状态可读取', rs && typeof rs.score === 'number' && rs.running === false);
