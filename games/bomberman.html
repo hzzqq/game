@@ -68,6 +68,7 @@
     for(const [dr,dc] of dirs){ for(let i=1;i<=range;i++){ const r=br+dr*i, c=bc+dc*i; if(r<0||c<0||r>=H||c>=W) break; cells.push([r,c]); if(blocks.has(r+','+c)){ blocks.delete(r+','+c); break; } } }
     blastSet=new Set(cells.map(([r,c])=>r+','+c));
     for(const p of players){ if(cells.some(([r,c])=>r===p.y&&c===p.x)) p.dead=true; }
+    Juice.sfx('boom'); Juice.addTrauma(.4);
     bombs=null;
     return cells;
   }
