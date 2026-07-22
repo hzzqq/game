@@ -35,7 +35,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>炸弹人</b> BOMBERMAN</span></div>
   <div class="wrap">
-    <div class="hud"><span>范围 · <span class="st" id="rg">2</span></span><span>状态 · <span class="st" id="st">布弹中</span></span></div>
+    <div class="hud"><span>范围 · <span class="st" id="rg">2</span></span><span>状态 · <span class="st" id="st">布弹中</span></span><span id="buff"></span></div>
     <div class="board" id="board"></div>
     <div class="msg" id="msg">放置炸弹后十字爆破，炸毁可破坏砖块、击杀爆炸范围内的角色。规划走位用爆破清场。</div>
     <div class="controls">
@@ -50,13 +50,19 @@
 <script>
 (function(){
   "use strict";
-  let W,H, blocks, walls, bombs, players, range;
+  let W,H, blocks, walls, bombs, players, range, pickups, score;
   function setup(w,h,blockList){
-    W=w; H=h; blocks=new Set((blockList||[]).map(b=>b[0]+','+b[1])); walls=new Set(); bombs=null; players=[]; range=2;
+    W=w; H=h; blocks=new Set((blockList||[]).map(b=>b[0]+','+b[1])); walls=new Set(); bombs=null; players=[]; range=2; pickups=[]; score=0;
   }
   function setRange(r){ range=r; }
   function setBomb(x,y){ bombs={x,y}; }
   function setPlayers(arr){ players=arr.map(p=>({x:p.x,y:p.y,dead:false})); }
+  // ---- 注入式掉落道具系统（本地种子 PRNG，禁止 Math.random）----
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  const pickupRng = mk(0x1b873593);
+  function makePickup(type,r,c){ return {type:type, r:r, c:c, life:8}; }
+  function applyPickup(p){ if(!p) return; if(p.type==='range'){ range+=1; if(typeof Juice!=='undefined') Juice.popup('💣 范围+'); } else if(p.type==='coin'){ score+=50; if(typeof Juice!=='undefined') Juice.popup('💰 +50'); } const idx=pickups.indexOf(p); if(idx>=0) pickups.splice(idx,1); }
+  function updatePickups(dt){ for(let i=pickups.length-1;i>=0;i--){ const p=pickups[i]; let got=false; for(const pl of players){ if(pl.x===p.c && pl.y===p.r){ got=true; break; } } if(got){ applyPickup(p); continue; } p.life-=dt; if(p.life<=0) pickups.splice(i,1); } }
   function inBlast(r,c){ return blastSet.has(r+','+c); }
   let blastSet=new Set();
   function explode(){
@@ -65,7 +71,7 @@
     const br=bombs.y, bc=bombs.x;        // bombs.x=列, bombs.y=行（与 render 一致）
     const cells=[[br,bc]];
     const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
-    for(const [dr,dc] of dirs){ for(let i=1;i<=range;i++){ const r=br+dr*i, c=bc+dc*i; if(r<0||c<0||r>=H||c>=W) break; cells.push([r,c]); if(blocks.has(r+','+c)){ blocks.delete(r+','+c); break; } } }
+    for(const [dr,dc] of dirs){ for(let i=1;i<=range;i++){ const r=br+dr*i, c=bc+dc*i; if(r<0||c<0||r>=H||c>=W) break; cells.push([r,c]); if(blocks.has(r+','+c)){ blocks.delete(r+','+c); if(pickupRng()<0.6){ const types=['range','coin']; pickups.push(makePickup(types[Math.floor(pickupRng()*types.length)%types.length], r, c)); } break; } } }
     blastSet=new Set(cells.map(([r,c])=>r+','+c));
     for(const p of players){ if(cells.some(([r,c])=>r===p.y&&c===p.x)) p.dead=true; }
     Juice.sfx('boom'); Juice.addTrauma(.4);
@@ -76,8 +82,8 @@
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
-    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',26px)'; bd.innerHTML=''; for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); let cls='cell'; const k=r+','+c; if(walls.has(k))cls+=' wall'; else if(blocks.has(k))cls+=' block'; if(bombs&&bombs.x===c&&bombs.y===r)cls+=' bomb'; if(blastSet.has(k))cls+=' blast'; bd.appendChild(d); } } }
-    const rg=$('rg'),st=$('st'); if(rg)rg.textContent=range; if(st)st.textContent=bombs?'已布弹':'布弹中';
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',26px)'; bd.innerHTML=''; for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); let cls='cell'; const k=r+','+c; if(walls.has(k))cls+=' wall'; else if(blocks.has(k))cls+=' block'; if(bombs&&bombs.x===c&&bombs.y===r)cls+=' bomb'; if(blastSet.has(k))cls+=' blast'; const pk=pickups.find(q=>q.r===r&&q.c===c); if(pk){ d.textContent = pk.type==='range'?'💣':'💰'; } bd.appendChild(d); } } }
+    const rg=$('rg'),st=$('st'),bf=$('buff'); if(rg)rg.textContent=range; if(st)st.textContent=bombs?'已布弹':'布弹中'; if(bf){ let s=''; if(score>0)s+='💰'+score+' '; s+='💣x'+range; bf.textContent=s; }
   }
   function bindUI(){
     if(typeof document==='undefined') return;
@@ -87,7 +93,16 @@
     if(nb) nb.onclick=()=>{ setup(8,8,[]); render(); };
   }
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ setup(8,8,[]); render(); }); else { setup(8,8,[]); render(); } }
-  if(typeof window!=='undefined'){ window.__t={ setup, setRange, setBomb, setPlayers, explode, getBlast, inBlast }; }
+  if(typeof window!=='undefined'){ window.__t={ setup, setRange, setBomb, setPlayers, explode, getBlast, inBlast,
+    getState(){ return {range, score, pickups:pickups.length}; },
+    spawnPickup(type,r,c){ pickups.push(makePickup(type||'coin', r, c)); },
+    stepPickups(dt){ updatePickups(dt); },
+    applyPickup(p){ applyPickup(p); },
+    getPickups(){ return pickups.length; },
+    getPickup(i){ return pickups[i]; },
+    getScore(){ return score; },
+    getRange(){ return range; }
+  }; }
 })();
 </script>
 </body>
