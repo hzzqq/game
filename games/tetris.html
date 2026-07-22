@@ -456,13 +456,14 @@
 
   function hardDrop(){
     if(!current) return;
+    const scoreBase = score;   // 落子前基准分（硬降分将计入弹窗净增）
     let dist = 0;
     while(!collides(current,0,1)){
       current.y += 1;
       dist++;
     }
     score += dist*2;
-    lockPiece();
+    lockPiece(scoreBase);
   }
 
   function ghostY(){
@@ -471,7 +472,7 @@
     return current.y + y;
   }
 
-  function lockPiece(){
+  function lockPiece(scoreBase){
     const m = current.matrix;
     for(let i=0;i<m.length;i++){
       for(let j=0;j<m[i].length;j++){
@@ -485,7 +486,7 @@
             for(let k=0;k<2;k++) grid.push(new Array(COLS).fill(null));
             if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076',0.25); Juice.achievement('🛡 护盾救场！'); }
             updateHud();
-            clearLines();
+            clearLines(scoreBase);
             spawn();
             return;
           }
@@ -495,12 +496,16 @@
         grid[y][x] = current.color;
       }
     }
-    clearLines();
+    clearLines(scoreBase);
     spawn();
   }
 
-  function clearLines(){
+  function clearLines(scoreBase){
+    // scoreBase：触发本次消行操作的「操作前」基准分（落子前已计入的软/硬降分也包含在内），
+    // 用于让弹窗显示值 == 该次操作实际加进 score 的净增量。
+    if(scoreBase === undefined || scoreBase === null) scoreBase = score;
     let cleared = 0;
+    let gained = 0;
     for(let r=ROWS-1;r>=0;r--){
       if(grid[r].every(c=>c!==null)){
         spawnParticles(r);
@@ -519,13 +524,16 @@
       level = Math.floor(linesCleared/10) + 1;
       Juice.sfx(cleared>=4 ? 'win' : 'levelup');
       Juice.addTrauma(0.15 + cleared*0.12);
-      Juice.popup(board.width/2, board.height/2-20, (cleared>=4?'TETRIS! ':'')+'+'+gained, '#f0b90b', {size:22});
+      // 弹窗显示「实际净增」：= 消行分 + 当帧已加的软/硬降分，确保与真实 score 增量一致
+      const net = score - scoreBase;
+      Juice.popup(window.innerWidth/2, window.innerHeight*0.4, (cleared>=4?'TETRIS! ':'')+'+'+net, '#f0b90b', {size:22});
       if(cleared>=4){ Juice.achievement('⚡ TETRIS！一次消 4 行'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       if(level!==before){
         dropInterval = Math.max(80, 1000 - (level-1)*80);
       }
       updateHud();
     }
+    return cleared>0 ? gained : 0;
   }
 
   // ====== Hold ======
@@ -838,6 +846,7 @@
     window.__t = {
       ROWS, COLS, SHAPES, SCORE_TABLE,
       collides, rotateCW, clearLines, makePiece, emptyGrid, usePower,
+      hardDrop, softDrop, lockPiece,
       getGrid: () => grid,
       setGrid(g){ grid = g; },
       getCurrent: () => current,
@@ -848,6 +857,7 @@
       getCharges: () => charges,
       addCharge(n){ charges = Math.min(3, charges + (n||1)); },
       getShield: () => shieldCharge,
+      setRand(fn){ if (fn) Math.random = fn; },
       startGame
     };
   }

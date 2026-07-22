@@ -108,3 +108,58 @@ H.eq('俄罗斯 rotateCW', t.rotateCW([[1,2],[3,4]]), [[3,1],[4,2]]);
   t.usePower('slow'); // 不应抛错
   H.ok('俄罗斯 缓速调用无异常', true);
 })();
+
+// 12) 回归（核心缺陷）：消行升级当帧含「硬降加分」，弹窗显示值必须 == 实际净增(score 增量)
+//     复现：先消 9 行停在 level 1 / lines 9，再用竖直 I 硬降填底行空隙消 1 行 → lines 10 → 升级 level 2。
+//     硬降 dist=16 → 硬降分 16*2=32；消行分 SCORE_TABLE[1]*level(旧=1)=100；净增=132。
+//     旧实现弹窗只显示 +100（不含硬降 32），与实际净增不符；新实现弹窗应显示 +132。
+(() => {
+  const { sandbox, t } = H.loadGame('../tetris.html');
+  t.startGame();
+  let popupText = null;
+  sandbox.Juice.popup = (x, y, text) => { popupText = text; };
+  // 先消 9 行（直接 clearLines），停在 lines=9 level=1
+  for (let i = 0; i < 9; i++) {
+    const g = t.getGrid();
+    for (let c = 0; c < t.COLS; c++) g[t.ROWS - 1][c] = '#x';
+    t.setGrid(g);
+    t.clearLines();
+  }
+  H.eq('前置: 9次消行后 lines=9', t.getLines(), 9);
+  H.eq('前置: 9次消行后 level 仍=1', t.getLevel(), 1);
+  // 构造底行仅留第 2 列(矩阵列2→世界 x=p.x+2)空，竖直 I 落于 x=0
+  const g = t.getGrid();
+  for (let c = 0; c < t.COLS; c++) g[t.ROWS - 1][c] = '#x';
+  g[t.ROWS - 1][2] = null; // 留空一列
+  t.setGrid(g);
+  const p = t.makePiece('I');
+  p.matrix = t.rotateCW(p.matrix); // 旋转后为竖直 I，实心在 matrix 第 2 列
+  p.x = 0; p.y = 0;
+  t.setCurrent(p);
+  const scoreBefore = t.getScore();
+  t.hardDrop();                     // 触发硬降 + 消行 + 升级
+  const scoreAfter = t.getScore();
+  const expectedNet = scoreAfter - scoreBefore;
+  const m = popupText && popupText.match(/\+(\d+)/);
+  const popupNum = m ? parseInt(m[1], 10) : NaN;
+  H.ok('硬降消行升级: 弹窗存在', !!popupText, 'popup=' + popupText);
+  H.eq('硬降消行升级: 弹窗值 == 实际净增', popupNum, expectedNet, 'popup=' + popupText + ' net=' + expectedNet);
+  H.eq('硬降消行升级: 实际净增 = 硬降分(16*2) + 消行分(100)', expectedNet, t.SCORE_TABLE[1] * 1 + 16 * 2, 'net=' + expectedNet);
+  H.eq('硬降消行升级: level 升到 2', t.getLevel(), 2);
+  H.eq('硬降消行升级: lines=10', t.getLines(), 10);
+})();
+
+// 13) 不变量：初始态 / reset / 消行数→得分表 / 升级阈值
+(() => {
+  const { sandbox, t } = H.loadGame('../tetris.html');
+  t.startGame();
+  H.eq('不变量 初始 score=0', t.getScore(), 0);
+  H.eq('不变量 初始 level=1', t.getLevel(), 1);
+  H.eq('不变量 初始 lines=0', t.getLines(), 0);
+  H.eq('不变量 SCORE_TABLE[1..4]', [t.SCORE_TABLE[1], t.SCORE_TABLE[2], t.SCORE_TABLE[3], t.SCORE_TABLE[4]], [100, 300, 500, 800]);
+  // 升级阈值：每累计 10 行升一级（floor(lines/10)+1）
+  H.eq('不变量 升级阈值 level=floor(lines/10)+1', Math.floor(10 / 10) + 1, 2);
+  H.eq('不变量 升级阈值 level=floor(19/10)+1', Math.floor(19 / 10) + 1, 2);
+  H.eq('不变量 升级阈值 level=floor(20/10)+1', Math.floor(20 / 10) + 1, 3);
+  t.setRand(Math.random); // 还原随机源（若被 setRand 改写）
+})();
