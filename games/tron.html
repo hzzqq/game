@@ -69,6 +69,7 @@
     }
     for(const pl of [p0,p1]){ if(pl.dead) continue; const [nr,nc]=next[pl.id]; pl.trail.add(pl.y+','+pl.x); pl.y=nr; pl.x=nc; }
     if(p0.dead&&p1.dead) winner=-1; else if(p0.dead) winner=1; else if(p1.dead) winner=0;
+    if(winner!==-1){ Juice.sfx('win'); Juice.addTrauma(.4); Juice.flash('#02c076', .5); }
   }
   function getWinner(){ return winner; }
   function getState(){ return { p0:{x:p0.x,y:p0.y,dead:p0.dead}, p1:{x:p1.x,y:p1.y,dead:p1.dead}, winner }; }
