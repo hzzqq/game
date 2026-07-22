@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 桥梁 HASHI</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>桥梁</b> HASHI</span></div>
+  <div class="wrap">
+    <div class="hud"><span>网格 · <span class="st" id="n">7×7</span></span><span id="status">连所有岛，数字=桥数(≤2)，全连通无交叉</span></div>
+    <div class="boardwrap"><canvas id="board" width="424" height="424"></canvas></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点两岛之间建桥（再点同对可在 1 / 2 / 0 间循环）。每岛桥数须等于其数字，全部连通且桥不可交叉。</div>
+  </div>
+  <div class="foot">Hashi（桥梁）：用水平/垂直桥梁连接所有岛屿，每岛桥数等于其数字（两岛间最多 2 桥），整体连通且桥梁互不交叉。每局由随机生成的解派生，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  let _rng = mk(0x1234abcd);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const R=7, C=7, CELL=52, PAD=30;
+  let islands;     // [{r,c,num}]
+  let solAdj;      // Map "i-j" -> count (规范解)
+  let pbridges;    // Map "i-j" -> count (玩家)
+  let won=false;
+
+  function ekey(i,j){ return i<j? i+'-'+j : j+'-'+i; }
+  function inIsl(i){ return i>=0 && i<islands.length; }
+
+  function fallbackHashi(){
+    // 中心 + 上下左右四叶，上下双桥
+    const isl=[
+      {r:3,c:3,num:0},
+      {r:0,c:3,num:0},
+      {r:6,c:3,num:0},
+      {r:3,c:0,num:0},
+      {r:3,c:6,num:0},
+    ];
+    const adj=new Map();
+    adj.set(ekey(0,1),2); adj.set(ekey(0,2),2); adj.set(ekey(0,3),1); adj.set(ekey(0,4),1);
+    for(const [k,cnt] of adj){ const p=k.split('-'); isl[+p[0]].num+=cnt; isl[+p[1]].num+=cnt; }
+    return {isl,adj};
+  }
+
+  function genHashi(){
+    for(let attempt=0; attempt<200; attempt++){
+      const K=6+Math.floor(_rng()*4);
+      const occ=new Set(); const isl=[];
+      let tries=0;
+      while(isl.length<K && tries<600){ tries++;
+        const r=Math.floor(_rng()*R), c=Math.floor(_rng()*C);
+        const k=r+','+c; if(occ.has(k)) continue; occ.add(k); isl.push({r,c,num:0});
+      }
+      if(isl.length<K) continue;
+      const parent=isl.map((_,i)=>i);
+      function find(x){ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; }
+      function uni(a,b){ parent[find(a)]=find(b); }
+      const adj=new Map();
+      function alignedClear(i,j){
+        const A=isl[i], B=isl[j];
+        if(A.r===B.r){ const a=Math.min(A.c,B.c), b=Math.max(A.c,B.c);
+          for(let c=a+1;c<b;c++) if(occ.has(A.r+','+c)) return false; return true; }
+        if(A.c===B.c){ const a=Math.min(A.r,B.r), b=Math.max(A.r,B.r);
+          for(let r=a+1;r<b;r++) if(occ.has(r+','+A.c)) return false; return true; }
+        return false;
+      }
+      function crosses(i,j){
+        const A=isl[i], B=isl[j];
+        const horiz=A.r===B.r;
+        const c1=Math.min(A.c,B.c), c2=Math.max(A.c,B.c), r1=Math.min(A.r,B.r), r2=Math.max(A.r,B.r);
+        for(const [k,cnt] of adj){ if(cnt<=0) continue;
+          const p=k.split('-'); const a=+p[0], b=+p[1]; const X=isl[a], Y=isl[b];
+          if((X.r===Y.r)===horiz) continue; // 同向不交叉
+          if(horiz){ const xr1=Math.min(X.r,Y.r), xr2=Math.max(X.r,Y.r);
+            if(X.c>c1 && X.c<c2 && A.r>xr1 && A.r<xr2 && !occ.has(A.r+','+X.c)) return true;
+          } else { const xc1=Math.min(X.c,Y.c), xc2=Math.max(X.c,Y.c);
+            if(X.r>r1 && X.r<r2 && A.c>xc1 && A.c<xc2 && !occ.has(X.r+','+A.c)) return true;
+          }
+        }
+        return false;
+      }
+      let ok=true;
+      for(let step=0; step<isl.length; step++){
+        const cands=[];
+        for(let i=0;i<isl.length;i++) for(let j=i+1;j<isl.length;j++){
+          if(find(i)===find(j)) continue;
+          if(alignedClear(i,j) && !crosses(i,j)) cands.push([i,j]);
+        }
+        if(cands.length===0){ ok=false; break; }
+        const pk=cands[Math.floor(_rng()*cands.length)];
+        adj.set(ekey(pk[0],pk[1]),1); uni(pk[0],pk[1]);
+      }
+      if(!ok) continue;
+      for(const k of [...adj.keys()]) if(_rng()<0.4) adj.set(k,2);
+      for(let i=0;i<isl.length;i++) isl[i].num=0;
+      for(const [k,cnt] of adj){ const p=k.split('-'); isl[+p[0]].num+=cnt; isl[+p[1]].num+=cnt; }
+      let bad=false; for(const I of isl) if(I.num===0) bad=true;
+      if(bad) continue;
+      return {isl,adj};
+    }
+    return fallbackHashi();
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    const g=genHashi();
+    islands = g.isl.map(I=>({r:I.r,c:I.c,num:I.num}));
+    solAdj = new Map([...g.adj].map(([k,v])=>[k,v]));
+    pbridges = new Map();
+    won=false;
+    return getState();
+  }
+
+  function alignedClear(i,j){
+    const A=islands[i], B=islands[j];
+    rebuildOcc();
+    if(A.r===B.r){ const a=Math.min(A.c,B.c), b=Math.max(A.c,B.c);
+      for(let c=a+1;c<b;c++) if(islandAt(A.r,c)>=0) return false; return true; }
+    if(A.c===B.c){ const a=Math.min(A.r,B.r), b=Math.max(A.r,B.r);
+      for(let r=a+1;r<b;r++) if(islandAt(r,A.c)>=0) return false; return true; }
+    return false;
+  }
+  const _occ=new Set();
+  function rebuildOcc(){ _occ.clear(); islands.forEach(I=>_occ.add(I.r+','+I.c)); }
+  function islandAt(r,c){ for(let i=0;i<islands.length;i++) if(islands[i].r===r&&islands[i].c===c) return i; return -1; }
+
+  function crosses(i,j,ignore){
+    const A=islands[i], B=islands[j];
+    const horiz=A.r===B.r;
+    const c1=Math.min(A.c,B.c), c2=Math.max(A.c,B.c), r1=Math.min(A.r,B.r), r2=Math.max(A.r,B.r);
+    for(const [k,cnt] of pbridges){ if(cnt<=0) continue; if(k===ignore) continue;
+      const p=k.split('-'); const a=+p[0], b=+p[1]; const X=islands[a], Y=islands[b];
+      if((X.r===Y.r)===horiz) continue;
+      if(horiz){ const xr1=Math.min(X.r,Y.r), xr2=Math.max(X.r,Y.r);
+        if(X.c>c1 && X.c<c2 && A.r>xr1 && A.r<xr2 && islandAt(A.r,X.c)<0) return true;
+      } else { const xc1=Math.min(X.c,Y.c), xc2=Math.max(X.c,Y.c);
+        if(X.r>r1 && X.r<r2 && A.c>xc1 && A.c<xc2 && islandAt(X.r,A.c)<0) return true;
+      }
+    }
+    return false;
+  }
+
+  function setBridge(i,j,count){
+    if(!inIsl(i)||!inIsl(j)||i===j) return false;
+    count=Math.max(0,Math.min(2,count|0));
+    const k=ekey(i,j);
+    if(count>0){
+      rebuildOcc();
+      if(!alignedClear(i,j)) return false;
+      if(crosses(i,j,k)) return false;
+    }
+    if(count===0) pbridges.delete(k); else pbridges.set(k,count);
+    won=isWin();
+    if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    return true;
+  }
+  function addBridge(i,j){
+    if(!inIsl(i)||!inIsl(j)||i===j) return false;
+    const cur=pbridges.get(ekey(i,j))||0;
+    const next=cur===0?1:cur===1?2:0;
+    if(next>0){ rebuildOcc(); if(!alignedClear(i,j)||crosses(i,j)) return false; }
+    if(next===0) pbridges.delete(ekey(i,j)); else pbridges.set(ekey(i,j),next);
+    won=isWin();
+    if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    return true;
+  }
+  function reset(){ pbridges=new Map(); won=false; return getState(); }
+  function applySolution(){ pbridges=new Map([...solAdj].map(([k,v])=>[k,v])); won=isWin(); return won; }
+  function getSolution(){ return [...solAdj].map(([k,v])=>({i:+k.split('-')[0],j:+k.split('-')[1],count:v})); }
+  function getState(){
+    return { R,C, islands:islands.map(I=>({r:I.r,c:I.c,num:I.num})),
+             bridges:[...pbridges].map(([k,v])=>({i:+k.split('-')[0],j:+k.split('-')[1],count:v})), won };
+  }
+
+  function isWin(){
+    rebuildOcc();
+    // 连通性
+    const seen=new Set([0]); const stack=[0];
+    while(stack.length){ const x=stack.pop();
+      for(let y=0;y<islands.length;y++){ if(y===x) continue;
+        if(pbridges.get(ekey(x,y))){ if(!seen.has(y)){ seen.add(y); stack.push(y); } } }
+    }
+    if(seen.size!==islands.length) return false;
+    // 每岛桥数=num
+    for(let i=0;i<islands.length;i++){ let d=0; for(let j=0;j<islands.length;j++) d+=(pbridges.get(ekey(i,j))||0); if(d!==islands[i].num) return false; }
+    // 合法性：每桥对齐无阻挡、计数为1/2、无交叉
+    for(const [k,cnt] of pbridges){ if(cnt<=0) continue;
+      const p=k.split('-'); const a=+p[0], b=+p[1];
+      if(!alignedClear(a,b)) return false;
+      if(crosses(a,b,k)) return false;
+    }
+    return true;
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function cx(c){ return PAD+c*CELL+CELL/2; }
+  function cy(r){ return PAD+r*CELL+CELL/2; }
+  let selIsland=null;
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.strokeStyle='#02c076'; ctx.lineWidth=5; ctx.lineCap='round';
+    const off=8;
+    for(const [k,cnt] of pbridges){ if(cnt<=0) continue;
+      const p=k.split('-'); const a=islands[+p[0]], b=islands[+p[1]];
+      const x1=cx(a.c),y1=cy(a.r),x2=cx(b.c),y2=cy(b.r);
+      if(cnt===1){ ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
+      else {
+        // 双桥：垂直于方向偏移
+        let dx=x2-x1, dy=y2-y1; const len=Math.hypot(dx,dy)||1; dx/=len; dy/=len;
+        const nx=-dy*off, ny=dx*off;
+        ctx.beginPath(); ctx.moveTo(x1+nx,y1+ny); ctx.lineTo(x2+nx,y2+ny); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x1-nx,y1-ny); ctx.lineTo(x2-nx,y2-ny); ctx.stroke();
+      }
+    }
+    for(let i=0;i<islands.length;i++){ const I=islands[i];
+      const x=cx(I.c), y=cy(I.r);
+      ctx.beginPath(); ctx.arc(x,y,CELL*0.36,0,Math.PI*2);
+      ctx.fillStyle=(selIsland===i)?'#f0b90b':'#e6edf3'; ctx.fill();
+      ctx.fillStyle='#0a0e14'; ctx.font='bold 18px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(I.num, x, y);
+    }
+    const stt=$('status'); if(stt) stt.textContent = won?'已通关':'连所有岛，数字=桥数(≤2)，全连通无交叉';
+    const msg=$('msg'); if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！全部连通、桥数匹配且无交叉。'; } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'),nb=$('new'),rb=$('reset');
+    if(cv) cv.addEventListener('click',e=>{
+      const rect=cv.getBoundingClientRect();
+      const mx=(e.clientX-rect.left)*(cv.width/rect.width);
+      const my=(e.clientY-rect.top)*(cv.height/rect.height);
+      let best=-1,bd=1e9;
+      for(let i=0;i<islands.length;i++){ const d=Math.hypot(mx-cx(islands[i].c),my-cy(islands[i].r)); if(d<bd){bd=d;best=i;} }
+      if(best<0 || bd>CELL*0.4) return;
+      if(selIsland===null){ selIsland=best; }
+      else if(selIsland===best){ selIsland=null; }
+      else { addBridge(selIsland,best); selIsland=null; }
+      render();
+    });
+    if(nb) nb.onclick=()=>{ newPuzzle(); selIsland=null; render(); };
+    if(rb) rb.onclick=()=>{ reset(); selIsland=null; render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { R, C, setRand, newPuzzle, reset, isWin, setBridge, addBridge, applySolution, getSolution, getState, alignedClear, islandAt };
+  }
+})();
+</script>
+</body>
+</html>
