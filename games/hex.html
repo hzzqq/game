@@ -60,10 +60,11 @@
   }
   function play(r,c,color){
     if(over) return false;
+    Juice.sfx('click'); Juice.addTrauma(.12);
     const col=color||turn;
     if(board[r][c]!==null) return false;
     board[r][c]=col;
-    if(isWin(col)){ over=true; winner=col; return true; }
+    if(isWin(col)){ over=true; winner=col; Juice.sfx('win'); Juice.flash('#02c076',.5); return true; }
     turn = turn==='r'?'g':'r';
     return true;
   }
