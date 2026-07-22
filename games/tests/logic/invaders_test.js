@@ -82,4 +82,36 @@ eq('START_SPEED=10', t.START_SPEED, 10);
   eq('over 后 oy 不变', t.getOy(), oy);
 }
 
+// ---------- 掉落系统 ----------
+{
+  // gem 加分
+  t.reset(); t.setScore(0);
+  t.spawnPickup('gem', t.getPlayer().x, t.PLAYER_Y-2);
+  t.update();
+  eq('拾取gem分数+25', t.getScore(), 25);
+  eq('gem拾取后移除', t.getPickups().length, 0);
+}
+{
+  // rocket 强化（子弹穿透）
+  t.reset(); t.setScore(0);
+  t.spawnPickup('rocket', t.getPlayer().x, t.PLAYER_Y-2);
+  t.update();
+  ok('拾取rocket获得强化', t.getBoost()===true);
+  eq('rocket弹量=5', t.getRockets(), 5);
+  eq('rocket拾取后移除', t.getPickups().length, 0);
+}
+{
+  // 护盾免死：触底时消耗护盾而非 game over
+  t.reset(); t.setOy(400); t.setShield(true);
+  t.update();
+  ok('持盾触底仍进行(未over)', t.getOver()===false);
+  ok('护盾已消耗', t.getShield()===false);
+}
+{
+  // 无盾触底即 over（扣血至 0 结束）
+  t.reset(); t.setOy(400);
+  t.update();
+  ok('无盾触底 over', t.getOver()===true);
+}
+
 console.log('invaders: 全部断言通过');
