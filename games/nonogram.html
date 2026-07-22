@@ -61,6 +61,7 @@
 <script>
 (function(){
   "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
   /* ===================== 纯逻辑核心 ===================== */
   const R = 5, C = 5;
   let _rand = Math.random;
@@ -100,7 +101,7 @@
     filled = marks.flat().reduce((a,b)=>a+b,0);
     if(matches()){ won=true; over=true; }
     if(typeof Juice!=='undefined'){
-      if(won){ Juice.sfx('levelup'); Juice.best('nonogram', filled); }
+      if(won){ Juice.sfx('levelup'); Juice.best('nonogram', filled); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       else Juice.sfx('click');
     }
     return true;
