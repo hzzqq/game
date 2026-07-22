@@ -67,6 +67,9 @@
     const fb=feedback(word); guesses.push(word.toUpperCase());
     if(word.toUpperCase()===solution){ over=true; won=true; }
     else if(guesses.length>=6){ over=true; won=false; }
+    if(over && won){ Juice.sfx('win'); Juice.flash('#02c076', .5); }
+    else if(over && !won){ Juice.sfx('lose'); Juice.flash('#f6465d', .5); }
+    else { Juice.sfx('hit'); Juice.addTrauma(.2); }
     return fb;
   }
   function getGuesses(){ return guesses.slice(); }
