@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // MISSILE COMMAND</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px}
+  .titlebar{width:min(640px,96vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:14px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .bar{width:min(640px,96vw);display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;justify-content:center}
+  .act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer;font-family:inherit;font-size:13px}
+  .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+  .hud{width:min(640px,96vw);display:flex;justify-content:space-between;background:#0e141d;border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:13px;color:var(--dim)}
+  .hud b{color:var(--text)}
+  #cv{background:#070a0f;border:1px solid var(--border);border-radius:10px;touch-action:none}
+  .msg{width:min(640px,96vw);text-align:center;color:var(--dim);font-size:12px;margin-top:10px;line-height:1.7}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>MISSILE COMMAND</b> · 导弹防御</span></div>
+  <div class="bar"><button class="act gold" id="newBtn">新游戏</button>
+    <span style="color:var(--dim);font-size:12px">点击天空发射拦截弹 · 保卫城市</span></div>
+  <div class="hud">
+    <span>城市 CITIES <b id="hCities">6</b></span>
+    <span>得分 SCORE <b id="hScore">0</b></span>
+    <span>波次 WAVE <b id="hWave">0</b></span>
+    <span id="hStat" style="color:var(--gold)">运行中</span>
+  </div>
+  <canvas id="cv" width="600" height="600"></canvas>
+  <div class="msg">来袭导弹（红）会落向地面摧毁城市。点击天空发射拦截弹（绿），在导弹附近引爆可摧毁之。所有城市被毁即失败。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(s){ return function(){ s|=0; s=s+0x6D2B79F5|0; var t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  let _rng = mk(0x99A1);
+  function setSeed(s){ _rng = mk(s>>>0); }
+
+  const W=600, H=600, GROUND=560;
+  const BX=300, BY=GROUND;            // 炮台位置
+  const TOTAL_CITIES=6, TARGET_WAVES=5;
+  const INT_SPD=300, BLAST=34, CITY_HIT=26;
+
+  let cities, missiles, interceptors, explosions, score, clearedWaves, over, won, auto, stars=[];
+
+  function reset(){
+    cities=[]; for(let i=0;i<TOTAL_CITIES;i++) cities.push({ x: 80 + i*((W-160)/(TOTAL_CITIES-1)), alive:true });
+    missiles=[]; interceptors=[]; explosions=[]; score=0; clearedWaves=0; over=false; won=false; auto=false;
+  }
+  function start(){
+    reset(); auto=true;
+  }
+
+  function setAuto(v){ auto=!!v; }
+
+  function spawnIncoming(x, tx, speed){
+    const sx = (x==null)? (40+_rng()*(W-80)) : x;
+    const tgt = (tx==null)? cities[Math.floor(_rng()*TOTAL_CITIES)].x : tx;
+    const sp = (speed==null)? (50+_rng()*40) : speed;
+    const dx=tgt-sx, dy=GROUND-40;
+    const d=Math.hypot(dx,dy)||1;
+    missiles.push({ x:sx, y:40, vx:dx/d*sp, vy:dy/d*sp, speed:sp, target:{x:tgt,y:GROUND} });
+  }
+
+  function launch(tx,ty){
+    if(over) return;
+    const dx=tx-BX, dy=ty-BY, d=Math.hypot(dx,dy)||1;
+    interceptors.push({ x:BX, y:BY, vx:dx/d*INT_SPD, vy:dy/d*INT_SPD, tx, ty });
+    if(typeof Juice!=='undefined') Juice.sfx('click');
+  }
+
+  function explodeAt(x,y){
+    explosions.push({ x, y, r:4, max:BLAST });
+    for(let i=missiles.length-1;i>=0;i--){
+      if(Math.hypot(missiles[i].x-x, missiles[i].y-y) <= BLAST){ missiles.splice(i,1); score+=25; }
+    }
+    if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(.3); }
+  }
+
+  function step(dt){
+    if(over) return getState();
+    // 拦截弹推进 + 引爆
+    for(let i=interceptors.length-1;i>=0;i--){
+      const m=interceptors[i];
+      m.x+=m.vx*dt; m.y+=m.vy*dt;
+      if(Math.hypot(m.x-m.tx, m.y-m.ty) <= 6){ explodeAt(m.x,m.y); interceptors.splice(i,1); }
+    }
+    // 来袭导弹推进 + 触地
+    for(let i=missiles.length-1;i>=0;i--){
+      const m=missiles[i];
+      m.x+=m.vx*dt; m.y+=m.vy*dt;
+      if(m.y >= GROUND){
+        // 命中最近城市
+        let hitCity=-1, best=CITY_HIT;
+        for(let c=0;c<TOTAL_CITIES;c++){ if(!cities[c].alive) continue; const dd=Math.abs(cities[c].x-m.x); if(dd<best){ best=dd; hitCity=c; } }
+        if(hitCity>=0){ cities[hitCity].alive=false; if(typeof Juice!=='undefined') Juice.addTrauma(.4); }
+        missiles.splice(i,1);
+      }
+    }
+    // 爆炸视觉衰减
+    for(let i=explosions.length-1;i>=0;i--){ const e=explosions[i]; e.r+=120*dt; if(e.r>=e.max) explosions.splice(i,1); }
+    checkEnd();
+    if(auto && !over && missiles.length===0 && interceptors.length===0){
+      clearedWaves++;
+      if(clearedWaves>=TARGET_WAVES){ over=true; won=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('导弹防御通关'); } }
+      else { const n=2+clearedWaves; for(let k=0;k<n;k++) spawnIncoming(null,null,null); }
+    }
+    render();
+    return getState();
+  }
+
+  function aliveCities(){ return cities.filter(c=>c.alive).length; }
+
+  function checkEnd(){
+    if(over) return;
+    if(aliveCities()===0){ over=true; won=false; if(typeof Juice!=='undefined') Juice.sfx('lose'); }
+    else if(clearedWaves>=TARGET_WAVES && missiles.length===0 && interceptors.length===0){ over=true; won=true; if(typeof Juice!=='undefined') Juice.sfx('win'); }
+  }
+
+  function setClearedWaves(n){ clearedWaves=n; }
+  function killCity(i){ if(cities[i]) cities[i].alive=false; }
+
+  function getState(){
+    return {
+      cities: cities.map(c=>({x:c.x, alive:c.alive})),
+      missiles: missiles.map(m=>({x:m.x,y:m.y})),
+      interceptors: interceptors.map(m=>({x:m.x,y:m.y})),
+      score, clearedWaves, alive: aliveCities(), total: TOTAL_CITIES, over, won,
+      status: over ? (won?'win':'lose') : 'running'
+    };
+  }
+
+  function makeStars(){ stars=[]; for(let i=0;i<60;i++) stars.push({x:_rng()*W, y:_rng()*(GROUND-30), r:1+_rng()}); }
+
+  function render(){
+    const cv=document.getElementById('cv'); if(!cv) return;
+    const ctx=cv.getContext('2d'); if(!ctx) return;
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#070a0f'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#243'; for(const s of stars) ctx.fillRect(s.x,s.y,s.r,s.r);
+    // 地面
+    ctx.fillStyle='#1f2a38'; ctx.fillRect(0,GROUND,W,H-GROUND);
+    // 城市
+    for(const c of cities){ ctx.fillStyle = c.alive? '#f0b90b':'#3a2630'; ctx.fillRect(c.x-14,GROUND-14,28,14); }
+    // 炮台
+    ctx.fillStyle='#02c076'; ctx.beginPath(); ctx.moveTo(BX,GROUND-18); ctx.lineTo(BX-12,GROUND); ctx.lineTo(BX+12,GROUND); ctx.closePath(); ctx.fill();
+    // 来袭导弹
+    ctx.strokeStyle='#f6465d'; ctx.lineWidth=2;
+    for(const m of missiles){ ctx.beginPath(); ctx.moveTo(m.x,m.y); ctx.lineTo(m.x-m.vx*0.05,m.y-m.vy*0.05); ctx.stroke(); }
+    // 拦截弹
+    ctx.strokeStyle='#02c076';
+    for(const m of interceptors){ ctx.beginPath(); ctx.moveTo(m.x,m.y); ctx.lineTo(m.x-m.vx*0.04,m.y-m.vy*0.04); ctx.stroke(); }
+    // 爆炸
+    for(const e of explosions){ ctx.strokeStyle='#f0b90b'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.stroke(); }
+    const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+    set('hCities', aliveCities()); set('hScore', score); set('hWave', clearedWaves);
+    set('hStat', over?(won?'通关':'失败'):'运行中');
+  }
+
+  function bindUI(){
+    const cv=document.getElementById('cv');
+    if(cv){ cv.addEventListener('click',e=>{ const r=cv.getBoundingClientRect(); const x=(e.clientX-r.left)*(W/r.width); const y=(e.clientY-r.top)*(H/r.height); launch(x,y); render(); }); }
+    const nb=document.getElementById('newBtn'); if(nb) nb.onclick=()=>{ start(); makeStars(); render(); };
+  }
+
+  reset(); makeStars();
+  if(typeof document!=='undefined'){ bindUI(); render(); }
+  if(typeof window!=='undefined'){
+    window.__t={ W,H,GROUND,BX,BY,TOTAL_CITIES,TARGET_WAVES,INT_SPD,BLAST,CITY_HIT,
+      setSeed, reset, start, setAuto, spawnIncoming, launch, explodeAt, step, checkEnd, setClearedWaves, killCity, aliveCities, getState };
+  }
+})();
+</script>
+</body>
+</html>
