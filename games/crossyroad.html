@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 过马路 CROSSY ROAD</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(480px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(480px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:8px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .controls button{flex:1;min-width:60px;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.over{color:var(--red);font-weight:700}
+  .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>过马路</b> CROSSY ROAD</span></div>
+  <div class="wrap">
+    <div class="hud"><span>最前行 · <span class="st" id="score">0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
+    <div class="boardwrap"><canvas id="board" width="360" height="600"></canvas></div>
+    <div class="controls">
+      <button data-d="up">↑上</button><button data-d="left">←左</button>
+      <button data-d="down">↓下</button><button data-d="right">→右</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">方向键跳跃穿越马路与河流。撞车或被水冲走即结束，分数 = 抵达的最前行。</div>
+  </div>
+  <div class="foot">Crossy Road（过马路）：操纵角色向前跳跃，躲避横向车流、踩着浮木过河。越靠前行号越高分。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const J = (typeof Juice!=='undefined') ? Juice : null;
+  // 局部 PRNG（mulberry32）—— 生成只用它，绝不用 Math.random
+  function mk(s){ return function(){ s|=0; s=s+0x6D2B79F5|0; var t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  let _rng = mk(0x1234c0de);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const ROWS = 15, COLS = 9;
+  const START_ROW = ROWS - 1;
+  let rows, player, gameOver, furthest, score;
+
+  function genField(){
+    rows = [];
+    for(let r=0; r<ROWS; r++){
+      let type;
+      if(r === ROWS-1) type = 'safe';          // 起点草地
+      else {
+        const x = _rng();
+        if(x < 0.16) type = 'safe';
+        else if(x < 0.62) type = 'road';
+        else type = 'river';
+      }
+      const dir = _rng() < 0.5 ? -1 : 1;
+      const speed = 0.4 + _rng() * 1.6;
+      const obstacles = [];
+      if(type === 'road'){
+        const n = 2 + Math.floor(_rng()*3);
+        for(let i=0;i<n;i++) obstacles.push(_rng()*COLS);
+      } else if(type === 'river'){
+        const n = 2 + Math.floor(_rng()*2);
+        for(let i=0;i<n;i++){ obstacles.push({ pos: _rng()*COLS, len: 1 + Math.floor(_rng()*2) }); }
+      }
+      rows.push({ type, dir, speed, obstacles });
+    }
+    player = { row: START_ROW, col: Math.floor(COLS/2) };
+    gameOver = false;
+    furthest = START_ROW;
+    score = 0;
+  }
+
+  function reset(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    genField();
+    return getState();
+  }
+  function newGame(seed){ return reset(seed); }
+
+  function onLog(row, col){
+    return row.obstacles.some(l => (col+0.5) >= l.pos && (col+0.5) <= l.pos + l.len);
+  }
+  function carHit(row, col){
+    return row.obstacles.some(c => Math.abs(c - col) < 0.6);
+  }
+  function checkHere(){
+    if(gameOver) return;
+    const row = rows[player.row];
+    if(row.type === 'road'){
+      if(carHit(row, player.col)){ gameOver = true; if(J) J.sfx('lose'); }
+    } else if(row.type === 'river'){
+      if(!onLog(row, player.col)){ gameOver = true; if(J) J.sfx('lose'); }
+    }
+  }
+
+  function hop(dir){
+    if(gameOver) return;
+    if(dir === 'up')    player.row = Math.max(0, player.row - 1);
+    else if(dir === 'down')  player.row = Math.min(ROWS-1, player.row + 1);
+    else if(dir === 'left')  player.col = Math.max(0, player.col - 1);
+    else if(dir === 'right') player.col = Math.min(COLS-1, player.col + 1);
+    if(player.row < furthest) furthest = player.row;
+    score = START_ROW - furthest;
+    if(J) J.sfx('click'); if(J) J.addTrauma(0.1);
+    checkHere();
+  }
+
+  function moveRowObstacles(row, dt){
+    for(let i=0;i<row.obstacles.length;i++){
+      const o = row.obstacles[i];
+      if(typeof o === 'number'){
+        let c = o + row.dir * row.speed * dt;
+        if(c < 0) c += COLS; if(c >= COLS) c -= COLS;
+        row.obstacles[i] = c;
+      } else {
+        o.pos += row.dir * row.speed * dt;
+      }
+    }
+  }
+
+  function step(dt){
+    if(gameOver) return;
+    dt = dt || 1;
+    const prow = player.row;
+    const riverPlayer = rows[prow].type === 'river';
+    for(let r=0;r<ROWS;r++){
+      if(riverPlayer && r === prow) continue;   // 玩家所在河流行稍后与玩家同步移动
+      moveRowObstacles(rows[r], dt);
+    }
+    const row = rows[prow];
+    if(row.type === 'road'){
+      if(carHit(row, player.col)){ gameOver = true; if(J) J.sfx('lose'); }
+    } else if(row.type === 'river'){
+      if(!onLog(row, player.col)){ gameOver = true; if(J) J.sfx('lose'); }
+      else {
+        const d = row.dir * row.speed * dt;
+        player.col += d;
+        for(const l of row.obstacles) l.pos += d;   // 浮木与玩家同步漂动，保持相对位置
+        if(player.col < 0 || player.col > COLS-1){ gameOver = true; if(J) J.sfx('lose'); }
+        else if(!onLog(row, player.col)){ gameOver = true; if(J) J.sfx('lose'); }
+      }
+    }
+  }
+
+  function isGameOver(){ return gameOver; }
+  function getScore(){ return score; }
+  function getState(){
+    return {
+      player: { row: player.row, col: player.col },
+      rows: rows.map(r => ({
+        type: r.type, dir: r.dir, speed: r.speed,
+        obstacles: r.obstacles.map(o => typeof o==='number' ? o : { pos: o.pos, len: o.len })
+      })),
+      gameOver, score, furthest, startRow: START_ROW
+    };
+  }
+
+  // ---- 测试辅助 setter（不影响核心玩法，便于确定性测试） ----
+  function setRow(r, type){ rows[r].type = type; }
+  function setObstacles(r, arr){ rows[r].obstacles = arr.map(o => typeof o==='number' ? o : { pos:o.pos, len:o.len }); }
+  function setPlayer(r, c){ player.row = r; player.col = c; if(r < furthest) furthest = r; score = START_ROW - furthest; }
+  function setRowDir(r, d){ rows[r].dir = d; }
+  function setRowSpeed(r, s){ rows[r].speed = s; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined') ? document.getElementById(id) : null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv = $('board'); if(!cv) return;
+    const vw = (typeof window!=='undefined') ? window.innerWidth : 800;
+    const vh = (typeof window!=='undefined') ? window.innerHeight : 600;
+    const cw = Math.min(cv.width, vw - 20);
+    const ch = Math.min(cv.height, Math.max(200, vh - 160));
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0,0,cv.width,cv.height);
+    const cellW = cv.width / COLS;
+    const cellH = cv.height / ROWS;
+    for(let r=0;r<ROWS;r++){
+      const row = rows[r];
+      if(row.type === 'road') ctx.fillStyle = '#1a2230';
+      else if(row.type === 'river') ctx.fillStyle = '#0d2433';
+      else ctx.fillStyle = (r % 2 === 0) ? '#13251c' : '#16291f';
+      ctx.fillRect(0, r*cellH, cv.width, cellH);
+      // 障碍
+      if(row.type === 'road'){
+        ctx.fillStyle = '#f6465d';
+        for(const c of row.obstacles){ ctx.fillRect(((c+COLS)%COLS)*cellW+cellW*0.2, r*cellH+cellH*0.3, cellW*0.6, cellH*0.4); }
+      } else if(row.type === 'river'){
+        ctx.fillStyle = '#7a5230';
+        for(const l of row.obstacles){ const p=((l.pos%COLS)+COLS)%COLS; ctx.fillRect(p*cellW, r*cellH+cellH*0.2, l.len*cellW, cellH*0.6); }
+      }
+    }
+    // 玩家
+    ctx.fillStyle = '#02c076';
+    ctx.fillRect(player.col*cellW+cellW*0.2, player.row*cellH+cellH*0.2, cellW*0.6, cellH*0.6);
+    const sc = $('score'); if(sc) sc.textContent = String(score);
+    const st = $('st'); if(st) st.textContent = gameOver ? '结束' : '进行中';
+    const msg = $('msg'); if(msg){ if(gameOver){ msg.className='msg over'; msg.textContent='💀 撞车或落水，游戏结束。'; } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    document.querySelectorAll('.controls button[data-d]').forEach(b => {
+      b.onclick = () => { hop(b.getAttribute('data-d')); render(); };
+    });
+    const nb = $('new'); if(nb) nb.onclick = () => { reset(); render(); };
+  }
+
+  reset();
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render(); }
+  if(typeof window!=='undefined'){
+    window.__t = { setRand, reset, newGame, hop, step, isGameOver, getScore, getState,
+      setRow, setObstacles, setPlayer, setRowDir, setRowSpeed };
+  }
+})();
+</script>
+</body>
+</html>
