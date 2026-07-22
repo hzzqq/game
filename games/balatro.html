@@ -171,14 +171,14 @@
     const cards=sel.map(i=>S.hand[i]);
     const res=scoreHand(cards);
     S.chips+=res.score;
-    if(J) J.sfx('level');
+    if(J){ J.sfx('hit'); J.addTrauma(.25); }
     // remove played from hand (high->low to keep indices valid)
     for(let k=sel.length-1;k>=0;k--) S.hand.splice(sel[k],1);
     for(const c of cards) S.discard.push(c);
     S.selected=[];
     S.plays--;
     if(S.chips>=S.target){ winBlind(); }
-    else if(S.plays<=0){ S.over=true; S.screen='gameover'; }
+    else if(S.plays<=0){ S.over=true; S.screen='gameover'; if(J){ J.sfx('lose'); J.flash('#f6465d', .5); } }
     return res;
   }
   function discardSelected(){
@@ -191,9 +191,9 @@
     return true;
   }
   function winBlind(){
-    if(J) J.sfx('win');
+    if(J){ J.sfx('win'); J.flash('#02c076', .5); J.confetti(innerWidth/2, innerHeight*0.32, {n:46}); }
     if(S.blindIdx===2){
-      if(S.ante>=MAXANTE){ S.won=true; S.screen='win'; return; }
+      if(S.ante>=MAXANTE){ S.won=true; if(J) J.confetti(innerWidth/2, innerHeight*0.28, {n:160, life:2.6}); S.screen='win'; return; }
       S.ante++; S.blindIdx=0;
     } else S.blindIdx++;
     S.reward={cards:shuffle(JOKER_IDS.slice()).slice(0,3)};
@@ -201,7 +201,7 @@
   }
   function chooseReward(idx){
     if(S.screen!=='reward') return false;
-    if(idx!==null && S.reward.cards[idx]) S.jokers.push(S.reward.cards[idx]);
+    if(idx!==null && S.reward.cards[idx]){ S.jokers.push(S.reward.cards[idx]); if(J) J.sfx('pickup'); }
     S.reward=null;
     startBlind();
     return true;
