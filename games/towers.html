@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 摩天楼</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:4px;margin:0 auto 10px;width:max-content;background:var(--panel);padding:10px;border-radius:14px;border:1px solid var(--border)}
+  .cell{width:48px;height:48px;border-radius:8px;background:#0e141d;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;cursor:pointer;user-select:none}
+  .cell.given{color:var(--gold)}
+  .cell.clue{background:transparent;border:none;color:var(--dim);font-size:15px;font-weight:700}
+  .cell.corner{background:transparent;border:none}
+  .cell.sel{box-shadow:0 0 0 3px var(--gold)}
+  .nums{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+  .nums button{width:40px;height:40px;border-radius:8px;background:var(--border);color:var(--text);border:none;font-weight:700;font-family:inherit;cursor:pointer;font-size:15px}
+  .nums button.del{background:transparent;border:1px solid var(--border)}
+  .nums button:hover{filter:brightness(1.2)}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>摩天楼</b> TOWERS</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">5</span></span><span id="status">行列不重 + 四边可见数</span></div>
+    <div class="board" id="board"></div>
+    <div class="nums" id="nums"></div>
+    <div class="controls">
+      <button id="hint">提示 SOLVE</button>
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点格子选中，用数字或键盘 1..N 填入。每边数字=从该方向看过去能看到的“楼”数量（高的挡住矮的）。</div>
+  </div>
+  <div class="foot">摩天楼（Skyscrapers）：在 N×N 填入 1..N，行列不重复，且四边给出的“可见高楼数”全部成立。每局由随机拉丁方派生可见数，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const N = 5;
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let N_local = N;
+  let grid = [];        // 当前值，0=空
+  let givens = [];      // 布尔
+  let clues = {top:[], bottom:[], left:[], right:[]}; // 各长 N，0=无
+  let sol = [];         // 生成时的完整解
+  let won = false;
+
+  function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
+  function vis(a){ let mx=0,cnt=0; for(const v of a){ if(v>mx){ mx=v; cnt++; } } return cnt; }
+
+  function latinOK(){
+    for(let r=0;r<N_local;r++){ const s=new Set(); for(let c=0;c<N_local;c++){ const v=grid[r][c]; if(!v) return false; if(s.has(v)) return false; s.add(v); } }
+    for(let c=0;c<N_local;c++){ const s=new Set(); for(let r=0;r<N_local;r++){ const v=grid[r][c]; if(!v) return false; if(s.has(v)) return false; s.add(v); } }
+    return true;
+  }
+  function cluesOK(){
+    for(let c=0;c<N_local;c++){
+      if(clues.top[c]){ const col=[]; for(let r=0;r<N_local;r++) col.push(grid[r][c]); if(vis(col)!==clues.top[c]) return false; }
+      if(clues.bottom[c]){ const col=[]; for(let r=N_local-1;r>=0;r--) col.push(grid[r][c]); if(vis(col)!==clues.bottom[c]) return false; }
+    }
+    for(let r=0;r<N_local;r++){
+      if(clues.left[r]){ const row=[]; for(let c=0;c<N_local;c++) row.push(grid[r][c]); if(vis(row)!==clues.left[r]) return false; }
+      if(clues.right[r]){ const row=[]; for(let c=N_local-1;c>=0;c--) row.push(grid[r][c]); if(vis(row)!==clues.right[r]) return false; }
+    }
+    return true;
+  }
+  function isWin(){ return latinOK() && cluesOK(); }
+
+  function setValue(r,c,v){
+    if(!inb(r,c)) return false;
+    if(givens[r][c]) return false;
+    if(v!==0 && (v<1||v>N_local)) return false;
+    grid[r][c]=v;
+    won=isWin();
+    if(won && typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('towers', N_local); }
+    return true;
+  }
+
+  function setBoard(givensGrid, clueObj){
+    N_local = givensGrid.length;
+    grid = givensGrid.map(row=>row.slice());
+    givens = givensGrid.map(row=>row.map(v=>v!==0));
+    clues = {
+      top:(clueObj.top||[]).slice(), bottom:(clueObj.bottom||[]).slice(),
+      left:(clueObj.left||[]).slice(), right:(clueObj.right||[]).slice(),
+    };
+    sol = givensGrid.map(row=>row.slice());
+    won = isWin();
+    return {N:N_local, givens:givensGrid.flat().filter(v=>v!==0).length};
+  }
+
+  // 提示：填入已知解（证明可解）
+  function solve(){
+    grid = sol.map(row=>row.slice());
+    won = isWin();
+    return won;
+  }
+
+  /* ---- 随机可解布局 ---- */
+  function shuffled(arr, rand){
+    const a=arr.slice();
+    for(let i=a.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; }
+    return a;
+  }
+  function makeLatin(n, rand){
+    const perm = shuffled([...Array(n).keys()], rand);
+    const g=Array.from({length:n},()=>new Array(n).fill(0));
+    for(let r=0;r<n;r++) for(let c=0;c<n;c++) g[r][c]=perm[(c+r)%n]+1;
+    return g;
+  }
+  function computeClues(g){
+    const n=g.length;
+    const top=[],bottom=[],left=[],right=[];
+    for(let c=0;c<n;c++){ const col=[]; for(let r=0;r<n;r++) col.push(g[r][c]); top.push(vis(col)); const colr=[]; for(let r=n-1;r>=0;r--) colr.push(g[r][c]); bottom.push(vis(colr)); }
+    for(let r=0;r<n;r++){ const row=[]; for(let c=0;c<n;c++) row.push(g[r][c]); left.push(vis(row)); const rowr=[]; for(let c=n-1;c>=0;c--) rowr.push(g[r][c]); right.push(vis(rowr)); }
+    return {top,bottom,left,right};
+  }
+  function newGame(){
+    N_local = N;
+    sol = makeLatin(N, _rand);
+    clues = computeClues(sol);
+    givens = Array.from({length:N},()=>new Array(N).fill(false));
+    grid = sol.map(row=>row.slice());
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(_rand()<0.25) givens[r][c]=true;
+    if(givens.flat().every(g=>!g)){ givens[0][0]=true; }
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(!givens[r][c]) grid[r][c]=0;
+    won=false;
+  }
+  function reset(){ newGame(); }
+
+  function getState(){
+    return {
+      N: N_local,
+      grid: grid.map(r=>r.slice()),
+      givens: givens.map(r=>r.slice()),
+      clues: {top:clues.top.slice(),bottom:clues.bottom.slice(),left:clues.left.slice(),right:clues.right.slice()},
+      filled: grid.flat().filter(v=>v!==0).length,
+      won,
+    };
+  }
+  function update(){ return getState(); }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let sel=null;
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.style.gridTemplateColumns='repeat('+(N_local+2)+',48px)';
+    b.innerHTML='';
+    for(let rr=0;rr<N_local+2;rr++) for(let cc=0;cc<N_local+2;cc++){
+      const el=document.createElement('div');
+      el.className='cell'; el.dataset.r=rr; el.dataset.c=cc;
+      if(rr===0 && cc===0){ el.className='cell corner'; }
+      else if(rr===0){ el.className='cell clue'; el.textContent = clues.top[cc-1]||''; }
+      else if(rr===N_local+1){ el.className='cell clue'; el.textContent = clues.bottom[cc-1]||''; }
+      else if(cc===0){ el.className='cell clue'; el.textContent = clues.left[rr-1]||''; }
+      else if(cc===N_local+1){ el.className='cell clue'; el.textContent = clues.right[rr-1]||''; }
+      else {
+        const r=rr-1, c=cc-1;
+        el.addEventListener('click',()=>{ sel=[r,c]; render(); });
+      }
+      b.appendChild(el);
+    }
+  }
+  function buildNums(){
+    if(typeof document==='undefined') return;
+    const n=$('nums'); if(!n) return;
+    n.innerHTML='';
+    for(let v=1;v<=N_local;v++){ const b=document.createElement('button'); b.textContent=v; b.addEventListener('click',()=>{ if(sel){ setValue(sel[0],sel[1],v); render(); } }); n.appendChild(b); }
+    const del=document.createElement('button'); del.textContent='⌫'; del.className='del'; del.addEventListener('click',()=>{ if(sel){ setValue(sel[0],sel[1],0); render(); } }); n.appendChild(del);
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'),nEl=$('n'),msg=$('msg'),st=$('status');
+    if(!b) return;
+    const cells=b.children;
+    for(let i=0;i<cells.length;i++){
+      const rr=+cells[i].dataset.r, cc=+cells[i].dataset.c;
+      if(rr>=1 && rr<=N_local && cc>=1 && cc<=N_local){
+        const r=rr-1, c=cc-1, v=grid[r][c];
+        cells[i].className='cell'+(givens[r][c]?' given':'')+(sel&&sel[0]===r&&sel[1]===c?' sel':'');
+        cells[i].textContent = v? v : '';
+      }
+    }
+    if(nEl) nEl.textContent=N_local;
+    if(st) st.textContent = won?'已通关':'行列不重 + 四边可见数';
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 摩天楼落成！可见数全成立。'; }
+      else { msg.className='msg'; msg.textContent='点格子→填数字，满足四边可见楼数。'; } }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset'),hb=$('hint');
+    if(nb) nb.onclick=()=>{ newGame(); sel=null; buildBoard(); buildNums(); render(); };
+    if(rb) rb.onclick=()=>{ for(let r=0;r<N_local;r++)for(let c=0;c<N_local;c++) if(!givens[r][c]) grid[r][c]=0; won=false; render(); };
+    if(hb) hb.onclick=()=>{ solve(); render(); };
+    if(typeof window!=='undefined' && window.addEventListener){
+      window.addEventListener('keydown',e=>{
+        if(sel && /^[1-9]$/.test(e.key)){ setValue(sel[0],sel[1],+e.key); render(); }
+        if(sel && (e.key==='Backspace'||e.key==='Delete'||e.key==='0')){ setValue(sel[0],sel[1],0); render(); }
+      });
+    }
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); buildNums(); bindUI(); render(); });
+    else { buildBoard(); buildNums(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      N, setRand, newGame, reset, setBoard, setValue, solve, isWin, getState, update, vis, latinOK, cluesOK, computeClues,
+    };
+  }
+})();
+</script>
+</body>
+</html>
