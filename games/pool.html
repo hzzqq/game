@@ -48,11 +48,32 @@
   "use strict";
   const W=400, H=240, R=7, PR=12;
   let cue, balls, pockets, pocketed;
+  // ---- 注入：掉落道具/增益系统（纯附加，不改核心碰撞/入袋逻辑）----
+  let coins=0, aimTimer=0, shield=false, pickups=[], pkid=0;
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  const _prng = mk(0x4b2c1d1f);
+  const PICK = { COIN:'coin', AIM:'aim', SHIELD:'shield' };
+  const GLY = { coin:'💰', aim:'🎯', shield:'🛡' };
+  function makePickup(type,x,y){ return { type, x, y, r:11, age:0, id:pkid++ }; }
+  function spawnPickup(type,x,y){ const p=makePickup(type,x,y); pickups.push(p); return p; }
+  function spawnPickupAtRandom(){ const types=[PICK.COIN,PICK.AIM]; const t=types[Math.floor(_prng()*types.length)]; const x=20+_prng()*(W-40); const y=20+_prng()*(H-40); return spawnPickup(t,x,y); }
+  function applyPickup(type){ if(type===PICK.COIN){ coins+=50; } else if(type===PICK.AIM){ aimTimer=6; } else if(type===PICK.SHIELD){ shield=true; } if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); } }
+  function tryCollect(x,y){ for(let i=pickups.length-1;i>=0;i--){ const p=pickups[i]; if(Math.hypot(p.x-x,p.y-y)<=p.r+R){ const pk=pickups.splice(i,1)[0]; applyPickup(pk.type); } } }
+  function updatePickups(dt){ if(aimTimer>0) aimTimer=Math.max(0,aimTimer-(dt||1)); for(let i=pickups.length-1;i>=0;i--){ pickups[i].age+=(dt||1); if(pickups[i].age>30) pickups.splice(i,1); } }
+  function takeHit(){ if(shield){ shield=false; return false; } return true; }
+  function getPickups(){ return pickups.map(p=>({type:p.type,x:p.x,y:p.y})); }
+  function getCoins(){ return coins; }
+  function getAim(){ return aimTimer; }
+  function getShield(){ return shield; }
+  function setShield(v){ shield=!!v; }
+  function getBoost(){ return aimTimer; }
+  function setBoost(v){ aimTimer=Math.max(0,v); }
   function defaultPockets(){ return [[0,0],[W,0],[0,H],[W,H],[W/2,0],[W/2,H]]; }
   function reset(){
     cue={x:60,y:H/2,vx:0,vy:0};
     balls=[{id:1,x:W/2,y:H/2,vx:0,vy:0},{id:2,x:W/2+30,y:H/2,vx:0,vy:0}];
     pockets=defaultPockets(); pocketed=[];
+    coins=0; aimTimer=0; shield=false; pickups=[];
   }
   function setCue(x,y){ cue={x,y,vx:0,vy:0}; }
   function setBalls(arr){ balls=arr.map(b=>({id:b.id,x:b.x,y:b.y,vx:0,vy:0})); }
@@ -65,7 +86,7 @@
     if(typeof Juice!=='undefined'){ Juice.sfx('shoot'); Juice.addTrauma(0.2); }
     // 母球行进
     for(let s=0;s<power;s++){
-      cue.x+=cue.vx; cue.y+=cue.vy;
+      cue.x+=cue.vx; cue.y+=cue.vy; tryCollect(cue.x,cue.y);
       if(cue.x<R){cue.x=R;cue.vx=Math.abs(cue.vx);} if(cue.x>W-R){cue.x=W-R;cue.vx=-Math.abs(cue.vx);}
       if(cue.y<R){cue.y=R;cue.vy=Math.abs(cue.vy);} if(cue.y>H-R){cue.y=H-R;cue.vy=-Math.abs(cue.vy);}
       if(inPocket(cue.x,cue.y)){ pocketed.push('cue'); cue.vx=0; cue.vy=0; if(typeof Juice!=='undefined'){ Juice.sfx('error'); Juice.addTrauma(0.3);} break; }
@@ -77,12 +98,13 @@
     for(const b of balls){
       for(let s=0;s<power;s++){
         if(b.vx===0&&b.vy===0) break;
-        b.x+=b.vx; b.y+=b.vy;
+        b.x+=b.vx; b.y+=b.vy; tryCollect(b.x,b.y);
         if(b.x<R){b.x=R;b.vx=Math.abs(b.vx);} if(b.x>W-R){b.x=W-R;b.vx=-Math.abs(b.vx);}
         if(b.y<R){b.y=R;b.vy=Math.abs(b.vy);} if(b.y>H-R){b.y=H-R;b.vy=-Math.abs(b.vy);}
         if(inPocket(b.x,b.y)){ const px=b.x, py=b.y; pocketed.push(b.id); b.vx=0; b.vy=0; b.x=-100; b.y=-100; if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.burst(px,py,{color:'#02c076',n:16}); Juice.popup(px,py,'+1','#02c076'); } break; }
       }
     }
+    updatePickups(1);
     if(typeof Juice!=='undefined'){ const tgt=pocketed.filter(x=>x!=='cue'); if(tgt.length>=balls.length){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4); } }
   }
   function getBalls(){ return balls.map(b=>({id:b.id,x:b.x,y:b.y})); }
@@ -96,12 +118,18 @@
     ctx.fillStyle='#f0b90b'; for(const p of pockets){ ctx.beginPath(); ctx.arc(p[0],p[1],PR,0,Math.PI*2); ctx.fill(); }
     ctx.fillStyle='#fff'; for(const b of balls){ if(b.x<0)continue; ctx.beginPath(); ctx.arc(b.x,b.y,R,0,Math.PI*2); ctx.fill(); }
     ctx.fillStyle='#f6465d'; ctx.beginPath(); ctx.arc(cue.x,cue.y,R,0,Math.PI*2); ctx.fill();
-    const pk=$('pk'),st=$('st'); if(pk)pk.textContent=pocketed.filter(x=>x!=='cue').length; if(st)st.textContent=pocketed.length?'击球完成':'瞄准中';
+    for(const p of pickups){ ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle='rgba(240,185,11,.25)'; ctx.fill(); ctx.fillStyle='#fff'; ctx.font='13px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(GLY[p.type],p.x,p.y); }
+    const pk=$('pk'),st=$('st'); if(pk)pk.textContent=pocketed.filter(x=>x!=='cue').length+(coins>0?(' · 💰'+coins):''); if(st)st.textContent=(pocketed.length?'击球完成':'瞄准中')+(aimTimer>0?' · 🎯':'');
   }
   function loop(){ if(typeof requestAnimationFrame==='undefined') return; render(); requestAnimationFrame(loop); }
   reset();
   if(typeof document!=='undefined'){ const sb=$('shoot'),nb=$('new'),ai=$('ang'),pi=$('pow'); if(sb)sb.onclick=()=>{ shoot(+ai.value||0,+pi.value||0); render(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
-  if(typeof window!=='undefined'){ window.__t={ reset, setCue, setBalls, shoot, getBalls, getCue, getPocketed }; }
+  if(typeof window!=='undefined'){ window.__t={ reset, setCue, setBalls, shoot, getBalls, getCue, getPocketed,
+    PICK, spawnPickup, spawnPickupAtRandom, applyPickup, tryCollect, updatePickups, takeHit,
+    getPickups, getCoins, getAim, getShield, setShield, getBoost, setBoost,
+    getState(){ return { coins, aimTimer, shield, pickups:pickups.length }; },
+    stepPickups(dt){ updatePickups(dt); }
+  }; }
 })();
 </script>
 </body>
