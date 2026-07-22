@@ -67,6 +67,7 @@
 <script>
 (function(){
   "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
   const COLS = 7, ROWS = 6;
   const EMPTY = 0, R = 1, G = 2;
   const RED = '#f6465d', GREEN = '#02c076';
@@ -223,8 +224,8 @@
     document.getElementById('ovTitle').style.color = (title.indexOf('红')>=0)?RED:(title.indexOf('平')>=0?'#f0b90b':GREEN);
     document.getElementById('ovText').textContent = text;
     if(typeof Juice!=='undefined'){
-      if(title.indexOf('红')>=0){ Juice.sfx('win'); Juice.flash(RED,0.28); Juice.addTrauma(0.5); const b=Juice.best('connect4',1); Juice.rank(1); if(b.isNew) Juice.achievement('红方新纪录！'); }
-      else if(title.indexOf('绿')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('connect4',2); Juice.rank(2); if(b.isNew) Juice.achievement('绿方新纪录！'); }
+      if(title.indexOf('红')>=0){ Juice.sfx('win'); Juice.flash(RED,0.28); Juice.addTrauma(0.5); const b=Juice.best('connect4',1); Juice.rank(1); if(b.isNew) Juice.achievement('红方新纪录！'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      else if(title.indexOf('绿')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('connect4',2); Juice.rank(2); if(b.isNew) Juice.achievement('绿方新纪录！'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       else { Juice.sfx('click'); }
     }
     ov.style.display='flex';
