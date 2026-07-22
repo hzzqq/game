@@ -78,6 +78,40 @@ eq('startGame 重置 lives=3', t.getLives(), 3);
 eq('startGame 重置 score=0', t.getScore(), 0);
 eq('startGame 重置 40砖', t.getBricks().length, 40);
 
+// 13. 注入：能量胶囊系统（确定性，不破坏核心玩法）
+t.startGame();
+const pad = t.getPaddle();
+const px = pad.x + pad.w/2, py = pad.y;
+// 13a 护盾掉落生效 + 拾取后移除
+t.spawnPickup('shield', px, py);
+t.stepPickups(0.001);
+ok('胶囊: 护盾拾取 getShield true', t.getShield() === true);
+eq('胶囊: 护盾拾取后移除', t.getPickups().length, 0);
+// 13b 加速掉落生效
+t.spawnPickup('boost', px, py);
+t.stepPickups(0.001);
+ok('胶囊: 加速拾取 getBoost>0', t.getBoost() > 0);
+// 13c 未碰撞不生效（远处胶囊保留且不触发）
+t.spawnPickup('boost', 10, 10);
+t.stepPickups(0.001);
+eq('胶囊: 远处未拾取仍保留', t.getPickups().length, 1);
+eq('胶囊: 远处未触发加速变化', t.getBoost(), 6);
+// 13d 护盾免死
+t.setShield(true); t.setPLives(3);
+t.takeHit(1);
+eq('胶囊: 护盾免死 shield 被消耗', t.getShield(), false);
+eq('胶囊: 护盾免死 PLives 不变', t.getPLives(), 3);
+// 13e 无盾扣血
+t.setShield(false); t.setPLives(3);
+t.takeHit(1);
+eq('胶囊: 无盾扣血 PLives-1', t.getPLives(), 2);
+// 13f 炸行：清掉最底行
+t.startGame();
+let aliveBefore = t.getBricks().filter(b=>b.alive).length;
+t.applyPickup('bomb');
+let aliveAfter = t.getBricks().filter(b=>b.alive).length;
+ok('胶囊: 炸行清除至少一行砖', aliveAfter < aliveBefore);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

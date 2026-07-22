@@ -194,6 +194,7 @@
   function startGame(){
     score=0; lives=3; level=1;
     powerups=[]; particles=[];
+    pickups=[]; boostTimer=0; shield=false; spawnTimer=12; plives=3; pdead=false;
     paddle.w=paddle.baseW; wideUntil=0; slowUntil=0;
     buildLevel(); resetBall();
     setState('ready');
@@ -251,6 +252,95 @@
       if(cleared){ if(score>high){ high=score; saveHigh(); } }
       if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.3); Juice.flash('#f6465d',0.25); Juice.achievement('💥 炸弹清屏！'); }
     }
+  }
+
+  // ============================================================
+  // 注入：能量胶囊掉落 / 增益系统（纯注入，不改动核心玩法逻辑）
+  // 真实游玩随 spawnTimer 周期掉落；测试经 window.__t 钩子驱动。
+  // ============================================================
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var _rng = mk(0x9ABC);
+  var pickups=[];      // 掉落胶囊列表
+  var boostTimer=0;    // 加速剩余秒数
+  var shield=false;    // 护盾（布尔）
+  var plives=3;        // 注入层生命（takeHit 演示用）
+  var pdead=false;     // 注入层死亡标记
+  var spawnTimer=12;   // 距离下次自动掉落秒数
+  var FIELD_W=W, FIELD_H=H;
+  var PICKUP_TYPES=['boost','shield','bomb'];
+  var PICKUP_EMOJI={boost:'🚀',shield:'🛡',bomb:'💣'};
+  var PICKUP_COLOR={boost:'#02c076',shield:'#3aa0ff',bomb:'#f6465d'};
+
+  function makePickup(type,x,y){
+    var p={type:type,x:x,y:y,vy:70,r:14,dead:false};
+    pickups.push(p); return p;
+  }
+  function spawnPickupAtRandom(){
+    var t=PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+    var x=_rng()*(FIELD_W-40)+20;
+    return makePickup(t,x,-20);
+  }
+  function applyPickup(p){
+    if(typeof Juice!=='undefined') Juice.sfx('pickup');
+    if(p.type==='boost'){
+      boostTimer=6;
+      if(typeof Juice!=='undefined') Juice.popup(p.x,p.y,'🚀','#02c076',{size:16});
+    } else if(p.type==='shield'){
+      shield=true;
+      if(typeof Juice!=='undefined') Juice.popup(p.x,p.y,'🛡','#3aa0ff',{size:16});
+    } else if(p.type==='bomb'){
+      // 炸行：清除最底部仍有砖的一行
+      var maxRow=-1, k;
+      for(k=0;k<bricks.length;k++){ if(bricks[k].alive){ var r=Math.round(bricks[k].y); if(r>maxRow) maxRow=r; } }
+      if(maxRow>=0){
+        for(k=0;k<bricks.length;k++){ if(bricks[k].alive && Math.round(bricks[k].y)===maxRow){ bricks[k].alive=false; score+=bricks[k].points; } }
+        if(score>high){ high=score; saveHigh(); }
+      }
+      if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.3); Juice.flash('#f6465d',0.25); }
+    }
+  }
+  function playerPositions(){
+    return [{x:paddle.x+paddle.w/2, y:paddle.y}];
+  }
+  function updatePickups(dt){
+    var pr=28;
+    for(var i=0;i<pickups.length;i++){
+      var p=pickups[i]; if(p.dead) continue;
+      p.y += p.vy*dt;
+      var ps=playerPositions(), j, hit=false;
+      for(j=0;j<ps.length;j++){
+        var dx=p.x-ps[j].x, dy=p.y-ps[j].y;
+        if(dx*dx+dy*dy < (p.r+pr)*(p.r+pr)){ hit=true; applyPickup(p); break; }
+      }
+      if(hit || p.y>FIELD_H+30) p.dead=true;
+    }
+    pickups = pickups.filter(function(p){return !p.dead;});
+  }
+  function drawPickup(ctx){
+    for(var i=0;i<pickups.length;i++){
+      var p=pickups[i];
+      ctx.save();
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=PICKUP_COLOR[p.type]||'#02c076';
+      ctx.shadowColor=PICKUP_COLOR[p.type]||'#02c076'; ctx.shadowBlur=14;
+      ctx.fill(); ctx.shadowBlur=0;
+      ctx.fillStyle='#0a0e14'; ctx.font='bold 13px '+FONT;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(PICKUP_EMOJI[p.type]||'?', p.x, p.y+1);
+      ctx.restore();
+    }
+    ctx.save(); ctx.font='14px '+FONT; ctx.textAlign='left'; ctx.textBaseline='middle';
+    var bx=14, by=HUD_H+18;
+    if(shield){ ctx.fillStyle='#3aa0ff'; ctx.fillText('🛡 护盾', bx, by); bx+=78; }
+    if(boostTimer>0){ ctx.fillStyle='#02c076'; ctx.fillText('🚀'+boostTimer.toFixed(1)+'s', bx, by); }
+    ctx.restore();
+  }
+  function takeHit(i){
+    i=i||1;
+    if(shield){ shield=false; if(typeof Juice!=='undefined'){ Juice.flash('#3aa0ff',0.2); Juice.popup(FIELD_W/2, FIELD_H/2, '🛡 抵消', '#3aa0ff',{size:16}); } return; }
+    plives=Math.max(0, plives-i);
+    if(typeof Juice!=='undefined'){ Juice.addTrauma(0.3); Juice.flash('#f6465d',0.25); }
+    if(plives<=0) pdead=true;
   }
 
   // ---- 粒子 ----
@@ -345,7 +435,8 @@
     }
   }
 
-  function update(){
+  function update(dt){
+    dt = dt || (STEP/1000);
     // 挡板加宽到期还原
     if(now>wideUntil && paddle.w!==paddle.baseW){
       const cx = paddle.x + paddle.w/2;
@@ -383,6 +474,10 @@
     } else {
       updateParticles();
     }
+    // ===== 注入：能量胶囊掉落系统 =====
+    spawnTimer -= dt;
+    if(spawnTimer<=0){ spawnTimer = 6 + _rng()*4; spawnPickupAtRandom(); }
+    updatePickups(dt);
   }
 
   // ---- 绘制 ----
@@ -531,6 +626,7 @@
     drawBalls();
     drawPowerups();
     drawParticles();
+    drawPickup(ctx);
     ctx.restore();
     drawOverlay();
     if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
@@ -614,7 +710,18 @@
     setLevel: function(v){ level=v; }, setNow: function(v){ now=v; },
     setLives: function(v){ lives=v; }, setScore: function(v){ score=v; },
     setBalls: function(arr){ balls = arr.map(function(b){ return {x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r||7,stuck:!!b.stuck}; }); },
-    getWideUntil: function(){ return wideUntil; }, getSlowUntil: function(){ return slowUntil; }
+    getWideUntil: function(){ return wideUntil; }, getSlowUntil: function(){ return slowUntil; },
+    // ===== 注入：能量胶囊钩子 =====
+    reset: startGame, update: update,
+    spawnPickup: makePickup,
+    stepPickups: updatePickups,
+    applyPickup: function(p){ if(typeof p==='string') p=makePickup(p, FIELD_W/2, FIELD_H/2); applyPickup(p); return p; },
+    getPickups: function(){ return pickups.map(function(p){ return {type:p.type,x:p.x,y:p.y,dead:p.dead}; }); },
+    getShield: function(){ return shield; }, setShield: function(v){ shield=!!v; },
+    getBoost: function(){ return boostTimer; }, setBoost: function(v){ boostTimer=v; },
+    takeHit: takeHit,
+    getPLives: function(){ return plives; }, setPLives: function(v){ plives=v; }, getDead: function(){ return pdead; },
+    getSpawnTimer: function(){ return spawnTimer; }
   };
 })();
 </script>
