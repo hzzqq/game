@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // ひとり HITORI</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>ひとり</b> HITORI</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">6</span></span><span id="status">涂黑部分格子，使白格行列互异且连通</span></div>
+    <div class="boardwrap"><canvas id="board" width="376" height="376"></canvas></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点格子切换涂黑。规则：同行/同列中白格数字互不相同；黑格彼此不相邻；所有白格连通。</div>
+  </div>
+  <div class="foot">Hitori（ひとり）：给定数字盘，涂黑若干格。要求每行每列留下的白格数字互不相同、黑格互不相邻、且所有白格四连通。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(seed){let s=seed>>>0;return ()=>{s=(s*1664525+1013904223)>>>0;return (s&0x7fffffff)/0x7fffffff;};}
+  let _rng = mk(0xabcdef01);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+  const J = (typeof Juice!=='undefined')?Juice:null;
+
+  const N = 6;
+  const CELL = 56, PAD = 20;
+  let grid;    // N×N 数字（谜面，固定）
+  let black;   // N×N 玩家涂黑标记 bool
+  let sol;     // N×N 规范解黑格 bool
+  let won = false;
+  let confettiFired = false;
+
+  // ---- 生成拉丁方（每行每列 1..N 互异）----
+  function genLatin(){
+    const g = Array.from({length:N},()=>new Array(N).fill(0));
+    function ok(r,c,v){
+      for(let i=0;i<c;i++) if(g[r][i]===v) return false;
+      for(let i=0;i<r;i++) if(g[i][c]===v) return false;
+      return true;
+    }
+    function bt(r,c){
+      if(r===N) return true;
+      if(c===N) return bt(r+1,0);
+      const order=[]; for(let v=1;v<=N;v++) order.push(v);
+      for(let i=order.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=order[i]; order[i]=order[j]; order[j]=t; }
+      for(const v of order){
+        if(ok(r,c,v)){ g[r][c]=v; if(bt(r,c+1)) return true; g[r][c]=0; }
+      }
+      return false;
+    }
+    bt(0,0);
+    return g;
+  }
+
+  // ---- 在拉丁方上选合法黑格：黑格不相邻 + 白格连通 ----
+  // 拉丁方本身行列互异，移除（涂黑）任意子集后白格仍互异，故只需两约束。
+  function genBlack(){
+    const b = Array.from({length:N},()=>new Array(N).fill(false));
+    function whiteAdjBlack(r,c){
+      const d=[[1,0],[-1,0],[0,1],[0,-1]];
+      for(const [dr,dc] of d){ const nr=r+dr,nc=c+dc; if(nr>=0&&nr<N&&nc>=0&&nc<N&&b[nr][nc]) return true; }
+      return false;
+    }
+    function whitesConnected(){
+      let start=null; let total=0;
+      const cells=[];
+      for(let r=0;r<N;r++) for(let c=0;c<N;c++){ if(!b[r][c]){ total++; cells.push([r,c]); if(!start) start=[r,c]; } }
+      if(!start) return false;
+      const seen=new Set([start[0]+','+start[1]]); const st=[start];
+      while(st.length){ const [r,c]=st.pop();
+        for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nr=r+dr,nc=c+dc;
+          if(nr>=0&&nr<N&&nc>=0&&nc<N&&!b[nr][nc]&&!seen.has(nr+','+nc)){ seen.add(nr+','+nc); st.push([nr,nc]); } } }
+      return seen.size===total;
+    }
+    const target = Math.floor(N*N*0.32);
+    let attempts=0;
+    while(attempts < N*N*8){
+      attempts++;
+      const r=Math.floor(_rng()*N), c=Math.floor(_rng()*N);
+      if(b[r][c]) continue;
+      if(whiteAdjBlack(r,c)) continue;
+      b[r][c]=true;
+      if(!whitesConnected()){ b[r][c]=false; continue; }
+      let cnt=0; for(let i=0;i<N;i++) for(let j=0;j<N;j++) if(b[i][j]) cnt++;
+      if(cnt>=target && _rng()<0.5) break;
+    }
+    return b;
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    grid = genLatin();
+    sol = genBlack();
+    black = Array.from({length:N},()=>new Array(N).fill(false));
+    won = false;
+    return getState();
+  }
+
+  function constraintsSatisfied(b){
+    // 黑格不相邻
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(b[r][c]){
+      for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nr=r+dr,nc=c+dc;
+        if(nr>=0&&nr<N&&nc>=0&&nc<N&&b[nr][nc]) return false; }
+    }
+    // 白格连通
+    let start=null,total=0;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(!b[r][c]){ total++; if(!start) start=[r,c]; }
+    if(!start) return false;
+    const seen=new Set([start[0]+','+start[1]]); const st=[start];
+    while(st.length){ const [r,c]=st.pop();
+      for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nr=r+dr,nc=c+dc;
+        if(nr>=0&&nr<N&&nc>=0&&nc<N&&!b[nr][nc]&&!seen.has(nr+','+nc)){ seen.add(nr+','+nc); st.push([nr,nc]); } } }
+    if(seen.size!==total) return false;
+    // 每行白格互异
+    for(let r=0;r<N;r++){ const seen2=new Set();
+      for(let c=0;c<N;c++) if(!b[r][c]){ const v=grid[r][c]; if(seen2.has(v)) return false; seen2.add(v); } }
+    for(let c=0;c<N;c++){ const seen2=new Set();
+      for(let r=0;r<N;r++) if(!b[r][c]){ const v=grid[r][c]; if(seen2.has(v)) return false; seen2.add(v); } }
+    return true;
+  }
+  function sameSet(a,b){
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(!!a[r][c]!==!!b[r][c]) return false;
+    return true;
+  }
+  function isWin(){ return sameSet(black,sol) && constraintsSatisfied(black); }
+
+  function setBlack(r,c,val){
+    if(r<0||r>=N||c<0||c>=N) return false;
+    black[r][c]=!!val;
+    won=isWin();
+    if(won&&J) J.sfx('levelup');
+    return true;
+  }
+  function toggleBlack(r,c){
+    if(r<0||r>=N||c<0||c>=N) return false;
+    black[r][c]=!black[r][c];
+    won=isWin();
+    if(won&&J) J.sfx('levelup');
+    return true;
+  }
+  function reset(){ black=Array.from({length:N},()=>new Array(N).fill(false)); won=false; return getState(); }
+  function applySolution(){ black=sol.map(row=>row.slice()); won=isWin(); return won; }
+  function getSolution(){ return sol.map(row=>row.slice()); }
+  function getState(){ return { N, grid:grid.map(r=>r.slice()), black:black.map(r=>r.slice()), sol:sol.map(r=>r.slice()), won }; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    const Wd=cv.width, Hd=cv.height;
+    ctx.clearRect(0,0,Wd,Hd);
+    ctx.font='bold 24px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const x=PAD+c*CELL, y=PAD+r*CELL;
+      if(black[r][c]){
+        ctx.fillStyle='#1f2a38'; ctx.fillRect(x+3,y+3,CELL-6,CELL-6);
+        ctx.strokeStyle='#f6465d'; ctx.lineWidth=3;
+        ctx.beginPath(); ctx.moveTo(x+12,y+12); ctx.lineTo(x+CELL-12,y+CELL-12);
+        ctx.moveTo(x+CELL-12,y+12); ctx.lineTo(x+12,y+CELL-12); ctx.stroke();
+      } else {
+        ctx.fillStyle='#6b7785'; ctx.fillText(grid[r][c], x+CELL/2, y+CELL/2);
+      }
+    }
+    ctx.strokeStyle='#1f2a38'; ctx.lineWidth=1;
+    for(let i=0;i<=N;i++){
+      ctx.beginPath(); ctx.moveTo(PAD,PAD+i*CELL); ctx.lineTo(PAD+N*CELL,PAD+i*CELL); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(PAD+i*CELL,PAD); ctx.lineTo(PAD+i*CELL,PAD+N*CELL); ctx.stroke();
+    }
+    const stt=$('status'); if(stt) stt.textContent = won?'已通关':'涂黑部分格子，使白格行列互异且连通';
+    const msg=$('msg'); if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！黑格合法、白格互异且连通。'; if(!confettiFired){ confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } else { msg.className='msg'; confettiFired=false; } }
+  }
+  function hit(mx,my){
+    const gx=(mx-PAD)/CELL, gy=(my-PAD)/CELL;
+    if(gx<0||gy<0||gx>N||gy>N) return null;
+    return { r:Math.floor(gy), c:Math.floor(gx) };
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'),nb=$('new'),rb=$('reset');
+    if(cv) cv.addEventListener('click',e=>{
+      const rect=cv.getBoundingClientRect();
+      const mx=(e.clientX-rect.left)*(cv.width/rect.width);
+      const my=(e.clientY-rect.top)*(cv.height/rect.height);
+      const k=hit(mx,my); if(k){ toggleBlack(k.r,k.c); render(); }
+    });
+    if(nb) nb.onclick=()=>{ newPuzzle(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setBlack, toggleBlack, applySolution, getSolution, getState };
+  }
+})();
+</script>
+</body>
+</html>
