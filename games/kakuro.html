@@ -48,6 +48,7 @@
 <script>
 (function(){
   "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
   let rows, cols, board, runs;
   function puzzle(){
     rows=2; cols=2; board=[[0,0],[0,0]];
@@ -59,7 +60,7 @@
     ];
   }
   function setPuzzle(def){ rows=def.rows; cols=def.cols; board=def.board.map(r=>r.slice()); runs=def.runs.map(r=>({dir:r.dir,cells:r.cells.map(p=>p.slice()),sum:r.sum})); }
-  function setCell(r,c,v){ if(r<0||c<0||r>=rows||c>=cols) return false; if(v<0||v>9) return false; board[r][c]=v; Juice.sfx('click'); Juice.addTrauma(.1); if(isSolved()){ Juice.sfx('win'); Juice.flash('#02c076',.5); } return true; }
+  function setCell(r,c,v){ if(r<0||c<0||r>=rows||c>=cols) return false; if(v<0||v>9) return false; board[r][c]=v; Juice.sfx('click'); Juice.addTrauma(.1); if(isSolved()){ Juice.sfx('win'); Juice.flash('#02c076',.5); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } return true; }
   function getCell(r,c){ return board[r][c]; }
   function checkRun(run){
     const vals=run.cells.map(([r,c])=>board[r][c]);
