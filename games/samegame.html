@@ -70,7 +70,9 @@
   function remove(r,c){
     const g=groupAt(r,c); if(g.length<2) return 0;
     for(const [gr,gc] of g) board[gr][gc]=-1;
-    applyGravity(); score += Math.pow(g.length-2,2); over=isOver(); return g.length;
+    applyGravity(); score += Math.pow(g.length-2,2); over=isOver();
+    if(over){ Juice.sfx('lose'); Juice.flash('#f6465d',.5); } else { Juice.sfx('hit'); Juice.addTrauma(.25); }
+    return g.length;
   }
   function isOver(){
     for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){ if(board[r][c]<0) continue; for(const [nr,nc] of neighbors(r,c)){ if(inb(nr,nc)&&board[nr][nc]===board[r][c]) return false; } }
