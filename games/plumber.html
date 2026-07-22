@@ -64,7 +64,7 @@
     for(let r=0;r<N;r++) for(let c=0;c<N;c++){ const k=Math.floor(Math.random()*4); for(let i=0;i<k;i++) board[r][c]=rotMask(board[r][c]); }
     over=false;
   }
-  function rotate(r,c){ if(over) return; board[r][c]=rotMask(board[r][c]); }
+  function rotate(r,c){ if(over) return; board[r][c]=rotMask(board[r][c]); if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.addTrauma(0.15); } }
   function getMask(r,c){ return board[r][c]; }
   function getBoard(){ return board.map(r=>r.slice()); }
   function isSolved(){
@@ -95,7 +95,7 @@
     if(typeof document==='undefined') return;
     cellEls.forEach((el,i)=>{ const r=Math.floor(i/N),c=i%N; const m=board[r][c];
       el.innerHTML='<div class="hub"></div>'+(m&U?'<div class="bar u"></div>':'')+(m&R?'<div class="bar r"></div>':'')+(m&D?'<div class="bar d"></div>':'')+(m&L?'<div class="bar l"></div>':'');
-      if(isSolved()&&!over){ over=true; }
+      if(isSolved()&&!over){ over=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} }
     });
     const st=$('st'),msg=$('msg');
     if(st) st.textContent=over?'已连通':'连通中';
