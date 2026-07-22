@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 杀手数独 KILLER SUDOKU</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(600px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(600px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--red);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(600px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>杀手数独</b> KILLER SUDOKU</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">9</span></span><span id="status">填数独，且每个 cage 数字和等于目标</span></div>
+    <div class="boardwrap"><canvas id="board" width="408" height="408"></canvas></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点击格子后用键盘 1-9 填数（0/退格清除）。标准数独规则 + 每个 cage（虚线块）内数字之和须等于左上角目标。给定数字不可改。</div>
+  </div>
+  <div class="foot">Killer Sudoku（杀手数独）：标准 9×9 数独，外加 cages（彩色宫块），每个 cage 内数字之和须等于其目标和（数独规则已保证同 cage 不重复）。由回溯生成完整解再划分 cages，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(seed){let s=seed>>>0;return ()=>{s=(s*1664525+1013904223)>>>0;return (s&0x7fffffff)/0x7fffffff;};}
+  let _rng = mk(0xabcdef01);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const J = (typeof Juice!=='undefined') ? Juice : null;
+
+  const N = 9;
+  const CELL = 40, PAD = 24;
+  let solution;  // 1D length 81
+  let cages;     // [{cells:[[r,c]...], sum}]
+  let cellCage;  // 1D length 81 -> cage index
+  let givens;    // 1D length 81 (0 或 值)
+  let grid;      // 1D length 81 玩家
+  let won = false;
+  let confettiFired = false;
+  const NEI4 = [[1,0],[-1,0],[0,1],[0,-1]];
+  function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+
+  // ---- 生成完整数独解 ----
+  function valid(g, pos, num){
+    const r = Math.floor(pos/9), c = pos%9;
+    for(let i=0;i<9;i++){ if(g[r*9+i]===num) return false; if(g[i*9+c]===num) return false; }
+    const br=Math.floor(r/3)*3, bc=Math.floor(c/3)*3;
+    for(let dr=0;dr<3;dr++) for(let dc=0;dc<3;dc++) if(g[(br+dr)*9+(bc+dc)]===num) return false;
+    return true;
+  }
+  function genFull(){
+    const g = new Array(81).fill(0);
+    function solve(pos){
+      if(pos===81) return true;
+      if(g[pos]!==0) return solve(pos+1);
+      const nums = shuffle([1,2,3,4,5,6,7,8,9]);
+      for(const num of nums){
+        if(valid(g,pos,num)){ g[pos]=num; if(solve(pos+1)) return true; g[pos]=0; }
+      }
+      return false;
+    }
+    solve(0);
+    return g;
+  }
+
+  // ---- 多源 BFS 划分 cages ----
+  function genCages(){
+    const K = 30;
+    const seeds = shuffle([...Array(81).keys()]).slice(0, K);
+    const cid = new Array(81).fill(-1);
+    const q = [];
+    seeds.forEach((s,i)=>{ cid[s]=i; q.push(s); });
+    let head=0;
+    while(head<q.length){
+      const cur=q[head++]; const cr=Math.floor(cur/9), cc=cur%9;
+      for(const [dr,dc] of NEI4){
+        const nr=cr+dr, nc=cc+dc;
+        if(nr>=0&&nr<9&&nc>=0&&nc<9){ const idx=nr*9+nc; if(cid[idx]===-1){ cid[idx]=cid[cur]; q.push(idx); } }
+      }
+    }
+    const map={};
+    for(let i=0;i<81;i++){ (map[cid[i]]=map[cid[i]]||[]).push(i); }
+    const list = Object.keys(map).map(k=>map[k]);
+    const out = list.map(cells=>{
+      const sum = cells.reduce((a,idx)=> a+solution[idx], 0);
+      return { cells: cells.map(idx=>[Math.floor(idx/9), idx%9]), sum };
+    });
+    return { cid, cages: out };
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    solution = genFull();
+    const { cid, cages: cg } = genCages();
+    cellCage = cid;
+    cages = cg;
+    // 少量给定数
+    const gc = shuffle([...Array(81).keys()]).slice(0, 6);
+    givens = new Array(81).fill(0);
+    gc.forEach(idx=> givens[idx]=solution[idx]);
+    grid = givens.slice();
+    won=false;
+    return getState();
+  }
+
+  function isWin(){
+    // 全部填满
+    for(let i=0;i<81;i++) if(grid[i]===0) return false;
+    // 数独合法性
+    for(let i=0;i<9;i++){
+      const rs=new Set(), cs=new Set(), bs=new Set();
+      for(let j=0;j<9;j++){
+        rs.add(grid[i*9+j]); cs.add(grid[j*9+i]);
+        const br=Math.floor(i/3)*3, bc=(i%3)*3;
+        bs.add(grid[(br+Math.floor(j/3))*9+(bc+j%3)]);
+      }
+      if(rs.size!==9||cs.size!==9||bs.size!==9) return false;
+    }
+    // cage 和
+    for(const cg of cages){ let s=0; for(const [r,c] of cg.cells) s+=grid[r*9+c]; if(s!==cg.sum) return false; }
+    return true;
+  }
+
+  function setCell(r,c,val){
+    if(!inb(r,c)) return false;
+    const idx=r*9+c;
+    if(givens[idx]!==0) return false;
+    val=Math.max(0,Math.min(9,val|0));
+    grid[idx]=val;
+    won=isWin();
+    if(won && J) J.sfx('levelup');
+    return true;
+  }
+  function reset(){ grid=givens.slice(); won=false; return getState(); }
+  function applySolution(){ grid=solution.slice(); won=isWin(); return won; }
+  function getSolution(){ return solution.slice(); }
+  function getState(){ return { N, cages: cages.map(c=>({cells:c.cells.map(p=>p.slice()), sum:c.sum})), givens:givens.slice(), grid:grid.slice(), won }; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let sel = -1;
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,cv.width,cv.height);
+    // 背景
+    ctx.fillStyle='#0e141d'; ctx.fillRect(PAD,PAD,N*CELL,N*CELL);
+    // cage 填充（淡色交替）
+    for(let i=0;i<cages.length;i++){
+      ctx.fillStyle='hsl(' + ((i*53)%360) + ',28%,12%)';
+      for(const [r,c] of cages[i].cells) ctx.fillRect(PAD+c*CELL, PAD+r*CELL, CELL, CELL);
+    }
+    // cage 边界
+    ctx.strokeStyle='#3a4d63'; ctx.lineWidth=3; ctx.beginPath();
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const x=PAD+c*CELL, y=PAD+r*CELL, a=cellCage[r*N+c];
+      if(c+1<N && cellCage[r*N+c+1]!==a){ ctx.moveTo(x+CELL,y); ctx.lineTo(x+CELL,y+CELL); }
+      if(r+1<N && cellCage[(r+1)*N+c]!==a){ ctx.moveTo(x,y+CELL); ctx.lineTo(x+CELL,y+CELL); }
+    }
+    ctx.stroke();
+    // 3x3 宫粗线
+    ctx.strokeStyle='#5a708a'; ctx.lineWidth=2;
+    for(let i=0;i<=N;i+=3){ ctx.beginPath(); ctx.moveTo(PAD+i*CELL,PAD); ctx.lineTo(PAD+i*CELL,PAD+N*CELL); ctx.stroke(); ctx.beginPath(); ctx.moveTo(PAD,PAD+i*CELL); ctx.lineTo(PAD+N*CELL,PAD+i*CELL); ctx.stroke(); }
+    // 外框
+    ctx.strokeStyle='#2a3a4d'; ctx.lineWidth=2; ctx.strokeRect(PAD,PAD,N*CELL,N*CELL);
+    // cage 目标和（每 cage 首格左上）
+    ctx.fillStyle='#f0b90b'; ctx.font='bold 11px monospace'; ctx.textAlign='left'; ctx.textBaseline='top';
+    for(const cg of cages){ const [r,c]=cg.cells[0]; ctx.fillText(String(cg.sum), PAD+c*CELL+3, PAD+r*CELL+3); }
+    // 数字
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    for(let i=0;i<81;i++){
+      const r=Math.floor(i/9), c=i%9; const v=grid[i];
+      if(v!==0){
+        ctx.fillStyle = givens[i]? '#e6edf3' : '#02c076';
+        ctx.font = (givens[i]? 'bold ':'') + '20px monospace';
+        ctx.fillText(String(v), PAD+c*CELL+CELL/2, PAD+r*CELL+CELL/2+6);
+      }
+    }
+    // 选中
+    if(sel>=0){ const r=Math.floor(sel/9), c=sel%9; ctx.strokeStyle='#f0b90b'; ctx.lineWidth=3; ctx.strokeRect(PAD+c*CELL+1,PAD+r*CELL+1,CELL-2,CELL-2); }
+    const stt=$('status'); if(stt) stt.textContent = won?'已通关':'填数独，且每个 cage 数字和等于目标';
+    const msg=$('msg'); if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！数独合法且所有 cage 和正确。'; if(!confettiFired){ confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } else { msg.className='msg'; confettiFired=false; } }
+  }
+  function hit(mx,my){
+    const fx=(mx-PAD)/CELL, fy=(my-PAD)/CELL;
+    if(fx<0||fy<0||fx>N||fy>N) return null;
+    const c=Math.floor(fx), r=Math.floor(fy);
+    if(r>=0&&r<N&&c>=0&&c<N) return {r,c};
+    return null;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'),nb=$('new'),rb=$('reset');
+    if(cv) cv.addEventListener('click',e=>{
+      const rect=cv.getBoundingClientRect();
+      const mx=(e.clientX-rect.left)*(cv.width/rect.width);
+      const my=(e.clientY-rect.top)*(cv.height/rect.height);
+      const k=hit(mx,my); if(k){ sel=k.r*9+k.c; render(); }
+    });
+    if(typeof document!=='undefined') document.addEventListener('keydown',e=>{
+      if(sel<0) return;
+      if(e.key>='1'&&e.key<='9'){ setCell(Math.floor(sel/9), sel%9, parseInt(e.key,10)); render(); }
+      else if(e.key==='0'||e.key==='Backspace'||e.key==='Delete'){ setCell(Math.floor(sel/9), sel%9, 0); render(); }
+    });
+    if(nb) nb.onclick=()=>{ newPuzzle(); sel=-1; render(); };
+    if(rb) rb.onclick=()=>{ reset(); sel=-1; render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setCell, applySolution, getSolution, getState };
+  }
+})();
+</script>
+</body>
+</html>
