@@ -90,25 +90,37 @@
   const RED = '#f6465d', GREEN = '#02c076', GOLD = '#f0b90b';
   const STEP = 0.11; // 每步间隔(秒)
 
+  // 局部种子 PRNG（mulberry32）：注入掉落随机必须走它，禁止 Math.random，
+  // 以免污染 node 测试 harness 跨游戏共享的 Math.random 流。
+  function mk(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var _rng = mk(0x5BADF00D ^ (GRID*2654435761));
+  function reseed(s){ _rng = mk((s>>>0) || 1); }
+  function nowMs(){ return (typeof performance!=='undefined' && performance.now) ? performance.now() : 0; }
+
   const canvas = document.getElementById('cv');
   const ctx = canvas.getContext('2d');
   const wrap = document.getElementById('wrap');
 
   let cssW = 0, CELL = 0, MARGIN = 0;
   let snakes, food, running, gameOver, acc, pulse;
+  let pickups = [];        // 掉落道具：{x,y,type}
+  let pickupTimer = 0;     // 自动掉落计时（仅真实循环 fxLoop 驱动）
   const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints>0) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
   let vsAI = IS_TOUCH, dpadTarget = 1;
 
   function makeSnake(player, startX, dir){
     const body = [];
     for(let i=0;i<3;i++) body.push({ x: startX - i*dir.x, y: 10 - i*dir.y });
-    return { player, body, dir:{x:dir.x,y:dir.y}, pending:{x:dir.x,y:dir.y}, alive:true, len:3, ai:false };
+    return { player, body, dir:{x:dir.x,y:dir.y}, pending:{x:dir.x,y:dir.y}, alive:true, len:3, ai:false,
+             boostUntil:0, shieldUntil:0, lives:1, score:0 };
   }
 
   function reset(){
     snakes = [ makeSnake(1, 5, {x:1,y:0}), makeSnake(2, GRID-6, {x:-1,y:0}) ];
     syncAI();
     running = false; gameOver = false; acc = 0; pulse = 0;
+    pickups = []; pickupTimer = 0;
+    reseed(0x5BADF00D ^ (GRID*2654435761));
     spawnFood();
     hideOverlay();
     document.getElementById('ovTitle').textContent = '准备就绪';
@@ -123,6 +135,53 @@
     for(let x=0;x<GRID;x++) for(let y=0;y<GRID;y++) if(!occ[x+','+y]) cells.push({x,y});
     food = cells.length ? cells[(Math.random()*cells.length)|0] : {x:10,y:10};
   }
+
+  // ---------- 掉落道具（纯注入，不改核心玩法）----------
+  function makePickup(type, x, y){ return { x, y, type }; }
+  const PICKUP_TYPES = ['speed','shield','gem','heart'];
+  // 随机投放一个道具（用局部 PRNG，最多同屏 2 个，避开蛇身/食物/其它道具）
+  function spawnPickupAtRandom(){
+    if(pickups.length >= 2) return;
+    const occ = {};
+    for(const s of snakes) for(const seg of s.body) occ[seg.x+','+seg.y] = 1;
+    if(food) occ[food.x+','+food.y] = 1;
+    for(const p of pickups) occ[p.x+','+p.y] = 1;
+    let cells = [];
+    for(let x=0;x<GRID;x++) for(let y=0;y<GRID;y++) if(!occ[x+','+y]) cells.push({x,y});
+    if(!cells.length) return;
+    const c = cells[(_rng()*cells.length)|0];
+    const type = PICKUP_TYPES[(_rng()*PICKUP_TYPES.length)|0];
+    pickups.push(makePickup(type, c.x, c.y));
+  }
+  // 拾取生效：返回 true 表示已应用
+  function applyPickup(type, idx){
+    const s = snakes[idx];
+    if(!s || !s.alive) return false;
+    const px = MARGIN + s.body[0].x*CELL + CELL/2, py = MARGIN + s.body[0].y*CELL + CELL/2;
+    if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.burst(px, py, {color:GOLD, n:10, speed:150}); }
+    if(type==='speed'){
+      s.boostUntil = nowMs() + 5000;
+      if(typeof Juice!=='undefined') Juice.popup(px, py, '⚡', '#f6465d', {size:16});
+    } else if(type==='shield'){
+      s.shieldUntil = nowMs() + 5000;
+      if(typeof Juice!=='undefined') Juice.popup(px, py, '🛡', '#02c076', {size:16});
+    } else if(type==='gem'){
+      s.score += 5;
+      if(typeof Juice!=='undefined') Juice.popup(px, py, '+5', GOLD, {size:16});
+    } else { // heart：额外一条命
+      s.lives += 1;
+      if(typeof Juice!=='undefined') Juice.popup(px, py, '❤', '#f6465d', {size:16});
+    }
+    return true;
+  }
+  // 致死判定：护盾优先消耗 → 其次扣 1 命（heart）→ 都无则真死
+  function wouldDie(i){
+    const s = snakes[i];
+    if(s.shieldUntil > nowMs()){ s.shieldUntil = 0; return false; }
+    if(s.lives > 1){ s.lives--; return false; }
+    return true;
+  }
+
 
   function fit(){
     cssW = wrap.clientWidth;
@@ -179,6 +238,26 @@
       }
     }
     if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
+    // 掉落道具（辉光圆 + emoji）
+    for(const p of pickups){
+      const pr = cellRect(p.x, p.y);
+      const col = p.type==='speed' ? '#f6465d' : (p.type==='shield' ? '#02c076' : (p.type==='gem' ? GOLD : '#f6465d'));
+      const sym = p.type==='speed' ? '⚡' : (p.type==='shield' ? '🛡' : (p.type==='gem' ? '💰' : '❤'));
+      ctx.save();
+      ctx.shadowColor = col; ctx.shadowBlur = 12; ctx.fillStyle = col;
+      roundRect(ctx, pr.x+CELL*0.2, pr.y+CELL*0.2, pr.s*0.6, pr.s*0.6, 4); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#0a0e14'; ctx.font = 'bold 12px JetBrains Mono, monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(sym, pr.x+pr.s/2, pr.y+pr.s/2+1);
+    }
+    // 各蛇当前激活增益（顶部两角）
+    for(let i=0;i<2;i++){
+      const s = snakes[i]; const bx = i===0 ? MARGIN+2 : W-MARGIN-40;
+      let by = MARGIN+4;
+      if(s.boostUntil > nowMs()){ ctx.fillStyle='#f6465d'; ctx.font='bold 13px JetBrains Mono, monospace'; ctx.textAlign='left'; ctx.textBaseline='top'; ctx.fillText('⚡', bx, by); by+=16; }
+      if(s.shieldUntil > nowMs()){ ctx.fillStyle='#02c076'; ctx.font='bold 13px JetBrains Mono, monospace'; ctx.textAlign='left'; ctx.textBaseline='top'; ctx.fillText('🛡', bx, by); by+=16; }
+    }
   }
 
   function roundRect(ctx,x,y,w,h,r){
@@ -232,15 +311,15 @@
     for(let i=0;i<2;i++){
       if(!snakes[i].alive) continue;
       const h = heads[i];
-      if(h.x<0||h.y<0||h.x>=GRID||h.y>=GRID){ dead[i]=true; continue; }
-      for(let k=1;k<snakes[i].body.length;k++){ if(snakes[i].body[k].x===h.x&&snakes[i].body[k].y===h.y){ dead[i]=true; break; } }
+      if(h.x<0||h.y<0||h.x>=GRID||h.y>=GRID){ if(wouldDie(i)) dead[i]=true; continue; }
+      for(let k=1;k<snakes[i].body.length;k++){ if(snakes[i].body[k].x===h.x&&snakes[i].body[k].y===h.y){ if(wouldDie(i)) dead[i]=true; break; } }
       if(dead[i]) continue;
       const o=i^1;
       if(snakes[o].alive){
-        for(let k=0;k<snakes[o].body.length;k++){ if(snakes[o].body[k].x===h.x&&snakes[o].body[k].y===h.y){ dead[i]=true; break; } }
+        for(let k=0;k<snakes[o].body.length;k++){ if(snakes[o].body[k].x===h.x&&snakes[o].body[k].y===h.y){ if(wouldDie(i)) dead[i]=true; break; } }
       }
       if(dead[i]) continue;
-      if(snakes[o].alive && heads[o] && heads[o].x===h.x && heads[o].y===h.y){ dead[i]=true; dead[o]=true; }
+      if(snakes[o].alive && heads[o] && heads[o].x===h.x && heads[o].y===h.y){ if(wouldDie(i)) dead[i]=true; if(wouldDie(o)) dead[o]=true; }
     }
     for(let i=0;i<2;i++){
       if(!snakes[i].alive || dead[i]) continue;
@@ -250,6 +329,10 @@
       if(ate){ snakes[i].len++; spawnFood();
         if(typeof Juice!=='undefined'){ const r=cellRect(h.x,h.y); Juice.sfx('pickup'); Juice.burst(r.x+CELL/2, r.y+CELL/2, {color:GOLD,n:8,speed:140}); }
       } else snakes[i].body.pop();
+      // 拾取掉落道具（拾取检测分支：pickups 为空时无害）
+      for(let pi=pickups.length-1; pi>=0; pi--){
+        if(pickups[pi].x===h.x && pickups[pi].y===h.y){ applyPickup(pickups[pi].type, i); pickups.splice(pi,1); break; }
+      }
     }
     for(let i=0;i<2;i++) if(dead[i]){
       snakes[i].alive=false;
@@ -321,6 +404,9 @@
     if(running && !gameOver){
       acc += dt;
       while(acc >= STEP){ acc -= STEP; tick(); if(gameOver) break; }
+      // 自动掉落（仅真实循环触发；测试直接调 tick 不受影响）
+      pickupTimer += dt;
+      if(pickupTimer >= 6){ pickupTimer = 0; if(pickups.length < 2) spawnPickupAtRandom(); }
     }
     draw();
     requestAnimationFrame(fxLoop);
@@ -329,12 +415,31 @@
 
   window.__t = {
     GRID, RED, GREEN, GOLD, STEP,
-    reset, tick, setDir, spawnFood, toggle,
+    reset, tick, setDir, spawnFood, toggle, makePickup,
+    setSnake(player, arr){ snakes[player-1].body = (arr||[]).map(p => ({x:p.x, y:p.y})); },
+    // —— 标准掉落钩子 ——
+    spawnPickup(type, x, y){ pickups.push(makePickup(type, x, y)); },
+    applyPickup(type, idx){ return applyPickup(type, idx); },
+    getPickups(){ return pickups.map(p => ({ x:p.x, y:p.y, type:p.type })); },
+    stepPickups(){ /* 网格静态道具：无移动逻辑 */ },
+    setShield(player, v){ snakes[player-1].shieldUntil = v ? nowMs()+1e9 : 0; },
+    getShield(player){ return snakes[player-1].shieldUntil > nowMs(); },
+    setBoost(player, v){ snakes[player-1].boostUntil = v ? nowMs()+1e9 : 0; },
+    getBoost(player){ return snakes[player-1].boostUntil > nowMs(); },
+    getLives(player){ return snakes[player-1].lives; },
+    setLives(player, v){ snakes[player-1].lives = v; },
+    getScore(player){ return snakes[player-1].score; },
+    setScore(player, v){ snakes[player-1].score = v; },
     getState(){ return {
       running, gameOver,
-      p1:{alive:snakes[0].alive, len:snakes[0].len, head:snakes[0].body[0]},
-      p2:{alive:snakes[1].alive, len:snakes[1].len, head:snakes[1].body[0]},
-      food:{x:food.x,y:food.y}
+      p1:{alive:snakes[0].alive, len:snakes[0].len, head:snakes[0].body[0],
+          boost:snakes[0].boostUntil>nowMs(), shield:snakes[0].shieldUntil>nowMs(),
+          lives:snakes[0].lives, score:snakes[0].score},
+      p2:{alive:snakes[1].alive, len:snakes[1].len, head:snakes[1].body[0],
+          boost:snakes[1].boostUntil>nowMs(), shield:snakes[1].shieldUntil>nowMs(),
+          lives:snakes[1].lives, score:snakes[1].score},
+      food:{x:food.x,y:food.y},
+      pickups:pickups.map(p=>({x:p.x,y:p.y,type:p.type}))
     }; },
     get running(){ return running; }
   };

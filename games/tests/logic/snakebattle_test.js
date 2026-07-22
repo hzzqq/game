@@ -13,3 +13,69 @@ const { t } = H.loadGame('../snakebattle.html');
   while (steps < 60 && !t.getState().gameOver) { t.tick(); steps++; }
   H.ok('蛇战 60 步内分出胜负', steps < 60, 'steps=' + steps);
 })();
+
+// 7) 掉落生效：red 头移到 gem 格 → 该玩家 score+5、道具移除
+(() => {
+  t.reset();
+  t.setScore(1, 0);
+  t.spawnPickup('gem', 5, 10);
+  t.setSnake(1, [{x:4,y:10},{x:3,y:10},{x:2,y:10}]);
+  t.setDir(1, 1, 0);
+  t.tick();
+  H.eq('蛇战 拾取gem玩家score+5', t.getScore(1), 5, '得到 ' + t.getScore(1));
+  H.eq('蛇战 gem拾取后移除', t.getPickups().length, 0);
+})();
+
+// 8) 未碰撞不生效：gem 不在 red 行进格上 → score 不变、道具仍在
+(() => {
+  t.reset();
+  t.setScore(1, 0);
+  t.spawnPickup('gem', 5, 10);
+  t.setSnake(1, [{x:4,y:12},{x:3,y:12},{x:2,y:12}]);
+  t.setDir(1, 1, 0);
+  t.tick();
+  H.eq('蛇战 未碰撞score不变', t.getScore(1), 0);
+  H.eq('蛇战 未碰撞道具仍在', t.getPickups().length, 1);
+})();
+
+// 9) 护盾免死：red 持盾撞墙 → 仍存活、护盾消耗
+(() => {
+  t.reset();
+  t.setShield(1, true);
+  t.setSnake(1, [{x:t.GRID-1,y:5},{x:t.GRID-2,y:5},{x:t.GRID-3,y:5}]);
+  t.setDir(1, 1, 0); // 向右出界
+  t.tick();
+  H.ok('蛇战 持盾撞墙仍存活', t.getState().p1.alive === true);
+  H.ok('蛇战 护盾已消耗', t.getShield(1) === false);
+})();
+
+// 10) 无盾撞墙即死（扣血至 0 → 淘汰）
+(() => {
+  t.reset();
+  t.setSnake(1, [{x:t.GRID-1,y:5},{x:t.GRID-2,y:5},{x:t.GRID-3,y:5}]);
+  t.setDir(1, 1, 0);
+  t.tick();
+  H.ok('蛇战 无盾撞墙被淘汰', t.getState().p1.alive === false);
+})();
+
+// 11) heart 额外命：拾取后 lives+1
+(() => {
+  t.reset();
+  t.setLives(1, 1);
+  t.spawnPickup('heart', 5, 10);
+  t.setSnake(1, [{x:4,y:10},{x:3,y:10},{x:2,y:10}]);
+  t.setDir(1, 1, 0);
+  t.tick();
+  H.eq('蛇战 拾取heart命+1', t.getLives(1), 2, '得到 ' + t.getLives(1));
+})();
+
+// 12) speed 加速增益：拾取后 getBoost 为真
+(() => {
+  t.reset();
+  t.spawnPickup('speed', 5, 10);
+  t.setSnake(1, [{x:4,y:10},{x:3,y:10},{x:2,y:10}]);
+  t.setDir(1, 1, 0);
+  t.tick();
+  H.ok('蛇战 拾取speed获得加速', t.getBoost(1) === true);
+})();
+
