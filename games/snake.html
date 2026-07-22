@@ -115,6 +115,8 @@
   var snake, dir, nextDir, food, score, best, alive, paused, level;
   var powerups=[], boostUntil=0, shieldUntil=0;
   var stepMs, acc, lastT, raf;
+  var milestone10 = false;
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
 
   function nowMs(){ return (typeof performance!=='undefined' && performance.now) ? performance.now() : 0; }
 
@@ -135,6 +137,7 @@
     powerups = [];
     boostUntil = 0;
     shieldUntil = 0;
+    milestone10 = false;
     reseed(0x5EED ^ (GRID*2654435761));
     spawnFood();
     overlay.style.display = 'none';
@@ -253,6 +256,7 @@
       if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
       spawnFood();
       updateHud();
+      if(snake.length>=10 && !milestone10){ milestone10=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     }
     if(!ate) snake.pop();
   }
