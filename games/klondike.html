@@ -71,12 +71,12 @@
   }
   function canFoundation(card){ const f=foundations[card.s]; return f===0? card.r===1 : card.r===f+1; }
   function canTableau(card, col){ const t=tableau[col]; if(t.length===0) return card.r===13; const top=t[t.length-1]; return color(card.s)!==color(top.s) && card.r===top.r-1; }
-  function moveWasteToFoundation(){ if(!waste.length) return false; const c=waste[waste.length-1]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; waste.pop(); checkWin(); return true; }
-  function moveWasteToTableau(col){ if(!waste.length) return false; const c=waste[waste.length-1]; if(!canTableau(c,col)) return false; tableau[col].push(c); waste.pop(); return true; }
-  function moveTableauToFoundation(col){ if(!tableau[col].length) return false; const c=tableau[col][tableau[col].length-1]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; tableau[col].pop(); checkWin(); return true; }
-  function moveTableauToTableau(from,to){ if(!tableau[from].length) return false; const c=tableau[from][tableau[from].length-1]; if(!canTableau(c,to)) return false; tableau[to].push(c); tableau[from].pop(); return true; }
-  function draw(){ if(over) return; if(!stock.length){ if(!waste.length) return; while(waste.length) stock.push(waste.pop()); return; } waste.push(stock.pop()); }
-  function checkWin(){ won = foundations.every(f=>f===13); if(won) over=true; }
+  function moveWasteToFoundation(){ if(!waste.length) return false; const c=waste[waste.length-1]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; waste.pop(); checkWin(); Juice.sfx('levelup'); Juice.addTrauma(.2); return true; }
+  function moveWasteToTableau(col){ if(!waste.length) return false; const c=waste[waste.length-1]; if(!canTableau(c,col)) return false; tableau[col].push(c); waste.pop(); Juice.sfx('click'); Juice.addTrauma(.1); return true; }
+  function moveTableauToFoundation(col){ if(!tableau[col].length) return false; const c=tableau[col][tableau[col].length-1]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; tableau[col].pop(); checkWin(); Juice.sfx('levelup'); Juice.addTrauma(.2); return true; }
+  function moveTableauToTableau(from,to){ if(!tableau[from].length) return false; const c=tableau[from][tableau[from].length-1]; if(!canTableau(c,to)) return false; tableau[to].push(c); tableau[from].pop(); Juice.sfx('click'); Juice.addTrauma(.1); return true; }
+  function draw(){ if(over) return; if(!stock.length){ if(!waste.length) return; while(waste.length) stock.push(waste.pop()); return; } waste.push(stock.pop()); Juice.sfx('click'); Juice.addTrauma(.1); }
+  function checkWin(){ won = foundations.every(f=>f===13); if(won){ over=true; Juice.sfx('win'); Juice.flash('#02c076',.5); } }
   function isWin(){ return won || foundations.every(f=>f===13); }
   function foundationsCount(){ return foundations.reduce((a,b)=>a+b,0); }
   function getState(){ return { stock:stock.length, waste:waste.map(c=>({...c})), foundations:foundations.slice(), tableau:tableau.map(t=>t.map(c=>({...c}))), over, won }; }
