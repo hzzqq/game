@@ -31,7 +31,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>迷你高尔夫</b> GOLF</span></div>
   <div class="wrap">
-    <div class="hud"><span>杆数 · <span class="st" id="st">0</span></span><span>状态 · <span class="st" id="st2">进行中</span></span></div>
+    <div class="hud"><span>杆数 · <span class="st" id="st">0</span></span><span>状态 · <span class="st" id="st2">进行中</span></span><span>BUFF · <span class="st" id="buff">-</span></span></div>
     <canvas id="cv" width="400" height="240"></canvas>
     <div class="msg" id="msg">设定角度与力度击球，让球沿直线滚动进洞。避开障碍墙，用最少杆数进洞。</div>
     <div class="controls">
@@ -48,7 +48,8 @@
   "use strict";
   const W=400, H=240, HOLE_R=6;
   let ball, hole, obstacles, strokes, inHole;
-  function reset(){ ball={x:30,y:H/2}; hole={x:360,y:H/2}; obstacles=[]; strokes=0; inHole=false; }
+  let pickups, shield, boostTimer, lives, score;
+  function reset(){ ball={x:30,y:H/2}; hole={x:360,y:H/2}; obstacles=[]; strokes=0; inHole=false; pickups=[]; shield=0; boostTimer=0; lives=3; score=0; }
   function setBall(x,y){ ball={x,y}; }
   function setHole(x,y){ hole={x,y}; }
   function setObstacles(list){ obstacles=list.map(o=>({...o})); }
@@ -67,11 +68,53 @@
       ball.x=nx; ball.y=ny;
     }
     if(dist(ball.x,ball.y,hole.x,hole.y)<=HOLE_R) inHole=true;
-    if(inHole){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.burst(hole.x,hole.y,{color:'#02c076',n:14}); }
+    if(inHole){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.burst(hole.x,hole.y,{color:'#02c076',n:14}); spawnPickup('coin', hole.x, hole.y); }
+    updatePickups(0);
   }
   function getStrokes(){ return strokes; }
   function isInHole(){ return inHole; }
   function getBall(){ return {x:ball.x,y:ball.y}; }
+
+  // ---- 注入：掉落道具 / 增益系统（不改核心玩法） ----
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return((t^t>>>14)>>>0)/4294967296; }; }
+  const _prng = mk(0x3a9f7c21);
+  function makePickup(type,x,y){ return { type:type, x:x, y:y, r:11, bob:0 }; }
+  const PICKUP_EMOJI = { coin:'💰', shield:'🛡', boost:'🚀' };
+  function spawnPickup(type,x,y){ pickups.push(makePickup(type,x,y)); }
+  function spawnPickupAtRandom(){
+    const r=_prng();
+    const type = r<0.5?'coin':(r<0.8?'shield':'boost');
+    pickups.push(makePickup(type, 40+_prng()*(W-80), 30+_prng()*(H-60)));
+  }
+  function applyPickup(type){
+    if(type==='coin'){ score+=5; if(typeof Juice!=='undefined'){ Juice.sfx('coin'); Juice.popup(ball.x,ball.y,'+5','#f0b90b'); } }
+    else if(type==='shield'){ shield=Math.min(3,shield+1); if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(ball.x,ball.y,'护盾+1','#3aa0ff'); } }
+    else if(type==='boost'){ boostTimer=8; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.popup(ball.x,ball.y,'加速!','#f0b90b'); } }
+  }
+  function updatePickups(dt){
+    for(let i=pickups.length-1;i>=0;i--){
+      const p=pickups[i];
+      if(dist(p.x,p.y,ball.x,ball.y) <= p.r + 5){ applyPickup(p.type); pickups.splice(i,1); }
+    }
+  }
+  function takeHit(){
+    if(shield>0){ shield--; if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(ball.x,ball.y,'护盾!','#3aa0ff'); } }
+    else { lives--; if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.flash('#f6465d',.3); } }
+  }
+  function update(dt){
+    if(boostTimer>0) boostTimer-=dt;
+    updatePickups(dt);
+  }
+  function drawPickup(ctx){
+    for(const p of pickups){
+      const emo=PICKUP_EMOJI[p.type]||'❓';
+      ctx.save();
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle='rgba(240,185,11,.18)'; ctx.fill();
+      ctx.font='16px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#f0b90b'; ctx.fillText(emo,p.x,p.y+1);
+      ctx.restore();
+    }
+  }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
@@ -80,12 +123,24 @@
     ctx.fillStyle='#3b4654'; for(const o of obstacles) ctx.fillRect(o.x,o.y,o.w,o.h);
     ctx.fillStyle='#f0b90b'; ctx.beginPath(); ctx.arc(hole.x,hole.y,HOLE_R,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(ball.x,ball.y,5,0,Math.PI*2); ctx.fill();
-    const st=$('st'),st2=$('st2'); if(st)st.textContent=strokes; if(st2)st2.textContent=inHole?'进洞!':'进行中';
+    drawPickup(ctx);
+    const st=$('st'),st2=$('st2'),buff=$('buff'); if(st)st.textContent=strokes; if(st2)st2.textContent=inHole?'进洞!':'进行中';
+    if(buff){ let b=[]; if(shield>0)b.push('🛡'+shield); if(boostTimer>0)b.push('🚀'+Math.ceil(boostTimer)+'s'); b.push('💰'+score); buff.textContent=b.length?b.join(' '):'-'; }
   }
-  function loop(){ if(typeof requestAnimationFrame==='undefined') return; render(); requestAnimationFrame(loop); }
+  function loop(){ if(typeof requestAnimationFrame==='undefined') return; update(0.016); render(); requestAnimationFrame(loop); }
   reset();
   if(typeof document!=='undefined'){ const hb=$('hit'),nb=$('new'),ai=$('ang'),pi=$('pow'); if(hb)hb.onclick=()=>{ hit(+ai.value||0,+pi.value||0); render(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
-  if(typeof window!=='undefined'){ window.__t={ reset, setBall, setHole, setObstacles, hit, getStrokes, isInHole, getBall }; }
+  if(typeof window!=='undefined'){ window.__t={ reset, setBall, setHole, setObstacles, hit, getStrokes, isInHole, getBall, update, takeHit,
+    getState(){ return {inHole,shield,boostTimer,lives,score,strokes,pickups:pickups.length}; },
+    spawnPickup,
+    stepPickups(dt){ updatePickups(dt); },
+    spawnPickupAtRandom,
+    applyPickup,
+    getPickups(){ return pickups.length; },
+    getShield(){ return shield; }, setShield(v){ shield=v; },
+    getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
+    getLives(){ return lives; }, setLives(v){ lives=v; },
+    getScore(){ return score; } }; }
 })();
 </script>
 </body>
