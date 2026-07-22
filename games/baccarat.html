@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>TERMINAL // BACCARAT</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(240,185,11,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(520px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--gold)}
+  .wrap{width:min(520px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .seat{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px}
+  .seat .lab{display:flex;justify-content:space-between;color:var(--dim);font-size:12px;letter-spacing:1px;margin-bottom:8px}
+  .seat .lab b{color:var(--gold);font-size:16px}
+  .cards{display:flex;gap:8px;min-height:84px;flex-wrap:wrap}
+  .card{width:52px;height:78px;border-radius:7px;background:#0e1620;border:1px solid var(--border);
+    display:flex;flex-direction:column;justify-content:space-between;padding:5px 6px;font-size:15px;font-weight:700;position:relative;box-shadow:0 4px 10px rgba(0,0,0,.4)}
+  .card .s{font-size:18px}
+  .card.red{color:var(--red)} .card.green{color:var(--green)}
+  .card .corner{position:absolute;top:4px;right:6px;font-size:11px;opacity:.7}
+  .msg{text-align:center;min-height:22px;margin:8px 0;font-size:14px;color:var(--dim);letter-spacing:1px}
+  .msg.win{color:var(--green);font-weight:700} .msg.lose{color:var(--red);font-weight:700} .msg.tie{color:var(--gold);font-weight:700}
+  .bets{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;justify-content:center}
+  .bets button{flex:1;min-width:90px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 6px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px}
+  .bets button.sel{border-color:var(--gold);color:var(--gold);background:rgba(240,185,11,.08)}
+  .bets button:hover{filter:brightness(1.15)}
+  .chips{display:flex;gap:8px;margin-top:8px;justify-content:center}
+  .chips button{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:8px 14px;cursor:pointer;font-family:inherit;font-weight:700}
+  .chips button.sel{border-color:var(--gold);color:var(--gold)}
+  .controls{display:flex;gap:8px;margin-top:10px;justify-content:center}
+  .controls button{background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .foot{width:min(520px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>BACCARAT</b> 百家乐</span></div>
+  <div class="wrap">
+    <div class="hud"><span>余额 · <span class="st" id="balance">1000</span></span><span>下注 · <span class="st" id="bet">-</span></span></div>
+
+    <div class="seat">
+      <div class="lab"><span>闲家 PLAYER</span><b id="pV">?</b></div>
+      <div class="cards" id="playerCards"></div>
+    </div>
+    <div class="seat">
+      <div class="lab"><span>庄家 BANKER</span><b id="bV">?</b></div>
+      <div class="cards" id="bankerCards"></div>
+    </div>
+
+    <div class="msg" id="msg">选择下注方与筹码，点击「发牌」。</div>
+
+    <div class="bets">
+      <button data-bet="player" id="bp">闲 PLAYER 1:1</button>
+      <button data-bet="banker" id="bb">庄 BANKER 0.95</button>
+      <button data-bet="tie" id="bt">和 TIE 8:1</button>
+    </div>
+    <div class="chips">
+      <button data-amt="10">10</button><button data-amt="50">50</button>
+      <button data-amt="100">100</button><button data-amt="500">500</button>
+    </div>
+    <div class="controls">
+      <button id="deal">发牌 DEAL ▶</button>
+      <button id="reset" class="ghost">重置 RESET</button>
+    </div>
+  </div>
+  <div class="foot">百家乐：2-9 取面值，10/J/Q/K=0，A=1，只取个位数。闲/庄各两张，天牌(8/9)立即结束。
+    闲 0-5 补牌；庄按规则表补牌。闲胜/庄胜 1:1（抽水5%），和 8:1。</div>
+
+<script src="juice.js"></script>
+<script src="input.js"></script>
+<script>
+(function(){
+  "use strict";
+  const START_BALANCE = 1000;
+  const DECKS = 8;
+  const SUITS = ['♠','♥','♦','♣'];
+
+  let shoe, player, banker, result, balance, bet, lastPayout;
+  let _rand = Math.random;
+
+  // ---- 钩子：注入确定性随机数 ----
+  function setRand(fn){ _rand = fn; }
+
+  // ---- 牌点：2-9 取面值，10/J/Q/K=0，A=1 ----
+  function cardPoint(rank){ return rank >= 10 ? 0 : rank; }
+  function handValue(cards){
+    let s = 0;
+    for (let i=0;i<cards.length;i++) s += cardPoint(cards[i]);
+    return s % 10;
+  }
+  function cardLabel(rank){ return rank===1?'A':rank<=10?String(rank):rank===11?'J':rank===12?'Q':'K'; }
+
+  // ---- 重建 8 副牌靴（固定顺序，不消耗随机数）----
+  function buildShoe(){
+    shoe = [];
+    for (let d=0; d<DECKS; d++)
+      for (let suit=0; suit<4; suit++)
+        for (let r=1; r<=13; r++) shoe.push(r);
+  }
+  function newShoe(){ buildShoe(); }
+
+  function draw(){
+    const pick = _rand();
+    let rank = 1 + Math.floor(pick * 13);
+    if (rank > 13) rank = 13;
+    let idx = shoe.indexOf(rank);
+    if (idx < 0){ idx = 0; rank = shoe[0]; } // 极端兜底
+    shoe.splice(idx, 1);
+    return rank;
+  }
+
+  function reset(){
+    buildShoe();
+    player = []; banker = [];
+    result = null; bet = null; lastPayout = 0;
+    balance = START_BALANCE;
+  }
+
+  function placeBet(type, amount){
+    if (type !== 'player' && type !== 'banker' && type !== 'tie') return false;
+    if (!(amount > 0)) return false;
+    bet = { type: type, amount: amount };
+    return true;
+  }
+
+  // 庄家是否补第三张：pThird 为闲第三张点数，null 表示闲未补牌
+  function bankerDraws(bv, pThird){
+    if (pThird === null) return bv <= 5; // 闲停牌：庄 0-5 补
+    if (bv <= 2) return true;
+    if (bv === 3) return pThird !== 8;
+    if (bv === 4) return pThird >= 2 && pThird <= 7;
+    if (bv === 5) return pThird >= 4 && pThird <= 7;
+    if (bv === 6) return pThird === 6 || pThird === 7;
+    return false; // 7 停牌
+  }
+
+  function play(){
+    player = []; banker = [];
+    player.push(draw()); // P
+    banker.push(draw()); // B
+    player.push(draw()); // P
+    banker.push(draw()); // B
+    let pv = handValue(player), bv = handValue(banker);
+
+    let natural = (pv >= 8) || (bv >= 8);
+    let pThird = null;
+
+    if (!natural){
+      if (pv <= 5){ const c = draw(); player.push(c); pThird = cardPoint(c); }
+      if (bankerDraws(bv, pThird)) banker.push(draw());
+    }
+
+    pv = handValue(player); bv = handValue(banker);
+    let res;
+    if (pv > bv) res = 'player';
+    else if (bv > pv) res = 'banker';
+    else res = 'tie';
+
+    // 赔付（净变化）
+    const amt = bet.amount;
+    let net;
+    if (bet.type === 'player') net = (res === 'player') ? amt : -amt;
+    else if (bet.type === 'banker') net = (res === 'banker') ? amt * 0.95 : -amt;
+    else net = (res === 'tie') ? amt * 8 : -amt;
+
+    balance += net;
+    lastPayout = net;
+    result = res;
+    return res;
+  }
+
+  function deal(){
+    if (!bet){ return getState(); }
+    Juice.sfx('click');
+    const res = play();
+    if (res === 'tie'){ Juice.flash('#f0b90b', .4); }
+    else if (res === bet.type){ Juice.sfx('win'); Juice.flash('#02c076', .5); }
+    else { Juice.sfx('lose'); Juice.flash('#f6465d', .5); }
+    return getState();
+  }
+
+  function getState(){
+    return {
+      shoe: shoe.slice(),
+      player: player.slice(),
+      banker: banker.slice(),
+      result: result,
+      balance: balance,
+      bet: bet ? { type: bet.type, amount: bet.amount } : null,
+      lastPayout: lastPayout
+    };
+  }
+
+  // ---- UI ----
+  function $(id){ return (typeof document !== 'undefined') ? document.getElementById(id) : null; }
+  function elCard(rank){
+    const suit = SUITS[(rank - 1) % 4];
+    const color = (suit === '♥' || suit === '♦') ? 'red' : 'green';
+    const lab = cardLabel(rank);
+    return '<div class="card ' + color + '"><span class="s">' + suit + '</span>' +
+           '<span>' + lab + '</span><span class="corner">' + lab + '</span></div>';
+  }
+  function render(){
+    if (typeof document === 'undefined') return;
+    const pc = $('playerCards'), bc = $('bankerCards');
+    if (pc) pc.innerHTML = player.map(elCard).join('');
+    if (bc) bc.innerHTML = banker.map(elCard).join('');
+    if ($('pV')) $('pV').textContent = player.length ? handValue(player) : '?';
+    if ($('bV')) $('bV').textContent = banker.length ? handValue(banker) : '?';
+    if ($('balance')) $('balance').textContent = balance;
+    if ($('bet')) $('bet').textContent = bet ? (bet.type + ' ' + bet.amount) : '-';
+    const msg = $('msg');
+    if (msg){
+      if (result === 'tie'){ msg.className = 'msg tie'; msg.textContent = '和局 TIE · ' + lastPayout; }
+      else if (bet && result === bet.type){ msg.className = 'msg win'; msg.textContent = (result === 'player' ? '闲胜' : '庄胜') + ' · +' + lastPayout; }
+      else if (result){ msg.className = 'msg lose'; msg.textContent = (result === 'player' ? '闲胜' : '庄胜') + ' · ' + lastPayout; }
+      else { msg.className = 'msg'; msg.textContent = '选择下注方与筹码，点击「发牌」。'; }
+    }
+  }
+  function bindUI(){
+    if (typeof document === 'undefined') return;
+    let selType = 'player', selAmt = 100;
+    const paint = () => {
+      ['player','banker','tie'].forEach(t => { const b = $('b'+t[0]); if (b) b.classList.toggle('sel', t === selType); });
+      document.querySelectorAll('.chips button').forEach(b => b.classList.toggle('sel', Number(b.dataset.amt) === selAmt));
+    };
+    ['player','banker','tie'].forEach(t => {
+      const b = $('b'+t[0]); if (b) b.onclick = () => { selType = t; paint(); };
+    });
+    document.querySelectorAll('.chips button').forEach(b => {
+      b.onclick = () => { selAmt = Number(b.dataset.amt); paint(); };
+    });
+    const dealBtn = $('deal'); if (dealBtn) dealBtn.onclick = () => { placeBet(selType, selAmt); deal(); render(); };
+    const rb = $('reset'); if (rb) rb.onclick = () => { reset(); render(); };
+    paint();
+  }
+
+  reset();
+  if (typeof document !== 'undefined'){
+    bindUI();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render);
+    else render();
+  }
+  if (typeof window !== 'undefined'){
+    window.__t = { reset, newShoe, placeBet, deal, getState, setRand };
+  }
+})();
+</script>
+</body>
+</html>
