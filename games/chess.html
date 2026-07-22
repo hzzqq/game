@@ -70,6 +70,7 @@
 <script>
 (function(){
   "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
   const RED='#f6465d', GREEN='#02c076', GOLD='#f0b90b';
   const CHAR = {
     r:{G:'帅',A:'仕',E:'相',H:'傌',R:'俥',C:'炮',S:'兵'},
@@ -267,6 +268,7 @@
   }
   function endGame(){
     gameOver=true;
+    if(J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
     const redLost = (turn==='r'); // 轮到红方却无棋 → 红负
     let title, sub, col;
     if(redLost){ title='绿方胜利！'; sub='红方无棋可走（将死/困毙）。'; col=GREEN; }
