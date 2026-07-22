@@ -145,14 +145,47 @@ t.setRand(Math.random);
   H.eq('getDifficulty 反映设置', t.getDifficulty(), 'hell');
   H.eq('setDifficulty 非法档返回 false', t.setDifficulty('zzz'), false);
 
-  // 同一波：地狱档敌机数 > 简单档，且血量更高、下落更快
-  t.setDifficulty('easy'); t.startWave(3); const se = t.getState();
-  t.setDifficulty('hell'); t.startWave(3); const sh = t.getState();
-  H.ok('地狱档第3波敌机数 > 简单档', sh.enemyCount > se.enemyCount);
+  // 同一波：地狱档敌机数 > 简单档，且血量更高、下落更快（用第4波，非 Boss 波）
+  t.setDifficulty('easy'); t.startWave(4); const se = t.getState();
+  t.setDifficulty('hell'); t.startWave(4); const sh = t.getState();
+  H.ok('地狱档第4波敌机数 > 简单档', sh.enemyCount > se.enemyCount);
   H.ok('地狱档敌机血量 > 简单档', sh.enemies[0].hp > se.enemies[0].hp);
 
   // 普通档第1波仍为 5 架（不破坏既有基线）
   t.setDifficulty('normal'); t.startWave(1);
   H.eq('普通档第1波敌机=5(基线不变)', t.getState().enemyCount, 5);
   t.setRand(Math.random);
+}
+
+// ---------- Boss 系统 ----------
+{
+  t.setDifficulty('normal'); t.reset();
+  H.eq('BOSS_EVERY=3', t.BOSS_EVERY, 3);
+  H.ok('第3波是 Boss 波', t.isBossWave(3) === true);
+  H.ok('第4波不是 Boss 波', t.isBossWave(4) === false);
+  // startWave(3) → 生成 Boss、无普通敌机
+  t.start(); t.startWave(3);
+  const b = t.getBoss();
+  H.ok('Boss 波生成 boss', b !== null);
+  H.ok('Boss hp>0 且 hp==maxHp', b.hp > 0 && b.hp === b.maxHp);
+  H.eq('Boss 波敌机数=0', t.getState().enemyCount, 0);
+  H.ok('Boss 初始 phase=1', b.phase === 1);
+  // 半血 → phase2
+  t.setBossHp(Math.floor(b.maxHp/2));
+  t.setAutoFire(false); t.update(0.016);
+  H.ok('Boss 半血进入 phase2', t.getBoss() && t.getBoss().phase === 2);
+  // 击败 boss：hp=1 后一发命中 → boss 清空 + 加分
+  const scoreBefore = t.getState().score;
+  t.setBossHp(1);
+  const bb = t.getBoss();
+  t.addBullet(bb.x, bb.y);
+  t.update(0.016);
+  H.ok('Boss 击败后清空', t.getBoss() === null);
+  H.ok('Boss 击败奖励加分', t.getState().score > scoreBefore);
+  // Boss 血量随难度递增
+  t.setDifficulty('easy'); t.reset(); t.spawnBoss(3); const hpE = t.getBoss().maxHp;
+  t.setDifficulty('hell'); t.reset(); t.spawnBoss(3); const hpH = t.getBoss().maxHp;
+  H.ok('Boss 血量 地狱 > 简单', hpH > hpE);
+  H.ok('DIFFICULTY 含 bossHpMult 地狱>简单', t.DIFFICULTY.hell.bossHpMult > t.DIFFICULTY.easy.bossHpMult);
+  t.setDifficulty('normal'); t.reset(); t.setRand(Math.random);
 }

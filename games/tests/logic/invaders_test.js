@@ -133,4 +133,41 @@ eq('START_SPEED=10', t.START_SPEED, 10);
   t.setDifficulty('normal'); t.reset();
 }
 
+// ---------- Boss 系统 ----------
+{
+  t.setDifficulty('normal'); t.reset();
+  eq('BOSS_EVERY=3', t.BOSS_EVERY, 3);
+  ok('wave3 是 Boss 波', t.isBossWave(3) === true);
+  ok('wave2 不是 Boss 波', t.isBossWave(2) === false);
+  // 初始无 boss
+  ok('reset 后无 boss', t.getBoss() === null);
+  // 手动进入 boss 波并生成
+  t.setWave(3); t.spawnBoss();
+  const b = t.getBoss();
+  ok('spawnBoss 后 boss 存在', b !== null);
+  ok('boss hp>0 且 hp==maxHp', b.hp > 0 && b.hp === b.maxHp);
+  ok('boss 初始 phase=1', b.phase === 1);
+  ok('boss 波无普通编队', t.aliveCount() === 0);
+  // 血量降到一半以下 → phase2（下一次 updateBoss 触发）
+  t.setBossHp(Math.floor(b.maxHp/2));
+  t.updateBoss();
+  ok('半血后进入 phase2', t.getBoss().phase === 2);
+  // 击败 boss：hp 清零后 updateBoss 返回 true 且回到普通编队
+  const scoreBefore = t.getScore();
+  t.setBossHp(1);
+  // 打一发覆盖 boss 的子弹
+  const bb = t.getBoss();
+  t.addBullet(bb.x + bb.w/2, bb.y + bb.h/2, false);
+  const beaten = t.updateBoss();
+  ok('boss 血尽被击败', beaten === true);
+  ok('击败后 boss 清空', t.getBoss() === null);
+  ok('击败奖励加分', t.getScore() > scoreBefore);
+  // Boss HP 随难度递增：地狱 > 简单
+  t.setDifficulty('easy'); t.setWave(3); t.spawnBoss(); const hpEasy = t.getBoss().maxHp;
+  t.setDifficulty('hell'); t.setWave(3); t.spawnBoss(); const hpHell = t.getBoss().maxHp;
+  ok('Boss 血量 地狱 > 简单', hpHell > hpEasy);
+  ok('DIFFICULTY 含 bossHpMult 且地狱>简单', t.DIFFICULTY.hell.bossHpMult > t.DIFFICULTY.easy.bossHpMult);
+  t.setDifficulty('normal'); t.reset();
+}
+
 console.log('invaders: 全部断言通过');

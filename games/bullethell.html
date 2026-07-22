@@ -84,10 +84,10 @@
     // ---------- 难度系统（简单/普通/困难/地狱）----------
     // bulletMult=每波弹幕数量倍率；speedMult=弹速倍率；rateMult=生成频率倍率
     const DIFFICULTY = {
-      easy:   { label:'简单', bulletMult:0.6, speedMult:0.75, rateMult:0.7 },
-      normal: { label:'普通', bulletMult:1.0, speedMult:1.0,  rateMult:1.0 },
-      hard:   { label:'困难', bulletMult:1.4, speedMult:1.25, rateMult:1.3 },
-      hell:   { label:'地狱', bulletMult:1.9, speedMult:1.5,  rateMult:1.6 },
+      easy:   { label:'简单', bulletMult:0.6, speedMult:0.75, rateMult:0.7, bossHpMult:0.7 },
+      normal: { label:'普通', bulletMult:1.0, speedMult:1.0,  rateMult:1.0, bossHpMult:1.0 },
+      hard:   { label:'困难', bulletMult:1.4, speedMult:1.25, rateMult:1.3, bossHpMult:1.4 },
+      hell:   { label:'地狱', bulletMult:1.9, speedMult:1.5,  rateMult:1.6, bossHpMult:1.9 },
     };
     const DIFF_ORDER = ['easy','normal','hard','hell'];
     let difficulty = 'normal';
@@ -102,8 +102,53 @@
         bullets:[], score:0, wave:1, lives:3, time:0,
         spawnTimer:0, spawnEnabled:true, running:false, paused:false, over:false,
         rng:mulberry32(1), keys:{up:false,down:false,left:false,right:false},
-        pickups:[], coins:0, shield:0, boostTimer:0
+        pickups:[], coins:0, shield:0, boostTimer:0, boss:null
       };
+    }
+
+    // ---------- Boss 系统：每 BOSS_EVERY 波出现一次 Boss（生存耗竭型）----------
+    const BOSS_EVERY = 3;
+    function isBossWave(w){ return w > 0 && (w % BOSS_EVERY) === 0; }
+    // 召唤 Boss：maxhp = 撑过所需秒数 * 60，随难度 bossHpMult 缩放（越难撑越久）
+    function spawnBoss(){
+      const cfg=diffCfg();
+      const maxHp=Math.round((6 + S.wave*0.6) * 60 * cfg.bossHpMult);
+      S.boss={ x:W/2, y:90, r:40, hp:maxHp, maxhp:maxHp, phase:1,
+        vx:(80 + S.wave*6)*cfg.speedMult, dir:1, patternCd:0.6, flash:0 };
+    }
+    // 更新 Boss：hp 随生存流逝，撑到 0 视为击败，返回 true
+    function updateBoss(dt){
+      const b=S.boss; if(!b) return false;
+      const cfg=diffCfg();
+      // 半血进 phase2（更快移动 + 更密弹幕）
+      if(b.phase===1 && b.hp <= b.maxhp*0.5){ b.phase=2; b.vx*=1.4; if(J){J.flash&&J.flash('#f6465d',.35);J.addTrauma&&J.addTrauma(.4);} }
+      // 横向移动 + 反弹
+      b.x += b.vx*b.dir*dt;
+      if(b.x < b.r){ b.x=b.r; b.dir=1; } else if(b.x > W-b.r){ b.x=W-b.r; b.dir=-1; }
+      b.flash=Math.max(0,b.flash-dt*4);
+      // 弹幕图案：phase1 朝玩家扇形；phase2 环形 + 扇形
+      b.patternCd-=dt;
+      if(b.patternCd<=0){
+        b.patternCd = (b.phase===2?0.5:0.75) / cfg.rateMult;
+        const spd=(120 + S.wave*10)*cfg.speedMult;
+        const p=S.player, aim=Math.atan2(p.y-b.y, p.x-b.x);
+        const fan = b.phase===2?5:3;
+        for(let i=0;i<fan;i++){ const a=aim + (i-(fan-1)/2)*0.24;
+          spawnBullet(b.x, b.y, Math.cos(a)*spd, Math.sin(a)*spd, 8); }
+        if(b.phase===2){ const ring=8; for(let i=0;i<ring;i++){ const a=i/ring*Math.PI*2;
+          spawnBullet(b.x, b.y, Math.cos(a)*spd*0.8, Math.sin(a)*spd*0.8, 7); } }
+      }
+      // 生存耗竭
+      b.hp -= dt*60;
+      if(b.hp<=0){
+        const pts=200 + S.wave*30;
+        S.score+=pts;
+        if(J){ J.popup&&J.popup('BOSS 击败 +'+pts); J.burst&&J.burst(b.x,b.y,{color:'#f6465d',n:40,speed:320,life:.9}); J.addTrauma&&J.addTrauma(.8); J.flash&&J.flash('#ffcf5a',.5); J.sfx&&J.sfx('win'); }
+        S.pickups.push(makePickup('heal', b.x, b.y)); S.pickups.push(makePickup('coin', b.x+24, b.y));
+        S.boss=null;
+        return true;
+      }
+      return false;
     }
 
     // ---- 注入式掉落/增益系统（局部 PRNG，禁止 Math.random）----
@@ -135,9 +180,9 @@
       if(p.y<p.r)p.y=p.r; if(p.y>H-p.r)p.y=H-p.r;
       // 无敌帧
       if(p.invuln>0)p.invuln=Math.max(0,p.invuln-dt);
-      // 弹幕生成
+      // 弹幕生成（Boss 期间由 Boss 接管弹幕，抑制普通顶部刷弹）
       S.spawnTimer-=dt;
-      if(S.spawnEnabled && S.spawnTimer<=0){
+      if(S.spawnEnabled && !S.boss && S.spawnTimer<=0){
         const cfg=diffCfg();
         S.spawnTimer=(0.5 - Math.min(0.35, S.wave*0.03)) / cfg.rateMult;
         const n=Math.max(1, Math.round((2 + (S.wave%3)) * cfg.bulletMult));
@@ -164,12 +209,22 @@
       S.bullets=S.bullets.filter(b=>!b.dead && b.x>-30 && b.x<W+30 && b.y>-30 && b.y<H+30);
       // 失败
       if(S.lives<=0){ S.over=true; S.running=false; showOver(); if(J){ J.sfx&&J.sfx('lose'); J.flash('#f6465d',0.3); J.achievement&&J.achievement('被弹幕吞没'); } }
-      // 波次推进（生存满 DURATION）
-      S.time+=dt;
-      if(S.time>=DURATION){
-        S.time-=DURATION; S.wave++; S.score+=50*S.wave;
-        if(J)J.popup&&J.popup('WAVE '+S.wave);
-        if(J){ J.sfx&&J.sfx('levelup'); J.burst(S.player.x,S.player.y,{color:'#02c076',n:10}); }
+      // Boss 更新（Boss 期间暂停时间累积推进，专心应对 Boss）
+      if(S.boss){
+        updateBoss(dt);
+      } else {
+        // 波次推进（生存满 DURATION）
+        S.time+=dt;
+        if(S.time>=DURATION){
+          S.time-=DURATION; S.wave++; S.score+=50*S.wave;
+          if(isBossWave(S.wave)){
+            spawnBoss();
+            if(J){ J.popup&&J.popup('⚠ BOSS 来袭'); J.sfx&&J.sfx('levelup'); }
+          } else {
+            if(J)J.popup&&J.popup('WAVE '+S.wave);
+            if(J){ J.sfx&&J.sfx('levelup'); J.burst(S.player.x,S.player.y,{color:'#02c076',n:10}); }
+          }
+        }
       }
       updatePickups(dt);
       syncHud();
@@ -182,7 +237,8 @@
         coins:S.coins, shield:S.shield, boostTimer:+S.boostTimer.toFixed(3), pickups:S.pickups.length,
         player:{x:+S.player.x.toFixed(2),y:+S.player.y.toFixed(2),r:S.player.r,invuln:+S.player.invuln.toFixed(3)},
         bullets:S.bullets.map(b=>({x:+b.x.toFixed(2),y:+b.y.toFixed(2),r:b.r})),
-        bulletCount:S.bullets.length
+        bulletCount:S.bullets.length,
+        boss: S.boss?{x:+S.boss.x.toFixed(2),y:+S.boss.y.toFixed(2),r:S.boss.r,hp:+S.boss.hp.toFixed(1),maxhp:S.boss.maxhp,phase:S.boss.phase}:null
       };
     }
 
@@ -206,13 +262,37 @@
       getBoost(){ return S.boostTimer; }, setBoost(v){ S.boostTimer=v; },
       getLives(){ return S.lives; },
       // ---- 难度系统钩子 ----
-      DIFFICULTY, setDifficulty, getDifficulty
+      DIFFICULTY, setDifficulty, getDifficulty,
+      // ---- Boss 系统钩子 ----
+      BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
+      getBoss(){ return S.boss; }, setBoss(v){ S.boss=v; },
+      setBossHp(v){ if(S.boss) S.boss.hp=v; },
+      setWave(n){ S.wave=n; }
     };
 
     function render(){
       ctx.clearRect(0,0,W,H);
       for(const b of S.bullets){ ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fillStyle='#f6465d';ctx.fill(); }
       drawPickups(ctx);
+      // Boss
+      if(S.boss){
+        const b=S.boss, bc=b.phase===2?'#f6465d':'#8a5cf0';
+        ctx.strokeStyle=b.phase===2?'rgba(246,70,93,.5)':'rgba(138,92,240,.45)';
+        ctx.lineWidth=4; ctx.beginPath(); ctx.arc(b.x,b.y,b.r+7+(b.flash>0?4:0),0,7); ctx.stroke();
+        ctx.fillStyle=b.flash>0?'#fff':bc;
+        ctx.beginPath();
+        for(let k=0;k<8;k++){ const pa=k/8*Math.PI*2-Math.PI/2, rr=b.r*(k%2===0?1:0.72);
+          const px=b.x+Math.cos(pa)*rr, py=b.y+Math.sin(pa)*rr;
+          if(k===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); }
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle='#0f0f14'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*0.34,0,7); ctx.fill();
+        ctx.fillStyle=b.phase===2?'#ffcf5a':'#c3a6ff'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*0.16,0,7); ctx.fill();
+        const bw=W*0.6, bx=(W-bw)/2, by=14;
+        ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(bx-2,by-2,bw+4,12);
+        ctx.fillStyle=bc; ctx.fillRect(bx,by,bw*Math.max(0,b.hp/b.maxhp),8);
+        ctx.fillStyle='#fff'; ctx.font='11px system-ui'; ctx.textAlign='center';
+        ctx.fillText('BOSS '+(b.phase===2?'· 狂暴':''), W/2, by+7); ctx.textAlign='left';
+      }
       const p=S.player;
       ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fillStyle=p.invuln>0?'#6b7785':'#02c076';ctx.fill();
     }

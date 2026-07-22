@@ -110,10 +110,10 @@
   // countMult=每波敌人数量倍率；hpMult=敌人血量倍率；spdMult=敌人速度倍率；dmgMult=敌人伤害倍率
   // normal=1.0 保持原有平衡（避免破坏既有单测）
   var DIFFICULTY = {
-    easy:   { label:'简单', countMult:0.7, hpMult:0.75, spdMult:0.85, dmgMult:0.8 },
-    normal: { label:'普通', countMult:1.0, hpMult:1.0,  spdMult:1.0,  dmgMult:1.0 },
-    hard:   { label:'困难', countMult:1.3, hpMult:1.35, spdMult:1.15, dmgMult:1.25 },
-    hell:   { label:'地狱', countMult:1.7, hpMult:1.9,  spdMult:1.35, dmgMult:1.5 }
+    easy:   { label:'简单', countMult:0.7, hpMult:0.75, spdMult:0.85, dmgMult:0.8,  bossHpMult:0.7 },
+    normal: { label:'普通', countMult:1.0, hpMult:1.0,  spdMult:1.0,  dmgMult:1.0,  bossHpMult:1.0 },
+    hard:   { label:'困难', countMult:1.3, hpMult:1.35, spdMult:1.15, dmgMult:1.25, bossHpMult:1.4 },
+    hell:   { label:'地狱', countMult:1.7, hpMult:1.9,  spdMult:1.35, dmgMult:1.5,  bossHpMult:1.9 }
   };
   var DIFF_ORDER = ['easy','normal','hard','hell'];
   var difficulty = 'normal';
@@ -138,12 +138,16 @@
   ];
 
   var player, enemies, bullets, items, particles, state, score, best, wave, waveT, spawnQ, spawnTimer, mouse, useMouse, mouseDown, last, combo;
+  // ---------- Boss 系统：每 BOSS_EVERY 波出现一次 Boss ----------
+  var boss = null;
+  var BOSS_EVERY = 3;
+  function isBossWave(w){ return w > 0 && (w % BOSS_EVERY) === 0; }
 
   function reset(){
     player={x:W/2,y:H/2,r:13,hp:100,maxhp:100,shield:0,speed:185,aim:0,
       weapon:'pistol',ammo:WEAPONS.pistol.ammo,lastShot:0,reload:0,
       invuln:0,dashT:0,dashCd:0,speedT:0};
-    enemies=[]; bullets=[]; items=[]; particles=[];
+    enemies=[]; bullets=[]; items=[]; particles=[]; boss=null;
     score=0; wave=0; waveT=0; spawnQ=0; spawnTimer=6; mouseDown=false; useMouse=false;
     combo=0;
     best=Juice.load('best_gun',0);
@@ -152,10 +156,81 @@
   }
   function nextWave(){
     wave++; document.getElementById('wavetxt').textContent=wave;
-    spawnQ = Math.max(1, Math.round((4 + Math.floor(wave*2)) * diffCfg().countMult));
     waveT = 1.2;
+    if(isBossWave(wave)){
+      // Boss 波：不刷普通编队，改为召唤 Boss
+      spawnQ = 0;
+      spawnBoss();
+      Juice.popup(W/2,H/2-40,'⚠ BOSS 来袭','#f6465d',{big:true,life:1.6});
+      Juice.sfx('levelup');
+      return;
+    }
+    spawnQ = Math.max(1, Math.round((4 + Math.floor(wave*2)) * diffCfg().countMult));
     Juice.popup(W/2,H/2-40,'第 '+wave+' 波','#f0b90b',{big:true,life:1.4});
     Juice.sfx('levelup');
+  }
+
+  // 召唤 Boss：血量随波次与难度 bossHpMult 缩放
+  function spawnBoss(){
+    enemies=[];
+    var cfg=diffCfg();
+    var maxHp=Math.round((260 + wave*40) * cfg.bossHpMult);
+    boss={ x:W/2, y:80, r:40, hp:maxHp, maxhp:maxHp, phase:1,
+      vx:(70 + wave*6) * cfg.spdMult, dir:1, vy:22*cfg.spdMult,
+      shootCd:1.2, flash:0, dmg:16*cfg.dmgMult };
+  }
+
+  // 更新 Boss：返回 true 表示本帧被击败
+  function updateBoss(dt){
+    if(!boss) return false;
+    // 半血进入 phase2（更快移动 + 三连射）
+    if(boss.phase===1 && boss.hp <= boss.maxhp*0.5){
+      boss.phase=2; boss.vx*=1.5;
+      Juice.flash('#f6465d',0.4); Juice.addTrauma(0.4);
+      Juice.popup(boss.x,boss.y,'狂暴!','#f6465d',{big:true,life:1.0});
+    }
+    // 移动：横向反弹 + 缓慢下压
+    boss.x += boss.vx*boss.dir*dt;
+    if(boss.x < boss.r){ boss.x=boss.r; boss.dir=1; }
+    else if(boss.x > W-boss.r){ boss.x=W-boss.r; boss.dir=-1; }
+    boss.y += boss.vy*dt*0.15;
+    if(boss.y > H*0.34) boss.y=H*0.34;
+    boss.flash=Math.max(0,boss.flash-dt*4);
+    // 射击：朝玩家；phase2 三连
+    boss.shootCd-=dt;
+    if(boss.shootCd<=0){
+      boss.shootCd = boss.phase===2?0.55:0.95;
+      var ang=Math.atan2(player.y-boss.y,player.x-boss.x);
+      var spread = boss.phase===2?[-0.26,0,0.26]:[0];
+      for(var s=0;s<spread.length;s++){ var a=ang+spread[s];
+        bullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*300,vy:Math.sin(a)*300,r:6,dmg:boss.dmg,from:'e',life:3,color:'#ff6b6b'}); }
+    }
+    // 玩家子弹命中 Boss
+    for(var b=bullets.length-1;b>=0;b--){ var bl=bullets[b];
+      if(bl.from!=='p') continue;
+      if(Math.hypot(bl.x-boss.x,bl.y-boss.y) < boss.r+bl.r){
+        boss.hp-=bl.dmg; boss.flash=1; bullets.splice(b,1);
+        Juice.burst(bl.x,bl.y,{color:'#ffcf5a',n:6,speed:180,life:.4});
+        Juice.popup(boss.x,boss.y-boss.r,'-'+bl.dmg,'#ffcf5a',{life:.6,size:13});
+        if(boss.hp<=0) break;
+      }
+    }
+    // 接触伤害
+    if(Math.hypot(player.x-boss.x,player.y-boss.y) < boss.r+player.r){ hurtPlayer(boss.dmg*0.5); }
+    // 击败奖励
+    if(boss.hp<=0){
+      var pts=500 + wave*40;
+      score+=pts; combo++;
+      Juice.burst(boss.x,boss.y,{color:'#f6465d',n:40,speed:320,life:.9});
+      Juice.popup(boss.x,boss.y,'BOSS 击败 +'+pts,'#f6465d',{big:true,life:1.4});
+      Juice.addTrauma(0.8); Juice.flash('#ffcf5a',0.6); Juice.sfx('win');
+      dropItem(boss.x,boss.y); dropItem(boss.x+30,boss.y);
+      if(document.getElementById('scoretxt')){ document.getElementById('scoretxt').textContent=score;
+        document.getElementById('rankTxt').textContent=Juice.rank(score); }
+      boss=null;
+      return true;
+    }
+    return false;
   }
 
   function spawnEnemy(){
@@ -271,8 +346,12 @@
     if((mouseDown||Input.down('a'))) fire();
     if(Input.consume('dash')) doDash();
 
-    // 敌人生成（波次）
-    if(spawnQ>0){ waveT-=dt; if(waveT<=0){ spawnEnemy(); spawnQ--; waveT=Math.max(0.35,0.95-wave*0.03); } }
+    // Boss / 敌人生成（波次）
+    if(boss){
+      var beaten=updateBoss(dt);
+      if(beaten){ nextWave(); }
+    }
+    else if(spawnQ>0){ waveT-=dt; if(waveT<=0){ spawnEnemy(); spawnQ--; waveT=Math.max(0.35,0.95-wave*0.03); } }
     else if(enemies.length===0){ nextWave(); }
 
     // 敌人 AI
@@ -416,6 +495,30 @@
       if(e.hp<e.maxhp){ var w=e.r*2; ctx.fillStyle='#000'; ctx.fillRect(e.x-w/2,e.y-e.r-7,w,3);
         ctx.fillStyle=COL.green; ctx.fillRect(e.x-w/2,e.y-e.r-7,w*(e.hp/e.maxhp),3); }
     }
+    // Boss
+    if(boss){
+      var bc = boss.phase===2 ? '#f6465d' : '#8a5cf0';
+      // 外圈光环
+      ctx.strokeStyle = boss.phase===2 ? 'rgba(246,70,93,.5)' : 'rgba(138,92,240,.45)';
+      ctx.lineWidth=4; ctx.beginPath(); ctx.arc(boss.x,boss.y,boss.r+7+ (boss.flash>0?4:0),0,7); ctx.stroke();
+      // 本体（多边形核心）
+      ctx.fillStyle = boss.flash>0 ? '#fff' : bc;
+      ctx.beginPath();
+      for(var k=0;k<8;k++){ var pa=k/8*Math.PI*2 - Math.PI/2; var rr = boss.r*(k%2===0?1:0.72);
+        var px=boss.x+Math.cos(pa)*rr, py=boss.y+Math.sin(pa)*rr;
+        if(k===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=2; ctx.stroke();
+      // 核心眼
+      ctx.fillStyle='#0f0f14'; ctx.beginPath(); ctx.arc(boss.x,boss.y,boss.r*0.34,0,7); ctx.fill();
+      ctx.fillStyle = boss.phase===2 ? '#ffcf5a' : '#c3a6ff'; ctx.beginPath(); ctx.arc(boss.x,boss.y,boss.r*0.16,0,7); ctx.fill();
+      // 顶部 Boss 血条
+      var bw=W*0.6, bx=(W-bw)/2, by=14;
+      ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(bx-2,by-2,bw+4,12);
+      ctx.fillStyle=bc; ctx.fillRect(bx,by,bw*Math.max(0,boss.hp/boss.maxhp),8);
+      ctx.fillStyle='#fff'; ctx.font='11px system-ui'; ctx.textAlign='center';
+      ctx.fillText('BOSS '+(boss.phase===2?'· 狂暴':''), W/2, by+7); ctx.textAlign='left';
+    }
     // 玩家
     if(player){
       ctx.save(); ctx.translate(player.x,player.y); ctx.rotate(player.aim);
@@ -496,6 +599,11 @@
     getW: function(){ return W; }, getH: function(){ return H; },
     // ---- 难度系统钩子 ----
     DIFFICULTY: DIFFICULTY, setDifficulty: setDifficulty, getDifficulty: getDifficulty,
+    // ---- Boss 系统钩子 ----
+    BOSS_EVERY: BOSS_EVERY, isBossWave: isBossWave, spawnBoss: spawnBoss, updateBoss: updateBoss,
+    getBoss: function(){ return boss; }, setBoss: function(v){ boss = v; },
+    setBossHp: function(v){ if(boss) boss.hp = v; },
+    addBullet: function(b){ bullets.push(b); },
     // ---- 注入：标准化掉落/增益系统钩子 ----
     spawnPickup: function(type,x,y){ if(type===undefined) return spawnPickupAtRandom(); return makePickup(type, x!==undefined?x:player.x, y!==undefined?y:player.y); },
     stepPickups: function(dt){ updatePickups(dt); },

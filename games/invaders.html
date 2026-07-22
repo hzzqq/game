@@ -63,10 +63,10 @@
   // ---------- 难度系统（简单/普通/困难/地狱）----------
   // speedMult=初始编队速度倍率；growth=每波速度递增倍率（越高越快变难）
   const DIFFICULTY = {
-    easy:   { label:'简单', speedMult:0.7, growth:1.10 },
-    normal: { label:'普通', speedMult:1.0, growth:1.15 },
-    hard:   { label:'困难', speedMult:1.35, growth:1.20 },
-    hell:   { label:'地狱', speedMult:1.8, growth:1.28 },
+    easy:   { label:'简单', speedMult:0.7, growth:1.10, bossHpMult:0.7 },
+    normal: { label:'普通', speedMult:1.0, growth:1.15, bossHpMult:1.0 },
+    hard:   { label:'困难', speedMult:1.35, growth:1.20, bossHpMult:1.4 },
+    hell:   { label:'地狱', speedMult:1.8, growth:1.28, bossHpMult:1.9 },
   };
   const DIFF_ORDER = ['easy','normal','hard','hell'];
   let difficulty = 'normal';
@@ -75,6 +75,8 @@
   function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
 
   let player, aliens, bullets, ox, oy, dir, speed, score, lives, wave, over, cooldown;
+  let boss = null;       // Boss 波：{x,y,w,h,hp,maxHp,dir,vx,phase} 非 boss 波为 null
+  const BOSS_EVERY = 3;  // 每 3 波出现一次 Boss
   let pickups = [];      // 掉落道具：{x,y,vy,type}
   let rocketLeft = 0;    // 🚀 剩余强化弹
   let shieldUntil = 0;   // 🛡 护盾到期时刻
@@ -84,6 +86,55 @@
     aliens=[];
     for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) aliens.push({col:c,row:r,alive:true});
     ox=0; oy=0; dir=1;
+  }
+
+  // ---------- Boss 系统（每 BOSS_EVERY 波出现，血条 + 多阶段 + 击败奖励）----------
+  function isBossWave(w){ return w % BOSS_EVERY === 0; }
+  function spawnBoss(){
+    const bw = Math.round(W*0.34), bh = 46;
+    const maxHp = Math.round((28 + wave*6) * diffCfg().bossHpMult);
+    boss = {
+      x: W/2 - bw/2, y: TOP + 6, w: bw, h: bh,
+      hp: maxHp, maxHp: maxHp,
+      dir: 1, vx: (1.4 + wave*0.15) * diffCfg().speedMult,
+      phase: 1,
+      down: 0            // 累计下压像素（多阶段会加快下压）
+    };
+    aliens = []; // boss 波不刷普通编队
+    if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#f0b90b'); }
+  }
+  // 返回 true 表示 boss 被击败（本帧）
+  function updateBoss(){
+    if(!boss) return false;
+    // 多阶段：血量低于一半进入 phase2（移动更快 + 下压更急）
+    if(boss.phase===1 && boss.hp <= boss.maxHp/2){ boss.phase=2; boss.vx*=1.5; if(typeof Juice!=='undefined') Juice.flash('#f6465d'); }
+    boss.x += boss.dir * boss.vx;
+    if(boss.x < MARGIN){ boss.x = MARGIN; boss.dir = 1; boss.down += (boss.phase===2?10:6); }
+    else if(boss.x + boss.w > W-MARGIN){ boss.x = W-MARGIN-boss.w; boss.dir = -1; boss.down += (boss.phase===2?10:6); }
+    boss.y = TOP + 6 + boss.down;
+    // 子弹击中 boss（强化弹穿透并造成额外伤害）
+    for(const b of bullets){
+      if(b.dead) continue;
+      if(b.x>boss.x && b.x<boss.x+boss.w && b.y>boss.y && b.y<boss.y+boss.h){
+        const dmg = (b.strong && rocketLeft>0) ? 2 : 1;
+        boss.hp -= dmg;
+        if(typeof Juice!=='undefined') Juice.sfx('pickup');
+        if(b.strong && rocketLeft>0){ rocketLeft--; if(rocketLeft<=0) b.strong=false; }
+        else { b.dead=true; }
+      }
+    }
+    bullets = bullets.filter(b=>!b.dead);
+    // boss 触及玩家线 → 致死
+    if(boss.y + boss.h >= PLAYER_Y){ playerHit(); }
+    // 击败：奖励 + 进入下一波
+    if(boss.hp <= 0){
+      score += 100 * wave;                 // 击败奖励
+      pickups.push(makePickup('rocket', boss.x + boss.w/2, boss.y + boss.h)); // 掉落 🚀
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076'); Juice.addTrauma&&Juice.addTrauma(0.5); }
+      boss = null;
+      return true;
+    }
+    return false;
   }
 
   // ---------- 掉落道具（纯注入，不改核心玩法）----------
@@ -126,6 +177,7 @@
     player={x:W/2};
     bullets=[];
     score=0; lives=3; wave=1; over=false; cooldown=0;
+    boss=null;
     pickups=[]; rocketLeft=0; shieldUntil=0; pickupTimer=0;
     reseed(0x1A2B3C4D & 0xFFFFFFFF);
     speed=START_SPEED * diffCfg().speedMult;
@@ -158,6 +210,16 @@
     // 子弹上移
     for(const b of bullets) b.y += b.vy;
     bullets = bullets.filter(b=> b.y > -20);
+    // Boss 波：走独立分支
+    if(boss){
+      updatePickups();
+      const beaten = updateBoss();
+      if(!over && beaten){
+        wave++; speed*=diffCfg().growth;
+        buildAliens(); // 击败 boss 回到普通编队
+      }
+      return;
+    }
     // 子弹击中 alien（🚀强化弹可穿透）
     for(const b of bullets){
       for(const a of aliens){
@@ -180,11 +242,12 @@
     for(const a of aliens){
       if(a.alive && alienY(a)+AH >= PLAYER_Y){ playerHit(); break; }
     }
-    // 全清 → 下一波
+    // 全清 → 下一波（每 BOSS_EVERY 波出 Boss）
     if(!over && aliveCount()===0){
       wave++; speed*=diffCfg().growth;
       if(typeof Juice!=='undefined') Juice.sfx('levelup');
-      buildAliens();
+      if(isBossWave(wave)) spawnBoss();
+      else buildAliens();
     }
   }
 
@@ -196,6 +259,22 @@
     ctx.clearRect(0,0,W,H);
     // aliens
     aliens.forEach(a=>{ if(!a.alive) return; const x=alienX(a), y=alienY(a); ctx.fillStyle='#f6465d'; ctx.fillRect(x,y,AW,AH); });
+    // Boss（本体 + 血条 + 阶段标识）
+    if(boss){
+      ctx.save();
+      const bodyCol = boss.phase===2 ? '#f6465d' : '#9b6bff';
+      ctx.shadowColor=bodyCol; ctx.shadowBlur=16; ctx.fillStyle=bodyCol;
+      ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
+      // 眼睛造型
+      ctx.shadowBlur=0; ctx.fillStyle='#0a0e14';
+      ctx.fillRect(boss.x+boss.w*0.24, boss.y+boss.h*0.34, boss.w*0.12, boss.h*0.28);
+      ctx.fillRect(boss.x+boss.w*0.64, boss.y+boss.h*0.34, boss.w*0.12, boss.h*0.28);
+      ctx.restore();
+      // 血条（顶部横贯）
+      const barW=W-2*MARGIN, barX=MARGIN, barY=2, frac=Math.max(0,boss.hp/boss.maxHp);
+      ctx.fillStyle='#2a2f3a'; ctx.fillRect(barX,barY,barW,4);
+      ctx.fillStyle= boss.phase===2 ? '#f6465d' : '#f0b90b'; ctx.fillRect(barX,barY,barW*frac,4);
+    }
     // bullets
     ctx.fillStyle='#f0b90b'; bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-8,4,8));
     // player
@@ -267,6 +346,13 @@
       getScore:()=>score, setScore:(v)=>{score=v;},
       getLives:()=>lives, setLives:(v)=>{lives=v;},
       getWave:()=>wave, getOver:()=>over, setOver:(v)=>{over=v;},
+      // —— Boss 系统钩子 ——
+      BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
+      getBoss:()=>boss ? {x:boss.x,y:boss.y,w:boss.w,h:boss.h,hp:boss.hp,maxHp:boss.maxHp,phase:boss.phase,dir:boss.dir} : null,
+      setBossHp:(v)=>{ if(boss) boss.hp=v; },
+      setWave:(v)=>{ wave=v; },
+      getBullets2:()=>bullets,
+      addBullet:(x,y,strong)=>{ bullets.push({x,y,vy:BULLET_VY,strong:!!strong}); },
       // —— 难度系统钩子 ——
       DIFFICULTY, setDifficulty, getDifficulty,
       // —— 标准掉落钩子 ——

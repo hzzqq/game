@@ -149,3 +149,46 @@ t.setRand(Math.random);
   H.ok('地狱档单次弹幕数 > 简单档', cHell > cEasy);
   t.setDifficulty('normal'); t.setRand(Math.random);
 }
+
+// ===== Boss 系统 =====
+{
+  t.setDifficulty('normal');
+  H.eq('BOSS_EVERY=3', t.BOSS_EVERY, 3);
+  H.ok('isBossWave(3)=true', t.isBossWave(3) === true);
+  H.ok('isBossWave(6)=true', t.isBossWave(6) === true);
+  H.ok('isBossWave(2)=false', t.isBossWave(2) === false);
+
+  // spawnBoss：boss 生成，hp=maxhp，phase=1
+  t.reset(); t.start(); t.setWave(3); t.spawnBoss();
+  let bs = t.getState().boss;
+  H.ok('spawnBoss 生成 boss', bs !== null);
+  H.eq('spawnBoss hp=maxhp', bs.hp, bs.maxhp);
+  H.eq('spawnBoss phase=1', bs.phase, 1);
+
+  // 生存推进到第3波自动召唤 Boss（wave 2→3）
+  t.reset(); t.start(); t.setSpawnEnabled(false); t.clearBullets(); t.setLives(9); t.setWave(2); t.setTime(7.9);
+  t.update(0.2);
+  H.ok('生存推进到第3波自动召唤 Boss', t.getState().boss !== null);
+
+  // 半血进 phase2
+  t.reset(); t.start(); t.setWave(3); t.spawnBoss();
+  t.setBossHp(t.getState().boss.maxhp * 0.4);
+  t.update(0.016);
+  H.eq('boss 半血进 phase2', t.getState().boss.phase, 2);
+
+  // 击败 Boss：hp 耗尽 → boss 清空 + 加分
+  t.reset(); t.start(); t.setLives(9); t.setWave(3); t.spawnBoss();
+  const sc0 = t.getState().score;
+  t.setBossHp(30);
+  t.update(1.0); // 扣 60 → 击败
+  H.ok('击败后 boss=null', t.getState().boss === null);
+  H.ok('击败 boss 加分', t.getState().score > sc0);
+
+  // bossHpMult：地狱 Boss 血量 > 简单
+  t.setDifficulty('easy'); t.reset(); t.start(); t.setWave(3); t.spawnBoss();
+  const eHp = t.getState().boss.maxhp;
+  t.setDifficulty('hell'); t.reset(); t.start(); t.setWave(3); t.spawnBoss();
+  const hHp = t.getState().boss.maxhp;
+  H.ok('bossHpMult 地狱 Boss 血量 > 简单', hHp > eHp);
+  t.setDifficulty('normal');
+}

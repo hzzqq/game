@@ -285,6 +285,52 @@ const hellSum = sumHp('hell');
 ok('地狱档整批敌人总血量 > 简单档', hellSum > easySum * 1.5);
 t.setDifficulty('normal');
 
+// 36. Boss 系统：常量 + 波次判定
+t.setDifficulty('normal');
+eq('BOSS_EVERY=3', t.BOSS_EVERY, 3);
+ok('isBossWave(3)=true', t.isBossWave(3) === true);
+ok('isBossWave(6)=true', t.isBossWave(6) === true);
+ok('isBossWave(2)=false', t.isBossWave(2) === false);
+ok('isBossWave(0)=false', t.isBossWave(0) === false);
+
+// 37. spawnBoss：boss 生成，hp=maxhp，phase=1
+t.reset(); t.setEnemies([]); t.setWave(3); t.spawnBoss();
+const bs = t.getBoss();
+ok('spawnBoss 生成 boss', bs !== null && typeof bs.hp === 'number');
+eq('spawnBoss hp=maxhp', bs.hp, bs.maxhp);
+eq('spawnBoss phase=1', bs.phase, 1);
+ok('spawnBoss 清空普通敌人', t.getEnemies().length === 0);
+
+// 38. nextWave 到第3波自动召唤 Boss（非 boss 波不生成）
+t.reset(); t.setBoss(null); t.setWave(1); t.setEnemies([]); t.nextWave();
+ok('nextWave 到第2波不生成 boss', t.getBoss() === null);
+t.setBoss(null); t.setWave(2); t.setEnemies([]); t.nextWave();
+ok('nextWave 到第3波生成 boss', t.getBoss() !== null);
+
+// 39. 半血进入 phase2
+t.reset(); t.setWave(3); t.spawnBoss();
+const b2 = t.getBoss();
+t.setBossHp(b2.maxhp * 0.4);
+t.updateBoss(0.016);
+eq('boss 半血进 phase2', t.getBoss().phase, 2);
+
+// 40. 击败 Boss：返回 true + boss 清空 + 加分
+t.reset(); t.setWave(3); t.spawnBoss(); t.setScore(0);
+t.setBossHp(1);
+const bb = t.getBoss();
+t.addBullet({x:bb.x, y:bb.y, vx:0, vy:0, r:6, dmg:80, from:'p', life:1, color:'#fff'});
+const beaten = t.updateBoss(0.016);
+ok('击败 boss updateBoss 返回 true', beaten === true);
+ok('击败后 boss=null', t.getBoss() === null);
+ok('击败 boss 加分 >0', t.getScore() > 0);
+
+// 41. bossHpMult：地狱档 Boss 血量 > 简单档
+function bossHp(diff){ t.setDifficulty(diff); t.reset(); t.setWave(3); t.spawnBoss(); return t.getBoss().maxhp; }
+const eBoss = bossHp('easy');
+const hBoss = bossHp('hell');
+ok('bossHpMult 地狱 Boss 血量 > 简单', hBoss > eBoss);
+t.setDifficulty('normal');
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

@@ -84,12 +84,14 @@
     // ---------- 难度系统（简单/普通/困难/地狱）----------
     // countMult=每波敌机数量倍率；hpMult=敌机血量倍率；speedMult=敌机下落速度倍率
     const DIFFICULTY = {
-      easy:   { label:'简单', countMult:0.7, hpMult:1.0, speedMult:0.7 },
-      normal: { label:'普通', countMult:1.0, hpMult:1.0, speedMult:1.0 },
-      hard:   { label:'困难', countMult:1.3, hpMult:1.5, speedMult:1.3 },
-      hell:   { label:'地狱', countMult:1.6, hpMult:2.0, speedMult:1.6 },
+      easy:   { label:'简单', countMult:0.7, hpMult:1.0, speedMult:0.7, bossHpMult:0.7 },
+      normal: { label:'普通', countMult:1.0, hpMult:1.0, speedMult:1.0, bossHpMult:1.0 },
+      hard:   { label:'困难', countMult:1.3, hpMult:1.5, speedMult:1.3, bossHpMult:1.4 },
+      hell:   { label:'地狱', countMult:1.6, hpMult:2.0, speedMult:1.6, bossHpMult:1.9 },
     };
     const DIFF_ORDER = ['easy','normal','hard','hell'];
+    const BOSS_EVERY = 3;                         // 每 3 波出现 Boss
+    function isBossWave(w){ return w % BOSS_EVERY === 0; }
     let difficulty = 'normal';
     function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
     function getDifficulty(){ return difficulty; }
@@ -103,7 +105,8 @@
         running:false, paused:false, over:false,
         autoFire:true, autoWave:true, waveDelay:0,
         keys:{left:false,right:false},
-        pickups:[], coins:0, shield:0, boostTimer:0
+        pickups:[], coins:0, shield:0, boostTimer:0,
+        boss:null
       };
     }
 
@@ -118,6 +121,8 @@
     function takeHit(){ if(S.shield>0){ S.shield--; if(J)J.flash&&J.flash('#02c076',.3); return; } S.lives--; }
 
     function spawnWave(n){
+      // Boss 波：清空编队并生成 Boss
+      if(isBossWave(n)){ spawnBoss(n); return; }
       const cfg=diffCfg();
       const count=Math.max(2, Math.round((4+n)*cfg.countMult));
       const hp=Math.max(1, Math.round((1+Math.floor(n/3))*cfg.hpMult));
@@ -127,7 +132,47 @@
       for(let i=0;i<count;i++){
         arr.push({x:80+i*step, y:70, r:18, hp:hp, vy:vy});
       }
-      S.enemies=arr; S.wave=n; S.waveDelay=0;
+      S.enemies=arr; S.wave=n; S.waveDelay=0; S.boss=null;
+    }
+
+    // ---------- Boss 系统（血条 + 多阶段 + 击败奖励）----------
+    function spawnBoss(n){
+      const cfg=diffCfg();
+      const maxHp=Math.round((30+n*6)*cfg.bossHpMult);
+      const bw=Math.round(W*0.34), bh=54;
+      S.boss={ x:W/2, y:90, w:bw, h:bh, r:bw/2, hp:maxHp, maxHp:maxHp,
+               dir:1, vx:(90+n*8)*cfg.speedMult, phase:1, vy:8*cfg.speedMult };
+      S.enemies=[]; S.wave=n; S.waveDelay=0;
+      if(J){ J.sfx&&J.sfx('levelup'); J.flash&&J.flash('#f0b90b',0.2); }
+    }
+    // 返回 true 表示 boss 本帧被击败
+    function updateBoss(dt){
+      const bs=S.boss; if(!bs) return false;
+      // 半血进入 phase2：移动更快 + 下压更急
+      if(bs.phase===1 && bs.hp<=bs.maxHp/2){ bs.phase=2; bs.vx*=1.5; bs.vy*=1.6; if(J)J.flash&&J.flash('#f6465d',0.25); }
+      bs.x+=bs.dir*bs.vx*dt;
+      const half=bs.w/2;
+      if(bs.x-half<20){ bs.x=20+half; bs.dir=1; bs.y+=bs.vy; }
+      else if(bs.x+half>W-20){ bs.x=W-20-half; bs.dir=-1; bs.y+=bs.vy; }
+      // 子弹命中 boss
+      for(const b of S.bullets){
+        if(b.dead) continue;
+        if(Math.abs(b.x-bs.x)<half && Math.abs(b.y-bs.y)<bs.h/2){
+          b.dead=true; bs.hp--;
+          if(J)J.burst&&J.burst(b.x,b.y,'#9b6bff');
+        }
+      }
+      S.bullets=S.bullets.filter(b=>!b.dead && b.y>-20);
+      // boss 触及玩家 → 扣血
+      if(bs.y+bs.h/2>=S.player.y-S.player.r){ takeHit(); if(J)J.flash&&J.flash('#f6465d'); bs.y=90; bs.hp=Math.max(0,bs.hp); }
+      if(bs.hp<=0){
+        S.score+=200*Math.max(1,Math.floor(bs.maxHp/30));
+        S.pickups.push(makePickup('heal', bs.x, bs.y));
+        if(J){ J.sfx&&J.sfx('win'); J.flash&&J.flash('#02c076',0.35); J.achievement&&J.achievement('Boss 击破！'); }
+        S.boss=null;
+        return true;
+      }
+      return false;
     }
 
     function fire(){
@@ -184,12 +229,15 @@
       }
       S.bullets=S.bullets.filter(b=>!b.dead && b.y>-20);
       S.enemies=S.enemies.filter(e=>!e.dead);
+      // Boss 更新（存在时）
+      let bossBeaten=false;
+      if(S.boss){ bossBeaten=updateBoss(dt); }
       // 失败
       if(S.lives<=0){ S.over=true; S.running=false; showOver(); if(J){ J.sfx&&J.sfx('lose'); J.flash('#f6465d',0.3); J.achievement&&J.achievement('任务失败'); } }
-      // 波次推进
-      if(S.enemies.length===0 && S.autoWave){
+      // 波次推进（Boss 波须先击败 Boss）
+      if(!S.boss && S.enemies.length===0 && S.autoWave){
         S.waveDelay-=dt;
-        if(S.waveDelay<=0){ spawnWave(S.wave+1); if(J){ J.sfx&&J.sfx('levelup'); J.flash('#02c076',0.2); } }
+        if(S.waveDelay<=0){ spawnWave(S.wave+1); if(!isBossWave(S.wave) && J){ J.sfx&&J.sfx('levelup'); J.flash('#02c076',0.2); } }
       }
       updatePickups(dt);
       syncHud();
@@ -204,7 +252,8 @@
         player:{x:S.player.x,y:S.player.y,r:S.player.r},
         bullets:S.bullets.map(b=>({x:b.x,y:b.y,r:b.r})),
         enemies:S.enemies.map(e=>({x:e.x,y:e.y,r:e.r,hp:e.hp})),
-        enemyCount:S.enemies.length, bulletCount:S.bullets.length
+        enemyCount:S.enemies.length, bulletCount:S.bullets.length,
+        boss:S.boss?{x:S.boss.x,y:S.boss.y,w:S.boss.w,h:S.boss.h,hp:S.boss.hp,maxHp:S.boss.maxHp,phase:S.boss.phase}:null
       };
     }
 
@@ -232,7 +281,13 @@
       getLives(){ return S.lives; },
       setRand(seed){ pickupRng=mk(seed>>>0); },
       // ---- 难度系统钩子 ----
-      DIFFICULTY, setDifficulty, getDifficulty
+      DIFFICULTY, setDifficulty, getDifficulty,
+      // ---- Boss 系统钩子 ----
+      BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
+      getBoss(){ return S.boss?{x:S.boss.x,y:S.boss.y,w:S.boss.w,h:S.boss.h,hp:S.boss.hp,maxHp:S.boss.maxHp,phase:S.boss.phase}:null; },
+      setBossHp(v){ if(S.boss) S.boss.hp=v; },
+      setWave(n){ S.wave=n; },
+      addBullet(x,y){ S.bullets.push({x,y,vx:0,vy:-700,r:4}); }
     };
 
     // ===== 渲染（沙箱下 ctx 为桩，无副作用）=====
@@ -242,6 +297,19 @@
       for(const e of S.enemies){
         ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,7);ctx.fillStyle='#f6465d';ctx.fill();
         ctx.fillStyle='#0a0e14';ctx.fillRect(e.x-2,e.y-6,4,12);
+      }
+      // Boss（本体 + 血条 + 阶段色）
+      if(S.boss){
+        const bs=S.boss, col=bs.phase===2?'#f6465d':'#9b6bff';
+        ctx.save(); ctx.shadowColor=col; ctx.shadowBlur=18; ctx.fillStyle=col;
+        ctx.fillRect(bs.x-bs.w/2, bs.y-bs.h/2, bs.w, bs.h);
+        ctx.shadowBlur=0; ctx.fillStyle='#0a0e14';
+        ctx.fillRect(bs.x-bs.w*0.22, bs.y-4, bs.w*0.1, 10);
+        ctx.fillRect(bs.x+bs.w*0.12, bs.y-4, bs.w*0.1, 10);
+        ctx.restore();
+        const barW=W-40, frac=Math.max(0,bs.hp/bs.maxHp);
+        ctx.fillStyle='#2a2f3a'; ctx.fillRect(20,8,barW,5);
+        ctx.fillStyle=bs.phase===2?'#f6465d':'#f0b90b'; ctx.fillRect(20,8,barW*frac,5);
       }
       // 子弹
       for(const b of S.bullets){ ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fillStyle='#f0b90b';ctx.fill(); }
