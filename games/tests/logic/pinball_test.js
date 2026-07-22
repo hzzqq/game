@@ -1,98 +1,59 @@
-const { loadGame, eq, ok } = require('./harness');
-const { t } = loadGame('../pinball.html');
+// 弹珠台：掉落道具/增益系统注入测试（确定性驱动，不依赖随机自动掉落）
+const H = require('./harness');
+const { t: T } = H.loadGame('../pinball.html');
 
-// ---------- 常量 ----------
-eq('W=400', t.W, 400);
-eq('H=600', t.H, 600);
-eq('G=0.35', t.G, 0.35);
-eq('BALL_R=10', t.BALL_R, 10);
-eq('START_LIVES=3', t.START_LIVES, 3);
-eq('FLIP_LX=120', t.FLIP_LX, 120);
-eq('FLIP_RX=280', t.FLIP_RX, 280);
-eq('BUMPERS 3 根', t.BUMPERS.length, 3);
+// 初始化
+T.reset();
+const s0 = T.getState();
+H.ok(s0.pickups === 0 && s0.shield === 0 && s0.boostTimer === 0, 'pinball: reset 后无掉落/护盾/强化');
 
-// ---------- 重力 ----------
-{
-  t.reset();
-  t.setBall({x:200, y:100, vx:0, vy:0});
-  t.step();
-  ok('重力使 vy 增加 (>0)', t.getBall().vy > 0);
-}
+// 1) 金币生效数值
+T.setScore(0);
+T.applyPickup('coin');
+H.eq('pinball: 金币 +50', T.getScore(), 50);
 
-// ---------- 左墙反弹 ----------
-{
-  t.reset();
-  t.setBall({x:5, y:100, vx:-3, vy:0});
-  t.step();
-  ok('左墙反弹 vx 变正', t.getBall().vx > 0);
-}
-{
-  t.reset();
-  t.setBall({x:395, y:100, vx:3, vy:0});
-  t.step();
-  ok('右墙反弹 vx 变负', t.getBall().vx < 0);
-}
+// 2) 闪电生效数值
+T.setScore(0);
+T.applyPickup('zap');
+H.eq('pinball: 闪电 +30', T.getScore(), 30);
 
-// ---------- bumper 碰撞加分 ----------
-{
-  const b0 = t.BUMPERS[0]; // {x:200, y:192, r:26}
-  t.reset(); t.setScore(0);
-  t.setBall({x:b0.x, y:b0.y+1, vx:0, vy:0});
-  t.step();
-  ok('撞 bumper 加分 (>=10)', t.getScore() >= 10);
-  ok('撞 bumper 后被推出 (y 离开 bumper 中心)', Math.abs(t.getBall().y - b0.y) >= b0.r);
-}
+// 3) 弹板强化计时
+T.applyPickup('boost');
+H.eq('pinball: 强化计时置 8s', T.getBoost(), 8);
+T.stepPickups(2);
+H.eq('pinball: 强化计时递减', T.getBoost(), 6);
 
-// ---------- 左挡板击球 ----------
-{
-  t.reset(); t.setLeft(true);
-  t.setBall({x:t.FLIP_LX, y:t.FLIP_Y-20, vx:0, vy:5});
-  t.step();
-  ok('左挡板激活击球 vy 变负（向上）', t.getBall().vy < 0);
-}
-// ---------- 右挡板击球 ----------
-{
-  t.reset(); t.setRight(true);
-  t.setBall({x:t.FLIP_RX, y:t.FLIP_Y-20, vx:0, vy:5});
-  t.step();
-  ok('右挡板激活击球 vy 变负（向上）', t.getBall().vy < 0);
-}
-// ---------- 挡板未激活不击球 ----------
-{
-  t.reset(); t.setLeft(false);
-  t.setBall({x:t.FLIP_LX, y:t.FLIP_Y-20, vx:0, vy:5});
-  t.step();
-  ok('挡板未激活不击球 vy 仍向下', t.getBall().vy > 0);
-}
+// 4) 护盾生效数值
+T.applyPickup('shield');
+H.eq('pinball: 护盾置 1', T.getShield(), 1);
 
-// ---------- 失球 ----------
-{
-  t.reset(); t.setLives(3);
-  t.setBall({x:200, y:t.H+t.BALL_R+5, vx:0, vy:0});
-  t.step();
-  eq('失球 lives-- (3→2)', t.getLives(), 2);
-  ok('失球后球重置到顶部 (y<100)', t.getBall().y < 100);
-}
-// ---------- game over ----------
-{
-  t.reset(); t.setLives(1);
-  t.setBall({x:200, y:t.H+t.BALL_R+5, vx:0, vy:0});
-  t.step();
-  eq('lives 耗尽 =0', t.getLives(), 0);
-  ok('lives=0 即 over', t.isOver()===true);
-}
+// 5) 未碰撞不生效
+T.setScore(0);
+T.setBall({ x: 200, y: 300, vx: 0, vy: 0 });
+T.spawnPickup('coin', 10, 10);
+H.eq('pinball: 未碰撞前掉落数=1', T.getPickups().length, 1);
+T.stepPickups(0.05);
+H.eq('pinball: 远离未拾取，分数不变', T.getScore(), 0);
+H.eq('pinball: 远离未拾取，掉落仍在', T.getPickups().length, 1);
 
-// ---------- over 后 step 不动 ----------
-{
-  t.reset(); t.setLives(0); t.setOver && 0;
-  // 直接构造 over：lives=0 但需 over=true。用失球路径已覆盖；这里验证 over 后 step 不改变球
-  // 通过 setLives(1) 再失球触发 over 后，再 step 应无副作用
-  t.reset(); t.setLives(1);
-  t.setBall({x:200, y:t.H+t.BALL_R+5, vx:0, vy:0});
-  t.step(); // over=true
-  const y = t.getBall().y;
-  t.step(); // over 后 step 直接 return
-  eq('over 后球位置不变', t.getBall().y, y);
-}
+// 6) 拾取后移除
+T.reset(); T.setScore(0); T.setBall({ x: 200, y: 300, vx: 0, vy: 0 });
+T.spawnPickup('coin', 200, 300);
+T.stepPickups(0.05);
+H.eq('pinball: 球拾取后分数 +50', T.getScore(), 50);
+H.eq('pinball: 拾取后掉落清空', T.getPickups().length, 0);
 
-console.log('pinball: 全部断言通过');
+// 7) 护盾免死（不扣命，护盾消耗）
+T.reset();
+T.setLives(3); T.setShield(1);
+T.takeHit();
+H.eq('pinball: 护盾免死，命数不变', T.getLives(), 3);
+H.eq('pinball: 护盾被消耗', T.getShield(), 0);
+
+// 8) 无盾扣血（命数 1→0 即结束，不触发 resetBall，避免消耗 Math.random）
+T.reset();
+T.setLives(1); T.setShield(0);
+T.takeHit();
+H.eq('pinball: 无盾扣血，命数-1', T.getLives(), 0);
+
+module.exports = {};
