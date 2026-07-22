@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 星战 STAR BATTLE</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--gold)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>星战</b> STAR BATTLE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">8</span></span><span id="status">每行/列/区域放 1 颗星，星互不相邻</span></div>
+    <div class="boardwrap"><canvas id="board" width="368" height="368"></canvas></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点击格子放置/取消星。每行、每列、每个区域恰好一颗星，且任意两颗星不相邻（含对角）。</div>
+  </div>
+  <div class="foot">Star Battle（星战）：在 N×N 网格中放置 N 颗星，使每行、每列、每个区域恰好包含一颗星，且任意两颗星（含对角）互不相邻。区域由随机分区生成，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(seed){let s=seed>>>0;return ()=>{s=(s*1664525+1013904223)>>>0;return (s&0x7fffffff)/0x7fffffff;};}
+  let _rng = mk(0xabcdef01);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const J = (typeof Juice!=='undefined') ? Juice : null;
+
+  const N = 8;
+  const CELL = 40, PAD = 24;
+  let region;   // 2D: region[r][c] = region id
+  let sol;      // 2D boolean: solution stars
+  let stars;    // 2D boolean: player stars
+  let won = false;
+  let confettiFired = false;
+
+  const NEI8 = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  const NEI4 = [[1,0],[-1,0],[0,1],[0,-1]];
+  function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+  function regColor(i){ return 'hsl(' + ((i*47)%360) + ',35%,16%)'; }
+
+  // ---- 生成 8 颗星：每行列各 1，互不相邻（含对角）----
+  function genStars(){
+    const placed=[];
+    const usedCol=new Set();
+    function bt(r){
+      if(r===N) return true;
+      const order=shuffle([...Array(N).keys()]);
+      for(const c of order){
+        if(usedCol.has(c)) continue;
+        let okk=true;
+        for(const p of placed){ if(Math.abs(p[0]-r)<=1 && Math.abs(p[1]-c)<=1){ okk=false; break; } }
+        if(!okk) continue;
+        placed.push([r,c]); usedCol.add(c);
+        if(bt(r+1)) return true;
+        placed.pop(); usedCol.delete(c);
+      }
+      return false;
+    }
+    return bt(0) ? placed : null;
+  }
+
+  // ---- 多源 BFS：从星位生长出 N 个连通区域，每区含恰好 1 星 ----
+  function genRegions(starList){
+    const reg = Array.from({length:N},()=>new Array(N).fill(-1));
+    const q=[];
+    starList.forEach((s,i)=>{ reg[s[0]][s[1]]=i; q.push(s); });
+    let head=0;
+    while(head<q.length){
+      const [r,c]=q[head++];
+      for(const [dr,dc] of NEI4){
+        const nr=r+dr, nc=c+dc;
+        if(inb(nr,nc) && reg[nr][nc]===-1){ reg[nr][nc]=reg[r][c]; q.push([nr,nc]); }
+      }
+    }
+    return reg;
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    let stars_=null;
+    for(let a=0; a<200 && !stars_; a++){ stars_=genStars(); }
+    if(!stars_) stars_=genStars();
+    region = genRegions(stars_);
+    sol = Array.from({length:N},()=>new Array(N).fill(false));
+    stars_.forEach(([r,c])=> sol[r][c]=true);
+    stars = Array.from({length:N},()=>new Array(N).fill(false));
+    won=false;
+    return getState();
+  }
+
+  function isWin(){
+    let cnt=0;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(stars[r][c]) cnt++;
+    if(cnt!==N) return false;
+    for(let r=0;r<N;r++){ let k=0; for(let c=0;c<N;c++) if(stars[r][c]) k++; if(k!==1) return false; }
+    for(let c=0;c<N;c++){ let k=0; for(let r=0;r<N;r++) if(stars[r][c]) k++; if(k!==1) return false; }
+    const regCnt=new Array(N).fill(0);
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(stars[r][c]) regCnt[region[r][c]]++;
+    for(let i=0;i<N;i++) if(regCnt[i]!==1) return false;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(stars[r][c]){
+      for(const [dr,dc] of NEI8){ const nr=r+dr, nc=c+dc; if(inb(nr,nc)&&stars[nr][nc]) return false; }
+    }
+    return true;
+  }
+
+  function setStar(r,c,val){
+    if(!inb(r,c)) return false;
+    stars[r][c]=!!val;
+    won=isWin();
+    if(won && J) J.sfx('levelup');
+    return true;
+  }
+  function toggleStar(r,c){ if(!inb(r,c)) return false; return setStar(r,c,!stars[r][c]); }
+  function reset(){ stars=Array.from({length:N},()=>new Array(N).fill(false)); won=false; return getState(); }
+  function applySolution(){ stars=sol.map(row=>row.slice()); won=isWin(); return won; }
+  function getSolution(){ return sol.map(row=>row.slice()); }
+  function getState(){ return { N, region:region.map(r=>r.slice()), stars:stars.map(r=>r.slice()), won }; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      ctx.fillStyle=regColor(region[r][c]);
+      ctx.fillRect(PAD+c*CELL, PAD+r*CELL, CELL, CELL);
+    }
+    // 区域边界
+    ctx.strokeStyle='#1f2a38'; ctx.lineWidth=2; ctx.beginPath();
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const x=PAD+c*CELL, y=PAD+r*CELL;
+      if(c+1<N && region[r][c]!==region[r][c+1]){ ctx.moveTo(x+CELL,y); ctx.lineTo(x+CELL,y+CELL); }
+      if(r+1<N && region[r][c]!==region[r+1][c]){ ctx.moveTo(x,y+CELL); ctx.lineTo(x+CELL,y+CELL); }
+    }
+    ctx.stroke();
+    // 外框
+    ctx.strokeStyle='#2a3a4d'; ctx.lineWidth=2; ctx.strokeRect(PAD,PAD,N*CELL,N*CELL);
+    // 星
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(stars[r][c]){
+      const cx=PAD+c*CELL+CELL/2, cy=PAD+r*CELL+CELL/2;
+      ctx.fillStyle='#f0b90b';
+      ctx.beginPath(); ctx.arc(cx,cy,CELL*0.28,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#0a0e14'; ctx.font='bold 18px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('★', cx, cy+1);
+    }
+    const stt=$('status'); if(stt) stt.textContent = won?'已通关':'每行/列/区域放 1 颗星，星互不相邻';
+    const msg=$('msg'); if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！所有约束满足。'; if(!confettiFired){ confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } else { msg.className='msg'; confettiFired=false; } }
+  }
+  function hit(mx,my){
+    const fx=(mx-PAD)/CELL, fy=(my-PAD)/CELL;
+    if(fx<0||fy<0||fx>N||fy>N) return null;
+    const c=Math.floor(fx), r=Math.floor(fy);
+    if(r>=0&&r<N&&c>=0&&c<N) return {r,c};
+    return null;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'),nb=$('new'),rb=$('reset');
+    if(cv) cv.addEventListener('click',e=>{
+      const rect=cv.getBoundingClientRect();
+      const mx=(e.clientX-rect.left)*(cv.width/rect.width);
+      const my=(e.clientY-rect.top)*(cv.height/rect.height);
+      const k=hit(mx,my); if(k){ toggleStar(k.r,k.c); render(); }
+    });
+    if(nb) nb.onclick=()=>{ newPuzzle(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setStar, toggleStar, applySolution, getSolution, getState };
+  }
+})();
+</script>
+</body>
+</html>
