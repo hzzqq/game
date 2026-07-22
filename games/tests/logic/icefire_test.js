@@ -52,4 +52,55 @@ H.ok(T.ice.x === isx, 'icefire: 无盾死亡→重生到起点 (x=' + T.ice.x + 
 T.setBoost(5);
 H.ok(T.getBoost() === 5, 'icefire: getBoost=5 (boost=' + T.getBoost() + ')');
 
+// ============ 电脑玩家（CPU 接管 P2）回归单测 ============
+// 复用上方已加载的 T（icefire.html 实例）。CPU 只调既有移动 API，不碰核心玩法/碰撞/过关逻辑。
+T.reset(); T.setMode('2p');
+
+// 10) 模式开关：默认双人，可切到 cpu 并读回
+H.ok(T.getMode()==='2p', 'icefire: 默认双人模式 (mode=' + T.getMode() + ')');
+T.setMode('cpu');
+H.ok(T.getMode()==='cpu', 'icefire: 可切换到 cpu 模式 (mode=' + T.getMode() + ')');
+
+// 11) 控制组：双人模式下无任何输入，fire 不应被自动移动（证明默认仍是双人协作）
+T.reset(); T.setMode('2p');
+var fBefore = T.fire.x;
+for (var i = 0; i < 60; i++) T.update();
+H.ok(Math.abs(T.fire.x - fBefore) < 0.001, 'icefire: 双人模式 fire 不被自动移动');
+
+// 12) CPU 接管后驱动 P2（火人）：朝出口前进并最终抵达（atExit）
+T.reset(); T.setMode('cpu'); T.setRand(20240722);
+var fStart = T.fire.x;
+var reached = false, psteps = 0;
+while (psteps < 1500 && !reached) {
+  T.update();              // step 在 cpu 模式下自动调用 cpuThinkFor('fire')
+  psteps++;
+  if (T.fire.atExit) reached = true;
+}
+H.ok(T.fire.x > fStart + 200, 'icefire: CPU 驱动 P2 朝出口前进 (Δx=' + Math.round(T.fire.x - fStart) + ')');
+H.ok(reached, 'icefire: CPU 驱动 P2 抵达出口 (atExit, steps=' + psteps + ')');
+
+// 13) CPU 协作全程无异常 + 双人协作通关：测试侧同时驱动 P1（冰人），验证与人类协作可通关
+T.reset(); T.setMode('cpu'); T.setRand(20240722);
+var guard = 0, runErr = null;
+try {
+  while (T.getState() !== 'win' && guard < 4000) {
+    T.cpuThinkFor('ice');   // 测试侧驱动 P1，模拟人类玩家
+    T.update();             // 内部在 cpu 模式下自动驱动 P2
+    guard++;
+    if (T.getState() === 'clear') T.next();   // 过关心跳：L1→L2
+  }
+} catch (e) { runErr = e; }
+H.ok(!runErr, 'icefire: CPU 协作模式全程无异常' + (runErr ? (' ' + runErr.message) : ''));
+H.ok(T.getState() === 'win', 'icefire: CPU 协作通关 (state=' + T.getState() + ' steps=' + guard + ')');
+
+// 14) 局部 PRNG 确定性：同种子短窗口内（无掉落干扰）CPU 决策结果一致，证明用 mk 而非 Math.random
+T.reset(); T.setMode('cpu'); T.setRand(5150);
+for (var a = 0; a < 120; a++) T.update();
+var fx1 = Math.round(T.fire.x);
+T.reset(); T.setMode('cpu'); T.setRand(5150);
+for (var b = 0; b < 120; b++) T.update();
+var fx2 = Math.round(T.fire.x);
+H.ok(fx1 === fx2, 'icefire: 同种子 CPU 决策确定性 (fx1=' + fx1 + ' fx2=' + fx2 + ')');
+
 module.exports = {};
+

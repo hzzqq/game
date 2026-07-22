@@ -37,7 +37,7 @@
     <div class="hud"><span>玩家0 · <span class="st" style="color:var(--red)">红</span></span><span>状态 · <span class="st" id="st">进行中</span></span><span>玩家1 · <span class="st" style="color:var(--green)">绿</span></span></div>
     <div class="board" id="board"></div>
     <div class="msg" id="msg">双光轮在网格中行驶并留下光迹，撞墙、撞光迹或头碰头即出局，存活者胜。方向键控制红方，WASD 控制绿方。</div>
-    <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
+    <div class="controls"><button id="new" class="ghost">新局 NEW</button><button id="cpuToggle" class="ghost">VS 电脑：关</button></div>
   </div>
   <div class="foot">Tron（光轮对战）：双人网格竞速。光轮行进会在身后留下轨迹，撞墙、撞对方轨迹或迎面相撞即淘汰，最后存活者获胜。</div>
 
@@ -51,6 +51,30 @@
   let shieldP=[false,false], heartP=[false,false], boostP=[0,0], pickups=[], pkid=0;
   function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
   const _prng = mk(0x3c8e2f1a);
+  // ---- 注入：VS 电脑（反射式 AI；纯附加，绝不改核心光轮/碰撞/胜负逻辑）----
+  let vsCpu=false;
+  let _cpuSeed=0x51ed270b;
+  let _cpurng=mk(_cpuSeed);
+  function setRand(seed){ _cpuSeed=seed>>>0; _cpurng=mk(_cpuSeed); }
+  const _REV={up:'down',down:'up',left:'right',right:'left'};
+  function cpuDecide(p){
+    if(!p||p.dead) return;
+    const rev=_REV[p.dir];
+    const cands=['up','down','left','right'].filter(d=>d!==rev);
+    const occ=new Set([...p0.trail, ...p1.trail]);
+    let best=null, bestScore=-1;
+    for(const d of cands){
+      const [dr,dc]=DIRS[d];
+      const nr=p.y+dr, nc=p.x+dc;
+      if(nr<0||nc<0||nr>=H||nc>=W) continue;
+      if(occ.has(nr+','+nc)) continue;
+      let score=0, rr=nr, cc=nc;
+      for(let k=0;k<8;k++){ rr+=dr; cc+=dc; if(rr<0||cc<0||rr>=H||cc>=W) break; if(occ.has(rr+','+cc)) break; score++; }
+      if(score>bestScore){ bestScore=score; best=d; }
+    }
+    if(best){ setDir(p.id, best); }
+    else { const r=Math.floor(_cpurng()*cands.length); setDir(p.id, cands[r]); }
+  }
   const PICK = { SHIELD:'shield', BOOST:'boost', HEART:'heart' };
   const GLY = { shield:'🛡', boost:'🚀', heart:'❤' };
   function makePickup(type,x,y){ return { type, x, y, age:0, id:pkid++ }; }
@@ -105,6 +129,7 @@
   function step(){
     if(winner!==-1) return;
     p0._saved=false; p1._saved=false;
+    if(vsCpu && !p1.dead) cpuDecide(p1);
     tickOnce();
     for(const pl of [p0,p1]){ if(!pl.dead && !pl._saved && boostP[pl.id]>0) advanceOne(pl); }
     if(boostP[0]>0) boostP[0]--; if(boostP[1]>0) boostP[1]--;
@@ -125,13 +150,19 @@
     window.addEventListener('keydown',e=>{ const m={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'}; if(m[e.key]) setDir(0,m[e.key]); const w={w:'up',s:'down',a:'left',d:'right'}; if(w[e.key]) setDir(1,w[e.key]); });
   }
   function loop(){ if(typeof requestAnimationFrame==='undefined') return; step(); render(); requestAnimationFrame(loop); }
-  if(typeof document!=='undefined'){ const nb=$('new'); if(nb) nb.onclick=()=>{ setup(W,H,{x:1,y:1,dir:'right'},{x:W-2,y:H-2,dir:'left'}); render(); }; bindKeys(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); render(); loop(); }); else { setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); render(); loop(); } }
+  if(typeof document!=='undefined'){ const nb=$('new'); if(nb) nb.onclick=()=>{ setup(W,H,{x:1,y:1,dir:'right'},{x:W-2,y:H-2,dir:'left'}); render(); };
+    const ct=$('cpuToggle'); if(ct) ct.onclick=()=>{ vsCpu=!vsCpu; ct.textContent='VS 电脑：'+(vsCpu?'开':'关'); setup(W,H,{x:1,y:1,dir:'right'},{x:W-2,y:H-2,dir:'left'}); render(); };
+    bindKeys(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); render(); loop(); }); else { setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); render(); loop(); } }
   if(typeof window!=='undefined'){ window.__t={ setup, setDir, step, getWinner, getState,
     PICK, spawnPickup, spawnPickupAtRandom, applyPickup, collectAt, updatePickups, takeHit,
     getPickups, getShield, setShield, getHeart, setHeart, getBoost, setBoost,
     getState2(){ return { shieldP:shieldP.slice(), heartP:heartP.slice(), boostP:boostP.slice(), pickups:pickups.length }; },
     stepPickups(dt){ updatePickups(dt); },
-    reset(){ setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); }
+    reset(){ setup(20,20,{x:1,y:1,dir:'right'},{x:18,y:18,dir:'left'}); },
+    setMode(v){ vsCpu=(v==='cpu'); },
+    getMode(){ return vsCpu?'cpu':'2p'; },
+    cpuStep(){ step(); },
+    setRand, getCpuSeed(){ return _cpuSeed; }
   }; }
 })();
 </script>

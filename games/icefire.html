@@ -84,6 +84,7 @@
       <div><span class="lab">增益 BUFF</span> <span class="val gold" id="buff"></span></div>
     </div>
     <button class="act gold" id="restart">↻ 新局</button>
+    <button class="act" id="modeBtn">🤖 电脑接管 P2</button>
   </div>
 
   <div class="stage">
@@ -200,6 +201,8 @@
   let pickups = [];            // 注入：浮动掉落（❤回血 / ⚡加速）
   let boostTimer = 0;          // 注入：加速增益计时
   let spawnTimer = 6;          // 注入：掉落刷新计时
+  let mode = '2p';             // '2p' 双人协作（默认） | 'cpu' 电脑接管 P2（火人）
+  let cpuRng = mk(0xC0FFEE);   // CPU 专用局部 PRNG（mulberry32）—— 严禁使用 Math.random
 
   function solid(tx,ty){
     if(tx<0||tx>=W) return true;
@@ -410,8 +413,79 @@
     die(ice);
   }
 
+  /* ---------- 电脑玩家（CPU 接管 P2） ---------- */
+  // 危险/不可通行判定严格沿用游戏原规则：
+  //   冰人怕岩浆（code 2 / 8），免疫水（code 3 / 9）
+  //   火人怕水（code 3 / 9），免疫岩浆（code 2 / 8）
+  // CPU 只能调用角色既有移动 API（input.* / setJumpBuf），绝不绕过核心玩法/碰撞/过关逻辑。
+  function isDeadly(type, code){
+    if(type==='ice') return code===2 || code===8;   // 冰人怕岩浆
+    return code===3 || code===9;                     // 火人怕水
+  }
+  function isBlocking(type, code, dOpen){
+    if(code===1) return true;                        // 普通墙
+    if(code===7 && !dOpen) return true;              // 关闭的门（固体，需跳过）
+    if(type==='ice' && code===8) return true;        // 岩浆：对冰人固体且致命 → 需跳过
+    if(type==='fire' && code===9) return true;       // 水：对火人固体且致命 → 需跳过
+    return false;                                    // 免疫地形（水对冰 / 岩浆对火）可正常行走
+  }
+  function cpuExitTiles(){
+    const r=[];
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(grid[y][x]===5) r.push({x:x,y:y});
+    return r;
+  }
+  function cpuTarget(c){
+    const ex=cpuExitTiles();
+    if(!ex.length) return {x:W-1,y:H-1};
+    let best=ex[0], bd=1e18;
+    const cx=c.x+c.w/2, cy=c.y+c.h/2;
+    for(const e of ex){
+      const d=Math.abs(e.x*T+T/2-cx)+Math.abs(e.y*T+T/2-cy);
+      if(d<bd){ bd=d; best=e; }
+    }
+    return best;
+  }
+  // 反射式驱动：仅设置 input[who].* 与 jumpBuf，由既有 updateChar 执行移动/碰撞。
+  function cpuThinkFor(who){
+    const c = (who==='ice')?ice:fire;
+    // 已抵达出口：原地待命，保持 atExit（防止冲过出口）
+    if(c.atExit){ input[who].left=false; input[who].right=false; return; }
+    const tgt=cpuTarget(c);
+    const cx=c.x+c.w/2, tcx=tgt.x*T+T/2;
+    const tx=Math.floor(cx/T);
+    const feetRow=Math.floor((c.y+c.h-1)/T);
+    const ahead=(dx,row)=> (row<0||row>=H||tx+dx<0||tx+dx>=W) ? 1 : grid[row][tx+dx];
+    // 空中：保持落地前的水平动量，把跳跃弧线走完，避免半空停下踩进致命格
+    if(!c.onGround){
+      input[who].left = !!input[who].left;
+      input[who].right = !!input[who].right;
+      return;
+    }
+    const deadlyAhead=(dx)=> isDeadly(c.type, ahead(dx,feetRow)) || isDeadly(c.type, ahead(dx,feetRow-1));
+    // 左右两个方向都是候选：落地时面对致命格可起跳越过，故允许该方向
+    const cands=[-1, 1];
+    // 按“朝出口靠近”打分；平手时用局部 PRNG 轻选择，避免呆板
+    let dir=0, bestScore=-1e18; const scored=[];
+    for(const d of cands){
+      const score = -Math.abs(cx + d*T - tcx);
+      scored.push({d,score});
+      if(score>bestScore){ bestScore=score; dir=d; }
+    }
+    const ties=scored.filter(s=> s.score===bestScore).map(s=>s.d);
+    if(ties.length>1) dir = ties[Math.floor(cpuRng()*ties.length)] || dir;
+    input[who].left = dir<0;
+    input[who].right = dir>0;
+    // 起跳：前方是挡墙或自己类型致命格 → 在地面起跳越过（免疫地形不会触发）
+    if(dir!==0){
+      const block = isBlocking(c.type, ahead(dir,feetRow),doorOpen) || isBlocking(c.type, ahead(dir,feetRow-1),doorOpen);
+      const dead  = deadlyAhead(dir);
+      if(block || dead) setJumpBuf(who);
+    }
+  }
+
   function step(){
     if(state!=='play') return;
+    if(mode==='cpu') cpuThinkFor('fire');   // 电脑接管 P2：每帧反射式决策（只调既有移动 API）
     updateChar(ice);
     updateChar(fire);
     // 注入：掉落刷新 + 下落/碰撞拾取
@@ -584,6 +658,13 @@
   document.addEventListener('visibilitychange', function(){ if(document.hidden) clearInputs(); });
 
   restartBtn.addEventListener('click',function(){ currentLevel=0; loadLevel(0,true); });
+  const modeBtn=document.getElementById('modeBtn');
+  if(modeBtn){
+    modeBtn.addEventListener('click',function(){
+      mode = (mode==='cpu') ? '2p' : 'cpu';
+      modeBtn.textContent = (mode==='cpu') ? '👥 双人模式' : '🤖 电脑接管 P2';
+    });
+  }
   ovBtn.addEventListener('click',function(){
     if(state==='clear'){ currentLevel++; loadLevel(currentLevel,false); }
     else if(state==='win'){ currentLevel=0; loadLevel(0,true); }
@@ -631,7 +712,13 @@
     setShield: function(v){ ice.shield=v; },
     getBoost: function(){ return boostTimer; },
     setBoost: function(v){ boostTimer=v; ice.speedTimer=v; fire.speedTimer=v; },
-    takeHit: function(d){ takeHit(d); }
+    takeHit: function(d){ takeHit(d); },
+    // ---- 电脑玩家（CPU 接管 P2）测试钩子 ----
+    setMode: function(m){ mode = (m==='cpu') ? 'cpu' : '2p'; },
+    getMode: function(){ return mode; },
+    setRand: function(seed){ cpuRng = mk(seed>>>0); },   // 重置 CPU 局部 PRNG 种子（确定性）
+    cpuThinkFor: function(who){ cpuThinkFor(who); },     // 直接驱动某角色（测试可同时驱动 P1）
+    next: function(){ if(state==='clear'){ currentLevel++; loadLevel(currentLevel,false); } }
   };
 })();
 </script>

@@ -285,7 +285,7 @@
     };
     state.towers.push(tower);
     occupied.add(c + ',' + r);
-    if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.popup(t.x, t.y-18, '建塔', t.color, {size:13}); }
+    if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.popup(tower.x, tower.y-18, '建塔', tower.color, {size:13}); }
     updateStats();
   }
   function selectTower(t){

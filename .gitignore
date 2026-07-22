@@ -5,6 +5,9 @@
 *.log
 _cli.log
 
+# 浏览器端检测生成的报告（运行时产物，不入库）
+games/tests/_pw_*.json
+
 # 操作系统文件
 Thumbs.db
 Desktop.ini

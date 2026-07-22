@@ -232,6 +232,53 @@ const sameTickBefore = t.getBullets().length;
 t.step(1);
 eq('同帧 P1+P2 开火应生成 2 颗子弹（独立冷却）', t.getBullets().length - sameTickBefore, 2);
 
+// ===== 16. VS 电脑（CPU）回归 =====
+// 铁律校验：CPU 全程不得消耗全局 Math.random（避免污染共享随机流）
+(function(){
+  const _orig=Math.random; let _calls=0;
+  Math.random=function(){ _calls++; return _orig(); };
+  try {
+    t.setMode('cpu');
+    t.resetPositions(); t.setOver(false); t.setRunning(true); t.setFireCd(0);
+    t.setKeys({w:false,s:false,a:false,d:false,' ':false,arrowup:false,arrowdown:false,arrowleft:false,arrowright:false,enter:false});
+    const b0={x:t.getTankB().x,y:t.getTankB().y};
+    let threw=false;
+    try { for(let i=0;i<120;i++){ t.step(16); if(t.getOver()) break; } } catch(e){ threw=true; console.log('  ✗ CPU 步进抛异常: '+e); }
+    ok('VS电脑 步进全程无异常', !threw);
+    ok('VS电脑 CPU 驱动 B 发生位移', Math.abs(t.getTankB().x-b0.x)+Math.abs(t.getTankB().y-b0.y) > 0.001);
+    ok('VS电脑 未消耗 Math.random', _calls===0, 'calls='+_calls);
+  } finally { Math.random=_orig; }
+})();
+
+// CPU 模式可触发终局（沿用原命中/回合结束逻辑）
+t.setMode('cpu');
+t.resetPositions(); t.setOver(false); t.setRunning(true); t.setFireCd(0);
+t.getTankB().hp=1;
+t.setBullets([{x:t.getTankB().x, y:t.getTankB().y, vx:0, vy:0, owner:'A'}]);
+const sA2=t.getScoreA();
+t.step(16);
+ok('VS电脑 模式可触发终局', t.getOver() || t.getScoreA()>sA2);
+
+// 确定性：同种子两次运行 B 轨迹一致
+(function(){
+  function run(){
+    t.setMode('cpu'); t.setRand(777); t.resetPositions(); t.setOver(false); t.setRunning(true); t.setFireCd(0);
+    t.setKeys({w:false,s:false,a:false,d:false,' ':false,arrowup:false,arrowdown:false,arrowleft:false,arrowright:false,enter:false});
+    for(let i=0;i<40;i++){ if(t.getOver()) break; t.step(16); }
+    const b=t.getTankB(); return JSON.stringify({x:b.x,y:b.y});
+  }
+  eq('VS电脑 同种子确定性一致', run(), run());
+})();
+
+// getState 暴露
+t.setMode('cpu'); t.resetPositions(); t.setOver(false); t.setRunning(true); t.setFireCd(0);
+ok('getState 返回 A/B/over/score', !!t.getState().A && !!t.getState().B && 'over' in t.getState() && 'scoreA' in t.getState());
+
+// 2p 模式（映射 local）切换无异常
+t.setMode('2p'); t.resetPositions(); t.setOver(false); t.setRunning(true); t.setFireCd(0);
+t.step(16);
+ok('2p 模式切换无异常', t.getMode()==='local');
+
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;
