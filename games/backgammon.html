@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>西洋双陆 Backgammon</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+    --white:#d8dee9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(246,70,93,.08), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.02) 1px, transparent 1px) 0 0/100% 3px,
+      var(--bg);
+    color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; padding:16px;
+  }
+  .window{width:min(820px,100%); background:var(--panel); border:1px solid var(--border);
+    border-radius:12px; box-shadow:0 0 40px rgba(0,0,0,.6), 0 0 0 1px rgba(246,70,93,.08); overflow:hidden;}
+  .titlebar{display:flex; align-items:center; gap:10px; padding:12px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f); border-bottom:1px solid var(--border);}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .body{padding:16px; display:flex; flex-direction:column; align-items:center; gap:12px}
+  canvas{display:block; width:100%; height:auto; background:#070a0f; border:1px solid var(--border); border-radius:8px; touch-action:none}
+  .hud{display:flex; gap:14px; flex-wrap:wrap; justify-content:center; font-size:13px; color:var(--dim); align-items:center}
+  .hud b{color:var(--text)}
+  .dice{display:flex; gap:8px}
+  .die{width:34px;height:34px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;background:#0e141d;color:var(--gold)}
+  .btn{background:#0e141d;border:1px solid var(--red);color:var(--text);padding:9px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:1px;transition:.15s ease}
+  .btn:hover{background:rgba(246,70,93,.15);box-shadow:0 0 16px rgba(246,70,93,.35)}
+  .btn.gold{border-color:var(--gold)} .btn.gold:hover{background:rgba(240,185,11,.15);box-shadow:0 0 16px rgba(240,185,11,.35)}
+  .keys{font-size:11px;color:var(--dim);line-height:1.9;text-align:center}
+  .keys b{color:var(--green)}
+  .foot{margin-top:4px;color:var(--dim);font-size:11px;text-align:center;border-top:1px dashed var(--border);padding-top:10px;width:100%}
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="t">TERMINAL // <b>BACKGAMMON</b> · 西洋双陆</span>
+    </div>
+    <div class="body">
+      <canvas id="cv" width="800" height="480"></canvas>
+      <div class="hud">
+        <span>回合: <b id="turn">红(你)</b></span>
+        <div class="dice" id="dice"></div>
+        <button class="btn gold" id="roll">🎲 掷骰</button>
+        <button class="btn" id="end">结束回合</button>
+      </div>
+      <div class="keys">
+        <b>你(红)</b>：点己方棋子选中 → 点目标点移动 · 骰子点数即步数<br/>
+        先把 15 枚棋子全部移入本方内盘(1-6 点)并移出棋盘即胜 · 白方为 AI
+      </div>
+      <div class="foot">WORKBUDDY · 软件工程实训 · 暗色金融终端风</div>
+    </div>
+  </div>
+<script src="juice.js"></script>
+<script src="input.js"></script>
+<script>
+(function(){
+"use strict";
+// ============ 状态（统一用 red/white 键，与 mover 字符串一致）============
+// points[idx]: idx 0 = 点1 ... idx 23 = 点24。每点记录 {red, white} 两方棋子数。
+let points = [];
+let bar = {red:0, white:0};   // 被击落到中线的棋子
+let off = {red:0, white:0};   // 已移出的棋子
+let turn = 'red';
+let dice = [0,0];
+let turnDice = [];
+let winner = null;
+let canvas=null, ctx=null, rafId=null;
+let _rand = Math.random;
+function rnd(){ return _rand(); }
+
+// ============ 初始化 ============
+function emptyPoints(){ const a=[]; for(let i=0;i<24;i++) a.push({red:0, white:0}); return a; }
+function reset(){
+  points = emptyPoints();
+  // 红(你)：点24:2, 点13:5, 点8:3, 点6:5
+  points[23].red = 2; points[12].red = 5; points[7].red = 3; points[5].red = 5;
+  // 白(AI)：点1:2, 点12:5, 点17:3, 点19:5
+  points[0].white = 2; points[11].white = 5; points[16].white = 3; points[18].white = 5;
+  bar = {red:0, white:0}; off = {red:0, white:0};
+  turn = 'red'; dice = [0,0]; turnDice = []; winner = null;
+}
+function countAll(side){ let n=0; for(const p of points) n+=p[side]; return n + bar[side] + off[side]; }
+
+// ============ 工具 ============
+function opp(side){ return side==='red' ? 'white' : 'red'; }
+// 某点是否可被 mover 落脚（对方 ≤1 子即不阻挡；对方 2+ 子阻挡）
+function canLand(idx, mover){
+  if(idx<0 || idx>23) return false;
+  return points[idx][opp(mover)] < 2;
+}
+function allHome(side){
+  const lo = side==='red' ? 0 : 18;
+  const hi = side==='red' ? 5 : 23;
+  if(bar[side] > 0) return false;
+  for(let i=0;i<24;i++){ if(i<lo || i>hi){ if(points[i][side] > 0) return false; } }
+  return true;
+}
+function redHasHigher(f){ for(let i=0;i<f;i++) if(points[i].red>0) return true; return false; }
+function whiteHasHigher(f){ for(let i=f+1;i<24;i++) if(points[i].white>0) return true; return false; }
+
+// ============ 掷骰 ============
+function rollDice(){
+  const a = 1 + Math.floor(rnd()*6);
+  const b = 1 + Math.floor(rnd()*6);
+  dice = [a,b];
+  turnDice = (a===b) ? [a,a,a,a] : [a,b];
+  return dice;
+}
+function setRand(fn){ _rand = fn || Math.random; }
+
+// ============ 合法步枚举 ============
+function legalMoves(){
+  const mover = turn, out = [];
+  if(turnDice.length===0) return out;
+  const froms = [];
+  if(bar[mover] > 0) froms.push('bar');
+  else for(let i=0;i<24;i++) if(points[i][mover] > 0) froms.push(i);
+  for(const die of turnDice){
+    for(const f of froms){
+      let sIdx;
+      if(f==='bar'){ sIdx = (mover==='red') ? (die-1) : (24-die); }
+      else { sIdx = (mover==='red') ? (f-die) : (f+die); }
+      if(f==='bar'){
+        if(canLand(sIdx, mover)) out.push({from:'bar', to:sIdx, die});
+        continue;
+      }
+      if(sIdx < 0 || sIdx > 23){
+        if(allHome(mover)){
+          const pointNo = f+1;
+          if(die === pointNo) out.push({from:f, to:'off', die});
+          else if(die > pointNo){
+            const okHigher = mover==='red' ? !redHasHigher(f) : !whiteHasHigher(f);
+            if(okHigher) out.push({from:f, to:'off', die});
+          }
+        }
+        continue;
+      }
+      if(canLand(sIdx, mover)) out.push({from:f, to:sIdx, die});
+    }
+  }
+  return out;
+}
+
+// ============ 执行一步 ============
+function applyMove(mv){
+  const mover = turn, foe = opp(mover);
+  if(mv.from==='bar'){ bar[mover]--; }
+  else { points[mv.from][mover]--; }
+  if(mv.to==='off'){ off[mover]++; }
+  else {
+    if(points[mv.to][foe] === 1){ points[mv.to][foe] = 0; bar[foe]++; }
+    points[mv.to][mover]++;
+  }
+  const i = turnDice.indexOf(mv.die);
+  if(i>=0) turnDice.splice(i,1);
+  if(off[mover] === 15){ winner = mover; }
+  return true;
+}
+function move(from, die){
+  const mv = legalMoves().find(m => m.from===from && m.die===die);
+  if(!mv) return false;
+  const hit = (mv.to!=='off') && points[mv.to][opp(turn)]===1;
+  applyMove(mv);
+  if(typeof Juice!=='undefined'){
+    Juice.sfx('hit'); Juice.addTrauma(.18);
+    if(hit){ Juice.sfx('boom'); Juice.addTrauma(.35); Juice.flash('#f6465d',.3); }
+  }
+  return true;
+}
+function bearOff(from, die){ return move(from, die); }
+
+// ============ 回合切换 / AI ============
+function endTurn(skipAI){
+  if(winner) return;
+  turn = opp(turn);
+  dice = [0,0]; turnDice = [];
+  if(turn==='white' && !skipAI){ aiTurn(); }
+}
+function aiTurn(){
+  let guard = 0;
+  rollDice();
+  while(turnDice.length>0 && guard++<40){
+    const moves = legalMoves();
+    if(moves.length===0) break;
+    let pick = moves.find(m => m.to!=='off' && points[m.to][opp('white')]===1);
+    if(!pick) pick = moves.find(m => m.to!=='off' && points[m.to].red===0);
+    if(!pick) pick = moves[0];
+    const wasHit = (pick.to!=='off') && points[pick.to][opp('white')]===1;
+    applyMove(pick);
+    if(typeof Juice!=='undefined'){ Juice.sfx('hit'); if(wasHit){ Juice.sfx('boom'); Juice.addTrauma(.3); } }
+  }
+  turn = 'red'; dice=[0,0]; turnDice=[];
+}
+
+// ============ 渲染 ============
+function draw(){
+  if(!ctx) return;
+  if(typeof Juice!=='undefined') Juice.begin(ctx);
+  ctx.clearRect(0,0,800,480);
+  ctx.fillStyle='#11161f'; ctx.fillRect(392,0,16,480);
+  const bw=384, ph=210;
+  for(let i=0;i<24;i++){
+    const side = i<12 ? 0 : 1;
+    const col = i<12 ? i : (23-i);
+    const x = (side===0 ? 8 : 408) + col*(bw/12) + 4;
+    const isRedHome = (i>=0 && i<=5);
+    ctx.strokeStyle = isRedHome ? 'rgba(246,70,93,.25)' : 'rgba(255,255,255,.06)';
+    ctx.beginPath(); ctx.moveTo(x, side===0?20:460); ctx.lineTo(x+bw/12-8, side===0?20:460); ctx.stroke();
+    const p = points[i];
+    const total = p.red + p.white;
+    let y = side===0 ? 30 : 450;
+    const step = 22, dir = side===0 ? 1 : -1;
+    for(let k=0;k<p.red;k++){ ctx.fillStyle='#f6465d'; ctx.beginPath(); ctx.arc(x+(bw/12-8)/2, y, 9,0,7); ctx.fill(); y += dir*step; }
+    for(let k=0;k<p.white;k++){ ctx.fillStyle='#d8dee9'; ctx.beginPath(); ctx.arc(x+(bw/12-8)/2, y, 9,0,7); ctx.fill(); y += dir*step; }
+  }
+  if(bar.red>0){ ctx.fillStyle='#f6465d'; for(let k=0;k<bar.red;k++){ ctx.beginPath(); ctx.arc(400, 60+k*22, 9,0,7); ctx.fill(); } }
+  if(bar.white>0){ ctx.fillStyle='#d8dee9'; for(let k=0;k<bar.white;k++){ ctx.beginPath(); ctx.arc(400, 420-k*22, 9,0,7); ctx.fill(); } }
+  if(off.red>0){ ctx.fillStyle='#f6465d'; ctx.fillRect(2, 230-off.red*8, 6, off.red*8); }
+  if(off.white>0){ ctx.fillStyle='#d8dee9'; ctx.fillRect(792, 230-off.white*8, 6, off.white*8); }
+  if(typeof Juice!=='undefined') Juice.mid(ctx);
+  if(typeof Juice!=='undefined') Juice.end(ctx);
+}
+function updateHud(){
+  if(typeof document==='undefined') return;
+  const tEl=document.getElementById('turn'); if(tEl) tEl.textContent = winner ? (winner==='red'?'红方胜!':'白方胜') : (turn==='red'?'红(你)':'白(AI)');
+  const d=document.getElementById('dice'); if(d){ d.innerHTML=''; for(const v of dice){ const e=document.createElement('span'); e.className='die'; e.textContent=v||'·'; d.appendChild(e); } }
+}
+let lastT=0;
+function loop(ts){
+  const dt=Math.min(0.05,(ts-lastT)/1000||0); lastT=ts;
+  if(typeof Juice!=='undefined') Juice.update(dt);
+  draw(); updateHud();
+  rafId=requestAnimationFrame(loop);
+}
+
+// ============ 测试钩子 ============
+const __bg = {
+  get turn(){return turn;}, set turn(v){turn=v;},
+  get dice(){return dice;}, get turnDice(){return turnDice.slice();},
+  get bar(){return {r:bar.red, w:bar.white};},
+  get off(){return {r:off.red, w:off.white};},
+  get winner(){return winner;},
+  get points(){return points.map(p=>({r:p.red, w:p.white}));},
+  reset, rollDice, setRand, move, bearOff, endTurn, legalMoves,
+  countAll, allHome,
+  debugClear(){ points = emptyPoints(); bar={red:0,white:0}; off={red:0,white:0}; winner=null; },
+  debugSet(idx, r, w){ if(idx>=0&&idx<24){ points[idx].red=r||0; points[idx].white=w||0; } },
+  debugBar(side, n){ bar[side]=n||0; },
+  debugOff(side, n){ off[side]=n||0; },
+};
+if(typeof window!=='undefined') window.__t = __bg;
+
+// ============ 启动 ============
+function bindUI(){
+  canvas=document.getElementById('cv'); if(canvas) ctx=canvas.getContext('2d');
+  const rb=document.getElementById('roll'); if(rb) rb.addEventListener('click',()=>{ if(turn==='red'&&!winner&&turnDice.length===0){ rollDice(); if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.addTrauma(.12);} } });
+  const eb=document.getElementById('end'); if(eb) eb.addEventListener('click',()=>{ if(turn==='red'){ endTurn(false); if(winner&&typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5);} } });
+  if(typeof requestAnimationFrame!=='undefined') rafId=requestAnimationFrame(loop);
+}
+reset();
+if(typeof document!=='undefined' && document.getElementById){
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindUI);
+  else bindUI();
+}
+})();
+</script>
+</body>
+</html>
