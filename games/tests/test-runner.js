@@ -100,6 +100,9 @@ const FILES = {
   'survivor.html':     { name:'幸存者 Survivor',            offline:true },
   'spire.html':        { name:'尖塔 Spire',                 offline:true },
   'balatro.html':      { name:'小丑牌 Balatro',              offline:true },
+  'baccarat.html':     { name:'百家乐 Baccarat',             offline:true },
+  'kenken.html':       { name:'肯肯 KenKen',                 offline:true },
+  'backgammon.html':   { name:'西洋双陆 Backgammon',         offline:true },
 };
 
 let totalPass=0, totalFail=0;
