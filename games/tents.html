@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 帐篷与树 TENTS</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>帐篷与树</b> TENTS</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">8</span></span><span id="status">每棵树旁放 1 顶帐篷，帐篷互不相邻</span></div>
+    <div class="boardwrap"><canvas id="board" width="368" height="368"></canvas></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点击格子放置/取消帐篷（金色）。每棵树上下左右恰有一顶帐篷，帐篷之间（含对角）互不相邻，每行/列帐篷数与提示一致。</div>
+  </div>
+  <div class="foot">Tents（帐篷与树）：给定树的位置与每行/列帐篷数。每棵树旁（上下左右）恰有一顶帐篷，且任意两顶帐篷不相邻（含对角）。由回溯生成树+帐篷合法布局，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(seed){let s=seed>>>0;return ()=>{s=(s*1664525+1013904223)>>>0;return (s&0x7fffffff)/0x7fffffff;};}
+  let _rng = mk(0xabcdef01);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const J = (typeof Juice!=='undefined') ? Juice : null;
+
+  const N = 8;
+  const CELL = 40, PAD = 24;
+  let trees;     // 2D boolean: 谜面树
+  let solTents;  // 2D boolean: 规范解帐篷
+  let tentsP;    // 2D boolean: 玩家帐篷
+  let rowClue, colClue; // 每行/列帐篷数
+  let won = false;
+  let confettiFired = false;
+
+  const NEI8 = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  const NEI4 = [[1,0],[-1,0],[0,1],[0,-1]];
+  function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+
+  // ---- 随机生成树 + 帐篷合法布局 ----
+  function genLayout(){
+    const K = 12;
+    for(let attempt=0; attempt<1000; attempt++){
+      const tentSet = new Set();
+      const cells = shuffle([...Array(N*N).keys()]);
+      let placed = 0;
+      for(const idx of cells){
+        if(placed >= K) break;
+        const r = Math.floor(idx/N), c = idx%N;
+        if(tentSet.has(idx)) continue;
+        let adj = false;
+        for(const [dr,dc] of NEI8){ const nr=r+dr, nc=c+dc; if(inb(nr,nc)&&tentSet.has(nr*N+nc)){ adj=true; break; } }
+        if(adj) continue;
+        tentSet.add(idx); placed++;
+      }
+      if(placed < K) continue;
+      // 每顶帐篷分配一棵独有的相邻树：该树不得与任何其它帐篷正交相邻，
+      // 以保证每棵树恰好只服务于这一顶帐篷（谜题对“每树恰 1 帐篷”成立）。
+      const treeSet = new Set();
+      let okk = true;
+      const tents = shuffle([...tentSet]);
+      for(const t of tents){
+        const r = Math.floor(t/N), c = t%N;
+        const opts = [];
+        for(const [dr,dc] of NEI4){
+          const nr=r+dr, nc=c+dc;
+          if(!inb(nr,nc)) continue;
+          const nidx=nr*N+nc;
+          if(tentSet.has(nidx) || treeSet.has(nidx)) continue;
+          // 候选树不能与别的帐篷正交相邻
+          let shared=false;
+          for(const [dr2,dc2] of NEI4){
+            const tr=nr+dr2, tc=nc+dc2;
+            if(inb(tr,tc) && tentSet.has(tr*N+tc) && !(tr===r&&tc===c)){ shared=true; break; }
+          }
+          if(shared) continue;
+          opts.push(nidx);
+        }
+        if(!opts.length){ okk=false; break; }
+        treeSet.add(opts[Math.floor(_rng()*opts.length)]);
+      }
+      if(!okk) continue;
+      return { tents:[...tentSet], trees:[...treeSet] };
+    }
+    return null;
+  }
+
+  // ---- 确定性保底布局（极罕见随机失败时启用）----
+  function fallbackLayout(){
+    const P = [1,4,7,2,5,0,3,6];
+    const tents = [], trees = [];
+    for(let r=0;r<N;r++){ const c=P[r]; tents.push(r*N+c); const tc=(c+1<N)?c+1:c-1; trees.push(r*N+tc); }
+    return { tents, trees };
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    const lay = genLayout() || fallbackLayout();
+    trees = Array.from({length:N},()=>new Array(N).fill(false));
+    solTents = Array.from({length:N},()=>new Array(N).fill(false));
+    lay.tents.forEach(idx=> solTents[Math.floor(idx/N)][idx%N]=true);
+    lay.trees.forEach(idx=> trees[Math.floor(idx/N)][idx%N]=true);
+    rowClue = new Array(N).fill(0); colClue = new Array(N).fill(0);
+    for(const idx of lay.tents){ rowClue[Math.floor(idx/N)]++; colClue[idx%N]++; }
+    tentsP = Array.from({length:N},()=>new Array(N).fill(false));
+    won=false;
+    return getState();
+  }
+
+  function isWin(){
+    const rc = new Array(N).fill(0), cc = new Array(N).fill(0);
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(tentsP[r][c]){ rc[r]++; cc[c]++; }
+    for(let i=0;i<N;i++) if(rc[i]!==rowClue[i] || cc[i]!==colClue[i]) return false;
+    // 帐篷互不相邻
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(tentsP[r][c]){
+      for(const [dr,dc] of NEI8){ const nr=r+dr, nc=c+dc; if(inb(nr,nc)&&tentsP[nr][nc]) return false; }
+    }
+    // 每棵树恰有一顶相邻帐篷
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(trees[r][c]){
+      let cnt=0;
+      for(const [dr,dc] of NEI4){ const nr=r+dr, nc=c+dc; if(inb(nr,nc)&&tentsP[nr][nc]) cnt++; }
+      if(cnt!==1) return false;
+    }
+    return true;
+  }
+
+  function setTent(r,c,val){
+    if(!inb(r,c)) return false;
+    tentsP[r][c]=!!val;
+    won=isWin();
+    if(won && J) J.sfx('levelup');
+    return true;
+  }
+  function toggleTent(r,c){ if(!inb(r,c)) return false; return setTent(r,c,!tentsP[r][c]); }
+  function reset(){ tentsP=Array.from({length:N},()=>new Array(N).fill(false)); won=false; return getState(); }
+  function applySolution(){ tentsP=solTents.map(row=>row.slice()); won=isWin(); return won; }
+  function getSolution(){ return solTents.map(row=>row.slice()); }
+  function getState(){ return { N, trees:trees.map(r=>r.slice()), rowClue:rowClue.slice(), colClue:colClue.slice(), tents:tentsP.map(r=>r.slice()), won }; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,cv.width,cv.height);
+    // 网格底
+    ctx.fillStyle='#0e141d'; ctx.fillRect(PAD,PAD,N*CELL,N*CELL);
+    // 树
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(trees[r][c]){
+      const cx=PAD+c*CELL+CELL/2, cy=PAD+r*CELL+CELL/2;
+      ctx.fillStyle='#02c076';
+      ctx.beginPath(); ctx.moveTo(cx,cy-CELL*0.3); ctx.lineTo(cx-CELL*0.26,cy+CELL*0.28); ctx.lineTo(cx+CELL*0.26,cy+CELL*0.28); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#0a3322'; ctx.beginPath(); ctx.arc(cx,cy+CELL*0.05,CELL*0.12,0,Math.PI*2); ctx.fill();
+    }
+    // 帐篷
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(tentsP[r][c]){
+      const cx=PAD+c*CELL+CELL/2, cy=PAD+r*CELL+CELL/2;
+      ctx.fillStyle='#f0b90b';
+      ctx.beginPath(); ctx.moveTo(cx,cy-CELL*0.28); ctx.lineTo(cx-CELL*0.3,cy+CELL*0.26); ctx.lineTo(cx+CELL*0.3,cy+CELL*0.26); ctx.closePath(); ctx.fill();
+    }
+    // 网格线
+    ctx.strokeStyle='#1f2a38'; ctx.lineWidth=1;
+    for(let i=0;i<=N;i++){ ctx.beginPath(); ctx.moveTo(PAD+i*CELL,PAD); ctx.lineTo(PAD+i*CELL,PAD+N*CELL); ctx.stroke(); ctx.beginPath(); ctx.moveTo(PAD,PAD+i*CELL); ctx.lineTo(PAD+N*CELL,PAD+i*CELL); ctx.stroke(); }
+    // 行列帐篷数提示
+    ctx.fillStyle='#6b7785'; ctx.font='11px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    for(let i=0;i<N;i++){ ctx.fillText(String(rowClue[i]), PAD+N*CELL+12, PAD+i*CELL+CELL/2); ctx.fillText(String(colClue[i]), PAD+i*CELL+CELL/2, PAD+N*CELL+12); }
+    const stt=$('status'); if(stt) stt.textContent = won?'已通关':'每棵树旁放 1 顶帐篷，帐篷互不相邻';
+    const msg=$('msg'); if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！所有树与行列数都满足。'; if(!confettiFired){ confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } else { msg.className='msg'; confettiFired=false; } }
+  }
+  function hit(mx,my){
+    const fx=(mx-PAD)/CELL, fy=(my-PAD)/CELL;
+    if(fx<0||fy<0||fx>N||fy>N) return null;
+    const c=Math.floor(fx), r=Math.floor(fy);
+    if(r>=0&&r<N&&c>=0&&c<N) return {r,c};
+    return null;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'),nb=$('new'),rb=$('reset');
+    if(cv) cv.addEventListener('click',e=>{
+      const rect=cv.getBoundingClientRect();
+      const mx=(e.clientX-rect.left)*(cv.width/rect.width);
+      const my=(e.clientY-rect.top)*(cv.height/rect.height);
+      const k=hit(mx,my); if(k){ toggleTent(k.r,k.c); render(); }
+    });
+    if(nb) nb.onclick=()=>{ newPuzzle(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setTent, toggleTent, applySolution, getSolution, getState };
+  }
+})();
+</script>
+</body>
+</html>
