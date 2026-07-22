@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 宝石方块 COLUMNS</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(420px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(420px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .sc{color:var(--gold);font-weight:700}.hud .ms{color:var(--green);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0a0e14;border-radius:8px;display:block;touch-action:none}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .foot{width:min(420px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>宝石方块</b> COLUMNS</span></div>
+  <div class="wrap">
+    <div class="hud"><span>得分 <span class="sc" id="score">0</span></span><span>里程碑 <span class="ms" id="ms">0</span></span></div>
+    <div class="boardwrap"><canvas id="cv"></canvas></div>
+    <div class="controls">
+      <button id="left">◀ 左 (←/A)</button>
+      <button id="rotate">旋转 (↑/W)</button>
+      <button id="right">右 (→/D) ▶</button>
+      <button id="down" class="ghost">软降 (↓/S)</button>
+    </div>
+    <div class="msg" id="msg">3 格竖列宝石下落。左右移动、旋转换色、软降。3+ 同色横/竖相连即消除并级联。</div>
+  </div>
+  <div class="foot">Columns 宝石方块：顶部落下 3 格竖列宝石，可左右移动 / 旋转换色 / 软降。同色 3 连及以上（横或竖）消除计分，上方随重力下落级联。</div>
+
+<script src="juice.js"></script>
+<script src="input.js"></script>
+<script>
+(function(){
+  "use strict";
+  const J = (typeof Juice!=='undefined') ? Juice : null;
+
+  // 坐标只用 window.innerWidth / window.innerHeight，绝不裸写 innerWidth
+  const W = (typeof window!=='undefined' && window.innerWidth) ? Math.min(window.innerWidth, 360) : 360;
+  const H = (typeof window!=='undefined' && window.innerHeight) ? Math.min(window.innerHeight, 640) : 640;
+
+  const COLS = 6, ROWS = 13, NCOLORS = 5;
+  const CELL = Math.max(18, Math.floor(Math.min(W / COLS, H / ROWS)));
+  const CW = COLS * CELL, CH = ROWS * CELL;
+  const SCORE_PER = 10;   // 每消一个宝石 +10
+
+  // 局部种子 PRNG（mulberry32）：所有随机必须走它，禁止 Math.random
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  let _rng = mk(0x1234ABCD);
+  function reseed(s){ _rng = mk((s>>>0) || 1); }
+  function setRand(fn){ if(typeof fn==='function') _rng = fn; }
+
+  // 核心状态（普通 JS 变量，逻辑脱离 DOM）
+  let board, current, score, over;
+
+  function emptyBoard(){
+    return Array.from({length:ROWS}, () => new Array(COLS).fill(null));
+  }
+  function makePiece(){
+    const x = (_rng()*COLS)|0;
+    const colors = [1 + (_rng()*NCOLORS|0), 1 + (_rng()*NCOLORS|0), 1 + (_rng()*NCOLORS|0)];
+    return { x, cells: colors, y: 0 };
+  }
+  function spawn(){
+    const p = makePiece();
+    // 生成位被占 → 终局（极少见；常规无终局）
+    if(board[0][p.x] !== null || board[1][p.x] !== null || board[2][p.x] !== null){
+      over = true; current = null; return;
+    }
+    current = p;
+  }
+  function reset(){
+    board = emptyBoard();
+    score = 0; over = false; current = null;
+    spawn();
+  }
+  function newGame(seed){ if(typeof seed==='number' && !isNaN(seed)) reseed(seed); reset(); }
+
+  // 当前列能否移动到 (dx, dy)
+  function canMove(dx, dy){
+    if(!current) return false;
+    const nx = current.x + dx;
+    if(nx < 0 || nx >= COLS) return false;
+    for(let r=0;r<3;r++){
+      const row = current.y + dy + r;
+      if(row >= ROWS) return false;            // 触底
+      if(row >= 0 && board[row][nx] !== null) return false; // 撞已有块
+    }
+    return true;
+  }
+  function move(dir){
+    if(over || !current) return false;
+    if(canMove(dir, 0)){ current.x += dir; return true; }
+    return false;
+  }
+  // 旋转：3 格颜色向下轮换 [a,b,c] -> [c,a,b]
+  function rotate(){
+    if(over || !current) return false;
+    const c = current.cells;
+    current.cells = [c[2], c[0], c[1]];
+    if(J) J.sfx('click');
+    return true;
+  }
+  function lockPiece(){
+    if(!current) return;
+    for(let r=0;r<3;r++){
+      const row = current.y + r;
+      if(row >= 0 && row < ROWS) board[row][current.x] = current.cells[r];
+    }
+  }
+  // 重力：每列把非空格子落到底部（保持相对顺序）
+  function applyGravity(){
+    for(let c=0;c<COLS;c++){
+      const stack = [];
+      for(let r=ROWS-1;r>=0;r--){ if(board[r][c] !== null) stack.push(board[r][c]); }
+      for(let r=ROWS-1, k=0; r>=0; r--, k++){ board[r][c] = k < stack.length ? stack[k] : null; }
+    }
+  }
+  // 找所有属于 ≥3 同色 横/竖 连段的格子
+  function findMatches(){
+    const mark = Array.from({length:ROWS}, () => new Array(COLS).fill(false));
+    // 横向
+    for(let r=0;r<ROWS;r++){
+      let run = 1;
+      for(let c=1;c<=COLS;c++){
+        const same = c<COLS && board[r][c] !== null && board[r][c] === board[r][c-1];
+        if(same) run++;
+        else { if(run>=3) for(let k=c-run;k<c;k++) mark[r][k]=true; run=1; }
+      }
+    }
+    // 纵向
+    for(let c=0;c<COLS;c++){
+      let run = 1;
+      for(let r=1;r<=ROWS;r++){
+        const same = r<ROWS && board[r][c] !== null && board[r][c] === board[r-1][c];
+        if(same) run++;
+        else { if(run>=3) for(let k=r-run;k<r;k++) mark[k][c]=true; run=1; }
+      }
+    }
+    return mark;
+  }
+  // 消除并级联：返回移除总数
+  function clearMatches(){
+    let removed = 0;
+    while(true){
+      const mark = findMatches();
+      let cnt = 0;
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(mark[r][c]){ board[r][c]=null; cnt++; }
+      if(cnt === 0) break;
+      removed += cnt;
+      score += cnt * SCORE_PER;
+      applyGravity();
+      if(J && cnt>0) J.sfx('pickup');
+    }
+    return removed;
+  }
+
+  // 软降一格（或锁定）
+  function step(){
+    if(over) return;
+    if(!current) spawn();
+    if(over) return;
+    if(canMove(0,1)) current.y += 1;
+    else { lockPiece(); current=null; clearMatches(); spawn(); }
+  }
+  // 硬降：直接落到底再锁定
+  function drop(){
+    if(over || !current) return;
+    while(canMove(0,1)) current.y += 1;
+    lockPiece(); current=null; clearMatches(); spawn();
+  }
+
+  function getScore(){ return score; }
+  function getBoard(){ return board.map(row => row.slice()); }
+  function getOver(){ return over; }
+  function getState(){
+    return {
+      cols: COLS, rows: ROWS, score, over,
+      board: getBoard(),
+      current: current ? { x:current.x, cells:current.cells.slice(), y:current.y } : null,
+    };
+  }
+
+  /* ===================== UI ===================== */
+  const COLORS = ['', '#f6465d', '#02c076', '#f0b90b', '#3b82f6', '#a855f7'];
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let ctx=null, cv=null;
+  function render(){
+    if(typeof document==='undefined' || !ctx) return;
+    ctx.clearRect(0,0,CW,CH);
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      const v = board[r][c];
+      if(v !== null){ ctx.fillStyle=COLORS[v]||'#6b7785'; ctx.fillRect(c*CELL+1, r*CELL+1, CELL-2, CELL-2); }
+    }
+    if(current){
+      for(let r=0;r<3;r++){
+        const row=current.y+r; if(row<0||row>=ROWS) continue;
+        const v=current.cells[r];
+        ctx.fillStyle=COLORS[v]||'#6b7785';
+        ctx.fillRect(current.x*CELL+1, row*CELL+1, CELL-2, CELL-2);
+      }
+    }
+  }
+  function loop(){
+    if(typeof Input!=='undefined'){
+      if(Input.down('left')) move(-1);
+      if(Input.down('right')) move(1);
+      if(Input.consume('up')) rotate();
+      if(Input.down('down')) step();
+      Input.update();
+    }
+    step(); render(); uiTick();
+    if(typeof document!=='undefined') requestAnimationFrame(loop);
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const l=$('left'),r=$('right'),rt=$('rotate'),dn=$('down');
+    if(l) l.onclick=()=>move(-1);
+    if(r) r.onclick=()=>move(1);
+    if(rt) rt.onclick=()=>rotate();
+    if(dn) dn.onclick=()=>step();
+    if(typeof Input!=='undefined'){
+      Input.init();
+      Input.bindVirtualButtons(document);
+    }
+    if(typeof document!=='undefined'){
+      document.addEventListener('keydown',e=>{
+        if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') move(-1);
+        if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') move(1);
+        if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ e.preventDefault(); rotate(); }
+        if(e.key==='ArrowDown'||e.key==='s'||e.key==='S'){ e.preventDefault(); step(); }
+      });
+    }
+  }
+  function uiTick(){
+    if(typeof document==='undefined') return;
+    const sc=$('score'),ms=$('ms'),msg=$('msg');
+    if(sc) sc.textContent=score;
+    if(ms) ms.textContent=Math.floor(score/1000);
+    if(msg){ if(over){ msg.className='msg over'; msg.textContent='终局（生成位被占）· 得分 '+score+' · 刷新重开'; } else msg.className='msg'; }
+  }
+
+  newGame();
+  if(typeof document!=='undefined'){
+    cv=$('cv');
+    if(cv){ cv.width=CW; cv.height=CH; ctx=cv.getContext('2d'); bindUI(); loop(); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      COLS, ROWS, NCOLORS, SCORE_PER,
+      setRand, reseed, newGame, reset,
+      move, rotate, step, drop, clearMatches,
+      canMove, getScore, getBoard, getOver, getState,
+      setBoard:(g)=>{ board = g.map(row=>row.slice()); },
+      setCurrent:(p)=>{ current = { x:p.x, cells:p.cells.slice(), y:p.y }; },
+      setScore:(v)=>{ score=v; },
+      setOver:(v)=>{ over=!!v; },
+    };
+  }
+})();
+</script>
+</body>
+</html>
