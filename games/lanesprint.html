@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // LANESPRINT</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace}
+  #stage{position:fixed;inset:0;z-index:0}
+  #stage canvas{display:block;touch-action:none}
+  #scan{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.06), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px}
+  .titlebar{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:10px;
+    padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border-bottom:1px solid var(--border)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--green)}
+  .titlebar .btn{margin-left:auto;background:transparent;color:var(--dim);border:1px solid var(--border);
+    border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px}
+  .titlebar .btn:hover{color:var(--green);border-color:var(--green)}
+  #hud{position:fixed;top:52px;left:16px;right:16px;z-index:5;display:flex;justify-content:space-between;align-items:flex-start}
+  .stat{background:rgba(18,24,33,.85);border:1px solid var(--border);border-radius:8px;padding:8px 14px;backdrop-filter:blur(4px)}
+  .stat .k{color:var(--dim);font-size:11px;letter-spacing:.5px}
+  .stat .v{font-size:19px;margin-top:2px}
+  .v.score{color:var(--gold)} .v.lives{color:var(--red)} .v.level{color:var(--green)}
+  #overlay{position:fixed;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,.88)}
+  #overlay .box{text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;max-width:90vw}
+  #overlay h1{font-size:26px;letter-spacing:2px;margin-bottom:10px;text-shadow:0 0 18px rgba(2,192,118,.35)}
+  #overlay p{color:var(--dim);font-size:13px;line-height:1.9;margin-bottom:18px}
+  #overlay .start{background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;box-shadow:0 0 14px rgba(2,192,118,.4)}
+  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;color:var(--dim);font-size:12px;text-align:center;width:100%}
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="scan"></div>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>LANESPRINT</b> · 极简竞速</span>
+    <button class="btn" id="muteBtn">🔊</button>
+    <button class="btn" id="pauseBtn">暂停</button>
+  </div>
+  <div id="hud">
+    <div class="stat"><div class="k">距离</div><div class="v score" id="dist">0 m</div></div>
+    <div class="stat"><div class="k">速度</div><div class="v level" id="speed">0</div></div>
+    <div class="stat"><div class="k">余机</div><div class="v lives" id="lives">♥♥♥</div></div>
+    <div class="stat"><div class="k">车道</div><div class="v" id="lane">2/4</div></div>
+  </div>
+  <div id="hint">切换车道：← → / A D（手机左右半屏点击）· 躲开红色障碍 · 距离越远得分越高</div>
+  <div id="overlay">
+    <div class="box">
+      <h1>» 极简竞速</h1>
+      <p>在车道间左右走位，<b style="color:var(--red)">躲开障碍</b>，疾驰得越远分越高。<br/>每撞一次损失余机，余机耗尽即结束。越往后车速越快。</p>
+      <button class="start" id="startBtn">开始竞速</button>
+    </div>
+  </div>
+
+  <script src="juice.js"></script>
+  <script>
+  (function(){
+    if('ontouchstart' in window) document.body.classList.add('touch');
+    const stage=document.getElementById('stage');
+    let W=window.innerWidth, H=window.innerHeight;
+    const cv=document.createElement('canvas');
+    cv.width=W; cv.height=H; stage.appendChild(cv);
+    const ctx=cv.getContext('2d');
+    const J=(typeof Juice!=='undefined')?Juice:null;
+
+    const PLAYER_Y=H-80, CAR_H=30, OBS_H=40;
+    let S=null;
+    function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+    function fresh(){
+      return {
+        lanes:4, playerLane:1, playerY:PLAYER_Y,
+        obstacles:[], distance:0, speed:260, lives:3,
+        running:false, paused:false, over:false, invuln:0,
+        spawnTimer:0, spawnEnabled:true, rng:mulberry32(7)
+      };
+    }
+
+    function reset(){ S=fresh(); syncHud(); }
+    function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; syncHud(); }
+    function setRand(seed){ S.rng=mulberry32(seed>>>0); }
+    function setLanes(n){ S.lanes=Math.max(2,n|0); S.playerLane=Math.min(S.playerLane,S.lanes-1); }
+    function setPlayerLane(i){ S.playerLane=Math.max(0,Math.min(S.lanes-1,i|0)); }
+    function moveLeft(){ setPlayerLane(S.playerLane-1); }
+    function moveRight(){ setPlayerLane(S.playerLane+1); }
+    function spawnObstacle(lane,y){ S.obstacles.push({lane:Math.max(0,Math.min(S.lanes-1,lane)),y:y,dead:false}); }
+    function setSpeed(v){ S.speed=v; }
+
+    function laneX(lane){
+      const laneW=W/S.lanes;
+      return laneW*lane + laneW/2;
+    }
+
+    function update(dt){
+      if(!S||!S.running||S.paused||S.over) return;
+      if(S.invuln>0)S.invuln=Math.max(0,S.invuln-dt);
+      // 距离 / 速度增长
+      const curSpeed=S.speed*(1+S.distance/4000);
+      S.distance+=curSpeed*dt;
+      // 障碍生成
+      S.spawnTimer-=dt;
+      if(S.spawnEnabled && S.spawnTimer<=0){
+        S.spawnTimer=0.7 - Math.min(0.45, S.distance/6000);
+        const lane=Math.floor(S.rng()*S.lanes);
+        spawnObstacle(lane, -OBS_H);
+      }
+      // 障碍下移
+      for(const o of S.obstacles){ o.y+=curSpeed*dt; }
+      // 碰撞
+      if(S.invuln<=0){
+        for(const o of S.obstacles){
+          if(o.dead)continue;
+          if(o.lane===S.playerLane && Math.abs(o.y-S.playerY) < (OBS_H/2+CAR_H/2)){
+            S.lives--; S.invuln=0.8; o.dead=true;
+            if(J)J.flash&&J.flash('#f6465d');
+            break;
+          }
+        }
+      }
+      S.obstacles=S.obstacles.filter(o=>!o.dead && o.y < H+OBS_H);
+      if(S.lives<=0){ S.over=true; S.running=false; showOver(); }
+      syncHud();
+    }
+
+    function getState(){
+      return {
+        lanes:S.lanes, playerLane:S.playerLane, playerY:S.playerY,
+        distance:+S.distance.toFixed(2), speed:+S.speed.toFixed(2),
+        lives:S.lives, running:S.running, over:S.over, invuln:+S.invuln.toFixed(3),
+        obstacles:S.obstacles.map(o=>({lane:o.lane,y:+o.y.toFixed(2)})),
+        obstacleCount:S.obstacles.length
+      };
+    }
+
+    window.__t={
+      reset, start, update, getState, setRand,
+      setLanes, setPlayerLane, moveLeft, moveRight,
+      spawnObstacle, clearObstacles(){S.obstacles=[];},
+      setSpeed, setLives(n){S.lives=n;}, setSpawnEnabled(v){S.spawnEnabled=!!v;},
+      setInvuln(v){S.invuln=v;}
+    };
+
+    function render(){
+      ctx.clearRect(0,0,W,H);
+      const laneW=W/S.lanes;
+      ctx.strokeStyle='#1f2a38';
+      for(let i=1;i<S.lanes;i++){ ctx.beginPath();ctx.moveTo(i*laneW,0);ctx.lineTo(i*laneW,H);ctx.stroke(); }
+      for(const o of S.obstacles){
+        const cx=laneX(o.lane);
+        ctx.fillStyle='#f6465d';ctx.fillRect(cx-laneW*0.3,o.y-OBS_H/2,laneW*0.6,OBS_H);
+      }
+      const px=laneX(S.playerLane);
+      ctx.fillStyle=S.invuln>0?'#6b7785':'#02c076';
+      ctx.fillRect(px-laneW*0.3,S.playerY-CAR_H/2,laneW*0.6,CAR_H);
+    }
+
+    const $=id=>document.getElementById(id);
+    const overlay=$('overlay'); const startBtn=$('startBtn');
+    function syncHud(){
+      if($('dist'))$('dist').textContent=Math.floor(S.distance)+' m';
+      if($('speed'))$('speed').textContent=Math.floor(S.speed*(1+S.distance/4000));
+      if($('lives'))$('lives').textContent='♥'.repeat(Math.max(0,S.lives));
+      if($('lane'))$('lane').textContent=(S.playerLane+1)+'/'+S.lanes;
+    }
+    function showOver(){
+      if(overlay){overlay.style.display='flex';const h1=overlay.querySelector('h1');if(h1)h1.textContent='💥 撞毁 · 距离 '+Math.floor(S.distance)+'m';const b=overlay.querySelector('.start');if(b)b.textContent='再冲一次';}
+    }
+    if(startBtn)startBtn.addEventListener('click',start);
+    if($('pauseBtn'))$('pauseBtn').addEventListener('click',()=>{S.paused=!S.paused;});
+    if($('muteBtn'))$('muteBtn').addEventListener('click',()=>{if(J&&J.toggleMute)J.toggleMute();});
+
+    window.addEventListener('keydown',e=>{
+      if(e.code==='ArrowLeft'||e.code==='KeyA')moveLeft();
+      if(e.code==='ArrowRight'||e.code==='KeyD')moveRight();
+      if(e.code==='KeyP')S.paused=!S.paused;
+    });
+    cv.addEventListener('pointerdown',e=>{
+      const r=cv.getBoundingClientRect();
+      if(e.clientX-r.left < W/2)moveLeft(); else moveRight();
+    });
+
+    reset();
+    let last=0;
+    function frame(t){
+      const dt=Math.min(0.05,(t-last)/1000||0.016); last=t;
+      update(dt); render();
+      if(typeof requestAnimationFrame!=='undefined')requestAnimationFrame(frame);
+    }
+    if(typeof requestAnimationFrame!=='undefined')requestAnimationFrame(frame);
+  })();
+  </script>
+</body>
+</html>
