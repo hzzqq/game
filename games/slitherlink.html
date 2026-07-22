@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 数回 SLITHERLINK</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>数回</b> SLITHERLINK</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">5</span></span><span id="status">画一条单环，每格数字 = 相邻环边数</span></div>
+    <div class="boardwrap"><canvas id="board" width="376" height="376"></canvas></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点网格边画线/取消。每条边最多一段；最终须形成一条闭合单环，且每格数字等于其相邻环边数。</div>
+  </div>
+  <div class="foot">Slitherlink（数回）：在网格线上画出一条不自交的闭合单环，使每个格子周围环的边数等于其数字。每局由随机单环派生数字，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  let _rng = mk(0xabcdef01);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const N = 5;
+  const W = N+1, H = N+1;          // 点阵尺寸
+  const CELL = 64, PAD = 28;
+  let clues;   // N×N
+  let h, v;    // 玩家边
+  let sol;     // {h,v}
+  let won = false;
+
+  function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+
+  // 在点阵上找一个简单环（返回点序列，闭合并由玩家边还原）
+  function findCycle(Wd,Hd,rng,minLen){
+    for(let attempt=0; attempt<200; attempt++){
+      const start=[Math.floor(Wd/2), Math.floor(Hd/2)];
+      const visited=new Set([start[0]+','+start[1]]);
+      const path=[start];
+      let result=null, nodes=0;
+      function key(p){return p[0]+','+p[1];}
+      function nbrs(p){ const [x,y]=p,res=[];
+        const cand=[[x+1,y],[x-1,y],[x,y+1],[x,y-1]];
+        for(const [nx,ny] of cand){ if(nx>=0&&nx<Wd&&ny>=0&&ny<Hd) res.push([nx,ny]); }
+        return res; }
+      function dfs(cur,depth){
+        if(result || nodes>3000) return;
+        nodes++;
+        if(depth>=minLen){
+          for(const nb of nbrs(cur)){ if(nb[0]===start[0]&&nb[1]===start[1]){ result=path.slice(); return; } }
+        }
+        let ns=nbrs(cur);
+        for(let i=ns.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); const t=ns[i]; ns[i]=ns[j]; ns[j]=t; }
+        for(const nb of ns){
+          if(!visited.has(key(nb))){
+            visited.add(key(nb)); path.push(nb);
+            dfs(nb,depth+1);
+            if(result) return;
+            path.pop(); visited.delete(key(nb));
+          }
+        }
+      }
+      dfs(start,1);
+      if(result) return result;
+    }
+    return null;
+  }
+  function cycleToEdges(cycle){
+    const hh=Array.from({length:H},()=>new Array(W-1).fill(false));
+    const vv=Array.from({length:H-1},()=>new Array(W).fill(false));
+    for(let i=0;i<cycle.length;i++){
+      const a=cycle[i], b=cycle[(i+1)%cycle.length];
+      if(a[0]===b[0]) hh[a[0]][Math.min(a[1],b[1])]=true;
+      else vv[Math.min(a[0],b[0])][a[1]]=true;
+    }
+    return {h:hh,v:vv};
+  }
+  function borderCycle(){
+    const cycle=[];
+    for(let c=0;c<W;c++) cycle.push([0,c]);
+    for(let r=1;r<H;r++) cycle.push([r,W-1]);
+    for(let c=W-2;c>=0;c--) cycle.push([H-1,c]);
+    for(let r=H-2;r>=1;r--) cycle.push([r,0]);
+    return cycle;
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    const cyc = findCycle(W,H,_rng,8) || borderCycle();
+    const edges = cycleToEdges(cyc);
+    sol = edges;
+    clues = Array.from({length:N},()=>new Array(N).fill(0));
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      clues[r][c] = (edges.h[r][c]?1:0)+(edges.h[r+1][c]?1:0)+(edges.v[r][c]?1:0)+(edges.v[r][c+1]?1:0);
+    }
+    h = Array.from({length:H},()=>new Array(W-1).fill(false));
+    v = Array.from({length:H-1},()=>new Array(W).fill(false));
+    won=false;
+    return getState();
+  }
+
+  function analyze(){
+    const deg=Array.from({length:H},()=>new Array(W).fill(0));
+    let edges=0;
+    for(let r=0;r<H;r++) for(let c=0;c<W-1;c++) if(h[r][c]){ deg[r][c]++; deg[r][c+1]++; edges++; }
+    for(let r=0;r<H-1;r++) for(let c=0;c<W;c++) if(v[r][c]){ deg[r][c]++; deg[r+1][c]++; edges++; }
+    return {deg,edges};
+  }
+  function isWin(){
+    const {deg,edges}=analyze();
+    if(edges===0) return false;
+    for(let r=0;r<H;r++) for(let c=0;c<W;c++) if(deg[r][c]!==0 && deg[r][c]!==2) return false;
+    let startV=null;
+    for(let r=0;r<H&&!startV;r++) for(let c=0;c<W;c++) if(deg[r][c]>0){startV=[r,c];break;}
+    if(!startV) return false;
+    const seen=new Set([startV[0]+','+startV[1]]); const stack=[startV];
+    while(stack.length){
+      const [r,c]=stack.pop();
+      const nbs=[];
+      if(c+1<W && h[r][c]) nbs.push([r,c+1]);
+      if(c-1>=0 && h[r][c-1]) nbs.push([r,c-1]);
+      if(r+1<H && v[r][c]) nbs.push([r+1,c]);
+      if(r-1>=0 && v[r-1][c]) nbs.push([r-1,c]);
+      for(const [nr,nc] of nbs){ if(!seen.has(nr+','+nc)){ seen.add(nr+','+nc); stack.push([nr,nc]); } }
+    }
+    for(let r=0;r<H;r++) for(let c=0;c<W;c++) if(deg[r][c]>0 && !seen.has(r+','+c)) return false;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const cnt=(h[r][c]?1:0)+(h[r+1][c]?1:0)+(v[r][c]?1:0)+(v[r][c+1]?1:0);
+      if(cnt!==clues[r][c]) return false;
+    }
+    return true;
+  }
+
+  function setEdge(type,r,c,val){
+    if(type!=='h'&&type!=='v') return false;
+    if(type==='h'){ if(r<0||r>=H||c<0||c>=W-1) return false; h[r][c]=!!val; }
+    else { if(r<0||r>=H-1||c<0||c>=W) return false; v[r][c]=!!val; }
+    won=isWin();
+    if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    return true;
+  }
+  function toggleEdge(type,r,c){ const cur=(type==='h')?h[r][c]:v[r][c]; return setEdge(type,r,c,!cur); }
+  function reset(){ h=Array.from({length:H},()=>new Array(W-1).fill(false)); v=Array.from({length:H-1},()=>new Array(W).fill(false)); won=false; return getState(); }
+  function applySolution(){ h=sol.h.map(row=>row.slice()); v=sol.v.map(row=>row.slice()); won=isWin(); return won; }
+  function getSolution(){ return {h:sol.h.map(r=>r.slice()), v:sol.v.map(r=>r.slice())}; }
+  function getState(){ return { N, clues:clues.map(r=>r.slice()), h:h.map(r=>r.slice()), v:v.map(r=>r.slice()), won }; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    const Wd=cv.width, Hd=cv.height;
+    ctx.clearRect(0,0,Wd,Hd);
+    // 点
+    ctx.fillStyle='#6b7785';
+    for(let r=0;r<H;r++) for(let c=0;c<W;c++){
+      ctx.beginPath(); ctx.arc(PAD+c*CELL, PAD+r*CELL, 3, 0, Math.PI*2); ctx.fill();
+    }
+    // 边
+    ctx.strokeStyle=getComputedStyleColor('--green','#02c076'); ctx.lineWidth=4; ctx.lineCap='round';
+    for(let r=0;r<H;r++) for(let c=0;c<W-1;c++) if(h[r][c]){ ctx.beginPath(); ctx.moveTo(PAD+c*CELL,PAD+r*CELL); ctx.lineTo(PAD+(c+1)*CELL,PAD+r*CELL); ctx.stroke(); }
+    for(let r=0;r<H-1;r++) for(let c=0;c<W;c++) if(v[r][c]){ ctx.beginPath(); ctx.moveTo(PAD+c*CELL,PAD+r*CELL); ctx.lineTo(PAD+c*CELL,PAD+(r+1)*CELL); ctx.stroke(); }
+    // 数字
+    ctx.fillStyle=getComputedStyleColor('--text','#e6edf3'); ctx.font='bold 22px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const val=clues[r][c];
+      if(val>0) ctx.fillText(val, PAD+c*CELL+CELL/2, PAD+r*CELL+CELL/2);
+    }
+    const stt=$('status'); if(stt) stt.textContent = won?'已通关':'画一条单环，每格数字 = 相邻环边数';
+    const msg=$('msg'); if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！形成闭合单环且数字全部匹配。'; } else msg.className='msg'; }
+  }
+  function getComputedStyleColor(_name,fallback){ return fallback||'#02c076'; }
+  function hit(mx,my){
+    const fx=(mx-PAD)/CELL, fy=(my-PAD)/CELL;
+    if(fx<0||fy<0||fx>N||fy>N) return null;
+    const dx=fx-Math.round(fx), dy=fy-Math.round(fy);
+    if(dy<dx){
+      const r=Math.round(fy), c=Math.floor(fx);
+      if(r>=0&&r<H&&c>=0&&c<W-1) return {type:'h',r,c};
+    } else {
+      const c=Math.round(fx), r=Math.floor(fy);
+      if(c>=0&&c<W&&r>=0&&r<H-1) return {type:'v',r,c};
+    }
+    return null;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'),nb=$('new'),rb=$('reset');
+    if(cv) cv.addEventListener('click',e=>{
+      const rect=cv.getBoundingClientRect();
+      const mx=(e.clientX-rect.left)*(cv.width/rect.width);
+      const my=(e.clientY-rect.top)*(cv.height/rect.height);
+      const k=hit(mx,my); if(k){ toggleEdge(k.type,k.r,k.c); render(); }
+    });
+    if(nb) nb.onclick=()=>{ newPuzzle(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setEdge, toggleEdge, applySolution, getSolution, getState, analyze };
+  }
+})();
+</script>
+</body>
+</html>
