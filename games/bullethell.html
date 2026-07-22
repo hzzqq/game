@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // BULLETHELL</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace}
+  #stage{position:fixed;inset:0;z-index:0}
+  #stage canvas{display:block;touch-action:none}
+  #scan{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px}
+  .titlebar{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:10px;
+    padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border-bottom:1px solid var(--border)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .titlebar .btn{margin-left:auto;background:transparent;color:var(--dim);border:1px solid var(--border);
+    border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px}
+  .titlebar .btn:hover{color:var(--red);border-color:var(--red)}
+  #hud{position:fixed;top:52px;left:16px;right:16px;z-index:5;display:flex;justify-content:space-between;align-items:flex-start}
+  .stat{background:rgba(18,24,33,.85);border:1px solid var(--border);border-radius:8px;padding:8px 14px;backdrop-filter:blur(4px)}
+  .stat .k{color:var(--dim);font-size:11px;letter-spacing:.5px}
+  .stat .v{font-size:19px;margin-top:2px}
+  .v.score{color:var(--gold)} .v.lives{color:var(--red)} .v.level{color:var(--green)}
+  #overlay{position:fixed;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,.88)}
+  #overlay .box{text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;max-width:90vw}
+  #overlay h1{font-size:26px;letter-spacing:2px;margin-bottom:10px;text-shadow:0 0 18px rgba(246,70,93,.35)}
+  #overlay p{color:var(--dim);font-size:13px;line-height:1.9;margin-bottom:18px}
+  #overlay .start{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;box-shadow:0 0 14px rgba(246,70,93,.4)}
+  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;color:var(--dim);font-size:12px;text-align:center;width:100%}
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="scan"></div>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>BULLETHELL</b> · 弹幕躲避</span>
+    <button class="btn" id="muteBtn">🔊</button>
+    <button class="btn" id="pauseBtn">暂停</button>
+  </div>
+  <div id="hud">
+    <div class="stat"><div class="k">得分</div><div class="v score" id="score">0</div></div>
+    <div class="stat"><div class="k">波次</div><div class="v level" id="wave">1</div></div>
+    <div class="stat"><div class="k">余机</div><div class="v lives" id="lives">♥♥♥</div></div>
+    <div class="stat"><div class="k">生存</div><div class="v" id="time">0.0s</div></div>
+  </div>
+  <div id="hint">移动：方向键 / WASD（手机拖拽）· 躲开红色弹幕 · 生存满 8 秒进入下一波</div>
+  <div id="overlay">
+    <div class="box">
+      <h1>✦ 弹幕躲避</h1>
+      <p>红色弹幕从四面来袭，操控绿色机体灵活走位。<br/>每生存 <b style="color:var(--gold)">8 秒</b> 进入下一波（弹幕更密），被击中损失余机，余机耗尽即失败。</p>
+      <button class="start" id="startBtn">开始躲避</button>
+    </div>
+  </div>
+
+  <script src="juice.js"></script>
+  <script>
+  (function(){
+    if('ontouchstart' in window) document.body.classList.add('touch');
+    const stage=document.getElementById('stage');
+    let W=window.innerWidth, H=window.innerHeight;
+    const cv=document.createElement('canvas');
+    cv.width=W; cv.height=H; stage.appendChild(cv);
+    const ctx=cv.getContext('2d');
+    const J=(typeof Juice!=='undefined')?Juice:null;
+
+    const DURATION=8; // 每波生存时长
+    let S=null;
+    function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+    function fresh(){
+      return {
+        player:{x:W/2,y:H-90,r:12,invuln:0},
+        bullets:[], score:0, wave:1, lives:3, time:0,
+        spawnTimer:0, spawnEnabled:true, running:false, paused:false, over:false,
+        rng:mulberry32(1), keys:{up:false,down:false,left:false,right:false}
+      };
+    }
+
+    function reset(){ S=fresh(); syncHud(); }
+    function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; syncHud(); }
+    function setRand(seed){ S.rng=mulberry32(seed>>>0); }
+
+    function spawnBullet(x,y,vx,vy,r){ S.bullets.push({x,y,vx,vy,r:r||8}); }
+
+    function update(dt){
+      if(!S||!S.running||S.paused||S.over) return;
+      const p=S.player;
+      // 移动
+      let dx=0,dy=0;
+      if(S.keys.left)dx-=1; if(S.keys.right)dx+=1;
+      if(S.keys.up)dy-=1; if(S.keys.down)dy+=1;
+      const sp=320;
+      p.x+=dx*sp*dt; p.y+=dy*sp*dt;
+      if(p.x<p.r)p.x=p.r; if(p.x>W-p.r)p.x=W-p.r;
+      if(p.y<p.r)p.y=p.r; if(p.y>H-p.r)p.y=H-p.r;
+      // 无敌帧
+      if(p.invuln>0)p.invuln=Math.max(0,p.invuln-dt);
+      // 弹幕生成
+      S.spawnTimer-=dt;
+      if(S.spawnEnabled && S.spawnTimer<=0){
+        S.spawnTimer=0.5 - Math.min(0.35, S.wave*0.03);
+        const n=2 + (S.wave%3);
+        for(let i=0;i<n;i++){
+          const x=S.rng()*W, speed=120+S.wave*15;
+          const ang=Math.PI/2 + (S.rng()-0.5)*0.8;
+          spawnBullet(x,-10,Math.cos(ang)*speed,Math.sin(ang)*speed,8);
+        }
+      }
+      // 弹幕移动
+      for(const b of S.bullets){ b.x+=b.vx*dt; b.y+=b.vy*dt; }
+      // 碰撞
+      if(p.invuln<=0){
+        for(const b of S.bullets){
+          const ddx=b.x-p.x, ddy=b.y-p.y;
+          if(ddx*ddx+ddy*ddy<(b.r+p.r)*(b.r+p.r)){
+            S.lives--; p.invuln=1.0; b.dead=true;
+            if(J)J.flash&&J.flash('#f6465d');
+            break;
+          }
+        }
+      }
+      S.bullets=S.bullets.filter(b=>!b.dead && b.x>-30 && b.x<W+30 && b.y>-30 && b.y<H+30);
+      // 失败
+      if(S.lives<=0){ S.over=true; S.running=false; showOver(); }
+      // 波次推进（生存满 DURATION）
+      S.time+=dt;
+      if(S.time>=DURATION){
+        S.time-=DURATION; S.wave++; S.score+=50*S.wave;
+        if(J)J.popup&&J.popup('WAVE '+S.wave);
+      }
+      syncHud();
+    }
+
+    function getState(){
+      return {
+        score:S.score, wave:S.wave, lives:S.lives, time:+S.time.toFixed(3),
+        running:S.running, over:S.over, spawnEnabled:S.spawnEnabled,
+        player:{x:+S.player.x.toFixed(2),y:+S.player.y.toFixed(2),r:S.player.r,invuln:+S.player.invuln.toFixed(3)},
+        bullets:S.bullets.map(b=>({x:+b.x.toFixed(2),y:+b.y.toFixed(2),r:b.r})),
+        bulletCount:S.bullets.length
+      };
+    }
+
+    window.__t={
+      reset, start, update, getState, setRand,
+      setPlayer(x,y){S.player.x=x;S.player.y=y;},
+      setInvuln(v){S.player.invuln=v;},
+      setTime(v){S.time=v;},
+      setLives(n){S.lives=n;},
+      setSpawnEnabled(v){S.spawnEnabled=!!v;},
+      spawnBullet, clearBullets(){S.bullets=[];},
+      setKeys(u,d,l,r){S.keys.up=!!u;S.keys.down=!!d;S.keys.left=!!l;S.keys.right=!!r;}
+    };
+
+    function render(){
+      ctx.clearRect(0,0,W,H);
+      for(const b of S.bullets){ ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fillStyle='#f6465d';ctx.fill(); }
+      const p=S.player;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fillStyle=p.invuln>0?'#6b7785':'#02c076';ctx.fill();
+    }
+
+    const $=id=>document.getElementById(id);
+    const overlay=$('overlay'); const startBtn=$('startBtn');
+    function syncHud(){
+      if($('score'))$('score').textContent=S.score;
+      if($('wave'))$('wave').textContent=S.wave;
+      if($('lives'))$('lives').textContent='♥'.repeat(Math.max(0,S.lives));
+      if($('time'))$('time').textContent=S.time.toFixed(1)+'s';
+    }
+    function showOver(){
+      if(overlay){overlay.style.display='flex';const h1=overlay.querySelector('h1');if(h1)h1.textContent='☠ 被弹幕吞没 · 得分 '+S.score;const b=overlay.querySelector('.start');if(b)b.textContent='再躲一次';}
+    }
+    if(startBtn)startBtn.addEventListener('click',start);
+    if($('pauseBtn'))$('pauseBtn').addEventListener('click',()=>{S.paused=!S.paused;});
+    if($('muteBtn'))$('muteBtn').addEventListener('click',()=>{if(J&&J.toggleMute)J.toggleMute();});
+
+    window.addEventListener('keydown',e=>{
+      if(e.code==='ArrowLeft'||e.code==='KeyA')S.keys.left=true;
+      if(e.code==='ArrowRight'||e.code==='KeyD')S.keys.right=true;
+      if(e.code==='ArrowUp'||e.code==='KeyW')S.keys.up=true;
+      if(e.code==='ArrowDown'||e.code==='KeyS')S.keys.down=true;
+      if(e.code==='KeyP')S.paused=!S.paused;
+    });
+    window.addEventListener('keyup',e=>{
+      if(e.code==='ArrowLeft'||e.code==='KeyA')S.keys.left=false;
+      if(e.code==='ArrowRight'||e.code==='KeyD')S.keys.right=false;
+      if(e.code==='ArrowUp'||e.code==='KeyW')S.keys.up=false;
+      if(e.code==='ArrowDown'||e.code==='KeyS')S.keys.down=false;
+    });
+    let dragId=null;
+    cv.addEventListener('pointerdown',e=>{dragId=e.pointerId;moveTo(e.clientX,e.clientY);});
+    cv.addEventListener('pointermove',e=>{if(e.pointerId===dragId)moveTo(e.clientX,e.clientY);});
+    const endD=e=>{if(e.pointerId===dragId)dragId=null;};
+    cv.addEventListener('pointerup',endD);cv.addEventListener('pointercancel',endD);
+    function moveTo(cx,cy){const r=cv.getBoundingClientRect();S.player.x=cx-r.left;S.player.y=cy-r.top;}
+
+    reset();
+    let last=0;
+    function frame(t){
+      const dt=Math.min(0.05,(t-last)/1000||0.016); last=t;
+      update(dt); render();
+      if(typeof requestAnimationFrame!=='undefined')requestAnimationFrame(frame);
+    }
+    if(typeof requestAnimationFrame!=='undefined')requestAnimationFrame(frame);
+  })();
+  </script>
+</body>
+</html>
