@@ -68,7 +68,11 @@
   .search::placeholder{ color:var(--dim); }
   a.card.played::after{content:'●';position:absolute;top:10px;left:10px;color:var(--green);font-size:9px;text-shadow:0 0 6px rgba(2,192,118,.7);z-index:2}
   .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:18px}
-  @media(max-width:680px){.grid{grid-template-columns:1fr}}
+  @media(max-width:680px){.grid{grid-template-columns:1fr}
+    .filters{position:sticky; top:6px; z-index:6; background:var(--panel);
+      padding:8px; border:1px solid var(--border); border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.4)}
+    .search{flex:1 1 100%}
+  }
   a.card{
     display:block; text-decoration:none; color:var(--text);
     background:#0e141d; border:1px solid var(--border); border-radius:10px;
@@ -97,6 +101,20 @@
   .blink{color:var(--red); animation:bl 1.1s steps(2) infinite}
   @keyframes bl{50%{opacity:0}}
   a.card.hide{display:none}
+  .sortsel{background:#0e141d; border:1px solid var(--border); color:var(--dim);
+    padding:8px 14px; border-radius:999px; font-family:inherit; font-size:13px; outline:none; cursor:pointer}
+  .sortsel:focus{border-color:var(--red); box-shadow:0 0 0 2px rgba(246,70,93,.15)}
+  a.card .star{position:absolute; top:8px; right:10px; z-index:3; cursor:pointer;
+    color:var(--dim); font-size:16px; line-height:1; transition:.15s ease; user-select:none}
+  a.card .star.on{color:var(--gold); text-shadow:0 0 8px rgba(240,185,11,.6)}
+  .chip.off{opacity:.6; border-color:var(--border); color:var(--dim)}
+  .chip.off:hover{border-color:var(--dim)}
+  .topbtn{position:fixed; right:22px; bottom:22px; z-index:50; width:46px; height:46px;
+    border-radius:50%; border:1px solid var(--border); background:#0e141d; color:var(--gold);
+    font-size:22px; line-height:1; cursor:pointer; box-shadow:0 6px 22px rgba(0,0,0,.45);
+    opacity:0; transform:translateY(14px) scale(.9); pointer-events:none; transition:.22s cubic-bezier(.2,1.3,.4,1)}
+  .topbtn.show{opacity:1; transform:none; pointer-events:auto}
+  .topbtn:hover{filter:brightness(1.2); border-color:var(--gold)}
 </style>
 </head>
 <body>
@@ -117,8 +135,15 @@
         <button class="chip gold" data-f="multi">多人 <span class="badge">+5 NEW</span></button>
         <button class="chip" data-f="net">联机</button>
         <button class="chip" data-f="recent">最近</button>
+        <button class="chip" data-f="fav">★ 收藏</button>
         <input id="search" class="search" type="text" placeholder="🔍 搜索游戏名 / 关键词…" autocomplete="off">
         <button class="chip" id="rnd" title="随机玩一款">🎲 随机</button>
+        <select id="sort" class="sortsel" title="排序方式">
+          <option value="def">排序:默认</option>
+          <option value="name">名称 A-Z</option>
+          <option value="tag">标签分组</option>
+        </select>
+        <button class="chip" id="mute" title="全局音效开关">🔊 音效</button>
         <span class="count" id="count"></span>
       </div>
       <div class="grid">
@@ -814,6 +839,27 @@
           <div class="desc">类小丑牌的扑克构筑 roguelike：凑德州牌型，基础筹码×倍率，再吃小丑牌加成，限次内凑够目标分。</div>
           <div class="key">▸ 凑牌型 · 吃小丑 · 冲目标分</div>
         </a>
+        <a class="card" data-cat="solo" href="baccarat.html">
+          <span class="newflag">NEW</span>
+          <span class="tag solo">CS · 赌场博弈</span>
+          <h2>百家乐 Baccarat</h2>
+          <div class="desc">8 副牌靴对庄闲：天牌 8/9 即终、闲 0-5 补牌、庄按规则表补停，闲/庄 1:1（庄抽水5%）、和 8:1。</div>
+          <div class="key">▸ 下注(闲/庄/和) · 发牌结算 · 红涨绿跌</div>
+        </a>
+        <a class="card" data-cat="solo" href="kenken.html">
+          <span class="newflag">NEW</span>
+          <span class="tag solo">CT · 数学解谜</span>
+          <h2>肯肯 KenKen</h2>
+          <div class="desc">n×n 拉丁方：每行每列 1..n 不重复，按笼内加减乘除目标值填数，解出即胜。</div>
+          <div class="key">▸ 点格填数 · 满足笼运算 · 最少步</div>
+        </a>
+        <a class="card" data-cat="solo" href="backgammon.html">
+          <span class="newflag">NEW</span>
+          <span class="tag solo">CU · 棋类策略</span>
+          <h2>西洋双陆 Backgammon</h2>
+          <div class="desc">掷两骰按点数移子，击中对方单子将其击落中线，全部进入内盘并移出棋盘即胜，白方 AI 对战。</div>
+          <div class="key">▸ 点子选中→点目标点移动 · 骰子即步数</div>
+        </a>
       </div>
       <div class="foot">
         WORKBUDDY · 软件工程实训 · 选择一个游戏开始 <span class="blink">_</span>
@@ -822,6 +868,7 @@
       </div>
     </div>
   </div>
+  <button id="top" class="topbtn" title="回到顶部" aria-label="回到顶部">↑</button>
   <script>
     (function(){
       var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
@@ -829,6 +876,18 @@
       var countEl = document.getElementById('count');
       var search = document.getElementById('search');
       var curF = 'all', curQ = '';
+      var grid = document.querySelector('.grid');
+      var sortSel = document.getElementById('sort');
+      function sortCards(mode){
+        if(mode==='def'){ cards.forEach(function(c){ grid.appendChild(c); }); return; }
+        var arr = cards.slice();
+        arr.sort(function(a,b){
+          if(mode==='name') return (a.querySelector('h2').textContent||'').localeCompare(b.querySelector('h2').textContent||'','zh');
+          if(mode==='tag') return (a.querySelector('.tag').textContent||'').localeCompare(b.querySelector('.tag').textContent||'','zh');
+          return 0;
+        });
+        arr.forEach(function(c){ grid.appendChild(c); });
+      }
       var RECENT_KEY = 'hub_recent';
       var recent = [];
       try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch(e) { recent = []; }
@@ -838,11 +897,26 @@
         if (recent.length > 8) recent = recent.slice(0, 8);
         try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch(e) {}
       }
+      var FAV_KEY='hub_fav';
+      function favSet(){ try{ return JSON.parse(localStorage.getItem(FAV_KEY)||'[]'); }catch(e){ return []; } }
+      function toggleFav(href, star){
+        var s=favSet(); var i=s.indexOf(href);
+        if(i>=0){ s.splice(i,1); star.classList.remove('on'); star.textContent='☆'; }
+        else { s.push(href); star.classList.add('on'); star.textContent='★'; }
+        try{ localStorage.setItem(FAV_KEY, JSON.stringify(s)); }catch(e){}
+        if(curF==='fav') apply();
+      }
+      cards.forEach(function(c){
+        var star=document.createElement('span'); star.className='star'; star.textContent='☆'; star.title='收藏';
+        if(favSet().indexOf(c.getAttribute('href'))>=0){ star.classList.add('on'); star.textContent='★'; }
+        star.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); toggleFav(c.getAttribute('href'), star); });
+        c.appendChild(star);
+      });
       function apply(){
         var n = 0, q = curQ.trim().toLowerCase();
         cards.forEach(function(c){
           var f = curF;
-          var byCat = (f==='all') ? true : (f==='recent' ? recent.indexOf(c.getAttribute('href'))>=0 : c.getAttribute('data-cat')===f);
+          var byCat = (f==='all') ? true : (f==='recent' ? recent.indexOf(c.getAttribute('href'))>=0 : (f==='fav' ? favSet().indexOf(c.getAttribute('href'))>=0 : c.getAttribute('data-cat')===f));
           var byQ = !q || (c.textContent||'').toLowerCase().indexOf(q) >= 0;
           if(recent.indexOf(c.getAttribute('href'))>=0) c.classList.add('played'); else c.classList.remove('played');
           if(byCat && byQ){ c.classList.remove('hide'); n++; } else { c.classList.add('hide'); }
@@ -857,6 +931,17 @@
         });
       });
       if(search){ search.addEventListener('input', function(){ curQ = search.value; apply(); }); }
+      if(sortSel){ sortSel.addEventListener('change', function(){ sortCards(sortSel.value); }); }
+      var MUTE_KEY='hub_mute';
+      var muteBtn=document.getElementById('mute');
+      var muted=false;
+      try { muted = localStorage.getItem(MUTE_KEY)==='1'; } catch(e) {}
+      function applyMute(){
+        if(window.Juice) window.Juice.setMuted(muted);
+        if(muteBtn){ muteBtn.textContent = muted ? '🔇 静音' : '🔊 音效'; muteBtn.classList.toggle('off', muted); }
+      }
+      if(muteBtn){ muteBtn.addEventListener('click', function(){ muted=!muted; try{ localStorage.setItem(MUTE_KEY, muted?'1':'0'); }catch(e){} applyMute(); }); }
+      applyMute();
       cards.forEach(function(c){ c.addEventListener('click', function(){ pushRecent(c.getAttribute('href')); }); });
       var rnd = document.getElementById('rnd');
       if(rnd){ rnd.addEventListener('click', function(){
@@ -867,6 +952,9 @@
         if(e.key==='/' && document.activeElement!==search){ e.preventDefault(); search.focus(); }
         if(e.key==='Escape' && document.activeElement===search){ search.value=''; curQ=''; apply(); search.blur(); }
       });
+      var topBtn=document.getElementById('top');
+      if(topBtn){ var onScroll=function(){ if(window.scrollY>400) topBtn.classList.add('show'); else topBtn.classList.remove('show'); }; window.addEventListener('scroll', onScroll); onScroll();
+        topBtn.addEventListener('click', function(){ window.scrollTo({top:0, behavior:'smooth'}); }); }
       apply();
       var tc = document.getElementById('totCount');
       if(tc) tc.textContent = '共 '+cards.length+' 款游戏';
