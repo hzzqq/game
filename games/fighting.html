@@ -73,6 +73,10 @@ var ctx=canvas.getContext('2d');
 var W=800,H=360,GROUND=320;
 canvas.width=W; canvas.height=H;
 
+// 局部 PRNG（mulberry32）——所有随机必须走这里，禁止裸 Math.random
+function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+var _rng = mk(0x5678);
+
 var COL={bg:'#0a0e14',panel:'#121821',border:'#1f2a38',text:'#e6edf3',
   dim:'#6b7785',red:'#f6465d',green:'#02c076',gold:'#f0b90b'};
 
@@ -85,14 +89,14 @@ var ATTACKS={
 function makeFighter(isPlayer){
   return {isPlayer:isPlayer,x:0,y:GROUND-80,w:38,h:80,facing:1,
     health:100,maxHealth:100,meter:0,specialCd:0,
-    rage:0,berserkTimer:0,
+    rage:0,berserkTimer:0,shield:0,
     state:'idle',attacking:false,attackType:null,attackTime:0,hasHit:false,
     hitstunTime:0,blocking:false,flashTime:0,
     aiTimer:0,aiMoveDir:0,aiMoveUntil:0,blockUntil:0};
 }
 function resetFighter(f,x){
   f.x=x; f.y=GROUND-f.h; f.health=100; f.meter=0; f.specialCd=0;
-  f.rage=0; f.berserkTimer=0;
+  f.rage=0; f.berserkTimer=0; f.shield=0;
   f.state='idle'; f.attacking=false; f.attackType=null; f.attackTime=0;
   f.hasHit=false; f.hitstunTime=0; f.blocking=false; f.flashTime=0;
   f.aiTimer=0; f.aiMoveDir=0; f.aiMoveUntil=0; f.blockUntil=0;
@@ -107,6 +111,9 @@ var pWins=0,aWins=0,round=1,phase='fight';
 var roundEndTimer=0,roundWinnerText='';
 
 var held={left:false,right:false,block:false};
+var pickups=[];            // 注入：浮动掉落（🔥怒气狂暴 / 🛡格挡）
+var boostTimer=0;          // 注入：加速（狂暴）增益计时
+var spawnTimer=0;          // 注入：掉落刷新计时
 
 function startAttack(f,type){
   if(f.hitstunTime>0||f.state==='ko')return;
@@ -148,18 +155,18 @@ function updateAI(realDt){
   var now=performance.now();
   a.blocking = a.blockUntil>now;
   if(a.attacking)return;
-  if(player.attacking && !a.blocking && Math.random()<0.06 &&
+  if(player.attacking && !a.blocking && _rng()<0.06 &&
      Math.abs(player.x-a.x)<140){ a.blockUntil=now+350; return; }
   a.aiTimer-=realDt;
   var dist=Math.abs(player.x-a.x);
   if(a.aiTimer<=0){
-    a.aiTimer=160+Math.random()*300;
+    a.aiTimer=160+_rng()*300;
     if(dist>80){
       a.aiMoveDir = player.x>a.x?1:-1;
-      a.aiMoveUntil = now + 120 + Math.random()*200;
+      a.aiMoveUntil = now + 120 + _rng()*200;
     } else {
       a.aiMoveDir=0;
-      var r=Math.random();
+      var r=_rng();
       if(a.meter>=50 && r<0.2) startAttack(a,'special');
       else if(r<0.5) startAttack(a,'kick');
       else startAttack(a,'punch');
@@ -254,6 +261,57 @@ function nextRound(){
   phase='fight';
 }
 
+/* ---------- 注入：标准化掉落/增益系统（纯注入，不改动核心玩法） ---------- */
+var PICKUP_TYPES=['berserk','block'];   // fighting：🔥怒气狂暴 / 🛡格挡
+function makePickup(type,x,y){
+  const p={ type:type, x:x, y:y, age:0, vy:40 };
+  pickups.push(p); return p;
+}
+function spawnPickupAtRandom(){
+  const type=PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+  const x=_rng()*W, y=40+_rng()*120;
+  return makePickup(type, x, y);
+}
+function applyPickup(p){
+  if(!p) return;
+  if(typeof Juice!=='undefined') Juice.sfx('pickup');
+  if(p.type==='berserk'){
+    player.rage=100; player.berserkTimer=5000;   // 攻速/伤害×1.5，持续 5s
+    if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.burst(player.x, player.y+player.h*0.4, {color:'#f0b90b',n:14,speed:200}); Juice.popup(p.x,p.y,'狂暴!','#f0b90b',{size:14}); }
+  } else if(p.type==='block'){
+    player.shield=(player.shield||0)+1;
+    if(typeof Juice!=='undefined'){ Juice.popup(p.x,p.y,'格挡!','#3aa0ff',{size:14}); Juice.burst(p.x,p.y,{color:'#3aa0ff',n:10,speed:160}); }
+  }
+}
+function updatePickups(dt){
+  for(let k=pickups.length-1;k>=0;k--){
+    const p=pickups[k]; p.age+=dt; p.y += (p.vy||40)*dt;   // 随场下落
+    if(p.y > H+30){ pickups.splice(k,1); continue; }
+    if(Math.abs(p.x-player.x) < 40 && Math.abs(p.y-(player.y+player.h/2)) < 50){ applyPickup(p); pickups.splice(k,1); }
+  }
+}
+function drawPickup(ctx){
+  for(const p of pickups){
+    const bob=Math.sin((p.age||0)*6)*3;
+    const col = p.type==='berserk' ? '#f0b90b' : '#3aa0ff';
+    const icon = p.type==='berserk' ? '🔥' : '🛡';
+    ctx.save();
+    ctx.translate(p.x, p.y+bob);
+    ctx.shadowBlur=12; ctx.shadowColor=col;
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0; ctx.fillStyle='#0a0e14';
+    ctx.font='bold 14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(icon,0,1);
+    ctx.restore();
+  }
+}
+function takeHit(dmg){
+  // 护盾优先消耗、无盾才扣血/失败（独立函数便于单测）
+  if(player.shield>0){ player.shield--; if(typeof Juice!=='undefined') Juice.popup(player.x, player.y, '格挡!', '#3aa0ff', {size:14}); return; }
+  player.health=Math.max(0, player.health-dmg);
+  if(player.health<=0) checkRoundEnd();
+}
+
 var lastDt=16.6667;
 function update(realDt){
   lastDt=realDt;
@@ -268,6 +326,10 @@ function update(realDt){
   clampFighter(player); clampFighter(ai);
   if(phase==='fight') checkRoundEnd();
   else if(phase==='roundend'){ roundEndTimer-=realDt; if(roundEndTimer<=0) nextRound(); }
+  // 注入：掉落刷新 + 下落/碰撞拾取
+  spawnTimer -= realDt/1000;
+  if(spawnTimer<=0){ spawnTimer = 6 + _rng()*4; spawnPickupAtRandom(); }
+  updatePickups(realDt/1000);
 }
 
 function drawGrid(){
@@ -333,6 +395,10 @@ function drawHUD(){
   drawBar(20,52,200,5, player.rage/100, player.berserkTimer>0?COL.red:COL.gold, '', false);
   drawBar(W-20-200,52,200,5, ai.rage/100, ai.berserkTimer>0?COL.red:COL.gold, '', true);
   drawPips();
+  var bs=[];
+  if(player.berserkTimer>0) bs.push('🔥狂暴');
+  if(player.shield>0) bs.push('🛡格挡');
+  if(bs.length){ ctx.fillStyle=COL.gold; ctx.font='12px monospace'; ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillText(bs.join(' '), W/2, 70); ctx.textAlign='left'; }
   ctx.fillStyle=COL.dim; ctx.font='12px monospace'; ctx.textAlign='center';
   ctx.fillText('ROUND '+round+' / BEST OF 3', W/2, 26);
   ctx.textAlign='left';
@@ -350,6 +416,7 @@ function draw(){
   ctx.strokeStyle=COL.border; ctx.lineWidth=2;
   ctx.beginPath(); ctx.moveTo(0,GROUND+10); ctx.lineTo(W,GROUND+10); ctx.stroke();
   drawFighter(player); drawFighter(ai);
+  drawPickup(ctx);          // 注入：浮动掉落（玩家前绘制）
   drawHUD();
   if(phase==='roundend') drawBanner();
   if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
@@ -440,7 +507,20 @@ document.getElementById('restart').addEventListener('click',restart);
     getRage(f){ return f.rage; },
     setRage(f,v){ f.rage=v; },
     isBerserk(f){ return f.berserkTimer>0; },
-    getPhase(){ return phase; }
+    getPhase(){ return phase; },
+    // ---- 注入：标准化掉落/增益系统钩子 ----
+    reset: function(){ restart(); pickups=[]; boostTimer=0; spawnTimer=0; },
+    update: function(dt){ update(dt||16.6667); },
+    getState: function(){ return phase; },
+    spawnPickup: function(type,x,y){ if(type===undefined) return spawnPickupAtRandom(); return makePickup(type, x!==undefined?x:player.x, y!==undefined?y:player.y); },
+    stepPickups: function(dt){ updatePickups(dt); },
+    applyPickup: function(p){ applyPickup(p); },
+    getPickups: function(){ return pickups.length; },
+    getShield: function(){ return player.shield; },
+    setShield: function(v){ player.shield=v; },
+    getBoost: function(){ return boostTimer; },
+    setBoost: function(v){ boostTimer=v; player.berserkTimer=v*1000; },
+    takeHit: function(dmg){ takeHit(dmg); }
   };
 
 resetFighter(player,200); resetFighter(ai,600);

@@ -29,4 +29,37 @@ H.ok(T.player.berserkTimer >= 5000, 'fighting: 狂暴持续应秒级(>=5000ms) (
 T.player.berserkTimer -= 16.7;       // 模拟一帧(~60fps)
 H.ok(T.isBerserk(T.player) === true, 'fighting: 一帧后狂暴仍持续(证明非 5ms)');
 
+// 5) 标准化掉落：🔥怒气狂暴 生效（攻速/伤害×1.5，5s）
+T.setBoost(0); T.player.berserkTimer=0;
+T.spawnPickup('berserk', T.player.x, T.player.y);
+T.stepPickups(0.05);
+H.ok(T.player.berserkTimer > 0, 'fighting: 狂暴 pickup 生效 (berserkTimer=' + T.player.berserkTimer + ')');
+H.ok(T.getPickups() === 0, 'fighting: 拾取后移除');
+
+// 6) 未碰撞不生效
+T.spawnPickup('berserk', 0, 0);
+T.stepPickups(0.05);
+H.ok(T.getPickups() === 1, 'fighting: 未碰撞 pickup 仍在');
+
+// 7) 🛡格挡 pickup → 护盾+1
+T.setShield(0);
+T.spawnPickup('block', T.player.x, T.player.y);
+T.stepPickups(0.05);
+H.ok(T.getShield() === 1, 'fighting: 格挡 pickup 护盾+1 (shield=' + T.getShield() + ')');
+
+// 8) 护盾免死：有盾时受伤不扣血、不结束
+T.setShield(1); T.player.health=100;
+T.takeHit(30);
+H.ok(T.player.health === 100, 'fighting: 护盾免死 hp 不变 (hp=' + T.player.health + ')');
+H.ok(T.getState() === 'fight', 'fighting: 护盾免死未结束');
+
+// 9) 无盾扣血/失败
+T.setShield(0); T.player.health=10;
+T.takeHit(50);
+H.ok(T.getState() === 'roundend', 'fighting: 无盾致命 → roundend');
+
+// 10) 加速 get/set
+T.setBoost(5);
+H.ok(T.getBoost() === 5, 'fighting: getBoost=5 (boost=' + T.getBoost() + ')');
+
 module.exports = {};
