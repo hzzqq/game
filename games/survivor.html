@@ -234,7 +234,7 @@
     e.hp=0; S.kills++;
     S.gems.push({x:e.x, y:e.y, xp:e.xp, vy:-30, life:6});
     S.effects.push({kind:'burst', x:e.x, y:e.y, col:e.color, life:0.4, max:0.4});
-    if(J){ J.burst(e.x,e.y,{color:e.color,n:10}); J.sfx('kill'); }
+    if(J){ J.burst(e.x,e.y,{color:e.color,n:10}); J.sfx('boom'); }
   }
   function spawnLogic(dt){
     S.spawnT-=dt;
@@ -277,7 +277,7 @@
       triggerLevelUp();
     }
   }
-  function triggerLevelUp(){ S.state='levelup'; S.choices=genChoices(); if(J) J.sfx('level'); }
+  function triggerLevelUp(){ S.state='levelup'; S.choices=genChoices(); if(J){ J.sfx('levelup'); J.burst(S.player.x,S.player.y,{color:'#f0b90b',n:14}); } }
   function genChoices(){
     const pool=[];
     for(const k in WEAPONS){
@@ -304,8 +304,8 @@
     if(p.iframe>0) return;
     p.hp-=d; p.iframe=0.6; S.trauma=Math.min(1,S.trauma+0.5); S.flash=0.25;
     S.pops.push({x:p.x,y:p.y-20,t:0.6,max:0.6,txt:'-'+Math.round(d),col:'#f6465d'});
-    if(J){ J.addTrauma(0.5); J.flash('#f6465d',0.25); J.sfx('hurt'); }
-    if(p.hp<=0){ p.hp=0; S.state='over'; }
+    if(J){ J.addTrauma(0.5); J.flash('#f6465d',0.25); J.sfx('hit'); }
+    if(p.hp<=0){ p.hp=0; S.state='over'; if(J){ J.sfx('lose'); J.flash('#f6465d',0.5); } }
   }
 
   // ---------- effects ----------
