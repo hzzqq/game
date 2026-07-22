@@ -56,18 +56,18 @@
     if(over) return last;
     const v=1+Math.floor(_rand()*6);
     last=v;
-    if(v===1){ turn=1-turn; roundScore=0; }
+    if(v===1){ turn=1-turn; roundScore=0; Juice.sfx('error'); Juice.addTrauma(.2); }
     else {
-      roundScore+=v;
-      if(totals[turn]+roundScore>=TARGET){ over=true; winner=turn; }
+      roundScore+=v; Juice.sfx('hit'); Juice.addTrauma(.2);
+      if(totals[turn]+roundScore>=TARGET){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); }
     }
     return v;
   }
   function hold(){
     if(over) return;
     totals[turn]+=roundScore;
-    roundScore=0;
-    if(totals[turn]>=TARGET){ over=true; winner=turn; }
+    roundScore=0; Juice.sfx('pickup');
+    if(totals[turn]>=TARGET){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); }
     else turn=1-turn;
   }
   function getTotal(p){ return totals[p]; }
