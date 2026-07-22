@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 文字矩阵 BOGGLE</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>文字矩阵</b> BOGGLE</span></div>
+  <div class="wrap">
+    <div class="hud"><span>得分 · <span class="st" id="score">0</span></span><span id="status">相邻（含对角）连字成词，至少 3 字母</span></div>
+    <div class="boardwrap"><canvas id="board" width="360" height="360"></canvas></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="find" class="ghost">找词 FIND</button>
+    </div>
+    <div class="msg" id="msg">点 NEW 生成字母盘，点 FIND 列出本盘能找到的全部词汇。</div>
+  </div>
+  <div class="foot">Boggle（文字矩阵）：4×4 字母盘，由加权分布生成（多元音/常见字母）。相邻格（含对角）连成至少 3 字母的英文词，同格不可重复使用。计分：3=1,4=1,5=2,6=3,7+=5。</div>
+
+<script src="juice.js"></script>
+<script src="input.js"></script>
+<script>
+(function(){
+  "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
+  function mk(s){ return function(){ s|=0; s=s+0x6D2B79F5|0; var t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  let _rng = mk(0x1234abcd);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const N = 4;
+  let board;   // N×N 字符
+
+  // ---- 加权字母分布（多元音、常见辅音）----
+  const LETTERS = [
+    ['e',12],['a',9],['i',9],['o',8],['n',6],['r',6],['t',6],['l',4],['s',4],['u',4],
+    ['d',4],['g',3],['b',2],['c',2],['m',2],['p',2],['f',2],['h',2],['v',2],['w',2],
+    ['y',2],['k',1],['j',1],['x',1],['q',1],['z',1]
+  ];
+  let TOTAL = 0; for(const [_,w] of LETTERS) TOTAL += w;
+
+  // ---- 内嵌小型英文词表（小写，常见词）----
+  const DICT_WORDS = (
+    "the and for are cat dog code rate star rats tear ten net pant trap art eats eat tea "+
+    "set sea are ear ant nap pan pen ate car arc tar ore rat sat tan ran ran art oat toe "+
+    "one two six ten red run sun fun bun gun hut hot hat ham had has her his him how hey "+
+    "let leg led lie lip lap lot log low law lay lit lit lit lid lip lit map man men mud "+
+    "mad mat mix mob mop mug nut not now nor new nil nip nip nod nor nap name near neat "+
+    "note nose node nine none nary nary oak oar oat odd ode oil old one orb our out owe "+
+    "pad pat paw pay pea peg pen pet pie pig pin pit pod pop pot pub pug pun pup pus put "+
+    "rag ram ran rap rat raw ray red rib rid rig rim rip rob rod rot row rub rug rum run "+
+    "rut sad sag sap sat saw say sea see set sew she shy sin sip sir sit six ski sky sly "+
+    "sob son sop sow soy spa spy sty sub sue sum sun tab tag tan tap tar tax tea ten tie "+
+    "tin tip toe ton too top tot tow toy try tub tug tun two use van vat vet via vie vow "+
+    "wad wag war was wax way web wed wet who why win wit woe wok won woo wow yak yam yap "+
+    "yes yet yew you zag zap zen zip zoo able acid acre aged also area army atom aunt "+
+    "auto away baby back bake ball band bank bare barn base bath beam bean bear beat been "+
+    "beer bell belt bend best bike bill bind bird bite blue boat body boil bold bolt bone "+
+    "book boot bore born boss both bowl bulk bull burn bush bus business but byte cake call "+
+    "calm camp cane card care cart case cash cast cave cell cent chat chin chip city clay "+
+    "clip club coal coat code coil coin cold cook cool cope copy cord core corn cost cozy "+
+    "crab crew crop cube cure curl dare dark dart dash data date dawn deal dear debt deck "+
+    "deed deep deer dent desk dial dice diet dime dine dirt dish dock does dome done doom "+
+    "door dose dot dove down drag draw drew drip drop drum dual duck dune dusk dust duty "+
+    "each earn ease east easy echo edge edit exam exit face fact fade fail fair fall fame "+
+    "farm fast fate fear feast feed feel fell felt file fill film find fine fire firm fish "+
+    "five flag flat flaw flee flew flip flow foam fold folk font food fool foot ford fork "+
+    "form fort four free frog fuel full fund fury fuse gain game gang gate gaze gear gene "+
+    "gift girl give glad goal goat gold golf gone good gown grab gram gray grew grid grim "+
+    "grin grip grow gulf gull gust hail hair half hall halt hand hang hard harm hate haul "+
+    "have hawk haze head heal heap hear heat heel heir held hell helm help herb herd hero "+
+    "hide high hill hint hire hive hold hole holy home hood hook hope horn hose host hour "+
+    "huge hull hunt hurt icon idea idle inch into iron item jail jazz jeep join joke jolt "+
+    "jump junk just keel keep kelp kept kick kill kind king kiss kite knee knit knob knot "+
+    "know lace lack lady laid lair lake lamb lame lamp land lane lard lark last late lava "+
+    "lawn lazy lead leaf leak lean leap left lend lens less lice lick life lift like lime "+
+    "line link lion list live load loan lock loft logo lone long look loop lord lose loss "+
+    "lost loud love luck lump lung lure lurk made mail main make male mall malt mane many "+
+    "mare mark mars mask mass mast mate math maze meal mean meat meet meld melt menu mere "+
+    "mesh mild mile milk mill mind mine mint miss mist mite moan mode mold mole monk mood "+
+    "moon more moss most moth move much mule muse must mute myth nail name nape navy near "+
+    "neat neck need nest news next nice nick nine node none noon norm nose note noun nude "+
+    "numb oath obey odds ogre oily okay omen once only onto open oral oven over pace pack "+
+    "page paid pail pain pair pale palm pane pang pant park part pass past path pave pawn "+
+    "peak peal pear peat peck peek peel peer pelt perk pest pick pier pile pill pine ping "+
+    "pink pint pipe plan play plea plot plow plug plum plus poem poet poke pole poll pond "+
+    "pony pool poor pope pore pork port pose post pour pout pray prep prey prim prod prom "+
+    "prop pull pump punk pure push quit race rack raft rage raid rail rain rake ramp rang "+
+    "rank rant rare rash rate rave read real ream reap rear reed reef reek reel rein rely "+
+    "rent rest rice rich ride rife rift ring rink riot ripe rise risk rite road roam roar "+
+    "robe rock rode role roll roof rook room root rope rose rosy rote rout rove ruby rude "+
+    "ruin rule rump rung runt rush rust sack safe sage said sail sake sale salt same sand "+
+    "sane sang sank sash save scan scar seal seam seat sect seed seek seem seen self sell "+
+    "semi send sent sept serf shed shin ship shoe shop shot show shred shun shut sick side "+
+    "sift sigh sign silk sill silo sing sink site size skin skip slab slam slap slat sled "+
+    "slid slim slip slit slot slow slug slum smog smug snag snap snip snob snow snub snug "+
+    "soak soap soar sock soda sofa soft soil sold sole solo some song soon soot sore sort "+
+    "soul soup sour sown spam span spar spat spin spit spot spur stab stag star stay stem "+
+    "step stew stir stop stub stud stun such suck suds suit sulk sumo sung sunk sure surf "+
+    "swam swan swap swat sway swim swum tail take tale talk tall tame tank tape task taut "+
+    "teal team tear tech teem teen tell tend tent term test text than that thaw them then "+
+    "they thin this thud thug thus tick tide tidy tier tile tilt time tine tint tiny tire "+
+    "toad toe toil told toll tomb tone tong took tool toot tore torn tort toss tote tour "+
+    "tout town toxa trap tray tree trek trim trio trip trod trot true tsar tuba tube tuck "+
+    "tuft tuna tune turf turn tusk tutu twig twin twit type tyre ugly undo unit unto upon "+
+    "urge used user vain vale vane vary vase vast veal veil vein vend vent verb very vest "+
+    "veto vial vibe vice view vine visa void volt vote wade wage wail wait wake walk wall "+
+    "wand wane want ward ware warm warn wart wary wash wasp wave weak wean wear weed week "+
+    "weep weld well went wept were west what when whet whim whip whir whiz whom wick wide "+
+    "wife wild will wilt wind wine wing wink wins wipe wire wise wish wisp with woke wolf "+
+    "womb wood wool word wore work worm worn wrap wren writ yard yarn yawn year yell yoga "+
+    "yolk yore your zeal zero zest zinc zone zoom apple bread break brown brush candy "+
+    "chair cheese child chocolate clock cloud clown count court crowd crown dance dirty "+
+    "dream dress drink drive earth enemy engine fever field fire first flame frank fresh "+
+    "fruit ghost glass glove grace grand grape grass green group guard happy heart horse "+
+    "house human image india irony juice label ladder lamp light magic mango march match "+
+    "metal money month moral motor mouse mouth music naked night noise north novel nurse "+
+    "ocean onion order paint panel paper party peace pearl planet plate point power price "+
+    "pride prime print prize proof queen quick quiet radio ranch range ratio raven ready "+
+    "river robin robot rough round royal ruler scrub shade shape share sharp sheep sheet "+
+    "shell shine shirt shock shore short shout shown sight skill sleep slice small smart "+
+    "smile smoke snake snow solid sound south space spark speak speed spell spend spice "+
+    "spike split spoon sport squad spring square stairs stand star start steam steel stick "+
+    "stone store storm story sugar sweet swing table taste teeth thank thick thin thing "+
+    "think third thorn three throw thumb tiger title toast tooth trace track train trap "+
+    "treat trend trial tribe trick troop truck truly trust truth tulip twist ugly uncle "+
+    "under union urban valve vapor vault verse video virus visit vital vocal voice water "+
+    "wheel white whole witch woman world worry worse worst worth would wound write wrong "+
+    "yellow"
+  ).split(/\s+/).filter(Boolean);
+
+  const DICT = new Set(DICT_WORDS.map(w=>w.toLowerCase()));
+
+  function inDict(w){ return DICT.has(String(w).toLowerCase()); }
+
+  function pickLetter(){
+    let x = _rng()*TOTAL;
+    for(const [ch,w] of LETTERS){ if(x < w) return ch; x -= w; }
+    return LETTERS[LETTERS.length-1][0];
+  }
+
+  function newGame(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    board = [];
+    for(let r=0;r<N;r++){ const row=[]; for(let c=0;c<N;c++) row.push(pickLetter()); board.push(row); }
+    return getState();
+  }
+  function reset(){ return newGame(); }
+  function setup(grid){
+    // grid: 4×4 字符数组（或 16 字符数组）
+    if(grid.length===16){ board=[]; for(let r=0;r<N;r++){ const row=[]; for(let c=0;c<N;c++) row.push(grid[r*N+c]); board.push(row); } }
+    else { board = grid.map(row=>row.slice()); }
+    return getState();
+  }
+  function getState(){ return { grid: board.map(row=>row.slice()), rows:N, cols:N }; }
+
+  function score(w){
+    const n=String(w).length;
+    if(n<3) return 0;
+    if(n<=4) return 1;
+    if(n===5) return 2;
+    if(n===6) return 3;
+    return 5;
+  }
+
+  function findWords(){
+    const found = new Set();
+    const vis = Array.from({length:N},()=>new Array(N).fill(false));
+    function dfs(r,c,str){
+      const ns = str + board[r][c];
+      vis[r][c]=true;
+      if(ns.length>=3 && inDict(ns)) found.add(ns);
+      if(ns.length < N*N){
+        for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+          if(dr===0 && dc===0) continue;
+          const nr=r+dr, nc=c+dc;
+          if(nr>=0&&nr<N&&nc>=0&&nc<N&&!vis[nr][nc]) dfs(nr,nc,ns);
+        }
+      }
+      vis[r][c]=false;
+    }
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) dfs(r,c,'');
+    return [...found].sort();
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined') ? document.getElementById(id) : null; }
+  const PAD = 16; let cell = 80;
+  function layout(){
+    if(typeof window==='undefined') return;
+    const size = Math.max(240, Math.min((window.innerWidth||800)-32, 440));
+    cell = Math.floor((size - 2*PAD)/N);
+    const cv=$('board'); if(cv){ cv.width=cell*N+2*PAD; cv.height=cell*N+2*PAD; }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    const Wd=cv.width, Hd=cv.height;
+    ctx.clearRect(0,0,Wd,Hd);
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const x=PAD+c*cell, y=PAD+r*cell;
+      ctx.fillStyle = ((r+c)%2===0)?'#10161f':'#0e141d';
+      ctx.fillRect(x,y,cell,cell);
+      ctx.strokeStyle='#1f2a38'; ctx.lineWidth=1; ctx.strokeRect(x+0.5,y+0.5,cell-1,cell-1);
+      ctx.fillStyle='#e6edf3'; ctx.font='bold '+Math.floor(cell*0.5)+'px monospace';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(board[r][c].toUpperCase(), x+cell/2, y+cell/2+1);
+    }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'), fb=$('find');
+    if(nb) nb.onclick=()=>{ newGame(); layout(); render(); };
+    if(fb) fb.onclick=()=>{
+      const ws=findWords();
+      const sc=ws.reduce((a,w)=>a+score(w),0);
+      const msg=$('msg'); if(msg){ msg.className='msg win'; msg.textContent='找到 '+ws.length+' 词，得分 '+sc+'：'+ws.slice(0,24).join(' ')+(ws.length>24?' …':''); }
+      if(J) J.sfx('levelup');
+    };
+  }
+  newGame();
+  layout();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { setRand, newGame, reset, setup, getState, findWords, score, inDict, N };
+  }
+})();
+</script>
+</body>
+</html>
