@@ -88,16 +88,18 @@
       line.push([e,other]);
     }
     hands[turn].splice(hi,1);
-    passed=0; Juice.sfx('hit'); Juice.addTrauma(.2);
-    if(hands[turn].length===0){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); return true; }
+    passed=0;
+    if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(.2); Juice.popup(window.innerWidth/2, window.innerHeight*0.5, a+'-'+b, '#f0b90b', {size:14}); }
+    if(hands[turn].length===0){ over=true; winner=turn; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } return true; }
     turn = turn===0?1:0;
     return true;
   }
   function pass(){
     if(over) return false;
     if(canPlaceAny()) return false;
+    if(typeof Juice!=='undefined') Juice.sfx('click');
     passed++; turn = turn===0?1:0;
-    if(passed>=2){ over=true; const p0=hands[0].reduce((s,t)=>s+t[0]+t[1],0), p1=hands[1].reduce((s,t)=>s+t[0]+t[1],0); winner = p0<p1?0:(p1<p0?1:'draw'); winner!=='draw' && (Juice.sfx('win'), Juice.flash('#02c076',.5)); }
+    if(passed>=2){ over=true; const p0=hands[0].reduce((s,t)=>s+t[0]+t[1],0), p1=hands[1].reduce((s,t)=>s+t[0]+t[1],0); winner = p0<p1?0:(p1<p0?1:'draw'); if(winner!=='draw' && typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } }
     return true;
   }
   function pips(p){ return hands[p].reduce((s,t)=>s+t[0]+t[1],0); }
