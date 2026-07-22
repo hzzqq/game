@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 四角 SHIKAKU</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:4px;margin:0 auto 10px;width:max-content;background:var(--panel);padding:10px;border-radius:14px;border:1px solid var(--border)}
+  .cell{width:54px;height:54px;border-radius:8px;background:#0e141d;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer;user-select:none;color:var(--text)}
+  .cell.clue{color:var(--gold)}
+  .cell.own{background:#10261c;border-color:var(--green);color:var(--green)}
+  .cell.act{box-shadow:0 0 0 3px var(--gold)}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>四角</b> SHIKAKU</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">6</span></span><span id="status">把网格分成矩形，每矩形恰含其数字一格</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点带数字格选中为标签，再点任意格定义其矩形（包围盒）。每块面积须等于其中数字。</div>
+  </div>
+  <div class="foot">Shikaku（四角）：将网格划分为若干矩形，每个矩形恰好包含标有其面积数字的一个格子。每局由随机矩形分割派生，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  let _rng = mk(0x1234abcd);
+  const J=(typeof Juice!=='undefined')?Juice:null;
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const N = 6;
+  let clues;       // N×N 数字或 0
+  let rects;       // 玩家矩形 [{lr,lc,r1,c1,r2,c2}]
+  let sol;         // 规范解矩形
+  let won = false;
+  let active = null; // 当前选中标签 {r,c}
+
+  function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+  function areaOf(rc){ return (rc.r2-rc.r1+1)*(rc.c2-rc.c1+1); }
+
+  function genPartition(out){
+    function rec(r1,c1,r2,c2){
+      const h=r2-r1+1, w=c2-c1+1, maxArea=6;
+      if(h*w<=maxArea || (h<=2&&w<=2) || _rng()<0.12){ out.push({r1,c1,r2,c2}); return; }
+      if(h>=w){ const cut=r1+1+Math.floor(_rng()*(h-1)); rec(r1,c1,cut-1,c2); rec(cut,c1,r2,c2); }
+      else { const cut=c1+1+Math.floor(_rng()*(w-1)); rec(r1,c1,r2,cut-1); rec(r1,cut,r2,c2); }
+    }
+    rec(0,0,N-1,N-1);
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    const parts=[]; genPartition(parts);
+    clues = Array.from({length:N},()=>new Array(N).fill(0));
+    sol = parts.map(p=>{
+      const a = areaOf(p);
+      // 在矩形内随机选一格作为标签
+      const lr = p.r1 + Math.floor(_rng()*(p.r2-p.r1+1));
+      const lc = p.c1 + Math.floor(_rng()*(p.c2-p.c1+1));
+      clues[lr][lc] = a;
+      return {lr,lc,r1:p.r1,c1:p.c1,r2:p.r2,c2:p.c2};
+    });
+    rects = [];
+    active = null;
+    won = false;
+    return getState();
+  }
+
+  // 计算 owner：返回 {owner, overlap, uncovered}
+  function computeOwner(list){
+    const owner = Array.from({length:N},()=>new Array(N).fill(-1));
+    let overlap=false, uncovered=0;
+    for(let i=0;i<list.length;i++){
+      const rc=list[i];
+      for(let r=rc.r1;r<=rc.r2;r++) for(let c=rc.c1;c<=rc.c2;c++){
+        if(r<0||r>=N||c<0||c>=N){ overlap=true; continue; }
+        if(owner[r][c]!==-1) overlap=true;
+        else owner[r][c]=i;
+      }
+    }
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(owner[r][c]===-1) uncovered++;
+    return {owner, overlap, uncovered};
+  }
+
+  function isWin(){
+    if(rects.length===0) return false;
+    const {owner,overlap,uncovered} = computeOwner(rects);
+    if(overlap || uncovered>0) return false;
+    for(const rc of rects){
+      // 标签须落在矩形内且面积匹配
+      if(rc.lr<rc.r1||rc.lr>rc.r2||rc.lc<rc.c1||rc.lc>rc.c2) return false;
+      if(areaOf(rc)!==clues[rc.lr][rc.lc]) return false;
+    }
+    return true;
+  }
+
+  function setRect(lr,lc,r1,c1,r2,c2){
+    if(!inb(lr,lc)) return false;
+    if(clues[lr][lc]<=0) return false; // 非标签格
+    const rr1=Math.max(0,Math.min(r1,r2)), rr2=Math.max(0,Math.min(Math.max(r1,r2),N-1));
+    const cc1=Math.max(0,Math.min(c1,c2)), cc2=Math.max(0,Math.min(Math.max(c1,c2),N-1));
+    if(rr1>rr2||cc1>cc2) return false;
+    // 移除同标签旧矩形
+    rects = rects.filter(rc=>!(rc.lr===lr&&rc.lc===lc));
+    rects.push({lr,lc,r1:rr1,c1:cc1,r2:rr2,c2:cc2});
+    won=isWin();
+    if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    if(won && J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    return true;
+  }
+  function clearRect(lr,lc){
+    rects = rects.filter(rc=>!(rc.lr===lr&&rc.lc===lc));
+    won=isWin();
+  }
+  function reset(){ rects=[]; active=null; won=false; return getState(); }
+  function applySolution(){ rects = sol.map(rc=>({...rc})); won=isWin(); if(won && J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); return won; }
+  function getSolution(){ return sol.map(rc=>({...rc})); }
+  function getState(){
+    const {owner} = computeOwner(rects);
+    return { N, clues:clues.map(r=>r.slice()), rects:rects.map(r=>({...r})), owner, won };
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.style.gridTemplateColumns='repeat('+N+',54px)';
+    b.innerHTML='';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const el=document.createElement('div'); el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>onClick(r,c));
+      b.appendChild(el);
+    }
+  }
+  function onClick(r,c){
+    if(clues[r][c]>0){
+      if(active && active.r===r && active.c===c){ active=null; render(); return; }
+      if(!active){ active={r,c}; render(); return; }
+      // 已选标签 → 以 (active, 点击格) 为包围盒定义矩形
+      setRect(active.r,active.c,active.r,active.c,r,c);
+      active=null; render(); return;
+    }
+    if(active){ setRect(active.r,active.c,active.r,active.c,r,c); active=null; render(); return; }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'),nEl=$('n'),msg=$('msg'),st=$('status');
+    if(!b) return;
+    const {owner}=computeOwner(rects);
+    const cells=b.children;
+    for(let i=0;i<cells.length;i++){
+      const r=+cells[i].dataset.r, c=+cells[i].dataset.c;
+      const isClue = clues[r][c]>0;
+      let cls='cell'+(isClue?' clue':'')+(owner[r][c]!==-1?' own':'');
+      if(active && active.r===r && active.c===c) cls+=' act';
+      cells[i].className=cls;
+      cells[i].textContent = isClue? clues[r][c] : '';
+    }
+    if(nEl) nEl.textContent=N;
+    if(st) st.textContent = won?'已通关':'把网格分成矩形，每矩形恰含其数字一格';
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！所有矩形面积匹配其数字。'; }
+      else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newPuzzle(); buildBoard(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setRect, clearRect, applySolution, getSolution, getState, areaOf };
+  }
+})();
+</script>
+</body>
+</html>
