@@ -75,6 +75,7 @@
 <script>
 (function(){
   "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
   const N = 15;
   const EMPTY = 0, P = 1, A = 2; // P = 玩家(红), A = AI(绿)
 
@@ -324,7 +325,7 @@
     document.getElementById('ovTitle').style.color = (title.indexOf('你赢')>=0) ? GREEN : (title.indexOf('平')>=0 ? '#f0b90b' : RED);
     document.getElementById('ovText').textContent = text;
     if(typeof Juice!=='undefined'){
-      if(title.indexOf('你赢')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('gomoku',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
+      if(title.indexOf('你赢')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('gomoku',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       else if(title.indexOf('平')>=0){ Juice.sfx('click'); }
       else { Juice.sfx('lose'); Juice.flash(RED,0.3); Juice.addTrauma(0.5); }
     }
