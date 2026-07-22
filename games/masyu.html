@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 珍珠 MASYU</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(240,185,11,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--gold)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>珍珠</b> MASYU</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">5</span></span><span id="status">线连所有珍珠：白珠直进拐弯，黑珠拐弯直进</span></div>
+    <div class="boardwrap"><canvas id="board" width="392" height="392"></canvas></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点格间连线/取消。白珠：线直穿且邻格有拐弯；黑珠：线在珠处拐弯且两侧直穿。线须成一条单环穿过所有珍珠。</div>
+  </div>
+  <div class="foot">Masyu（珍珠）：画一条不分支的闭合单环穿过全部珍珠。白珠处线直行、相邻须拐弯；黑珠处线拐弯、两侧须直行。每局由随机单环派生珍珠，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  let _rng = mk(0x0badf00d);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const N = 5;
+  const CELL = 64, PAD = 28;
+  let pearls;  // N×N : 0 无, 1 白, 2 黑
+  let h, v;     // 玩家线（单元格邻接边），均为 N×N
+  let sol;      // {h,v}
+  let won = false;
+
+  function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+
+  function findCycle(Wd,Hd,rng,minLen){
+    for(let attempt=0; attempt<200; attempt++){
+      const start=[Math.floor(Wd/2), Math.floor(Hd/2)];
+      const visited=new Set([start[0]+','+start[1]]);
+      const path=[start];
+      let result=null, nodes=0;
+      function key(p){return p[0]+','+p[1];}
+      function nbrs(p){ const [x,y]=p,res=[];
+        const cand=[[x+1,y],[x-1,y],[x,y+1],[x,y-1]];
+        for(const [nx,ny] of cand){ if(nx>=0&&nx<Wd&&ny>=0&&ny<Hd) res.push([nx,ny]); }
+        return res; }
+      function dfs(cur,depth){
+        if(result || nodes>3000) return;
+        nodes++;
+        if(depth>=minLen){
+          for(const nb of nbrs(cur)){ if(nb[0]===start[0]&&nb[1]===start[1]){ result=path.slice(); return; } }
+        }
+        let ns=nbrs(cur);
+        for(let i=ns.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); const t=ns[i]; ns[i]=ns[j]; ns[j]=t; }
+        for(const nb of ns){
+          if(!visited.has(key(nb))){
+            visited.add(key(nb)); path.push(nb);
+            dfs(nb,depth+1);
+            if(result) return;
+            path.pop(); visited.delete(key(nb));
+          }
+        }
+      }
+      dfs(start,1);
+      if(result) return result;
+    }
+    return null;
+  }
+  function cycleToEdges(cycle){
+    const hh=Array.from({length:N},()=>new Array(N).fill(false));
+    const vv=Array.from({length:N},()=>new Array(N).fill(false));
+    for(let i=0;i<cycle.length;i++){
+      const a=cycle[i], b=cycle[(i+1)%cycle.length];
+      if(a[0]===b[0]) hh[a[0]][Math.min(a[1],b[1])]=true;
+      else vv[Math.min(a[0],b[0])][a[1]]=true;
+    }
+    return {h:hh,v:vv};
+  }
+  function borderCycle(){
+    const cycle=[];
+    for(let c=0;c<N;c++) cycle.push([0,c]);
+    for(let r=1;r<N;r++) cycle.push([r,N-1]);
+    for(let c=N-2;c>=0;c--) cycle.push([N-1,c]);
+    for(let r=N-2;r>=1;r--) cycle.push([r,0]);
+    return cycle;
+  }
+  function dir(a,b){ return a[0]===b[0] ? 'H' : 'V'; }
+  function derivePearls(cycle,edges){
+    const p = Array.from({length:N},()=>new Array(N).fill(0));
+    const L = cycle.length;
+    for(let i=0;i<L;i++){
+      const prev=cycle[(i-1+L)%L], cur=cycle[i], next=cycle[(i+1)%L];
+      const straight = dir(prev,cur)===dir(cur,next);
+      const prevStraight = dir(cycle[(i-2+L)%L],prev)===dir(prev,cur);
+      const nextStraight = dir(cur,next)===dir(next,cycle[(i+2)%L]);
+      if(straight && (!prevStraight || !nextStraight)) p[cur[0]][cur[1]]=1; // 白
+      else if(!straight && prevStraight && nextStraight) p[cur[0]][cur[1]]=2; // 黑
+    }
+    return p;
+  }
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    let cyc=null, p=null, edges=null;
+    for(let attempt=0; attempt<60; attempt++){
+      const c = findCycle(N,N,_rng,8) || borderCycle();
+      const e = cycleToEdges(c);
+      const pp = derivePearls(c,e);
+      let cnt=0; for(let r=0;r<N;r++) for(let c2=0;c2<N;c2++) if(pp[r][c2]) cnt++;
+      if(cnt>0){ cyc=c; p=pp; edges=e; break; }
+    }
+    if(!cyc){ cyc=borderCycle(); edges=cycleToEdges(cyc); p=derivePearls(cyc,edges); }
+    sol = edges;
+    pearls = p;
+    h = Array.from({length:N},()=>new Array(N).fill(false));
+    v = Array.from({length:N},()=>new Array(N).fill(false));
+    won=false;
+    return getState();
+  }
+
+  // 单元格度数与环路邻居
+  function cellEdges(r,c){
+    const out=[];
+    if(c+1<N && h[r][c]) out.push({dir:'H',nr:r,nc:c+1});
+    if(c-1>=0 && h[r][c-1]) out.push({dir:'H',nr:r,nc:c-1});
+    if(r+1<N && v[r][c]) out.push({dir:'V',nr:r+1,nc:c});
+    if(r-1>=0 && v[r-1][c]) out.push({dir:'V',nr:r-1,nc:c});
+    return out;
+  }
+  function isStraightCell(r,c){ const e=cellEdges(r,c); if(e.length!==2) return false; return e[0].dir===e[1].dir; }
+  function isTurnCell(r,c){ const e=cellEdges(r,c); if(e.length!==2) return false; return e[0].dir!==e[1].dir; }
+
+  function analyze(){
+    const deg=Array.from({length:N},()=>new Array(N).fill(0));
+    let edges=0;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(c+1<N && h[r][c]){ deg[r][c]++; deg[r][c+1]++; edges++; }
+      if(r+1<N && v[r][c]){ deg[r][c]++; deg[r+1][c]++; edges++; }
+    }
+    return {deg,edges};
+  }
+  function isWin(){
+    const {deg,edges}=analyze();
+    if(edges===0) return false;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(deg[r][c]!==0 && deg[r][c]!==2) return false;
+    // 单连通分量
+    let startV=null;
+    for(let r=0;r<N&&!startV;r++) for(let c=0;c<N;c++) if(deg[r][c]>0){startV=[r,c];break;}
+    if(!startV) return false;
+    const seen=new Set([startV[0]+','+startV[1]]); const stack=[startV];
+    while(stack.length){
+      const [r,c]=stack.pop(); const nbs=[];
+      if(c+1<N && h[r][c]) nbs.push([r,c+1]);
+      if(c-1>=0 && h[r][c-1]) nbs.push([r,c-1]);
+      if(r+1<N && v[r][c]) nbs.push([r+1,c]);
+      if(r-1>=0 && v[r-1][c]) nbs.push([r-1,c]);
+      for(const [nr,nc] of nbs){ if(!seen.has(nr+','+nc)){ seen.add(nr+','+nc); stack.push([nr,nc]); } }
+    }
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(deg[r][c]>0 && !seen.has(r+','+c)) return false;
+    // 珍珠约束
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(pearls[r][c]===0) continue;
+      const e=cellEdges(r,c);
+      if(e.length!==2) return false; // 珍珠须在环上
+      if(pearls[r][c]===1){ // 白：直穿且邻格有拐弯
+        if(e[0].dir!==e[1].dir) return false;
+        const n1=isTurnCell(e[0].nr,e[0].nc), n2=isTurnCell(e[1].nr,e[1].nc);
+        if(!(n1||n2)) return false;
+      } else { // 黑：拐弯且两侧直穿
+        if(e[0].dir===e[1].dir) return false;
+        if(!isStraightCell(e[0].nr,e[0].nc) || !isStraightCell(e[1].nr,e[1].nc)) return false;
+      }
+    }
+    return true;
+  }
+
+  function setEdge(type,r,c,val){
+    if(type!=='h'&&type!=='v') return false;
+    if(type==='h'){ if(r<0||r>=N||c<0||c>=N-1) return false; h[r][c]=!!val; }
+    else { if(r<0||r>=N-1||c<0||c>=N) return false; v[r][c]=!!val; }
+    won=isWin();
+    if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    return true;
+  }
+  function toggleEdge(type,r,c){ const cur=(type==='h')?h[r][c]:v[r][c]; return setEdge(type,r,c,!cur); }
+  function reset(){ h=Array.from({length:N},()=>new Array(N).fill(false)); v=Array.from({length:N},()=>new Array(N).fill(false)); won=false; return getState(); }
+  function applySolution(){ h=sol.h.map(row=>row.slice()); v=sol.v.map(row=>row.slice()); won=isWin(); return won; }
+  function getSolution(){ return {h:sol.h.map(r=>r.slice()), v:sol.v.map(r=>r.slice())}; }
+  function getState(){ return { N, pearls:pearls.map(r=>r.slice()), h:h.map(r=>r.slice()), v:v.map(r=>r.slice()), won }; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,cv.width,cv.height);
+    // 网格
+    ctx.strokeStyle='#1f2a38'; ctx.lineWidth=1;
+    for(let i=0;i<=N;i++){ ctx.beginPath(); ctx.moveTo(PAD+i*CELL,PAD); ctx.lineTo(PAD+i*CELL,PAD+N*CELL); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(PAD,PAD+i*CELL); ctx.lineTo(PAD+N*CELL,PAD+i*CELL); ctx.stroke(); }
+    // 线
+    ctx.strokeStyle='#02c076'; ctx.lineWidth=4; ctx.lineCap='round'; ctx.lineJoin='round';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const x=PAD+c*CELL+CELL/2, y=PAD+r*CELL+CELL/2;
+      if(c+1<N && h[r][c]){ ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+CELL,y); ctx.stroke(); }
+      if(r+1<N && v[r][c]){ ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y+CELL); ctx.stroke(); }
+    }
+    // 珍珠
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(!pearls[r][c]) continue;
+      const x=PAD+c*CELL+CELL/2, y=PAD+r*CELL+CELL/2;
+      ctx.beginPath(); ctx.arc(x,y,CELL*0.28,0,Math.PI*2);
+      if(pearls[r][c]===2){ ctx.fillStyle='#e6edf3'; ctx.fill(); }
+      else { ctx.fillStyle='#0e141d'; ctx.fill(); ctx.strokeStyle='#e6edf3'; ctx.lineWidth=3; ctx.stroke(); }
+    }
+    const stt=$('status'); if(stt) stt.textContent = won?'已通关':'线连所有珍珠：白珠直进拐弯，黑珠拐弯直进';
+    const msg=$('msg'); if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！单环穿过所有珍珠且满足颜色规则。'; } else msg.className='msg'; }
+  }
+  function hit(mx,my){
+    const fx=(mx-PAD-CELL/2)/CELL, fy=(my-PAD-CELL/2)/CELL;
+    if(fx<0||fy<0||fx>N||fy>N) return null;
+    const dx=fx-Math.round(fx), dy=fy-Math.round(fy);
+    if(dy<dx){ const r=Math.round(fy), c=Math.floor(fx); if(r>=0&&r<N&&c>=0&&c<N-1) return {type:'h',r,c}; }
+    else { const c=Math.round(fx), r=Math.floor(fy); if(c>=0&&c<N&&r>=0&&r<N-1) return {type:'v',r,c}; }
+    return null;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const cv=$('board'),nb=$('new'),rb=$('reset');
+    if(cv) cv.addEventListener('click',e=>{
+      const rect=cv.getBoundingClientRect();
+      const mx=(e.clientX-rect.left)*(cv.width/rect.width);
+      const my=(e.clientY-rect.top)*(cv.height/rect.height);
+      const k=hit(mx,my); if(k){ toggleEdge(k.type,k.r,k.c); render(); }
+    });
+    if(nb) nb.onclick=()=>{ newPuzzle(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setEdge, toggleEdge, applySolution, getSolution, getState, analyze, isStraightCell, isTurnCell };
+  }
+})();
+</script>
+</body>
+</html>
