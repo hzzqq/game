@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 打字速度挑战</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px;touch-action:manipulation}
+  .titlebar{width:min(640px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(640px,98vw)}
+  .stats{display:flex;gap:10px;margin-bottom:12px}
+  .stat{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+  .stat .v{font-size:22px;font-weight:700;color:var(--gold)}
+  .stat .k{font-size:11px;color:var(--dim);margin-top:2px}
+  .target{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;text-align:center}
+  .target .lab{font-size:11px;color:var(--dim);margin-bottom:6px}
+  .target .word{font-size:26px;font-weight:700;letter-spacing:2px;color:var(--text)}
+  .target .word .ok{color:var(--green)} .target .word .bad{color:var(--red)}
+  .controls{display:flex;gap:8px;align-items:center}
+  .controls input{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:inherit;font-size:16px;outline:none}
+  .controls input:focus{border-color:var(--green)}
+  .controls button{background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:12px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(640px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>打字速度</b> TYPING</span></div>
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><div class="v" id="wpm">0</div><div class="k">WPM</div></div>
+      <div class="stat"><div class="v" id="acc">100%</div><div class="k">ACCURACY</div></div>
+      <div class="stat"><div class="v" id="prog">0/0</div><div class="k">PROGRESS</div></div>
+    </div>
+    <div class="target"><div class="lab">输入以下单词</div><div class="word" id="word">READY</div></div>
+    <div class="controls">
+      <input id="inp" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="在此键入…" />
+      <button id="submit">提交 ENTER</button>
+    </div>
+    <div class="msg" id="msg">逐词键入上面的单词，回车提交。完成后统计 WPM 与准确率。</div>
+  </div>
+  <div class="foot">打字速度挑战：系统给出词序列，逐词键入。WPM = 正确字符数 / 5 / 分钟；准确率 = 正确字符 / 输入字符。计时从首个词开始。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const DEFAULT_WORDS = ['terminal','market','signal','vector','liquid','engine','random','render','canvas','prompt','socket','lambda','kernel','buffer','binary','crypto','matrix','cursor','router','server'];
+
+  let _now = (typeof performance!=='undefined') ? ()=>performance.now() : ()=>Date.now();
+  function setClock(fn){ _now = fn; }
+
+  let words, idx, totalCorrectChars, totalEntryChars, correctWords, startTime, endTime, finished;
+  function setWords(w){ words = w.slice(); }
+  function reset(){
+    if(!words || !words.length) words = DEFAULT_WORDS.slice();
+    idx = 0; totalCorrectChars = 0; totalEntryChars = 0; correctWords = 0;
+    startTime = null; endTime = null; finished = false;
+  }
+  // 提交一次键入（typed: 字符串）
+  function submitWord(typed){
+    if(finished || idx>=words.length) return {error:'finished'};
+    if(startTime===null) startTime = _now();
+    const target = words[idx];
+    const n = Math.min(typed.length, target.length);
+    let cc = 0;
+    for(let i=0;i<n;i++) if(typed[i]===target[i]) cc++;
+    totalEntryChars += typed.length;
+    totalCorrectChars += cc;
+    const wordCorrect = (typed===target);
+    if(wordCorrect) correctWords++;
+    const result = {target, typed, correctChars:cc, wordCorrect, index:idx};
+    idx++;
+    if(idx>=words.length){ endTime = _now(); finished = true; }
+    if(typeof Juice!=='undefined') Juice.sfx(wordCorrect?'click':'boom');
+    return result;
+  }
+  function getStats(){
+    const elapsedMin = (startTime!==null && endTime!==null) ? (endTime-startTime)/60000 : 0;
+    const wpm = elapsedMin>0 ? (totalCorrectChars/5)/elapsedMin : 0;
+    const accuracy = totalEntryChars>0 ? totalCorrectChars/totalEntryChars : 1;
+    return {wpm, accuracy, correctWords, totalWords:words.length, finished};
+  }
+  function getState(){
+    return {words:words.slice(), idx, correctWords, finished, current: idx<words.length?words[idx]:null,
+      totalCorrectChars, totalEntryChars, startTime, endTime};
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const wpm=$('wpm'),acc=$('acc'),prog=$('prog'),word=$('word'),msg=$('msg'),inp=$('inp');
+    if(!wpm) return;
+    const s=getStats();
+    wpm.textContent = Math.round(s.wpm);
+    acc.textContent = Math.round(s.accuracy*100)+'%';
+    prog.textContent = idx+'/'+words.length;
+    if(word){
+      if(finished){ word.innerHTML='<span class="ok">DONE</span>'; }
+      else if(idx<words.length){ word.textContent = words[idx]; }
+    }
+    if(msg){
+      if(finished){ msg.className='msg win'; msg.textContent='完成！WPM '+Math.round(s.wpm)+' · 准确率 '+Math.round(s.accuracy*100)+'%'; }
+      else { msg.className='msg'; msg.textContent='逐词键入上面的单词，回车提交。'; }
+    }
+    if(inp){ inp.disabled = finished; if(!finished) inp.focus(); }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const inp=$('inp'),sb=$('submit');
+    const go=()=>{ const v=inp.value; if(!v) return; submitWord(v); inp.value=''; render(); };
+    if(sb) sb.onclick=go;
+    if(inp) inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ go(); } });
+  }
+  reset();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      setWords, setClock, reset, submitWord, getStats, getState,
+      getDefaultWords:()=>DEFAULT_WORDS.slice(),
+    };
+  }
+})();
+</script>
+</body>
+</html>
