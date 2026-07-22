@@ -201,7 +201,7 @@
     if(J) J.sfx('start');
   }
   function checkEnemiesDead(){
-    if(C.enemies.every(e=>e.hp<=0)){ C.over=true; C.result='win'; if(J){ J.sfx('win'); J.flash('#02c076',.5); J.confetti(innerWidth/2, innerHeight*0.34, {n:C.kind==='boss'?160:60, life:2.6}); } onWin(); }
+    if(C.enemies.every(e=>e.hp<=0)){ C.over=true; C.result='win'; if(J){ J.sfx('win'); J.flash('#02c076',.5); if(J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.34, {n:C.kind==='boss'?160:60, life:2.6}); } onWin(); }
   }
   function onWin(){
     if(S.relics.includes('burning')) S.hp=Math.min(S.maxhp,S.hp+6);
