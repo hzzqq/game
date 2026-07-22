@@ -59,9 +59,10 @@
     if(board[r][c]!==null) return false;
     if(pending===null||available.indexOf(pending)<0) return false;
     board[r][c]=pending; available.splice(available.indexOf(pending),1); pending=null;
-    if(checkWin(r,c)){ over=true; winner=turn; return true; }
+    if(checkWin(r,c)){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); return true; }
     if(available.length===0){ over=true; winner='draw'; return true; }
     turn = turn===0?1:0;
+    Juice.sfx('hit'); Juice.addTrauma(.25);
     return true;
   }
   function sameAttr(cells, a){ return cells.every(c=>PIECES[c][a]===PIECES[cells[0]][a]); }
