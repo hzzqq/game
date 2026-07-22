@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // LUNAR LANDER</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px}
+  .titlebar{width:min(680px,96vw);display:flex;align-items:center;gap:10px;padding:10px 16px;
+    background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:14px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  .bar{width:min(680px,96vw);display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;justify-content:center}
+  .act{background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer;font-family:inherit;font-size:13px}
+  .act.gold{color:var(--gold);border-color:rgba(240,185,11,.4)}
+  .hud{width:min(680px,96vw);display:flex;justify-content:space-between;background:#0e141d;border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:13px;color:var(--dim)}
+  .hud b{color:var(--text)}
+  #cv{background:#070a0f;border:1px solid var(--border);border-radius:10px;touch-action:none}
+  .msg{width:min(680px,96vw);text-align:center;color:var(--dim);font-size:12px;margin-top:10px;line-height:1.7}
+  .msg b{color:var(--gold)}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>LUNAR LANDER</b> · 月球着陆</span></div>
+  <div class="bar"><button class="act gold" id="newBtn">新游戏</button>
+    <span style="color:var(--dim);font-size:12px">↑/空格 推力 · ← → 旋转</span></div>
+  <div class="hud">
+    <span>高度 ALT <b id="hAlt">0</b></span>
+    <span>落速 VY <b id="hVy">0</b></span>
+    <span>落角 ANG <b id="hAng">0</b></span>
+    <span>燃料 FUEL <b id="hFuel">0</b></span>
+    <span id="hStat" style="color:var(--gold)">飞行中</span>
+  </div>
+  <canvas id="cv" width="600" height="600"></canvas>
+  <div class="msg">控制推力让飞船软着陆到金色平台：落速 ≤ <b>22</b>、落角 ≤ <b>15°</b>、横向速度 ≤ <b>18</b>，且须落在平台上。撞毁或飞出界即失败。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(s){ return function(){ s|=0; s=s+0x6D2B79F5|0; var t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  let _rng = mk(0x1A2B3C);
+  function setSeed(s){ _rng = mk(s>>>0); }
+
+  const W=600, H=600, GROUND=540, SHIP_H=20, SHIP_W=18;
+  const PAD_X0=250, PAD_X1=350;
+  const G=18, THRUST=42, ROT=1.3, FUEL_BURN=14;
+  const VY_LIMIT=22, VX_LIMIT=18, ANG_LIMIT=0.26;
+
+  let ship, over, won, stars=[];
+  let input={thrust:false,left:false,right:false};
+
+  function reset(){
+    ship={ x:W/2, y:40, vx:( _rng()*2-1)*10, vy:6, angle:0, fuel:100, thrusting:false };
+    over=false; won=false; input={thrust:false,left:false,right:false};
+  }
+  function start(){ reset(); }
+
+  function setShip(s){ Object.assign(ship, s); over=false; won=false; }
+
+  function evaluateLanding(){
+    const touched = (ship.y + SHIP_H/2) >= GROUND;
+    if(!touched) return null;
+    if(ship.x < PAD_X0 || ship.x > PAD_X1) return 'crashed'; // 落在平台外地面
+    if(Math.abs(ship.angle) > ANG_LIMIT) return 'crashed';
+    if(ship.vy > VY_LIMIT) return 'crashed';
+    if(Math.abs(ship.vx) > VX_LIMIT) return 'crashed';
+    return 'landed';
+  }
+
+  function step(dt, inp){
+    if(inp) input=inp;
+    if(over) return getState();
+    if(input.left) ship.angle -= ROT*dt;
+    if(input.right) ship.angle += ROT*dt;
+    if(ship.angle < -0.6) ship.angle=-0.6;
+    if(ship.angle > 0.6) ship.angle=0.6;
+    ship.thrusting=false;
+    if(input.thrust && ship.fuel>0){
+      ship.vx += Math.sin(ship.angle)*THRUST*dt;
+      ship.vy += -Math.cos(ship.angle)*THRUST*dt;
+      ship.fuel = Math.max(0, ship.fuel - FUEL_BURN*dt);
+      ship.thrusting=true;
+    }
+    ship.vy += G*dt;
+    ship.x += ship.vx*dt;
+    ship.y += ship.vy*dt;
+    if(ship.x < 0 || ship.x > W){ over=true; won=false; ship.status='crashed'; return getState(); }
+    const res=evaluateLanding();
+    if(res==='landed'){ over=true; won=true; ship.status='landed'; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('月球软着陆'); } }
+    else if(res==='crashed'){ over=true; won=false; ship.status='crashed'; if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(.6); } }
+    render();
+    return getState();
+  }
+
+  function getState(){
+    return { x:ship.x, y:ship.y, vx:ship.vx, vy:ship.vy, angle:ship.angle, fuel:ship.fuel, over, won, status:ship.status||'flying' };
+  }
+
+  function makeStars(){ stars=[]; for(let i=0;i<70;i++) stars.push({x:_rng()*W, y:_rng()*(GROUND-40), r:1+_rng()*1.5}); }
+
+  function render(){
+    const cv=document.getElementById('cv'); if(!cv) return;
+    const ctx=cv.getContext('2d'); if(!ctx) return;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#070a0f'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#243'; for(const s of stars) ctx.fillRect(s.x,s.y,s.r,s.r);
+    // 地面
+    ctx.fillStyle='#1f2a38'; ctx.fillRect(0,GROUND,W,H-GROUND);
+    ctx.fillStyle='#f0b90b'; ctx.fillRect(PAD_X0,GROUND-4,PAD_X1-PAD_X0,4);
+    // 飞船
+    const x=ship.x,y=ship.y,a=ship.angle;
+    ctx.save(); ctx.translate(x,y); ctx.rotate(a);
+    if(ship.thrusting){ ctx.fillStyle='#f6465d'; ctx.beginPath(); ctx.moveTo(-5,SHIP_H/2); ctx.lineTo(0,SHIP_H/2+10+_rng()*6); ctx.lineTo(5,SHIP_H/2); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle = over&&!won ? '#f6465d' : '#e6edf3';
+    ctx.beginPath(); ctx.moveTo(0,-SHIP_H/2); ctx.lineTo(SHIP_W/2,SHIP_H/2); ctx.lineTo(-SHIP_W/2,SHIP_H/2); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // HUD
+    const alt=Math.max(0, GROUND-(ship.y+SHIP_H/2));
+    const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+    set('hAlt', alt.toFixed(0)); set('hVy', ship.vy.toFixed(1)); set('hAng', (ship.angle*180/Math.PI).toFixed(0)+'°'); set('hFuel', ship.fuel.toFixed(0));
+    set('hStat', over?(won?'已着陆':'坠毁'):'飞行中');
+  }
+
+  function bindKeys(){
+    window.addEventListener('keydown',e=>{
+      if(e.code==='ArrowUp'||e.code==='Space'){ input.thrust=true; e.preventDefault(); }
+      if(e.code==='ArrowLeft') input.left=true;
+      if(e.code==='ArrowRight') input.right=true;
+    });
+    window.addEventListener('keyup',e=>{
+      if(e.code==='ArrowUp'||e.code==='Space') input.thrust=false;
+      if(e.code==='ArrowLeft') input.left=false;
+      if(e.code==='ArrowRight') input.right=false;
+    });
+  }
+
+  reset(); makeStars();
+  if(typeof document!=='undefined'){ bindKeys(); render(); document.getElementById('newBtn').onclick=()=>{ reset(); makeStars(); render(); }; }
+  if(typeof window!=='undefined'){
+    window.__t={ W,H,GROUND,PAD_X0,PAD_X1,VY_LIMIT,VX_LIMIT,ANG_LIMIT,
+      setSeed, reset, start, setShip, step, evaluateLanding, getState };
+  }
+})();
+</script>
+</body>
+</html>
