@@ -70,9 +70,12 @@
       w.push(...pot);
       last={c1:c1.r,c2:c2.r,win:w===p1?1:2};
       if(!p1.length||!p2.length){ over=true; winner=p1.length?1:2; }
+      if(over){ Juice.sfx('win'); Juice.flash('#02c076', .5); }
+      else { Juice.sfx('hit'); Juice.addTrauma(.2); }
       return last;
     }
     over=true; winner = p1.length>p2.length?1:(p2.length>p1.length?2:'draw');
+    if(over){ Juice.sfx('win'); Juice.flash('#02c076', .5); }
     return last;
   }
   function getDecks(){ return { p1:p1.length, p2:p2.length }; }
