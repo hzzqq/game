@@ -47,6 +47,9 @@
   .hidden{display:none!important}
   .legend{width:min(94vw,560px);color:var(--dim);font-size:11px;margin-top:8px;line-height:1.7}
   .legend b{color:var(--txt)}
+  .diffbar{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px 0 2px}
+  .diffbar button{background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:6px 13px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px}
+  .diffbar button.active{background:var(--gold,#f0b90b);color:#0a0e14;border-color:var(--gold,#f0b90b)}
 </style>
 </head>
 <body>
@@ -87,6 +90,7 @@
   <div class="overlay" id="overlay">
     <h2>枪战突袭</h2>
     <p>你被敌人小队包围。用 WASD 走位、鼠标/方向键射击、Shift 冲刺闪避，撑过一波波进攻。<br>场上会刷新 <b>道具</b>，善用它们活到最后。按「开始」或回车进场。</p>
+    <div class="diffbar" id="diffbar"></div>
     <button class="btn" id="startBtn" data-action="start" style="background:var(--gold);color:#0a0e14;font-weight:700;padding:10px 22px">开始突袭</button>
   </div>
 
@@ -101,6 +105,21 @@
   // 局部 PRNG（mulberry32）——所有随机必须走这里，禁止裸 Math.random
   function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
   var _rng = mk(0x5678);
+
+  // ---------- 难度系统（简单/普通/困难/地狱）----------
+  // countMult=每波敌人数量倍率；hpMult=敌人血量倍率；spdMult=敌人速度倍率；dmgMult=敌人伤害倍率
+  // normal=1.0 保持原有平衡（避免破坏既有单测）
+  var DIFFICULTY = {
+    easy:   { label:'简单', countMult:0.7, hpMult:0.75, spdMult:0.85, dmgMult:0.8 },
+    normal: { label:'普通', countMult:1.0, hpMult:1.0,  spdMult:1.0,  dmgMult:1.0 },
+    hard:   { label:'困难', countMult:1.3, hpMult:1.35, spdMult:1.15, dmgMult:1.25 },
+    hell:   { label:'地狱', countMult:1.7, hpMult:1.9,  spdMult:1.35, dmgMult:1.5 }
+  };
+  var DIFF_ORDER = ['easy','normal','hard','hell'];
+  var difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+  function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
 
   var WEAPONS={
     pistol:{name:'手枪',dmg:16,rate:.16,spread:.05,spd:540,ammo:12,reload:1.0,pellets:1,color:'#f0b90b'},
@@ -133,7 +152,7 @@
   }
   function nextWave(){
     wave++; document.getElementById('wavetxt').textContent=wave;
-    spawnQ = 4 + Math.floor(wave*2);
+    spawnQ = Math.max(1, Math.round((4 + Math.floor(wave*2)) * diffCfg().countMult));
     waveT = 1.2;
     Juice.popup(W/2,H/2-40,'第 '+wave+' 波','#f0b90b',{big:true,life:1.4});
     Juice.sfx('levelup');
@@ -143,12 +162,13 @@
     var edge=Math.floor(_rng()*4), x,y;
     if(edge===0){x=_rng()*W;y=-20;} else if(edge===1){x=W+20;y=_rng()*H;}
     else if(edge===2){x=_rng()*W;y=H+20;} else {x=-20;y=_rng()*H;}
-    var r=_rng(), hpMul=1+wave*0.12, spMul=1+wave*0.02;
+    var cfg=diffCfg();
+    var r=_rng(), hpMul=(1+wave*0.12)*cfg.hpMult, spMul=(1+wave*0.02)*cfg.spdMult, dmgMul=cfg.dmgMult;
     var e;
-    if(r<0.4) e={type:'grunt',r:13,hp:30*hpMul,maxhp:30*hpMul,spd:55*spMul,shootCd:0.8+_rng(),dmg:8};
-    else if(r<0.68) e={type:'runner',r:11,hp:20*hpMul,maxhp:20*hpMul,spd:135*spMul,dmg:12};
-    else if(r<0.9) e={type:'gunner',r:12,hp:26*hpMul,maxhp:26*hpMul,spd:70*spMul,shootCd:0.6+_rng(),dmg:7,stand:210};
-    else e={type:'brute',r:20,hp:95*hpMul,maxhp:95*hpMul,spd:42*spMul,shootCd:1.2+_rng(),dmg:11};
+    if(r<0.4) e={type:'grunt',r:13,hp:30*hpMul,maxhp:30*hpMul,spd:55*spMul,shootCd:0.8+_rng(),dmg:8*dmgMul};
+    else if(r<0.68) e={type:'runner',r:11,hp:20*hpMul,maxhp:20*hpMul,spd:135*spMul,dmg:12*dmgMul};
+    else if(r<0.9) e={type:'gunner',r:12,hp:26*hpMul,maxhp:26*hpMul,spd:70*spMul,shootCd:0.6+_rng(),dmg:7*dmgMul,stand:210};
+    else e={type:'brute',r:20,hp:95*hpMul,maxhp:95*hpMul,spd:42*spMul,shootCd:1.2+_rng(),dmg:11*dmgMul};
     e.x=x; e.y=y; e.flash=0; enemies.push(e);
   }
 
@@ -441,8 +461,21 @@
     Input.update();
     requestAnimationFrame(frame);
   }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    var bar=document.getElementById('diffbar'); if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(function(k){
+      var b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click',function(){ setDifficulty(k); buildDiffBar(); });
+      bar.appendChild(b);
+    });
+  }
   // 初始
   state='menu';
+  buildDiffBar();
   document.getElementById('besttxt').textContent=Juice.load('best_gun',0);
 
   /* ---------- 测试钩子（非侵入，仅暴露纯函数 + 状态访问器） ---------- */
@@ -461,6 +494,8 @@
     getWave: function(){ return wave; }, setWave: function(v){ wave = v; },
     getCombo: function(){ return combo; }, setCombo: function(v){ combo = v; },
     getW: function(){ return W; }, getH: function(){ return H; },
+    // ---- 难度系统钩子 ----
+    DIFFICULTY: DIFFICULTY, setDifficulty: setDifficulty, getDifficulty: getDifficulty,
     // ---- 注入：标准化掉落/增益系统钩子 ----
     spawnPickup: function(type,x,y){ if(type===undefined) return spawnPickupAtRandom(); return makePickup(type, x!==undefined?x:player.x, y!==undefined?y:player.y); },
     stepPickups: function(dt){ updatePickups(dt); },

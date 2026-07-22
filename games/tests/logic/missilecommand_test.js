@@ -59,3 +59,42 @@ const { t } = H.loadGame('../missilecommand.html');
   const s=t.getState();
   H.ok('通关判定 won', s.over && s.status==='win' && s.won===true);
 })();
+
+// 7) 难度系统：4 档存在 + 普通档基线 1.0
+(() => {
+  H.ok('DIFFICULTY 有 4 档', ['easy','normal','hard','hell'].every(k => t.DIFFICULTY[k]));
+  H.eq('normal countMult=1', t.DIFFICULTY.normal.countMult, 1.0);
+  H.eq('normal speedMult=1', t.DIFFICULTY.normal.speedMult, 1.0);
+})();
+
+// 8) setDifficulty 合法/非法 + getDifficulty
+(() => {
+  H.ok('setDifficulty hard 合法', t.setDifficulty('hard') === true);
+  H.eq('getDifficulty=hard', t.getDifficulty(), 'hard');
+  H.ok('setDifficulty 非法返回 false', t.setDifficulty('zzz') === false);
+  H.eq('非法后不变仍 hard', t.getDifficulty(), 'hard');
+  t.setDifficulty('normal');
+})();
+
+// 9) 倍率单调递增（countMult / speedMult）
+(() => {
+  H.ok('countMult 单调递增', t.DIFFICULTY.easy.countMult < t.DIFFICULTY.hard.countMult
+    && t.DIFFICULTY.hard.countMult < t.DIFFICULTY.hell.countMult);
+  H.ok('speedMult 单调递增', t.DIFFICULTY.easy.speedMult < t.DIFFICULTY.hard.speedMult
+    && t.DIFFICULTY.hard.speedMult < t.DIFFICULTY.hell.speedMult);
+})();
+
+// 10) 地狱档每波来袭导弹数量 > 简单档（自动补波 n 应用 countMult）
+(() => {
+  function waveCount(diff){
+    t.setDifficulty(diff); t.reset(); t.setSeed(0x1234); t.setAuto(true);
+    t.setClearedWaves(0);
+    t.step(0.01); // 触发一次自动补波（missiles/interceptors 为空）
+    return t.getState().missiles.length;
+  }
+  const easyN = waveCount('easy');
+  const hellN = waveCount('hell');
+  H.ok('地狱档每波导弹数 > 简单档', hellN > easyN);
+  H.ok('简单档每波导弹数 > 0', easyN > 0);
+  t.setDifficulty('normal');
+})();

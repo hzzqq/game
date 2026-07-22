@@ -130,3 +130,29 @@ for (const tx of targets2) {
 H.eq('回归: 清屏得分=500', t.getState().score, 500);
 // 还原掉落 PRNG 为默认随机流（确定性块结束）
 t.setRand(Math.random);
+
+// ===== 难度系统（简单/普通/困难/地狱）=====
+{
+  const D = t.DIFFICULTY;
+  H.ok('难度: 4 档', Object.keys(D).length === 4);
+  H.ok('难度: 含地狱档', !!D.hell);
+  H.ok('难度递增: 地狱敌机数倍率 > 简单', D.hell.countMult > D.easy.countMult);
+  H.ok('难度递增: 地狱敌机血量 > 简单', D.hell.hpMult > D.easy.hpMult);
+  H.ok('难度递增: 地狱下落速度 > 简单', D.hell.speedMult > D.easy.speedMult);
+  H.eq('普通档保持原参数(countMult=1)', D.normal.countMult, 1.0);
+  H.eq('普通档保持原参数(speedMult=1)', D.normal.speedMult, 1.0);
+  H.eq('setDifficulty 合法档返回 true', t.setDifficulty('hell'), true);
+  H.eq('getDifficulty 反映设置', t.getDifficulty(), 'hell');
+  H.eq('setDifficulty 非法档返回 false', t.setDifficulty('zzz'), false);
+
+  // 同一波：地狱档敌机数 > 简单档，且血量更高、下落更快
+  t.setDifficulty('easy'); t.startWave(3); const se = t.getState();
+  t.setDifficulty('hell'); t.startWave(3); const sh = t.getState();
+  H.ok('地狱档第3波敌机数 > 简单档', sh.enemyCount > se.enemyCount);
+  H.ok('地狱档敌机血量 > 简单档', sh.enemies[0].hp > se.enemies[0].hp);
+
+  // 普通档第1波仍为 5 架（不破坏既有基线）
+  t.setDifficulty('normal'); t.startWave(1);
+  H.eq('普通档第1波敌机=5(基线不变)', t.getState().enemyCount, 5);
+  t.setRand(Math.random);
+}

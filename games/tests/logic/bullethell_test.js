@@ -127,3 +127,25 @@ t.update(0.02);
 H.eq('回归: 命中余机-1', t.getLives(), lv0 - 1);
 // 还原掉落 PRNG 为默认随机流（确定性块结束）
 t.setRand(Math.random);
+
+// ===== 难度系统（简单/普通/困难/地狱）=====
+{
+  const D = t.DIFFICULTY;
+  H.ok('难度: 4 档', Object.keys(D).length === 4);
+  H.ok('难度: 含地狱档', !!D.hell);
+  H.ok('难度递增: 地狱弹幕数 > 简单', D.hell.bulletMult > D.easy.bulletMult);
+  H.ok('难度递增: 地狱弹速 > 简单', D.hell.speedMult > D.easy.speedMult);
+  H.ok('难度递增: 地狱生成频率 > 简单', D.hell.rateMult > D.easy.rateMult);
+  H.eq('普通档保持原参数(bulletMult=1)', D.normal.bulletMult, 1.0);
+  H.eq('setDifficulty 合法档返回 true', t.setDifficulty('hell'), true);
+  H.eq('getDifficulty 反映设置', t.getDifficulty(), 'hell');
+  H.eq('setDifficulty 非法档返回 false', t.setDifficulty('zzz'), false);
+
+  // 同波同种子：地狱档单次生成弹幕数 > 简单档
+  t.setDifficulty('easy'); t.start(); t.setRand(7); t.clearBullets(); t.setSpawnEnabled(true); t.update(0.05);
+  const cEasy = t.getState().bulletCount;
+  t.setDifficulty('hell'); t.start(); t.setRand(7); t.clearBullets(); t.setSpawnEnabled(true); t.update(0.05);
+  const cHell = t.getState().bulletCount;
+  H.ok('地狱档单次弹幕数 > 简单档', cHell > cEasy);
+  t.setDifficulty('normal'); t.setRand(Math.random);
+}

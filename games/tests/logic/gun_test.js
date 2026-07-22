@@ -250,6 +250,41 @@ t.reset();
 t.setBoost(5);
 eq('getBoost=5', t.getBoost(), 5);
 
+// 31. 难度系统：4 档存在 + 结构
+ok('DIFFICULTY 有 easy/normal/hard/hell', ['easy','normal','hard','hell'].every(k => t.DIFFICULTY[k]));
+ok('DIFFICULTY 每档有倍率字段', Object.values(t.DIFFICULTY).every(d => typeof d.countMult==='number' && typeof d.hpMult==='number' && typeof d.spdMult==='number'));
+
+// 32. 普通档为基线 1.0（保证既有平衡不变）
+eq('normal countMult=1', t.DIFFICULTY.normal.countMult, 1.0);
+eq('normal hpMult=1', t.DIFFICULTY.normal.hpMult, 1.0);
+eq('normal spdMult=1', t.DIFFICULTY.normal.spdMult, 1.0);
+
+// 33. setDifficulty 合法/非法
+ok('setDifficulty hell 合法返回 true', t.setDifficulty('hell') === true);
+eq('getDifficulty=hell', t.getDifficulty(), 'hell');
+ok('setDifficulty 非法返回 false', t.setDifficulty('xxx') === false);
+eq('非法后 difficulty 不变', t.getDifficulty(), 'hell');
+t.setDifficulty('normal');
+
+// 34. 倍率单调性（countMult / hpMult / spdMult 随难度递增）
+ok('countMult 单调递增', t.DIFFICULTY.easy.countMult < t.DIFFICULTY.normal.countMult
+  && t.DIFFICULTY.normal.countMult < t.DIFFICULTY.hard.countMult
+  && t.DIFFICULTY.hard.countMult < t.DIFFICULTY.hell.countMult);
+ok('hpMult 单调递增', t.DIFFICULTY.easy.hpMult < t.DIFFICULTY.normal.hpMult
+  && t.DIFFICULTY.normal.hpMult < t.DIFFICULTY.hard.hpMult
+  && t.DIFFICULTY.hard.hpMult < t.DIFFICULTY.hell.hpMult);
+
+// 35. 地狱档整批敌人总血量 > 简单档（spawnEnemy 应用 hpMult；批量求和抵消类型随机）
+function sumHp(diff){
+  t.setDifficulty(diff); t.reset(); t.setEnemies([]); t.setWave(3);
+  for(let i=0;i<40;i++) t.spawnEnemy();
+  return t.getEnemies().reduce((s,e)=>s+e.maxhp,0);
+}
+const easySum = sumHp('easy');
+const hellSum = sumHp('hell');
+ok('地狱档整批敌人总血量 > 简单档', hellSum > easySum * 1.5);
+t.setDifficulty('normal');
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

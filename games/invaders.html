@@ -22,6 +22,9 @@
   .controls button:active{border-color:var(--gold);color:var(--gold)}
   .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
   .msg.over{color:var(--red);font-weight:700}
+  .diffbar{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:8px 0}
+  .diffbar button{background:#0e141d;color:var(--dim);border:1px solid var(--border);border-radius:8px;padding:6px 13px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px}
+  .diffbar button.active{background:var(--gold,#ffcf5a);color:#0a0e14;border-color:var(--gold,#ffcf5a)}
   .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
 </style>
 </head>
@@ -30,6 +33,7 @@
     <span class="t">TERMINAL // <b>太空入侵</b> SPACE INVADERS</span></div>
   <div class="wrap">
     <div class="hud"><span>得分 <span class="sc" id="score">0</span></span><span>波次 <span class="wv" id="wave">1</span></span><span>命 <span class="lv" id="lives">3</span></span></div>
+    <div class="diffbar" id="diffbar"></div>
     <canvas id="cv" width="480" height="600"></canvas>
     <div class="controls">
       <button id="left">◀ 左 (←/A)</button>
@@ -55,6 +59,20 @@
   var _rng = mk(0x1A2B3C4D & 0xFFFFFFFF);
   function reseed(s){ _rng = mk((s>>>0) || 1); }
   function nowMs(){ return (typeof performance!=='undefined' && performance.now) ? performance.now() : 0; }
+
+  // ---------- 难度系统（简单/普通/困难/地狱）----------
+  // speedMult=初始编队速度倍率；growth=每波速度递增倍率（越高越快变难）
+  const DIFFICULTY = {
+    easy:   { label:'简单', speedMult:0.7, growth:1.10 },
+    normal: { label:'普通', speedMult:1.0, growth:1.15 },
+    hard:   { label:'困难', speedMult:1.35, growth:1.20 },
+    hell:   { label:'地狱', speedMult:1.8, growth:1.28 },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+  function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
 
   let player, aliens, bullets, ox, oy, dir, speed, score, lives, wave, over, cooldown;
   let pickups = [];      // 掉落道具：{x,y,vy,type}
@@ -110,7 +128,7 @@
     score=0; lives=3; wave=1; over=false; cooldown=0;
     pickups=[]; rocketLeft=0; shieldUntil=0; pickupTimer=0;
     reseed(0x1A2B3C4D & 0xFFFFFFFF);
-    speed=START_SPEED;
+    speed=START_SPEED * diffCfg().speedMult;
     buildAliens();
   }
   function alienX(a){ return MARGIN + a.col*(AW+GX) + ox; }
@@ -164,7 +182,7 @@
     }
     // 全清 → 下一波
     if(!over && aliveCount()===0){
-      wave++; speed*=1.15;
+      wave++; speed*=diffCfg().growth;
       if(typeof Juice!=='undefined') Juice.sfx('levelup');
       buildAliens();
     }
@@ -220,10 +238,22 @@
     if(sc) sc.textContent=score; if(wv) wv.textContent=wave; if(lv) lv.textContent=lives;
     if(msg){ if(over){ msg.className='msg over'; msg.textContent='游戏结束 · 得分 '+score+' · 波次 '+wave; } else { msg.className='msg'; msg.textContent='移动 + 射击，清光编队进下一波。'; } }
   }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    const bar=$('diffbar'); if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{
+      const b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click',()=>{ setDifficulty(k); reset(); buildDiffBar(); });
+      bar.appendChild(b);
+    });
+  }
   reset();
   if(typeof document!=='undefined'){
     cv=$('cv'); if(cv) ctx=cv.getContext('2d');
-    if(ctx){ bindUI(); loop(); setInterval(uiTick,100); }
+    if(ctx){ bindUI(); buildDiffBar(); loop(); setInterval(uiTick,100); }
   }
 
   if(typeof window!=='undefined'){
@@ -237,6 +267,8 @@
       getScore:()=>score, setScore:(v)=>{score=v;},
       getLives:()=>lives, setLives:(v)=>{lives=v;},
       getWave:()=>wave, getOver:()=>over, setOver:(v)=>{over=v;},
+      // —— 难度系统钩子 ——
+      DIFFICULTY, setDifficulty, getDifficulty,
       // —— 标准掉落钩子 ——
       spawnPickup:(type,x,y)=>{ pickups.push(makePickup(type,x,y)); },
       applyPickup:(type)=>applyPickup(type),

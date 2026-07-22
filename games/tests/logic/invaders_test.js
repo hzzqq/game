@@ -114,4 +114,23 @@ eq('START_SPEED=10', t.START_SPEED, 10);
   ok('无盾触底 over', t.getOver()===true);
 }
 
+// ---------- 难度系统 ----------
+{
+  const D = t.DIFFICULTY;
+  ok('有 4 个难度档', Object.keys(D).length === 4);
+  ok('含地狱档', !!D.hell);
+  ok('难度递增：地狱初速 > 简单初速', D.hell.speedMult > D.easy.speedMult);
+  ok('难度递增：地狱每波加速 > 简单', D.hell.growth > D.easy.growth);
+  ok('普通档保持原参数(speedMult=1)', D.normal.speedMult === 1.0);
+  eq('setDifficulty 合法档返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty 反映设置', t.getDifficulty(), 'hell');
+  eq('setDifficulty 非法档返回 false', t.setDifficulty('xxx'), false);
+
+  // 地狱档初始编队速度 > 简单档（难度实际生效）
+  t.setDifficulty('easy'); t.reset(); const sEasy = t.getSpeed();
+  t.setDifficulty('hell'); t.reset(); const sHell = t.getSpeed();
+  ok('地狱档初始编队速度 > 简单档', sHell > sEasy);
+  t.setDifficulty('normal'); t.reset();
+}
+
 console.log('invaders: 全部断言通过');
