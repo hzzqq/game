@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 不等号数独</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(520px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(520px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:4px;margin:0 auto 10px;width:max-content;background:var(--panel);padding:10px;border-radius:14px;border:1px solid var(--border);position:relative}
+  .cell{width:54px;height:54px;border-radius:8px;background:#0e141d;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;cursor:pointer;user-select:none;position:relative}
+  .cell.given{color:var(--gold)}
+  .cell.sel{box-shadow:0 0 0 3px var(--gold)}
+  .cell .op{position:absolute;font-size:11px;color:var(--red);font-weight:700;pointer-events:none}
+  .cell .op.r{right:-2px;top:50%;transform:translateY(-50%)}
+  .cell .op.d{left:50%;bottom:-3px;transform:translateX(-50%)}
+  .nums{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+  .nums button{width:42px;height:42px;border-radius:8px;background:var(--border);color:var(--text);border:none;font-weight:700;font-family:inherit;cursor:pointer;font-size:16px}
+  .nums button.del{background:transparent;border:1px solid var(--border)}
+  .nums button:hover{filter:brightness(1.2)}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(520px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>不等号数独</b> FUTOSHIKI</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">5</span></span><span id="status">填满 1..N 且行列不重复</span></div>
+    <div class="board" id="board"></div>
+    <div class="nums" id="nums"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点格子选中，再用下方数字或键盘 1..N 填入；满足所有 &lt; / &gt; 约束、行列不重复即过关。</div>
+  </div>
+  <div class="foot">不等号数独：在 N×N 填入 1..N，每行每列数字不重复，且相邻格的不等式符号必须成立。每局由随机拉丁方删格并派生约束，必可解。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const N = 5;
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let N_local = N;
+  let grid = [];        // 当前填入值，0=空
+  let givens = [];      // 布尔：是否为题目给定（不可改）
+  let constraints = []; // [{r1,c1,r2,c2,op:'<'|'>'}]
+  let won = false;
+
+  function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
+
+  function latinOK(){
+    for(let r=0;r<N_local;r++){
+      const seen=new Set();
+      for(let c=0;c<N_local;c++){ const v=grid[r][c]; if(!v) return false; if(seen.has(v)) return false; seen.add(v); }
+    }
+    for(let c=0;c<N_local;c++){
+      const seen=new Set();
+      for(let r=0;r<N_local;r++){ const v=grid[r][c]; if(!v) return false; if(seen.has(v)) return false; seen.add(v); }
+    }
+    return true;
+  }
+  function constraintsOK(){
+    for(const ct of constraints){
+      const a=grid[ct.r1][ct.c1], b=grid[ct.r2][ct.c2];
+      if(!a || !b) return false;
+      if(ct.op==='<'){ if(!(a<b)) return false; }
+      else { if(!(a>b)) return false; }
+    }
+    return true;
+  }
+  function isWin(){ return latinOK() && constraintsOK(); }
+
+  // 玩家行动钩子
+  function setValue(r,c,v){
+    if(!inb(r,c)) return false;
+    if(givens[r][c]) return false;          // 给定不可改
+    if(v!==0 && (v<1 || v>N_local)) return false;
+    grid[r][c]=v;
+    won = isWin();
+    if(won && typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('futoshiki', N_local); }
+    return true;
+  }
+
+  function setBoard(givensGrid, cts){
+    N_local = givensGrid.length;
+    grid = givensGrid.map(row=>row.slice());
+    givens = givensGrid.map(row=>row.map(v=>v!==0));
+    constraints = (cts||[]).map(ct=>({r1:ct.r1,c1:ct.c1,r2:ct.r2,c2:ct.c2,op:ct.op}));
+    won = isWin();
+    return {N:N_local, givens:givensGrid.flat().filter(v=>v!==0).length, constraints:constraints.length};
+  }
+
+  /* ---- 随机可解布局：随机拉丁方 + 派生约束 ---- */
+  function shuffled(arr, rand){
+    const a=arr.slice();
+    for(let i=a.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; }
+    return a;
+  }
+  function makeLatin(n, rand){
+    const perm = shuffled([...Array(n).keys()], rand);
+    const g=Array.from({length:n},()=>new Array(n).fill(0));
+    for(let r=0;r<n;r++) for(let c=0;c<n;c++) g[r][c]=perm[(c+r)%n]+1;
+    return g;
+  }
+  function newGame(){
+    N_local = N;
+    const sol = makeLatin(N, _rand);
+    grid = sol.map(row=>row.slice());
+    givens = Array.from({length:N},()=>new Array(N).fill(false));
+    constraints = [];
+    // 揭示约 45% 为给定
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(_rand()<0.45){ givens[r][c]=true; }
+    }
+    // 派生约束：与右/下邻居，按一定概率取符号（与解一致）
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(c+1<N && _rand()<0.30){
+        const a=sol[r][c], b=sol[r][c+1];
+        constraints.push({r1:r,c1:c,r2:r,c2:c+1, op:a<b?'<':'>'});
+      }
+      if(r+1<N && _rand()<0.30){
+        const a=sol[r][c], b=sol[r+1][c];
+        constraints.push({r1:r,c1:c,r2:r+1,c2:c, op:a<b?'<':'>'});
+      }
+    }
+    // 若完全没给定（极低概率），强制给两个
+    if(givens.flat().every(g=>!g)){ givens[0][0]=true; givens[N-1][N-1]=true; }
+    // 当前 grid 含全部解→以此为“已解”展示？不：仅保留给定，其余清空
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(!givens[r][c]) grid[r][c]=0;
+    won=false;
+  }
+  function reset(){ newGame(); }
+
+  function getState(){
+    return {
+      N: N_local,
+      grid: grid.map(r=>r.slice()),
+      givens: givens.map(r=>r.slice()),
+      constraints: constraints.map(ct=>({...ct})),
+      filled: grid.flat().filter(v=>v!==0).length,
+      won,
+    };
+  }
+  function update(){ return getState(); }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let sel=null;
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.style.gridTemplateColumns='repeat('+N_local+',54px)';
+    b.innerHTML='';
+    for(let r=0;r<N_local;r++) for(let c=0;c<N_local;c++){
+      const el=document.createElement('div');
+      el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>{ sel=[r,c]; render(); });
+      b.appendChild(el);
+    }
+  }
+  function buildNums(){
+    if(typeof document==='undefined') return;
+    const n=$('nums'); if(!n) return;
+    n.innerHTML='';
+    for(let v=1;v<=N_local;v++){
+      const b=document.createElement('button'); b.textContent=v;
+      b.addEventListener('click',()=>{ if(sel){ setValue(sel[0],sel[1],v); render(); } });
+      n.appendChild(b);
+    }
+    const del=document.createElement('button'); del.textContent='⌫'; del.className='del';
+    del.addEventListener('click',()=>{ if(sel){ setValue(sel[0],sel[1],0); render(); } });
+    n.appendChild(del);
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'),nEl=$('n'),msg=$('msg'),st=$('status');
+    if(!b) return;
+    const cells=b.children;
+    for(let i=0;i<cells.length;i++){
+      const r=+cells[i].dataset.r, c=+cells[i].dataset.c;
+      const v=grid[r][c];
+      cells[i].className='cell'+(givens[r][c]?' given':'')+(sel&&sel[0]===r&&sel[1]===c?' sel':'');
+      cells[i].textContent = v? v : '';
+      // 渲染约束符号到“较小格”上
+      let ops='';
+      for(const ct of constraints){
+        if(ct.r1===r&&ct.c1===c&&ct.r2===r&&ct.c2===c+1) ops+='<span class="op r">'+(ct.op==='<'?'&lt;':'&gt;')+'</span>';
+        if(ct.r1===r&&ct.c1===c&&ct.r2===r+1&&ct.c2===c) ops+='<span class="op d">'+(ct.op==='<'?'&lt;':'&gt;')+'</span>';
+      }
+      cells[i].innerHTML = (v?v:'') + ops;
+    }
+    if(nEl) nEl.textContent=N_local;
+    if(st) st.textContent = won?'已通关':'填满 1..N 且行列不重复';
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！所有约束成立、行列不重。'; }
+      else { msg.className='msg'; msg.textContent='点格子→填数字，满足 &lt;/&gt; 约束。'; } }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newGame(); sel=null; buildBoard(); buildNums(); render(); };
+    if(rb) rb.onclick=()=>{ for(let r=0;r<N_local;r++)for(let c=0;c<N_local;c++) if(!givens[r][c]) grid[r][c]=0; won=false; render(); };
+    if(typeof window!=='undefined' && window.addEventListener){
+      window.addEventListener('keydown',e=>{
+        if(sel && /^[1-9]$/.test(e.key)){ setValue(sel[0],sel[1],+e.key); render(); }
+        if(sel && (e.key==='Backspace'||e.key==='Delete'||e.key==='0')){ setValue(sel[0],sel[1],0); render(); }
+      });
+    }
+  }
+  newGame();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); buildNums(); bindUI(); render(); });
+    else { buildBoard(); buildNums(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      N, setRand, newGame, reset, setBoard, setValue, isWin, getState, update,
+      latinOK, constraintsOK,
+    };
+  }
+})();
+</script>
+</body>
+</html>
