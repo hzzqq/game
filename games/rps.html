@@ -62,6 +62,7 @@
     let w;
     if(p0===p1) w=-1; else if(beats(p0,p1)) w=0; else w=1;
     if(w===0) score[0]++; else if(w===1) score[1]++;
+    if(w===0||w===1){ Juice.sfx('hit'); Juice.addTrauma(.2); } else { Juice.sfx('click'); }
     return w;
   }
   function randomMove(){ const k=['R','P','S']; return k[Math.floor(_rand()*3)]; }
