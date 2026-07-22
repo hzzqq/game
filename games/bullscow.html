@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 猜数字 1A2B</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px;touch-action:manipulation}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .legend{display:flex;gap:14px;margin-bottom:10px;font-size:12px;color:var(--dim);justify-content:center}
+  .legend .a{color:var(--gold)} .legend .b{color:var(--text)}
+  .history{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;height:280px;overflow-y:auto;margin-bottom:10px;font-size:14px}
+  .row{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid rgba(31,42,56,.5)}
+  .row:last-child{border-bottom:none}
+  .row .g{display:flex;gap:6px;letter-spacing:4px;font-weight:700}
+  .row .fb{margin-left:auto;color:var(--dim);font-weight:700}
+  .row .fb .a{color:var(--gold)} .row .fb .b{color:var(--text)}
+  .controls{display:flex;gap:8px;align-items:center}
+  .controls input{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:inherit;font-size:18px;outline:none;letter-spacing:6px;text-align:center}
+  .controls input:focus{border-color:var(--red)}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .msg.lose{color:var(--red);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>猜数字</b> 1A2B</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尝试 GUESS · <span class="st" id="step">0</span>/<span id="max">10</span></span><span id="status">破解 4 位不重复密码</span></div>
+    <div class="legend"><span class="a">A = 位置与数字都对</span><span class="b">B = 数字对但位置错</span></div>
+    <div class="history" id="history"></div>
+    <div class="msg" id="msg">输入 4 位互不相同的数字（0-9），回车提交。例：1234 反馈 1A2B 表示 1 位全对、2 位数字对位错。</div>
+    <div class="controls">
+      <input id="guess" type="text" inputmode="numeric" maxlength="4" placeholder="0000" />
+      <button id="submit">提交 GUESS</button>
+    </div>
+  </div>
+  <div class="foot">经典 1A2B（Bulls & Cows）：计算机生成 4 位互不相同的数字（0-9）。每次猜测返回 A（绝对命中）+ B（数字对位错）。10 步内猜中即胜。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const LEN = 4, DOMAIN = 10, MAX_TRIES = 10;
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  // 生成 4 位互不相同的数字
+  function generateSecret(){
+    const pool = [0,1,2,3,4,5,6,7,8,9];
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(_rand()*(i+1)); const t=pool[i]; pool[i]=pool[j]; pool[j]=t; }
+    return pool.slice(0,LEN);
+  }
+
+  // 反馈：A=位置数字都对，B=数字对位置错（secret/guess 均为 4 位不重复）
+  function feedback(secret, guess){
+    let A=0;
+    for(let i=0;i<LEN;i++) if(secret[i]===guess[i]) A++;
+    const sSet=new Set(secret), gSet=new Set(guess);
+    let common=0; sSet.forEach(d=>{ if(gSet.has(d)) common++; });
+    const B=common-A;
+    return {A,B};
+  }
+
+  let secret, history, tries, won, over;
+  function reset(){
+    secret = generateSecret();
+    history = []; tries = 0; won = false; over = false;
+  }
+  // 提交一次猜测（guess: number[] 长度 4，每位 0..9，互不重复）
+  function guess(g){
+    if(over) return null;
+    if(!Array.isArray(g) || g.length!==LEN) return null;
+    if(g.some(v=>!Number.isInteger(v) || v<0 || v>=DOMAIN)) return null;
+    const seen=new Set();
+    if(g.some(v=>{ if(seen.has(v)) return true; seen.add(v); return false; })) return null; // 必须互不相同
+    const fb = feedback(secret, g);
+    history.push({guess:g.slice(), A:fb.A, B:fb.B});
+    tries++;
+    if(fb.A===LEN){ won=true; over=true; }
+    else if(tries>=MAX_TRIES){ over=true; }
+    if(typeof Juice!=='undefined'){
+      if(won){ Juice.sfx('levelup'); Juice.best('bullscow', MAX_TRIES-tries+1); }
+      else Juice.sfx(tries>=MAX_TRIES?'boom':'click');
+    }
+    return {A:fb.A, B:fb.B, win:won, over, tries};
+  }
+  function isWin(){ return won; }
+  function isOver(){ return over; }
+  function getState(){ return {secret:secret.slice(), history:history.map(h=>({guess:h.guess.slice(),A:h.A,B:h.B})), tries, won, over}; }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const st=$('step'),hist=$('history'),msg=$('msg'),gs=$('guess'),status=$('status'),mx=$('max');
+    if(mx) mx.textContent=MAX_TRIES;
+    if(!hist) return;
+    if(st) st.textContent=tries;
+    hist.innerHTML='';
+    history.forEach(h=>{
+      const row=document.createElement('div'); row.className='row';
+      const g=document.createElement('div'); g.className='g'; g.textContent=h.guess.join('');
+      const fb=document.createElement('div'); fb.className='fb';
+      fb.innerHTML='<span class="a">'+h.A+'A</span> <span class="b">'+h.B+'B</span>';
+      row.appendChild(g); row.appendChild(fb); hist.appendChild(row);
+    });
+    hist.scrollTop=hist.scrollHeight;
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 破解成功！密码是 '+secret.join(''); }
+      else if(over){ msg.className='msg lose'; msg.textContent='失败 · 密码是 '+secret.join(''); }
+      else { msg.className='msg'; msg.textContent='第 '+tries+' 步反馈已记录。'; } }
+    if(status){ status.textContent = won?'已破解':(over?'已结束':(tries===0?'破解 4 位不重复密码':'继续推理')); }
+    if(gs) gs.disabled = over;
+  }
+  function parseGuess(str){
+    const m=(str||'').match(/\d/g); if(!m || m.length!==LEN) return null;
+    const arr=m.map(Number);
+    const seen=new Set();
+    if(arr.some(v=>v>=DOMAIN || seen.has(v) || !seen.add(v))) return null;
+    return arr;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const gs=$('guess'),sb=$('submit');
+    if(sb) sb.onclick=()=>{ const g=parseGuess(gs.value); if(!g){ return; } guess(g); gs.value=''; render(); };
+    if(gs) gs.addEventListener('keydown',e=>{ if(e.key==='Enter'){ sb.click(); } });
+  }
+  reset();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      LEN, DOMAIN, MAX_TRIES,
+      setRand, generateSecret, feedback, reset, guess, isWin, isOver, getState,
+      setSecret:(s)=>{ secret=s; }, getSecret:()=>secret,
+    };
+  }
+})();
+</script>
+</body>
+</html>
