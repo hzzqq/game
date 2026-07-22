@@ -85,7 +85,8 @@
     if(target){ if(target.side===turn) return false; if(!canCapture(p,tr,tc)) return false; }
     else { if(isWater(fr,fc) && p.rank===1 && !isWater(tr,tc)) { /* 鼠出水到陆地，允许 */ } }
     board[tr][tc]=p; board[fr][fc]=null;
-    if(den && den!==turn){ over=true; winner=turn; return true; }
+    if(target){ Juice.sfx('hit'); Juice.addTrauma(.25); }
+    if(den && den!==turn){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); return true; }
     turn = turn==='b'?'w':'b';
     return true;
   }
