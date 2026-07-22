@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 传染棋</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(560px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(560px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{width:min(480px,94vw);aspect-ratio:1/1;margin:0 auto;display:grid;gap:3px;background:var(--border);border:2px solid var(--border);border-radius:8px;padding:4px}
+  .cell{display:flex;align-items:center;justify-content:center;background:#0e141d;border-radius:4px;cursor:pointer;user-select:none}
+  .cell.sel{box-shadow:inset 0 0 0 3px var(--gold)}
+  .cell.mv{box-shadow:inset 0 0 0 3px var(--green)}
+  .p{width:76%;height:76%;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+  .p.r{background:radial-gradient(circle at 35% 30%, #ff8a96, var(--red))}
+  .p.b{background:radial-gradient(circle at 35% 30%, #4a5a6a, #1b2530)}
+  .controls{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:#0e141d;color:var(--text);border:1px solid var(--border)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(560px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>传染棋</b> ATAXX</span></div>
+  <div class="wrap">
+    <div class="hud"><span>回合 TURN · <span class="st" id="turn">你 红 RED</span></span><span id="status">你执红先手</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="restart" class="ghost">重开 NEW</button>
+    </div>
+    <div class="msg" id="msg">点你的红子选中：相邻格（1 格）克隆——原件保留、新格出现；隔 2 格跳跃——原件消失。落子后周围 8 格的敌子被同化（变红）。终局子多者胜。</div>
+  </div>
+  <div class="foot">传染棋（Ataxx）：7×7，红（你）在左上 2×2、黑（AI）在右下 2×2 各 4 子。克隆扩张或跳跃突进，落点周围敌子被感染。棋盘填满或双方均无法行动时，子多者胜。暗色终端风。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const EMPTY=0, RED=1, BLACK=2; // RED=人, BLACK=AI
+  const SIZE=7;
+  const D8=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  const idx=(r,c)=> r*SIZE + c;
+  const inB=(r,c)=> r>=0 && r<SIZE && c>=0 && c<SIZE;
+  const cheb=(r1,c1,r2,c2)=> Math.max(Math.abs(r1-r2),Math.abs(c1-c2));
+  const sideOf=v=> v===RED?1 : v===BLACK?2 : 0;
+
+  let S; // {board:[49], turn, winner}
+  function newGame(){
+    S={ board:new Array(SIZE*SIZE).fill(0), turn:RED, winner:0 };
+    const corners=[[0,0],[0,1],[1,0],[1,1],[SIZE-1,SIZE-1],[SIZE-1,SIZE-2],[SIZE-2,SIZE-1],[SIZE-2,SIZE-2]];
+    corners.forEach((p,i)=> S.board[idx(p[0],p[1])] = (i<4)?RED:BLACK);
+  }
+
+  function movesFrom(s,r,c){
+    const v=s.board[idx(r,c)]; if(!v || sideOf(v)!==s.turn) return [];
+    const res=[];
+    for(let dr=-2;dr<=2;dr++) for(let dc=-2;dc<=2;dc++){
+      if(dr===0 && dc===0) continue;
+      const k=cheb(r,c,r+dr,c+dc); if(k!==1 && k!==2) continue;
+      const nr=r+dr, nc=c+dc;
+      if(inB(nr,nc) && s.board[idx(nr,nc)]===EMPTY) res.push({from:[r,c],to:[nr,nc],type:(k===1?'clone':'jump')});
+    }
+    return res;
+  }
+  function legalMovesState(s){
+    if(s.winner!==0) return [];
+    const res=[];
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+      const v=s.board[idx(r,c)];
+      if(v && sideOf(v)===s.turn) res.push(...movesFrom(s,r,c));
+    }
+    return res;
+  }
+  function countPieces(b,v){ let n=0; for(let i=0;i<b.length;i++) if(b[i]===v) n++; return n; }
+  function finalWinner(b){
+    const r=countPieces(b,RED), k=countPieces(b,BLACK);
+    return r>k?RED : k>r?BLACK : 3;
+  }
+
+  function applyMoveState(s,mv){
+    const [fr,fc]=mv.from, [tr,tc]=mv.to;
+    const me=s.turn, foe=(me===RED)?BLACK:RED;
+    s.board[idx(fr,fc)] = (mv.type==='jump') ? EMPTY : me; // 克隆保留原件 / 跳跃移除原件
+    s.board[idx(tr,tc)] = me;
+    for(const [dr,dc] of D8){ const r=tr+dr, c=tc+dc; if(inB(r,c) && s.board[idx(r,c)]===foe) s.board[idx(r,c)]=me; } // 同化
+    // 轮空处理
+    let cur=(me===RED)?BLACK:RED; s.turn=cur;
+    if(legalMovesState(s).length===0){ // 对方无子可动 → 轮空
+      s.turn=me;
+      if(legalMovesState(s).length===0) s.winner=finalWinner(s.board); // 双方均无法行动 → 终局
+    }
+  }
+  function cloneState(s){ return {board:s.board.slice(), turn:s.turn, winner:s.winner}; }
+
+  /* ---------- AI：极小化极大 + alpha-beta + 启发式 ---------- */
+  function evalState(s){
+    if(s.winner===RED) return 100000;
+    if(s.winner===BLACK) return -100000;
+    if(s.winner===3) return 0;
+    const c=(SIZE-1)/2;
+    let v=0;
+    for(let r=0;r<SIZE;r++) for(let cc=0;cc<SIZE;cc++){
+      const p=s.board[idx(r,cc)];
+      if(p===RED) v += 10 + (SIZE - (Math.abs(r-c)+Math.abs(cc-c)));
+      else if(p===BLACK) v -= 10 + (SIZE - (Math.abs(r-c)+Math.abs(cc-c)));
+    }
+    return v;
+  }
+  function orderMoves(s,moves){
+    return moves.slice().sort((a,b)=>{
+      const na=simGain(s,a,RED), nb=simGain(s,b,RED);
+      return nb-na;
+    });
+  }
+  function simGain(s,mv,me){
+    const ns=cloneState(s); applyMoveState(ns,mv);
+    return evalState(ns)*(s.turn===me?1:-1);
+  }
+  function search(s,depth,alpha,beta){
+    if(s.winner!==0){ if(s.winner===RED) return 100000+depth; if(s.winner===BLACK) return -100000-depth; return 0; }
+    if(depth===0) return evalState(s);
+    const moves=orderMoves(s,legalMovesState(s));
+    if(!moves.length) return evalState(s);
+    if(s.turn===RED){
+      let best=-Infinity;
+      for(const mv of moves){ const ns=cloneState(s); applyMoveState(ns,mv); const val=search(ns,depth-1,alpha,beta); if(val>best)best=val; if(best>alpha)alpha=best; if(alpha>=beta)break; }
+      return best;
+    } else {
+      let best=Infinity;
+      for(const mv of moves){ const ns=cloneState(s); applyMoveState(ns,mv); const val=search(ns,depth-1,alpha,beta); if(val<best)best=val; if(best<beta)beta=best; if(alpha>=beta)break; }
+      return best;
+    }
+  }
+  function aiMove(s, depth){
+    s = s || cloneState(S);
+    if(s.winner!==0 || s.turn!==BLACK) return null;
+    depth = depth || 3;
+    const moves=legalMovesState(s);
+    if(!moves.length) return null;
+    let best=null, bestV=Infinity;
+    for(const mv of orderMoves(s,moves)){
+      const ns=cloneState(s); applyMoveState(ns,mv);
+      if(ns.winner===BLACK) return mv; // 立即锁定胜
+      const val=search(ns,depth-1,-Infinity,Infinity);
+      if(val<bestV){ bestV=val; best=mv; }
+    }
+    return best;
+  }
+
+  /* ===================== 对外状态 / 操作 ===================== */
+  function getState(){ return cloneState(S); }
+  function setBoard(st){ if(st) S=cloneState(st); }
+  function legalMoves(){ return legalMovesState(S); }
+  function doMove(mv){
+    if(S.winner!==0) return {ok:false,reason:'over'};
+    const ok=legalMovesState(S).some(m=>m.from[0]===mv.from[0]&&m.from[1]===mv.from[1]&&m.to[0]===mv.to[0]&&m.to[1]===mv.to[1]&&m.type===mv.type);
+    if(!ok) return {ok:false,reason:'illegal'};
+    applyMoveState(S,mv);
+    if(typeof Juice!=='undefined') Juice.sfx('click');
+    return {ok:true};
+  }
+  function aiTurn(){
+    if(S.winner!==0 || S.turn!==BLACK) return null;
+    const mv=aiMove(S,3);
+    if(mv) doMove(mv);
+    return mv;
+  }
+
+  /* ===================== 渲染 ===================== */
+  const $ = id => (typeof document!=='undefined') ? document.getElementById(id) : null;
+  let boardEl=null, sel=null, curMoves=[];
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    boardEl=$('board'); if(!boardEl) return;
+    boardEl.style.gridTemplateColumns='repeat('+SIZE+',1fr)';
+    boardEl.style.gridTemplateRows='repeat('+SIZE+',1fr)';
+    boardEl.innerHTML='';
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+      const cd=document.createElement('div'); cd.className='cell'; cd.dataset.r=r; cd.dataset.c=c;
+      cd.addEventListener('click',()=>onCell(r,c));
+      boardEl.appendChild(cd);
+    }
+  }
+  function render(){
+    if(typeof document==='undefined'||!boardEl) return;
+    for(let i=0;i<SIZE*SIZE;i++){
+      const cd=boardEl.children[i]; const p=S.board[i];
+      cd.className='cell'+(p?' has':'')+(((i/SIZE|0)+i%SIZE)%2?' d':'');
+      cd.innerHTML = p? ('<div class="p '+(p===RED?'r':'b')+'"></div>') : '';
+    }
+    for(const m of curMoves){ const cd=boardEl.children[idx(m.to[0],m.to[1])]; cd.className+=' mv'; }
+    if(sel){ const cd=boardEl.children[idx(sel[0],sel[1])]; cd.className+=' sel'; }
+    const t=$('turn');
+    if(t) t.textContent = S.winner===0 ? (S.turn===RED?'你 红 RED':'AI 黑 BLACK') : (S.winner===3?'平局':(S.winner===RED?'你赢了 🎉':'AI 获胜'));
+  }
+  function onCell(r,c){
+    if(S.winner!==0 || S.turn!==RED) return;
+    if(sel){
+      const mv=curMoves.find(m=>m.to[0]===r&&m.to[1]===c);
+      if(mv){ doMove(mv); sel=null; curMoves=[]; render(); if(S.winner===0 && S.turn===BLACK) setTimeout(()=>{ aiTurn(); render(); }, 150); return; }
+    }
+    const v=S.board[idx(r,c)];
+    if(v===RED && S.turn===RED){ sel=[r,c]; curMoves=movesFrom(S,r,c); render(); }
+    else { sel=null; curMoves=[]; render(); }
+  }
+
+  /* ===================== 启动 ===================== */
+  try{
+    newGame(); buildBoard(); render();
+    const rs=$('restart'); if(rs) rs.addEventListener('click',()=>{ newGame(); sel=null; curMoves=[]; render(); });
+  }catch(e){ /* 桩环境忽略 */ }
+
+  window.__t = {
+    EMPTY, RED, BLACK, SIZE, idx, inB, cheb, sideOf, D8,
+    movesFrom, legalMoves, applyMove:doMove, getState, setBoard, aiMove, newGame,
+    countPieces, finalWinner, winnerOf(){ return S.winner; },
+    getBoard(){ return S.board.slice(); },
+  };
+})();
+</script>
+</body>
+</html>
