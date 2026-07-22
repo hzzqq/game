@@ -113,6 +113,7 @@
       reset(); S.running=true; S.over=false;
       spawnWave(1);
       if(overlay) overlay.style.display='none';
+      if(typeof Juice!=='undefined') Juice.sfx('click');
       syncHud();
     }
     function startWave(n){ S.running=true; S.over=false; spawnWave(n); syncHud(); }
@@ -145,7 +146,7 @@
           if(ddx*ddx+ddy*ddy<(b.r+e.r)*(b.r+e.r)){
             b.dead=true; e.hp--;
             if(J)J.burst&&J.burst(e.x,e.y,'#f6465d');
-            if(e.hp<=0){ e.dead=true; S.score+=100; }
+            if(e.hp<=0){ e.dead=true; S.score+=100; if(J){ J.popup(e.x,e.y,'+100','#02c076',{size:14}); J.sfx&&J.sfx('pickup'); } }
             break;
           }
         }
@@ -153,11 +154,11 @@
       S.bullets=S.bullets.filter(b=>!b.dead && b.y>-20);
       S.enemies=S.enemies.filter(e=>!e.dead);
       // 失败
-      if(S.lives<=0){ S.over=true; S.running=false; showOver(); }
+      if(S.lives<=0){ S.over=true; S.running=false; showOver(); if(J){ J.sfx&&J.sfx('lose'); J.flash('#f6465d',0.3); J.achievement&&J.achievement('任务失败'); } }
       // 波次推进
       if(S.enemies.length===0 && S.autoWave){
         S.waveDelay-=dt;
-        if(S.waveDelay<=0){ spawnWave(S.wave+1); }
+        if(S.waveDelay<=0){ spawnWave(S.wave+1); if(J){ J.sfx&&J.sfx('levelup'); J.flash('#02c076',0.2); } }
       }
       syncHud();
     }

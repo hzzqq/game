@@ -59,3 +59,8 @@ t.spawnEnemyAt(400, 540 - 16 + 2, 1, 0); // 紧贴玩家上方，下一步即触
 const livesBefore = t.getState().lives;
 t.update(0.02);
 H.ok('敌机触底: 余机-1', t.getState().lives === livesBefore - 1);
+
+// 7) reset 后状态可读取（确定性，Juice 守卫不报错）
+t.reset();
+let rs = t.getState();
+H.ok('reset 后状态可读取', rs && typeof rs.score === 'number' && rs.running === false);
