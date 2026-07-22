@@ -182,7 +182,7 @@
   function addPoison(ti,n){const e=C.enemies[ti];if(e)e.poison+=n;}
   function drawN(n){ for(let i=0;i<n;i++){ if(C.hand.length>=10)break; if(C.draw.length===0){ C.draw=shuffle(C.discard.slice()); C.discard=[]; } if(C.draw.length===0)break; C.hand.push(C.draw.pop()); } }
   function gainEnergy(n){ C.energy+=n; }
-  function gainStr(n){ C.str+=n; }
+  function gainStr(n){ C.str+=n; if(J) J.sfx('levelup'); }
 
   function startCombat(ids, kind){
     C={
@@ -201,7 +201,7 @@
     if(J) J.sfx('start');
   }
   function checkEnemiesDead(){
-    if(C.enemies.every(e=>e.hp<=0)){ C.over=true; C.result='win'; onWin(); }
+    if(C.enemies.every(e=>e.hp<=0)){ C.over=true; C.result='win'; if(J){ J.sfx('win'); J.flash('#02c076',.5); J.confetti(innerWidth/2, innerHeight*0.34, {n:C.kind==='boss'?160:60, life:2.6}); } onWin(); }
   }
   function onWin(){
     if(S.relics.includes('burning')) S.hp=Math.min(S.maxhp,S.hp+6);
@@ -218,7 +218,7 @@
     if(C.block>0){const a=Math.min(C.block,rem);C.block-=a;rem-=a;}
     S.hp-=rem;
     if(J){ J.addTrauma(0.3); J.flash('#f6465d',0.18); }
-    if(S.hp<=0){ S.hp=0; C.over=true; C.result='lose'; S.over=true; S.screen='gameover'; }
+    if(S.hp<=0){ S.hp=0; C.over=true; C.result='lose'; S.over=true; S.screen='gameover'; if(J){ J.sfx('lose'); J.flash('#f6465d',.5); } }
   }
   function playCard(hi,ti){
     if(!C||C.phase!=='player'||C.over) return false;
@@ -229,7 +229,7 @@
     def.play(C,ti);
     C.hand.splice(hi,1); C.discard.push(id);
     checkEnemiesDead();
-    if(J) J.sfx('card');
+    if(J && C && !C.over){ J.sfx('click'); J.addTrauma(0.12); }
     return true;
   }
   function endTurn(){
@@ -265,6 +265,7 @@
   }
   function chooseReward(idx){
     if(S.screen!=='reward') return false;
+    if(J) J.sfx('pickup');
     if(idx!==null && S.reward.cards[idx]) S.deck.push(S.reward.cards[idx]);
     if(S.reward.relic) S.relics.push(S.reward.relic);
     S.reward=null; S.screen='map';
