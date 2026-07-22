@@ -105,6 +105,41 @@
   let spawnTimer=0, spawnInterval=1.2;
   let gameTime=0;             // 已过时间（用于难度递增）
 
+  // ---- 注入：掉落道具/增益系统（纯反馈分支，不改核心玩法）----
+  // 真实浏览器判定：node 测试 harness 的 navigator.userAgent 固定为 'node-test'
+  const IN_BROWSER = !(typeof navigator!=='undefined' && navigator.userAgent === 'node-test');
+  function mk(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  const PICKUPS = {
+    coin:  {emoji:'💰', color:'#f0b90b', r:13},
+    clock: {emoji:'⏱', color:'#3aa0ff', r:13},
+  };
+  let pickups=[], rngPick;
+  function makePickup(type,x,y){ const d=PICKUPS[type]||PICKUPS.coin; return {type:type,x:x,y:y,r:d.r,t:0}; }
+  function applyPickup(type){
+    if(type==='coin') score += 100;
+    else if(type==='clock') time += 3;
+    if(typeof Juice!=='undefined') Juice.sfx('pickup');
+  }
+  function updatePickups(dt){
+    const hb = (typeof H!=='undefined' && H>0) ? H : 4000;
+    for(let i=pickups.length-1;i>=0;i--){
+      const p=pickups[i];
+      p.y += 60*dt; p.t+=dt;
+      if(p.y > hb + p.r){ pickups.splice(i,1); } // 漏接消失，无效果
+    }
+  }
+  function collectAt(x,y){
+    for(let i=pickups.length-1;i>=0;i--){
+      const p=pickups[i];
+      if(Math.hypot(x-p.x, y-p.y) < p.r+18){ applyPickup(p.type); pickups.splice(i,1); }
+    }
+  }
+  function spawnPickupAt(x,y){
+    const roll=rngPick();
+    const type = roll<0.6?'coin':'clock';
+    pickups.push(makePickup(type, x, y));
+  }
+
   function init(){
     canvas = document.createElement('canvas');
     document.getElementById('stage').appendChild(canvas);
@@ -139,6 +174,7 @@
     resetHoles();
     score = 0; time = GAME_TIME; combo = 0; maxCombo = 0;
     spawnTimer = 0; spawnInterval = 1.2; gameTime = 0;
+    pickups = []; rngPick = mk(0x55AA55AA);
     playing = true; over = false;
     document.getElementById('overlay').classList.remove('show');
     updateHUD();
@@ -216,6 +252,8 @@
     }
     h.state = 'hit';
     h.timer = 0;
+    // 注入：打中掉落（仅真实游玩，局部 PRNG）
+    if(IN_BROWSER && rngPick()<0.3){ const c=holeCenter(idx); spawnPickupAt(c.x, c.y); }
     return { hit: true, type: h.type, gain: gain };
   }
 
@@ -366,6 +404,18 @@
     }
 
     if (typeof Juice !== 'undefined') Juice.mid(ctx);
+
+    // 注入：掉落物（辉光圆 + emoji）
+    for(const p of pickups){
+      const d=PICKUPS[p.type];
+      ctx.save();
+      ctx.shadowBlur=12; ctx.shadowColor=d.color; ctx.fillStyle=d.color;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur=0; ctx.fillStyle='#0a0e14'; ctx.font='bold 13px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(d.emoji, p.x, p.y+1);
+      ctx.restore();
+    }
+
     if (typeof Juice !== 'undefined') Juice.end(ctx);
   }
 
@@ -373,6 +423,8 @@
     if (!playing) return;
     const rect = canvas.getBoundingClientRect();
     const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    // 注入：点击同时拾取附近掉落物
+    collectAt(px, py);
     // 找最近洞
     for (let i = 0; i < HOLES; i++) {
       const c = holeCenter(i);
@@ -389,6 +441,8 @@
     document.getElementById('m-time').textContent = Math.ceil(time);
     document.getElementById('m-combo').textContent = combo;
     document.getElementById('m-best').textContent = best;
+    const hint = document.getElementById('hint');
+    if(hint){ if(pickups.length) hint.textContent = '拾取掉落物 💰加高分 / ⏱加时间！'; }
   }
 
   let lastT = performance.now();
@@ -405,7 +459,7 @@
 
   // ---- 测试钩子：暴露纯逻辑 + 状态访问器（不改功能）----
   window.__t = {
-    HOLES, COLS, ROWS, TYPES, GAME_TIME, BEST_KEY,
+    HOLES, COLS, ROWS, TYPES, GAME_TIME, BEST_KEY, PICKUPS,
     pickHole, pickType, spawnMole, whack, upDuration, currentSpawnInterval,
     holePos, holeCenter, cellW, cellH,
     startGame, endGame, update,
@@ -421,6 +475,14 @@
     getSpawnInterval: ()=>spawnInterval,
     getGameTime: ()=>gameTime, setGameTime: v=>{gameTime=v;},
     getW: ()=>W, getH: ()=>H,
+    // 注入钩子
+    reset: startGame,
+    getState: ()=>({score,time,combo,pickups:pickups.length}),
+    spawnPickup: (type,x,y)=>{ pickups.push(makePickup(type,x,y)); },
+    stepPickups: (dt)=>{ updatePickups(dt); },
+    applyPickup: (type)=>{ applyPickup(type); },
+    getPickups: ()=>pickups,
+    collectAt: (x,y)=>{ collectAt(x,y); },
   };
 })();
 </script>
