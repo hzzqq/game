@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // LAZERMAZE</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace}
+  #stage{position:fixed;inset:0;z-index:0}
+  #stage canvas{display:block;touch-action:none}
+  #scan{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(1200px 700px at 50% -10%, rgba(240,185,11,.06), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px}
+  .titlebar{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:10px;
+    padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border-bottom:1px solid var(--border)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--gold)}
+  .titlebar .btn{margin-left:auto;background:transparent;color:var(--dim);border:1px solid var(--border);
+    border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px}
+  .titlebar .btn:hover{color:var(--gold);border-color:var(--gold)}
+  #hud{position:fixed;top:52px;left:16px;right:16px;z-index:5;display:flex;justify-content:space-between;align-items:flex-start}
+  .stat{background:rgba(18,24,33,.85);border:1px solid var(--border);border-radius:8px;padding:8px 14px;backdrop-filter:blur(4px)}
+  .stat .k{color:var(--dim);font-size:11px;letter-spacing:.5px}
+  .stat .v{font-size:19px;margin-top:2px}
+  .v.score{color:var(--gold)} .v.lives{color:var(--red)} .v.level{color:var(--green)}
+  #overlay{position:fixed;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,.88)}
+  #overlay .box{text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;max-width:90vw}
+  #overlay h1{font-size:26px;letter-spacing:2px;margin-bottom:10px;text-shadow:0 0 18px rgba(240,185,11,.35)}
+  #overlay p{color:var(--dim);font-size:13px;line-height:1.9;margin-bottom:18px}
+  #overlay .start{background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;box-shadow:0 0 14px rgba(240,185,11,.4)}
+  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;color:var(--dim);font-size:12px;text-align:center;width:100%}
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="scan"></div>
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>LAZERMAZE</b> · 激光迷宫</span>
+    <button class="btn" id="resetBtn">重置</button>
+  </div>
+  <div id="hud">
+    <div class="stat"><div class="k">状态</div><div class="v level" id="status">布阵中</div></div>
+    <div class="stat"><div class="k">步数</div><div class="v score" id="moves">0</div></div>
+    <div class="stat"><div class="k">光束格数</div><div class="v" id="len">0</div></div>
+  </div>
+  <div id="hint">点击格子旋转镜面（/ 与 \\ 切换）· 让金色激光经镜面反射命中绿色目标 · 空格重置</div>
+  <div id="overlay">
+    <div class="box">
+      <h1>◈ 激光迷宫</h1>
+      <p>激光从红点射出，沿直线前进；在 <b style="color:var(--gold)">镜面</b> 处转向。<br/>旋转镜面（点击格子），让光束绕开障碍、<b style="color:var(--green)">命中目标格</b>即通关。</p>
+      <button class="start" id="startBtn">开始布阵</button>
+    </div>
+  </div>
+
+  <script src="juice.js"></script>
+  <script>
+  (function(){
+    if('ontouchstart' in window) document.body.classList.add('touch');
+    const stage=document.getElementById('stage');
+    let W=window.innerWidth, H=window.innerHeight;
+    const cv=document.createElement('canvas');
+    cv.width=W; cv.height=H; stage.appendChild(cv);
+    const ctx=cv.getContext('2d');
+    const J=(typeof Juice!=='undefined')?Juice:null;
+
+    const G=8; // 网格 8x8
+    const DIR={right:[1,0],left:[-1,0],up:[0,-1],down:[0,1]};
+    let S=null;
+    function fresh(){
+      return {
+        grid:G, start:{x:0,y:0,dir:'right'}, target:{x:0,y:0},
+        mirrors:{}, beam:[], won:false, moves:0, running:true
+      };
+    }
+    function key(x,y){return x+','+y;}
+
+    function reset(){ S=fresh(); syncHud(); }
+    function start(){
+      reset();
+      if(typeof document!=='undefined'){const o=document.getElementById('overlay');if(o)o.style.display='none';}
+      syncHud();
+    }
+
+    function setStart(x,y,dir){ S.start={x,y,dir}; recompute(); }
+    function setTarget(x,y){ S.target={x,y}; recompute(); }
+    function setMirrors(obj){ S.mirrors=Object.assign({},obj); recompute(); }
+    function setMirror(x,y,type){ if(type)S.mirrors[key(x,y)]=type; else delete S.mirrors[key(x,y)]; recompute(); }
+    function rotateMirror(x,y){
+      const k=key(x,y); const cur=S.mirrors[k];
+      S.mirrors[k] = cur==='/' ? '\\' : '/';
+      S.moves++; recompute();
+      if(S.won && J)J.burst&&J.burst(0,0,'#02c076');
+    }
+
+    function reflect(dx,dy,type){
+      if(type==='/') return [-dy,-dx];
+      if(type==='\\') return [dy,dx];
+      return [dx,dy];
+    }
+
+    function recompute(){
+      let cx=S.start.x, cy=S.start.y;
+      let [dx,dy]=DIR[S.start.dir]||DIR.right;
+      const path=[{x:cx,y:cy}];
+      let won=false;
+      const maxSteps=G*G*4;
+      for(let i=0;i<maxSteps;i++){
+        cx+=dx; cy+=dy;
+        if(cx<0||cy<0||cx>=G||cy>=G) break;
+        path.push({x:cx,y:cy});
+        if(cx===S.target.x && cy===S.target.y){ won=true; break; }
+        const m=S.mirrors[key(cx,cy)];
+        if(m){ const [ndx,ndy]=reflect(dx,dy,m); dx=ndx; dy=ndy; }
+      }
+      S.beam=path; S.won=won;
+    }
+
+    function update(){ recompute(); syncHud(); }
+
+    function getState(){
+      return {
+        grid:S.grid, start:{x:S.start.x,y:S.start.y,dir:S.start.dir},
+        target:{x:S.target.x,y:S.target.y}, mirrors:Object.assign({},S.mirrors),
+        beam:S.beam.map(p=>({x:p.x,y:p.y})), won:S.won, moves:S.moves
+      };
+    }
+
+    window.__t={
+      reset, start, update, getState,
+      setStart, setTarget, setMirrors, setMirror, rotateMirror,
+      recompute, reflect
+    };
+
+    // 渲染
+    function render(){
+      ctx.clearRect(0,0,W,H);
+      const cell=Math.min(W,H)*0.7/G;
+      const ox=(W-cell*G)/2, oy=(H-cell*G)/2;
+      // 网格
+      ctx.strokeStyle='#1f2a38';
+      for(let i=0;i<=G;i++){
+        ctx.beginPath();ctx.moveTo(ox+i*cell,oy);ctx.lineTo(ox+i*cell,oy+G*cell);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(ox,oy+i*cell);ctx.lineTo(ox+G*cell,oy+i*cell);ctx.stroke();
+      }
+      const cx=x=>ox+x*cell+cell/2, cy=y=>oy+y*cell+cell/2;
+      // 镜面
+      for(const k in S.mirrors){
+        const [mx,my]=k.split(',').map(Number); const m=S.mirrors[k];
+        ctx.strokeStyle='#f0b90b';ctx.lineWidth=3;ctx.beginPath();
+        if(m==='/'){ctx.moveTo(ox+mx*cell+4,oy+my*cell+cell-4);ctx.lineTo(ox+mx*cell+cell-4,oy+my*cell+4);}
+        else{ctx.moveTo(ox+mx*cell+4,oy+my*cell+4);ctx.lineTo(ox+mx*cell+cell-4,oy+my*cell+cell-4);}
+        ctx.stroke();ctx.lineWidth=1;
+      }
+      // 光束
+      ctx.strokeStyle='#f6465d';ctx.lineWidth=2;ctx.beginPath();
+      S.beam.forEach((p,i)=>{ const X=cx(p.x),Y=cy(p.y); if(i===0)ctx.moveTo(X,Y); else ctx.lineTo(X,Y); });
+      ctx.stroke();ctx.lineWidth=1;
+      // 起点 / 目标
+      ctx.fillStyle='#f6465d';ctx.beginPath();ctx.arc(cx(S.start.x),cy(S.start.y),cell*0.22,0,7);ctx.fill();
+      ctx.strokeStyle='#02c076';ctx.lineWidth=2;ctx.strokeRect(ox+S.target.x*cell+3,oy+S.target.y*cell+3,cell-6);ctx.lineWidth=1;
+    }
+
+    const $=id=>document.getElementById(id);
+    function syncHud(){
+      if($('status'))$('status').textContent=S.won?'命中目标 ✓':'布阵中';
+      if($('moves'))$('moves').textContent=S.moves;
+      if($('len'))$('len').textContent=S.beam.length;
+    }
+    if($('startBtn'))$('startBtn').addEventListener('click',start);
+    if($('resetBtn'))$('resetBtn').addEventListener('click',reset);
+
+    cv.addEventListener('pointerdown',e=>{
+      const cell=Math.min(W,H)*0.7/G, ox=(W-cell*G)/2, oy=(H-cell*G)/2;
+      const r=cv.getBoundingClientRect();
+      const gx=Math.floor((e.clientX-r.left-ox)/cell), gy=Math.floor((e.clientY-r.top-oy)/cell);
+      if(gx>=0&&gy>=0&&gx<G&&gy<G && !(gx===S.start.x&&gy===S.start.y) && !(gx===S.target.x&&gy===S.target.y))
+        rotateMirror(gx,gy);
+    });
+    window.addEventListener('keydown',e=>{ if(e.code==='Space')reset(); });
+
+    reset();
+    let last=0;
+    function frame(t){
+      const dt=Math.min(0.05,(t-last)/1000||0.016); last=t;
+      render();
+      if(typeof requestAnimationFrame!=='undefined')requestAnimationFrame(frame);
+    }
+    if(typeof requestAnimationFrame!=='undefined')requestAnimationFrame(frame);
+  })();
+  </script>
+</body>
+</html>
