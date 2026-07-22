@@ -83,7 +83,8 @@
     if(lead===null){ lead=combo; lastWinner=player; passes=0; }
     else { if(combo.type!==lead.type) return false; if(!higher(combo,lead)) return false; lead=combo; lastWinner=player; passes=0; }
     for(const c of combo.cards){ const i=hands[player].findIndex(x=>x.s===c.s&&x.r===c.r); if(i>=0) hands[player].splice(i,1); }
-    if(hands[player].length===0){ over=true; winner=player; return true; }
+    Juice.sfx('click'); Juice.addTrauma(.2);
+    if(hands[player].length===0){ over=true; winner=player; Juice.sfx('win'); Juice.flash('#02c076', .5); return true; }
     turn=(turn+1)%4; return true;
   }
   function isWin(){ return over; }
