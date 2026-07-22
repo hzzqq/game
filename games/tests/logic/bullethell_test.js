@@ -65,3 +65,65 @@ H.eq('边界: y 夹紧到 r', s.player.y, 12);
 t.reset();
 let rs = t.getState();
 H.ok('reset 后状态可读取', rs && typeof rs.score === 'number' && rs.running === false);
+
+// ===== 注入式掉落/增益系统（确定性驱动，setRand 控制掉落 PRNG）=====
+t.setRand(123);
+
+// 1. 生成掉落物 + 金币加分/计数
+t.reset(); t.start();
+t.spawnPickup('coin', 400, 100);
+H.eq('生成 1 个掉落物', t.getPickups(), 1);
+const coinsBefore = t.getCoins(), scoreBefore = t.getState().score;
+const coin = t.getPickup(0);
+H.eq('掉落物类型=coin', coin.type, 'coin');
+t.applyPickup(0);
+H.eq('拾取 💰 金币计数+1', t.getCoins(), coinsBefore + 1);
+H.eq('拾取 💰 加分(+10)', t.getState().score, scoreBefore + 10);
+H.eq('拾取后掉落物移除', t.getPickups(), 0);
+
+// 2. 护盾：有盾受击不扣血，护盾被消耗
+t.reset(); t.start(); t.setLives(3); t.setShield(1);
+const lb = t.getLives();
+t.takeHit();
+H.eq('有护盾受击不扣血', t.getLives(), lb);
+H.eq('护盾被消耗', t.getShield(), 0);
+// 无盾受击扣血
+t.reset(); t.start(); t.setLives(3);
+const lb2 = t.getLives();
+t.takeHit();
+H.eq('无盾受击扣血', t.getLives(), lb2 - 1);
+
+// 3. 加速增益：boostTimer 置位后玩家移速翻倍
+t.reset(); t.start();
+t.spawnPickup('boost', 400, 100);
+H.eq('生成 boost 掉落物', t.getPickup(0).type, 'boost');
+t.applyPickup(0);
+H.ok('拾取 🚀 加速生效(boostTimer>0)', t.getBoost() > 0);
+
+// 4. 回血增益：heal 增加余机（不超过上限 5）
+t.reset(); t.start(); t.setLives(2);
+t.spawnPickup('heal', 400, 100);
+t.applyPickup(0);
+H.eq('拾取 ❤ 余机+1', t.getLives(), 3);
+
+// 5. 碰撞自动拾取：掉落物落到玩家位置自动生效
+t.reset(); t.start();
+t.setPlayer(400, 500);
+t.spawnPickup('shield', 400, 500);
+t.update(0.02); // 与玩家重叠 → 自动拾取
+H.eq('掉落到玩家自动拾取护盾', t.getShield(), 1);
+H.eq('自动拾取后移除', t.getPickups(), 0);
+
+// 6. 非法索引被拒：applyPickup 越界不报错、不掉物
+t.reset(); t.start();
+t.applyPickup(99);
+H.eq('非法索引不报错且掉落物=0', t.getPickups(), 0);
+
+// 7. 回归：无 buff 时原判定逻辑不变（命中仍扣命、无敌帧免疫）
+t.reset(); t.start(); t.setSpawnEnabled(false); t.clearBullets(); t.setPlayer(400, 500); t.setInvuln(0);
+t.spawnBullet(400, 500, 0, 0);
+const lv0 = t.getLives();
+t.update(0.02);
+H.eq('回归: 命中余机-1', t.getLives(), lv0 - 1);
+// 还原掉落 PRNG 为默认随机流（确定性块结束）
+t.setRand(Math.random);
