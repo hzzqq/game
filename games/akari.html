@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 数灯 AKARI</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(240,185,11,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(620px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--gold)}
+  .wrap{width:min(620px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .board{display:grid;gap:4px;margin:0 auto 10px;width:max-content;background:var(--panel);padding:10px;border-radius:14px;border:1px solid var(--border)}
+  .cell{width:50px;height:50px;border-radius:8px;background:#0e141d;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;cursor:pointer;user-select:none}
+  .cell.wall{background:#1f2a38;border-color:#2a3a4d;color:var(--gold);cursor:default}
+  .cell.empty{cursor:pointer}
+  .cell.lamp{color:var(--gold)}
+  .cell.lit{background:#10261c}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(620px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>数灯</b> AKARI</span></div>
+  <div class="wrap">
+    <div class="hud"><span>尺寸 N · <span class="st" id="n">7</span></span><span id="status">亮格其四邻含数字个灯，灯互不照射</span></div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <button id="new">新局 NEW</button>
+      <button id="reset" class="ghost">清空 RESET</button>
+    </div>
+    <div class="msg" id="msg">点空格放/收灯。每个带数字墙的四邻须恰有该数盏灯；任意空格须被照亮且灯之间不可互相对视。</div>
+  </div>
+  <div class="foot">Akari（数灯）：在空格放灯。每盏灯照亮整行整列直到遇墙；带数字墙的四邻恰有该数盏灯；灯不可互相照射；所有空格须被照亮。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  let _rng = mk(0x55aa55aa);
+  function setRand(fn){ if(typeof fn==='function') _rng=fn; }
+
+  const N = 7;
+  const MAXLEN = 4;
+  let board;   // -1 空, 0 墙(无号), >=1 墙(有号)
+  let lamps;   // N×N bool
+  let sol;     // N×N bool 规范解
+  let won = false;
+
+  function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+  function isWall(r,c){ return !inb(r,c) || board[r][c]>=0; } // 越界或 board>=0 视为阻挡
+
+  function newPuzzle(seed){
+    if(typeof seed==='number') _rng = mk(seed>>>0);
+    board = Array.from({length:N},()=>new Array(N).fill(0)); // 全墙
+    lamps = Array.from({length:N},()=>new Array(N).fill(false));
+    const rooms=[];
+    const target = 8;
+    let attempts=0;
+    while(rooms.length<target && attempts<800){
+      attempts++;
+      const r=Math.floor(_rng()*N), c=Math.floor(_rng()*N);
+      if(board[r][c]!==0) continue; // 须从墙挖
+      const horiz = _rng()<0.5;
+      const len = 1+Math.floor(_rng()*MAXLEN);
+      const cells=[];
+      let okc=true;
+      if(horiz){
+        if(c+len>N) continue;
+        for(let i=0;i<len;i++){ const cc=c+i; if(board[r][cc]!==0){okc=false;break;} cells.push([r,cc]); }
+        if(!okc) continue;
+        // 上下（除端点方向外）与两端须为墙
+        for(let i=0;i<len;i++){ const cc=c+i;
+          if(inb(r-1,cc) && board[r-1][cc]!==0){okc=false;break;}
+          if(inb(r+1,cc) && board[r+1][cc]!==0){okc=false;break;}
+        }
+        if(c-1>=0 && board[r][c-1]!==0) okc=false;
+        if(c+len<N && board[r][c+len]!==0) okc=false;
+      } else {
+        if(r+len>N) continue;
+        for(let i=0;i<len;i++){ const rr=r+i; if(board[rr][c]!==0){okc=false;break;} cells.push([rr,c]); }
+        if(!okc) continue;
+        for(let i=0;i<len;i++){ const rr=r+i;
+          if(inb(rr,c-1) && board[rr][c-1]!==0){okc=false;break;}
+          if(inb(rr,c+1) && board[rr][c+1]!==0){okc=false;break;}
+        }
+        if(r-1>=0 && board[r-1][c]!==0) okc=false;
+        if(r+len<N && board[r+len][c]!==0) okc=false;
+      }
+      if(!okc) continue;
+      for(const [rr,cc] of cells) board[rr][cc]=-1; // 挖空
+      const lamp = cells[Math.floor(_rng()*cells.length)];
+      lamps[lamp[0]][lamp[1]]=true;
+      rooms.push(cells);
+    }
+    // 计算墙号：每面墙统计四邻空格中灯数
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(board[r][c]!==0) continue; // 仅墙
+      let cnt=0;
+      const nb=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+      for(const [nr,nc] of nb){ if(inb(nr,nc) && board[nr][nc]===-1 && lamps[nr][nc]) cnt++; }
+      board[r][c] = cnt; // 0 表示无号墙；>=1 有号墙
+    }
+    sol = lamps.map(row=>row.slice());
+    won = false;
+    return getState();
+  }
+
+  // 某空格是否被照亮
+  function lit(r,c){
+    if(board[r][c]!==-1) return false;
+    if(lamps[r][c]) return true; // 自身有灯即被照亮
+    const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
+    for(const [dr,dc] of dirs){
+      let nr=r+dr, nc=c+dc;
+      while(inb(nr,nc)){
+        if(board[nr][nc]>=0) break;        // 遇墙
+        if(lamps[nr][nc]) return true;     // 见灯
+        nr+=dr; nc+=dc;
+      }
+    }
+    return false;
+  }
+  function lampConflict(){
+    const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(!lamps[r][c]) continue;
+      for(const [dr,dc] of dirs){
+        let nr=r+dr, nc=c+dc;
+        while(inb(nr,nc)){
+          if(board[nr][nc]>=0) break;
+          if(lamps[nr][nc]) return true; // 另一盏灯，且无墙隔
+          nr+=dr; nc+=dc;
+        }
+      }
+    }
+    return false;
+  }
+  function numbersOK(){
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(board[r][c]>=1){
+        let cnt=0;
+        const nb=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+        for(const [nr,nc] of nb){ if(inb(nr,nc) && board[nr][nc]===-1 && lamps[nr][nc]) cnt++; }
+        if(cnt!==board[r][c]) return false;
+      }
+    }
+    return true;
+  }
+  function isWin(){
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(board[r][c]===-1 && !lit(r,c)) return false;
+    if(lampConflict()) return false;
+    if(!numbersOK()) return false;
+    let anyLamp=false; for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(lamps[r][c]) anyLamp=true;
+    return anyLamp;
+  }
+
+  function setLamp(r,c,bool){
+    if(!inb(r,c)) return false;
+    if(board[r][c]!==-1) return false; // 仅空格可放灯
+    lamps[r][c]=!!bool;
+    won=isWin();
+    if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    return true;
+  }
+  function toggleLamp(r,c){ return setLamp(r,c, !lamps[r][c]); }
+  function reset(){ lamps=Array.from({length:N},()=>new Array(N).fill(false)); won=false; return getState(); }
+  function applySolution(){ lamps=sol.map(row=>row.slice()); won=isWin(); return won; }
+  function getSolution(){ return sol.map(row=>row.slice()); }
+  function getState(){
+    return { N, board:board.map(r=>r.slice()), lamps:lamps.map(r=>r.slice()), won };
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function buildBoard(){
+    if(typeof document==='undefined') return;
+    const b=$('board'); if(!b) return;
+    b.style.gridTemplateColumns='repeat('+N+',50px)';
+    b.innerHTML='';
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const el=document.createElement('div'); el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+      el.addEventListener('click',()=>{ if(toggleLamp(r,c)) render(); });
+      b.appendChild(el);
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    const b=$('board'),nEl=$('n'),msg=$('msg'),st=$('status');
+    if(!b) return;
+    const cells=b.children;
+    for(let i=0;i<cells.length;i++){
+      const r=+cells[i].dataset.r, c=+cells[i].dataset.c;
+      const v=board[r][c];
+      let cls='cell';
+      if(v>=0){ cls+=' wall'; cells[i].textContent = v>=1? v : ''; }
+      else {
+        cls+=' empty';
+        const litp = lit(r,c);
+        if(litp) cls+=' lit';
+        if(lamps[r][c]){ cls+=' lamp'; cells[i].textContent='●'; } else cells[i].textContent='';
+      }
+      cells[i].className=cls;
+    }
+    if(nEl) nEl.textContent=N;
+    if(st) st.textContent = won?'已通关':'亮格其四邻含数字个灯，灯互不照射';
+    if(msg){ if(won){ msg.className='msg win'; msg.textContent='🎉 完成！所有空格被照亮，灯互不照射，墙号满足。'; }
+      else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'),rb=$('reset');
+    if(nb) nb.onclick=()=>{ newPuzzle(); buildBoard(); render(); };
+    if(rb) rb.onclick=()=>{ reset(); render(); };
+  }
+  newPuzzle();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
+    else { buildBoard(); bindUI(); render(); }
+  }
+  if(typeof window!=='undefined'){
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setLamp, toggleLamp, applySolution, getSolution, getState, lit, MAXLEN };
+  }
+})();
+</script>
+</body>
+</html>
