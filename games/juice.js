@@ -65,6 +65,58 @@
     });
   };
 
+  /* ---------- 庆祝纸屑（独立 DOM 叠层，不依赖游戏渲染循环，opt-in） ---------- */
+  let confCv = null, confCtx = null, confParts = [], confRAF = 0, confLast = 0;
+  function confEnsure() {
+    if (confCv) return;
+    confCv = document.createElement('canvas');
+    confCv.id = 'juice-confetti';
+    confCv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9998';
+    document.body.appendChild(confCv);
+    confCtx = confCv.getContext('2d');
+    const resize = function () {
+      const dpr = window.devicePixelRatio || 1;
+      confCv.width = window.innerWidth * dpr; confCv.height = window.innerHeight * dpr;
+      confCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize(); window.addEventListener('resize', resize);
+  }
+  function confTick(ts) {
+    if (!confLast) confLast = ts;
+    const dt = Math.min(0.05, (ts - confLast) / 1000); confLast = ts;
+    const ctx = confCtx, W = window.innerWidth, H = window.innerHeight;
+    ctx.clearRect(0, 0, W, H);
+    for (let i = confParts.length - 1; i >= 0; i--) {
+      const p = confParts[i]; p.life -= dt;
+      if (p.life <= 0) { confParts.splice(i, 1); continue; }
+      p.vy += 360 * dt; p.vx *= 0.99; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+      ctx.save(); ctx.globalAlpha = Math.max(0, p.life / p.fade);
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+    }
+    if (confParts.length) confRAF = requestAnimationFrame(confTick);
+    else { confRAF = 0; confLast = 0; ctx.clearRect(0, 0, W, H); }
+  }
+  J.confetti = function (x, y, o) {
+    o = o || {}; confEnsure();
+    const n = o.n || 80,
+      colors = o.colors || ['#f6465d', '#02c076', '#f0b90b', '#3b82f6', '#a855f7', '#ffffff'],
+      spread = o.spread || 340, life = o.life || 2.0, up = o.up == null ? 300 : o.up;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, v = spread * (0.25 + Math.random());
+      confParts.push({
+        x, y,
+        vx: Math.cos(a) * v * 0.7, vy: Math.sin(a) * v - up * (0.3 + Math.random() * 0.7),
+        rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 12,
+        w: 5 + Math.random() * 5, h: 7 + Math.random() * 7,
+        life: life * (0.7 + Math.random() * 0.3), fade: life,
+        color: colors[(Math.random() * colors.length) | 0]
+      });
+    }
+    if (confParts.length > 1500) confParts.splice(0, confParts.length - 1500);
+    if (!confRAF) confRAF = requestAnimationFrame(confTick);
+  };
+
   /* ---------- 浮动文字（伤害/得分/提示） ---------- */
   let pops = [];
   J.popup = function (x, y, text, color, o) {
