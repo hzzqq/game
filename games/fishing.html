@@ -31,7 +31,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>钓鱼</b> FISHING</span></div>
   <div class="wrap">
-    <div class="hud"><span>渔获 · <span class="st" id="sc">0</span></span><span>状态 · <span class="st" id="st">抛竿中</span></span></div>
+    <div class="hud"><span>渔获 · <span class="st" id="sc">0</span></span><span>状态 · <span class="st" id="st">抛竿中</span></span><span>BUFF · <span class="st" id="buff">-</span></span></div>
     <canvas id="cv" width="400" height="240"></canvas>
     <div class="msg" id="msg">抛竿入水，当鱼钩附近有鱼咬钩时收线即可钓起。把池塘里的鱼尽量多钓上来。</div>
     <div class="controls">
@@ -49,7 +49,8 @@
   "use strict";
   const W=400, H=240, R=14;
   let fish, hook, score;
-  function reset(){ fish=[{x:120,y:80,id:1},{x:260,y:150,id:2},{x:200,y:60,id:3}]; hook=null; score=0; }
+  let pickups, shield, boostTimer, luckTimer, lives;
+  function reset(){ fish=[{x:120,y:80,id:1},{x:260,y:150,id:2},{x:200,y:60,id:3}]; hook=null; score=0; pickups=[]; shield=0; boostTimer=0; luckTimer=0; lives=3; }
   function setFish(arr){ fish=arr.map(f=>({x:f.x,y:f.y,id:f.id})); hook=null; score=0; }
   function castAt(x,y){ hook={x,y}; }
   function dist(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); }
@@ -61,11 +62,55 @@
     if(!hook || !getBiting()) return null;
     let best=null,bd=1e9;
     for(const f of fish){ const d=dist(hook.x,hook.y,f.x,f.y); if(d<=R&&d<bd){ bd=d; best=f; } }
-    if(best){ fish=fish.filter(f=>f.id!==best.id); score++; Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(hook.x,hook.y,{color:'#f0b90b',n:12}); Juice.popup(hook.x,hook.y,'+1','#f0b90b'); return best.id; }
+    if(best){ fish=fish.filter(f=>f.id!==best.id); score++; Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(hook.x,hook.y,{color:'#f0b90b',n:12}); Juice.popup(hook.x,hook.y,'+1','#f0b90b'); spawnPickupAtRandom(hook.x,hook.y); return best.id; }
     return null;
   }
   function getScore(){ return score; }
   function getFish(){ return fish.map(f=>({x:f.x,y:f.y,id:f.id})); }
+
+  // ---- 注入：掉落道具 / 增益系统（不改核心玩法） ----
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return((t^t>>>14)>>>0)/4294967296; }; }
+  const _prng = mk(0x5f1a3c7d);
+  function makePickup(type,x,y){ return { type:type, x:x, y:y, vy:16+_prng()*20, r:11, born:0, ttl:8 }; }
+  const PICKUP_EMOJI = { coin:'💰', shield:'🛡', boost:'🚀', luck:'⏱' };
+  function spawnPickupAtRandom(px,py){
+    if(px==null||py==null) return;
+    const r=_prng();
+    const type = r<0.5?'coin':(r<0.75?'shield':(r<0.9?'boost':'luck'));
+    pickups.push(makePickup(type, px+(_prng()*20-10), py+(_prng()*10-5)));
+  }
+  function applyPickup(type){
+    if(type==='coin'){ score+=5; if(typeof Juice!=='undefined'){ Juice.sfx('coin'); Juice.popup(hook?hook.x:0,hook?hook.y:0,'+5','#f0b90b'); } }
+    else if(type==='shield'){ shield=Math.min(3,shield+1); if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(hook?hook.x:0,hook?hook.y:0,'护盾+1','#3aa0ff'); } }
+    else if(type==='boost'){ boostTimer=8; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.popup(hook?hook.x:0,hook?hook.y:0,'加速!','#f0b90b'); } }
+    else if(type==='luck'){ luckTimer=8; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.popup(hook?hook.x:0,hook?hook.y:0,'幸运!','#02c076'); } }
+  }
+  function updatePickups(dt){
+    for(let i=pickups.length-1;i>=0;i--){
+      const p=pickups[i]; p.born+=dt; p.y+=p.vy*dt;
+      if(p.born>p.ttl || p.y>H+20){ pickups.splice(i,1); continue; }
+      if(hook && dist(p.x,p.y,hook.x,hook.y)<=p.r+14){ applyPickup(p.type); pickups.splice(i,1); }
+    }
+  }
+  function takeHit(){
+    if(shield>0){ shield--; if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(hook?hook.x:0,hook?hook.y:0,'护盾!','#3aa0ff'); } }
+    else { lives--; if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.flash('#f6465d',.3); } }
+  }
+  function update(dt){
+    if(boostTimer>0) boostTimer-=dt;
+    if(luckTimer>0) luckTimer-=dt;
+    updatePickups(dt);
+  }
+  function drawPickup(ctx){
+    for(const p of pickups){
+      const emo=PICKUP_EMOJI[p.type]||'❓';
+      ctx.save();
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle='rgba(240,185,11,.18)'; ctx.fill();
+      ctx.font='16px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#f0b90b'; ctx.fillText(emo,p.x,p.y+1);
+      ctx.restore();
+    }
+  }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
@@ -73,12 +118,26 @@
     ctx.fillStyle='#0b3d2e'; ctx.fillRect(0,0,W,H);
     ctx.fillStyle='#f0b90b'; for(const f of fish){ ctx.beginPath(); ctx.arc(f.x,f.y,6,0,Math.PI*2); ctx.fill(); }
     if(hook){ ctx.strokeStyle= getBiting()?'#02c076':'#e6edf3'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(hook.x,hook.y,R,0,Math.PI*2); ctx.stroke(); }
-    const sc=$('sc'),st=$('st'); if(sc)sc.textContent=score; if(st)st.textContent=hook?(getBiting()?'有鱼咬钩!':'抛竿中'):'抛竿中';
+    drawPickup(ctx);
+    const sc=$('sc'),st=$('st'),buff=$('buff');
+    if(sc)sc.textContent=score;
+    if(st)st.textContent=hook?(getBiting()?'有鱼咬钩!':'抛竿中'):'抛竿中';
+    if(buff){ let b=[]; if(shield>0)b.push('🛡'+shield); if(boostTimer>0)b.push('🚀'+Math.ceil(boostTimer)+'s'); if(luckTimer>0)b.push('⏱'+Math.ceil(luckTimer)+'s'); buff.textContent=b.length?b.join(' '):'-'; }
   }
-  function loop(){ if(typeof requestAnimationFrame==='undefined') return; render(); requestAnimationFrame(loop); }
+  function loop(){ if(typeof requestAnimationFrame==='undefined') return; update(0.016); render(); requestAnimationFrame(loop); }
   reset();
   if(typeof document!=='undefined'){ const cb=$('cast'),rb=$('reel'),nb=$('new'),xi=$('x'),yi=$('y'); if(cb)cb.onclick=()=>{ castAt(+xi.value||0,+yi.value||0); render(); }; if(rb)rb.onclick=()=>{ reel(); render(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
-  if(typeof window!=='undefined'){ window.__t={ reset, setFish, castAt, getBiting, reel, getScore, getFish }; }
+  if(typeof window!=='undefined'){ window.__t={ reset, setFish, castAt, getBiting, reel, getScore, getFish, update, takeHit,
+    getState(){ return {score,shield,boostTimer,luckTimer,lives,pickups:pickups.length}; },
+    spawnPickup(type,x,y){ pickups.push(makePickup(type,x,y)); },
+    stepPickups(dt){ updatePickups(dt); },
+    applyPickup,
+    getPickups(){ return pickups.length; },
+    getShield(){ return shield; }, setShield(v){ shield=v; },
+    getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
+    getLuck(){ return luckTimer; }, setLuck(v){ luckTimer=v; },
+    getLives(){ return lives; }, setLives(v){ lives=v; },
+    getHook(){ return hook?{x:hook.x,y:hook.y}:null; } }; }
 })();
 </script>
 </body>
