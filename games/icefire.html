@@ -81,6 +81,7 @@
     <div class="seg">
       <div><span class="lab">关卡 LV</span> <span class="val red" id="lvl">1/2</span></div>
       <div><span class="lab">积分 PTS</span> <span class="val gold" id="score">0</span></div>
+      <div><span class="lab">增益 BUFF</span> <span class="val gold" id="buff"></span></div>
     </div>
     <button class="act gold" id="restart">↻ 新局</button>
   </div>
@@ -127,6 +128,10 @@
 
   const cv=document.getElementById('game');
   const ctx=cv.getContext('2d');
+
+  // 局部 PRNG（mulberry32）——所有随机必须走这里，禁止裸 Math.random
+  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var _rng = mk(0x5678);
   const lvlEl=document.getElementById('lvl');
   const scoreEl=document.getElementById('score');
   const restartBtn=document.getElementById('restart');
@@ -192,6 +197,9 @@
   let doorOpen=false, score=0, currentLevel=0, state='play', flash=0;
   let iceStart=null, fireStart=null;
   let powerups = [];
+  let pickups = [];            // 注入：浮动掉落（❤回血 / ⚡加速）
+  let boostTimer = 0;          // 注入：加速增益计时
+  let spawnTimer = 6;          // 注入：掉落刷新计时
 
   function solid(tx,ty){
     if(tx<0||tx>=W) return true;
@@ -237,6 +245,7 @@
     ice.shield=0; ice.starTimer=0; ice.shieldGrace=0;
     fire.shield=0; fire.starTimer=0; fire.shieldGrace=0;
     powerups = [];
+    pickups = []; boostTimer = 0; spawnTimer = 6;
     if(L.powerups){
       for(const p of L.powerups){ powerups.push({ type:p.type, x:p.x*T+T/2, y:p.y*T+T/2, dead:false }); }
     }
@@ -249,6 +258,10 @@
   function updateHUD(){
     lvlEl.textContent=(currentLevel+1)+'/'+LEVELS.length;
     scoreEl.textContent=score;
+    var bs=[];
+    if(ice.shield>0||fire.shield>0) bs.push('🛡护盾');
+    if(ice.speedTimer>0||fire.speedTimer>0) bs.push('⚡加速');
+    var be=document.getElementById('buff'); if(be) be.textContent=bs.join(' ');
   }
 
   function die(c){
@@ -312,9 +325,11 @@
   }
 
   function updateChar(c){
-    c.vx=(c.in.right?MOVE:0)-(c.in.left?MOVE:0);
+    var spd = MOVE * (c.speedTimer>0 ? 1.5 : 1);   // 注入：加速增益
+    c.vx=(c.in.right?spd:0)-(c.in.left?spd:0);
     if(c.shieldGrace>0) c.shieldGrace -= STEP/1000;
     if(c.starTimer>0) c.starTimer -= STEP/1000;
+    if(c.speedTimer>0) c.speedTimer -= STEP/1000;
     const wantJump=(c.in.up||c.jumpBuf>0);
     if(wantJump && !c.upPrev && c.onGround){ c.vy=JUMP; c.onGround=false; c.jumpBuf=0; }
     c.upPrev=c.in.up;
@@ -336,10 +351,73 @@
     if(c.y>CH+60) die(c);
   }
 
+  /* ---------- 注入：标准化掉落/增益系统（纯注入，不改动核心玩法） ---------- */
+  var PICKUP_TYPES=['heal','speed'];   // icefire：❤回血 / ⚡加速
+  function makePickup(type,x,y){
+    const p={ type:type, x:x, y:y, age:0, vy:60 };
+    pickups.push(p); return p;
+  }
+  function spawnPickupAtRandom(){
+    const type = PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+    const x = _rng()*CW, y = 20 + _rng()*40;     // 从顶部落下
+    return makePickup(type, x, y);
+  }
+  function applyPickup(p){
+    if(!p) return;
+    const who=[ice,fire];
+    if(typeof Juice!=='undefined') Juice.sfx('pickup');
+    if(p.type==='heal' || p.type==='shield'){
+      for(const c of who) c.shield=(c.shield||0)+1;
+      if(typeof Juice!=='undefined') Juice.popup(p.x,p.y,'❤回血','#02c076',{size:14});
+    } else if(p.type==='speed' || p.type==='star'){
+      for(const c of who) c.speedTimer=6;
+      if(typeof Juice!=='undefined') Juice.popup(p.x,p.y,'⚡加速','#f0b90b',{size:14});
+    }
+  }
+  function updatePickups(dt){
+    for(let k=pickups.length-1;k>=0;k--){
+      const p=pickups[k]; p.age+=dt; p.y += (p.vy||60)*dt;   // 随场下落
+      if(p.y > CH+30){ pickups.splice(k,1); continue; }
+      var hit=false;
+      for(const c of [ice,fire]){
+        if(c.x < p.x+14 && c.x+c.w > p.x-14 && c.y < p.y+14 && c.y+c.h > p.y-14){ hit=true; break; }
+      }
+      if(hit){ applyPickup(p); pickups.splice(k,1); }
+    }
+  }
+  function drawPickup(ctx){
+    for(const p of pickups){
+      const bob=Math.sin((p.age||0)*6)*3;
+      const col = p.type==='heal' ? '#02c076' : '#f0b90b';
+      const icon = p.type==='heal' ? '❤' : '⚡';
+      ctx.save();
+      ctx.translate(p.x, p.y+bob);
+      ctx.shadowBlur=12; ctx.shadowColor=col;
+      ctx.fillStyle=col; ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur=0; ctx.fillStyle='#0a0e14';
+      ctx.font='bold 14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(icon,0,1);
+      ctx.restore();
+    }
+  }
+  function takeHit(i){
+    // 护盾优先消耗、无盾才死亡（本作死亡=重生）
+    if(ice.shield>0 && ice.shieldGrace<=0){
+      ice.shield--; ice.shieldGrace=1.2;
+      if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(ice.x+ice.w/2, ice.y, '护盾抵消!', '#3aa0ff', {size:14}); }
+      return;
+    }
+    die(ice);
+  }
+
   function step(){
     if(state!=='play') return;
     updateChar(ice);
     updateChar(fire);
+    // 注入：掉落刷新 + 下落/碰撞拾取
+    spawnTimer -= STEP/1000;
+    if(spawnTimer<=0){ spawnTimer = 7 + _rng()*4; spawnPickupAtRandom(); }
+    updatePickups(STEP/1000);
     if(ice.atExit && fire.atExit) completeLevel();
   }
 
@@ -467,6 +545,7 @@
     for(let y=0;y<=H;y++){ ctx.beginPath(); ctx.moveTo(0,y*T); ctx.lineTo(W*T,y*T); ctx.stroke(); }
     for(let y=0;y<H;y++) for(let x=0;x<W;x++) drawTile(x,y,grid[y][x]);
     for(const p of powerups) drawPowerup(p);
+    drawPickup(ctx);          // 注入：浮动掉落（玩家前绘制）
     drawChar(ice); drawChar(fire);
     if(flash>0.01){ ctx.fillStyle='rgba(246,70,93,'+(flash*0.35)+')'; ctx.fillRect(0,0,CW,CH); flash*=0.9; }
     else flash=0;
@@ -539,7 +618,20 @@
       powerups=[];
     },
     ice, fire,
-    dieShielded(c){ die(c); }
+    dieShielded(c){ die(c); },
+    // ---- 注入：标准化掉落/增益系统钩子 ----
+    reset: function(){ loadLevel(0,true); },
+    update: function(){ step(); },
+    getState: function(){ return state; },
+    spawnPickup: function(type,x,y){ if(type===undefined) return spawnPickupAtRandom(); return makePickup(type, x!==undefined?x:ice.x, y!==undefined?y:ice.y); },
+    stepPickups: function(dt){ updatePickups(dt); },
+    applyPickup: function(p){ applyPickup(p); },
+    getPickups: function(){ return pickups.length; },
+    getShield: function(){ return ice.shield; },
+    setShield: function(v){ ice.shield=v; },
+    getBoost: function(){ return boostTimer; },
+    setBoost: function(v){ boostTimer=v; ice.speedTimer=v; fire.speedTimer=v; },
+    takeHit: function(d){ takeHit(d); }
   };
 })();
 </script>
