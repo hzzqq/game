@@ -95,7 +95,7 @@
   function bindUI(){
     if(typeof document==='undefined') return;
     const ck=$('check'),nb=$('new'),ex=$('expr');
-    if(ck) ck.onclick=()=>{ const v=evalExpr(ex&&ex.value||'', nums); if(v===true){ over=true; render(); } else if(v===false){ if(ex) ex.value=''; const m=$('msg'); if(m){ m.className='msg'; m.textContent='❌ 不等于 24，再试试。'; } } };
+    if(ck) ck.onclick=()=>{ const v=evalExpr(ex&&ex.value||'', nums); if(v===true){ over=true; Juice.sfx('win'); Juice.flash('#02c076', .5); Juice.addTrauma(.3); render(); } else if(v===false){ Juice.sfx('error'); if(ex) ex.value=''; const m=$('msg'); if(m){ m.className='msg'; m.textContent='❌ 不等于 24，再试试。'; } } };
     if(nb) nb.onclick=()=>{ newGame(); render(); };
   }
   newGame();
