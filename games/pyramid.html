@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // PYRAMID</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px}
+  .titlebar{width:min(760px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
+  .wrap{width:min(760px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--gold);font-weight:700}
+  .pyr{position:relative;height:300px;margin:0 auto;width:min(620px,96vw)}
+  .card{position:absolute;width:52px;height:72px;border:1px solid var(--border);border-radius:6px;background:#0e141d;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;cursor:pointer;user-select:none;transition:transform .08s}
+  .card.red{color:var(--red)} .card.black{color:var(--text)}
+  .card.free{border-color:var(--gold);box-shadow:0 0 8px rgba(240,185,11,.4)}
+  .card.gone{visibility:hidden}
+  .tray{display:flex;gap:16px;align-items:center;justify-content:center;margin-top:14px}
+  .slot{width:52px;height:72px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--dim)}
+  .slot.base{color:var(--green);border-color:var(--green)}
+  .controls{display:flex;gap:8px;margin-top:12px;justify-content:center}
+  .controls button{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .foot{width:min(760px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>PYRAMID</b> 金字塔纸牌</span></div>
+  <div class="wrap">
+    <div class="hud"><span>已消 CLEARED · <span class="st" id="cl">0</span>/<span id="tt">0</span></span><span>基准 BASE · <span class="st" id="bs">-</span></span><span>牌库 STOCK · <span class="st" id="sk">0</span></span></div>
+    <div class="pyr" id="pyr"></div>
+    <div class="tray">
+      <div class="slot" id="stockSlot">🂠</div>
+      <div style="color:var(--dim);font-size:12px">牌库</div>
+      <div class="slot base" id="baseSlot">基准</div>
+    </div>
+    <div class="controls"><button id="draw">翻基准 DRAW</button><button id="new" class="ghost">新局 NEW</button></div>
+    <div class="msg" id="msg">点亮的牌是与「基准牌」点数相差 1 的牌，点击即可消除并顶替为新的基准牌；无可消时翻牌库。消掉整座金字塔即胜。</div>
+  </div>
+  <div class="foot">金字塔纸牌（Pyramid，自定义规则）：底层可消牌须与基准牌点数相差 1；消除后该牌成为新基准。清空金字塔即通关。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  function mk(s){ return function(){ s|=0; s=s+0x6D2B79F5|0; var t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  let _rng = mk(0x1234);
+  function setSeed(s){ _rng = mk(s>>>0); }
+
+  const SUITS=['♠','♥'];   // 0=黑(♠) 1=红(♥)
+  const ROWS=6;             // 金字塔行数 -> 21 张
+  const TOTAL = ROWS*(ROWS+1)/2;
+
+  let pyramid, base, stock, removed, over, won;
+
+  function rankName(r){ return r===1?'A':r===11?'J':r===12?'Q':r===13?'K':String(r); }
+  function color(s){ return s===1?'red':'black'; }
+  function newDeck(){ const d=[]; for(let copy=0;copy<2;copy++) for(let s=0;s<2;s++) for(let r=1;r<=13;r++) d.push({s,r}); return d; }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+
+  function newGame(){
+    const deck=shuffle(newDeck());
+    pyramid=[]; let k=0;
+    for(let r=0;r<ROWS;r++){ const row=[]; for(let c=0;c<=r;c++) row.push({ s:deck[k].s, r:deck[k].r, removed:false }); k++; pyramid.push(row); }
+    base = deck[k++];
+    stock = deck.slice(k);
+    removed=0; over=false; won=false;
+  }
+
+  function setPyramid(rows, baseCard, stockCards){
+    pyramid = rows.map(row=>row.map(c=>({ s:c.s, r:c.r, removed:false })));
+    base = baseCard ? {s:baseCard.s, r:baseCard.r} : null;
+    stock = (stockCards||[]).map(c=>({s:c.s, r:c.r}));
+    removed=0; over=false; won=false;
+    if(typeof document!=='undefined'){ build(); render(); }
+  }
+
+  function free(r,c){
+    if(!pyramid || r<0 || r>=pyramid.length || c<0 || c>r) return false;
+    if(pyramid[r][c].removed) return false;
+    if(r===pyramid.length-1) return true;
+    return pyramid[r+1][c].removed && pyramid[r+1][c+1].removed;
+  }
+
+  function remove(r,c){
+    if(over) return false;
+    if(!free(r,c)) return false;
+    if(!base) return false;
+    if(Math.abs(pyramid[r][c].r - base.r) !== 1) return false;
+    pyramid[r][c].removed=true; removed++;
+    base = { s:pyramid[r][c].s, r:pyramid[r][c].r };
+    if(removed===pyramidTotal()){ over=true; won=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('金字塔通关'); } render(); return true; }
+    if(typeof Juice!=='undefined') Juice.sfx('pickup');
+    render(); return true;
+  }
+
+  function drawBase(){
+    if(over) return false;
+    if(!stock.length) return false;
+    base = stock.pop();
+    if(typeof Juice!=='undefined') Juice.sfx('click');
+    render(); return true;
+  }
+
+  function pyramidTotal(){ return pyramid.reduce((a,row)=>a+row.length,0); }
+
+  function getState(){
+    return {
+      pyramid: pyramid.map(row=>row.map(c=>({ s:c.s, r:c.r, removed:c.removed }))),
+      base: base ? {s:base.s, r:base.r} : null,
+      stockLen: stock.length, removed, total: pyramidTotal(), over, won
+    };
+  }
+
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  let cardEls=[];
+  function build(){
+    if(typeof document==='undefined') return;
+    const p=$('pyr'); if(!p) return; p.innerHTML=''; cardEls=[];
+    const PROWS = pyramid.length;
+    const cw=52, ch=72, gapx=10, gapy=14;
+    const rowW = r => (r+1)*cw + r*gapx;
+    const maxW = rowW(PROWS-1);
+    for(let r=0;r<PROWS;r++) for(let c=0;c<=r;c++){
+      const el=document.createElement('div'); el.className='card '+color(pyramid[r][c].s);
+      el.style.left=((maxW - rowW(r))/2 + c*(cw+gapx))+'px';
+      el.style.top=(r*(ch+gapy-30))+'px';
+      el.addEventListener('click',()=>{ if(remove(r,c)) {} });
+      p.appendChild(el); cardEls.push({r,c,el});
+    }
+  }
+  function render(){
+    if(typeof document==='undefined') return;
+    cardEls.forEach(o=>{ const c=pyramid[o.r][o.c];
+      o.el.textContent=(c.removed?'':rankName(c.r)+SUITS[c.s]);
+      o.el.className='card '+color(c.s)+(c.removed?' gone':'')+(!c.removed&&free(o.r,o.c)?' free':'');
+    });
+    const cl=$('cl'),tt=$('tt'),sk=$('sk'),bs=$('bs'),msg=$('msg');
+    if(cl) cl.textContent=removed; if(tt) tt.textContent=TOTAL;
+    if(sk) sk.textContent=stock.length;
+    if(bs) bs.textContent = base ? (rankName(base.r)+SUITS[base.s]) : '-';
+    if(msg){ if(over&&won){ msg.className='msg win'; msg.textContent='🏁 金字塔清空，通关！'; } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); build(); render(); };
+    const db=$('draw'); if(db) db.onclick=()=>{ drawBase(); };
+  }
+
+  newGame();
+  if(typeof document!=='undefined'){ build(); bindUI(); render(); }
+  if(typeof window!=='undefined'){
+    window.__t={ SUITS, ROWS, TOTAL, setSeed, newGame, setPyramid, remove, drawBase, free, getState, rankName };
+  }
+})();
+</script>
+</body>
+</html>
