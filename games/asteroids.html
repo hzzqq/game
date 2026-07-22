@@ -53,7 +53,7 @@
   function getAsteroids(){ return asteroids.map(o=>({...o})); }
   function getBullets(){ return bullets.map(o=>({...o})); }
   function getScore(){ return score; }
-  function shoot(){ const dx=Math.cos(ship.angle),dy=Math.sin(ship.angle); bullets.push({x:ship.x,y:ship.y,vx:dx*200,vy:dy*200}); }
+  function shoot(){ const dx=Math.cos(ship.angle),dy=Math.sin(ship.angle); bullets.push({x:ship.x,y:ship.y,vx:dx*200,vy:dy*200}); Juice.sfx('shoot'); }
   function step(dt){
     dt=Math.max(dt||0.016,0);
     for(const a of asteroids){ a.x+=a.vx*dt; a.y+=a.vy*dt; if(a.x<0)a.x+=W; if(a.x>W)a.x-=W; if(a.y<0)a.y+=H; if(a.y>H)a.y-=H; }
@@ -61,7 +61,7 @@
     const hit=[];
     for(let i=0;i<asteroids.length;i++){ for(let j=0;j<bullets.length;j++){ const a=asteroids[i],b=bullets[j]; const dx=a.x-b.x,dy=a.y-b.y; if(dx*dx+dy*dy<(a.r+BR)*(a.r+BR)){ hit.push([i,j]); break; } } }
     const deadA=new Set(),deadB=new Set();
-    for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= a.r>20?20:10; if(a.r>20){ for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(Math.random()*2-1)*60,vy:(Math.random()*2-1)*60,r:20}); } }
+    for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= a.r>20?20:10; Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(a.x, a.y, {color:'#f0b90b'}); if(a.r>20){ for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(Math.random()*2-1)*60,vy:(Math.random()*2-1)*60,r:20}); } }
     asteroids=asteroids.filter((_,i)=>!deadA.has(i));
     bullets=bullets.filter((_,j)=>!deadB.has(j));
   }
