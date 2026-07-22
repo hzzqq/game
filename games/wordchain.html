@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 单词接龙</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(240,185,11,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px;touch-action:manipulation}
+  .titlebar{width:min(600px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--gold)}
+  .wrap{width:min(600px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .st{color:var(--green);font-weight:700}
+  .prompt{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;font-size:14px;color:var(--dim)}
+  .prompt b{color:var(--gold)}
+  .chain{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;height:240px;overflow-y:auto;margin-bottom:10px;font-size:14px}
+  .crow{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(31,42,56,.5)}
+  .crow:last-child{border-bottom:none}
+  .crow .who{font-size:11px;color:var(--dim);width:52px}
+  .crow .w{font-weight:700;letter-spacing:1px}
+  .crow .p .w{color:var(--green)} .crow .a .w{color:var(--red)}
+  .controls{display:flex;gap:8px;align-items:center}
+  .controls input{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:inherit;font-size:16px;outline:none}
+  .controls input:focus{border-color:var(--gold)}
+  .controls button{background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:12px 18px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.win{color:var(--gold);font-weight:700}
+  .msg.lose{color:var(--red);font-weight:700}
+  .foot{width:min(600px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>单词接龙</b> WORDCHAIN</span></div>
+  <div class="wrap">
+    <div class="hud"><span>回合 ROUND · <span class="st" id="round">0</span></span><span id="status">你先手</span></div>
+    <div class="prompt">下一个单词须以 <b id="need">任意字母</b> 开头</div>
+    <div class="chain" id="chain"></div>
+    <div class="msg" id="msg">输入一个英文单词（在词库中、未被用过）。AI 会自动接龙。</div>
+    <div class="controls">
+      <input id="inp" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入单词…" />
+      <button id="submit">提交 GO</button>
+    </div>
+  </div>
+  <div class="foot">单词接龙：你与 AI 轮流，每个新词必须以对方词的最后一个字母开头，且在词库中、未被使用过。谁无词可接即负。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ===================== 纯逻辑核心 ===================== */
+  const DEFAULT_DICT = ['apple','ant','tiger','rabbit','tree','elephant','turtle','eagle','lion','nest','time','ear','rose','eat','tap','pan','net','rat','cat','tent','orange','egg','goat','top','pear','red','dog','grass','sun','name','moon','nail','light','table','end','duck','key','yellow','owl','leaf','fish','hat','toe','earth','hill','log','gold','door','robot','tea','arm','map','pen','note','east','town','new','wind','deer'];
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn; }
+
+  let DICT, used, lastLetter, round, over, winner;
+  function setDict(d){ DICT = d.map(w=>String(w).toLowerCase()); }
+  function reset(){
+    if(!DICT || !DICT.length) DICT = DEFAULT_DICT.slice();
+    used = new Set();
+    lastLetter = null;
+    round = 0; over = false; winner = null;
+  }
+  function validWord(w){
+    w = String(w).toLowerCase();
+    if(DICT.indexOf(w)===-1) return false;
+    if(used.has(w)) return false;
+    if(lastLetter!==null && w[0]!==lastLetter) return false;
+    return true;
+  }
+  // 玩家出词
+  function play(word){
+    if(over) return {error:'over'};
+    word = String(word).toLowerCase();
+    if(!validWord(word)){
+      over = true; winner = 'ai';
+      if(typeof Juice!=='undefined') Juice.sfx('boom');
+      return {valid:false, reason:'invalid', over:true, winner:'ai'};
+    }
+    used.add(word);
+    lastLetter = word[word.length-1];
+    round++;
+    // AI 接龙
+    const cands = DICT.filter(w=> !used.has(w) && w[0]===lastLetter);
+    if(cands.length===0){
+      over = true; winner = 'player';
+      if(typeof Juice!=='undefined') Juice.sfx('levelup');
+      return {valid:true, aiWord:null, over:true, winner:'player'};
+    }
+    const aiWord = cands[Math.min(cands.length-1, Math.floor(_rand()*cands.length))];
+    used.add(aiWord);
+    lastLetter = aiWord[aiWord.length-1];
+    if(typeof Juice!=='undefined') Juice.sfx('click');
+    return {valid:true, aiWord, over:false, winner:null};
+  }
+  function getState(){
+    return {dict:DICT.slice(), used:Array.from(used), lastLetter, round, over, winner,
+      need: lastLetter};
+  }
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const rnd=$('round'),chain=$('chain'),msg=$('msg'),inp=$('inp'),status=$('status'),need=$('need');
+    if(!chain) return;
+    if(rnd) rnd.textContent = round;
+    if(need) need.textContent = lastLetter ? lastLetter.toUpperCase() : '任意字母';
+    chain.innerHTML='';
+    // 简化：渲染已用单词序列
+    const seq = Array.from(used);
+    seq.forEach((w,i)=>{
+      const row=document.createElement('div'); row.className='crow '+(i%2===0?'p':'a');
+      const who=document.createElement('div'); who.className='who'; who.textContent = i%2===0?'你':'AI';
+      const ww=document.createElement('div'); ww.className='w'; ww.textContent=w;
+      row.appendChild(who); row.appendChild(ww); chain.appendChild(row);
+    });
+    chain.scrollTop=chain.scrollHeight;
+    if(msg){
+      if(winner==='player'){ msg.className='msg win'; msg.textContent='🎉 你赢了！AI 无词可接。'; }
+      else if(winner==='ai'){ msg.className='msg lose'; msg.textContent='失败 · 你给出的词无效或不在词库。'; }
+      else { msg.className='msg'; msg.textContent='输入一个英文单词（在词库中、未被用过）。'; }
+    }
+    if(status){ status.textContent = winner? '已结束' : (round===0?'你先手':'轮到你'); }
+    if(inp) inp.disabled = over;
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const inp=$('inp'),sb=$('submit');
+    const go=()=>{ const v=inp.value.trim(); if(!v) return; play(v); inp.value=''; render(); };
+    if(sb) sb.onclick=go;
+    if(inp) inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ go(); } });
+  }
+  reset();
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
+    else { bindUI(); render(); }
+  }
+
+  if(typeof window!=='undefined'){
+    window.__t = {
+      setDict, setRand, reset, play, validWord, getState,
+      getDefaultDict:()=>DEFAULT_DICT.slice(),
+    };
+  }
+})();
+</script>
+</body>
+</html>
