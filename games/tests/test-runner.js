@@ -136,6 +136,22 @@ const FILES = {
   'towerstack.html':  { name:'叠塔 Tower Stack',             offline:true },
   'pipes.html':       { name:'管道 Pipes',                   offline:true },
   'pyramid.html':     { name:'金字塔纸牌 Pyramid',            offline:true },
+  'binairo.html':     { name:'二进制数独 Binairo',            offline:true },
+  'hitori.html':      { name:'独占数字 Hitori',               offline:true },
+  'yajilin.html':     { name:'夜光照明 Yajilin',              offline:true },
+  'starbattle.html':  { name:'星战 StarBattle',               offline:true },
+  'tents.html':       { name:'帐篷 Tents',                    offline:true },
+  'killersudoku.html':{ name:'杀手数独 Killer Sudoku',         offline:true },
+  'xiangqi.html':     { name:'中国象棋 Xiangqi',              offline:true },
+  'boggle.html':      { name:'文字矩阵 Boggle',               offline:true },
+  'hearts.html':      { name:'红心 Hearts',                   offline:true },
+  'spades.html':      { name:'黑桃 Spades',                   offline:true },
+  'cribbage.html':    { name:'克里比奇 Cribbage',             offline:true },
+  'galaga.html':      { name:'大蜜蜂 Galaga',                 offline:true },
+  'columns.html':     { name:'宝石 Columns',                  offline:true },
+  'crossyroad.html':  { name:'过河 Crossy Road',              offline:true },
+  'centipede.html':   { name:'蜈蚣 Centipede',                 offline:true },
+  'life.html':        { name:'生命游戏 Life',                 offline:true },
 };
 
 let totalPass=0, totalFail=0;
