@@ -52,6 +52,7 @@
 <script>
 (function(){
   "use strict";
+  const J = (typeof Juice !== 'undefined') ? Juice : null;
   /* ===================== 纯逻辑核心 ===================== */
   const SIZE = 8;
   const EMPTY = 0, REDman = 1, BLACKman = 2, REDking = 3, BLACKking = 4;
@@ -215,7 +216,7 @@
     if(!moves.length) return;
     applyMove(moves[0]);
     selected=null;
-    if(typeof Juice!=='undefined'){ Juice.sfx(moves[0].capture?'click':'click'); if(winner()) Juice.sfx('levelup'), Juice.best('checkers',1); }
+    if(typeof Juice!=='undefined'){ Juice.sfx(moves[0].capture?'click':'click'); if(winner()){ Juice.sfx('levelup'); Juice.best('checkers',1); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
     if(turn==='black' && !winner()){
       if(typeof Juice!=='undefined') Juice.sfx('click');
       aiMove();
