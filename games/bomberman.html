@@ -14,10 +14,10 @@
   .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
   .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--red)}
   .wrap{width:min(480px,98vw)}
-  .hud{display:flex:justify-content:space-between;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
   .hud .st{color:var(--gold);font-weight:700}
   .board{display:grid;gap:1px;justify-content:center;margin:6px auto;width:max-content;background:var(--border);padding:1px;border-radius:6px}
-  .cell{width:26px;height:26px;background:#0e141d}
+  .cell{width:26px;height:26px;background:#0e141d;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1}
   .cell.block{background:#7a5230}
   .cell.wall{background:#3b4654}
   .cell.blast{background:var(--gold)}
@@ -50,58 +50,122 @@
 <script>
 (function(){
   "use strict";
-  let W,H, blocks, walls, bombs, players, range, pickups, score;
+  let W,H, blocks, walls, bombs, players, range, pickups, score, shield, bombCap, fire, blastSet;
   function setup(w,h,blockList){
-    W=w; H=h; blocks=new Set((blockList||[]).map(b=>b[0]+','+b[1])); walls=new Set(); bombs=null; players=[]; range=2; pickups=[]; score=0;
+    W=w; H=h; blocks=new Set((blockList||[]).map(b=>b[0]+','+b[1])); walls=new Set(); bombs=[]; players=[]; range=2; pickups=[]; score=0;
+    shield=0; bombCap=1; fire=0; blastSet=new Set();
   }
   function setRange(r){ range=r; }
-  function setBomb(x,y){ bombs={x,y}; }
+  function setBomb(x,y){ if(bombs.length>=bombCap) return false; bombs.push({x,y}); return true; }
   function setPlayers(arr){ players=arr.map(p=>({x:p.x,y:p.y,dead:false})); }
   // ---- 注入式掉落道具系统（本地种子 PRNG，禁止 Math.random）----
   function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
-  const pickupRng = mk(0x1b873593);
+  const pickupRng = mk(0x1b873593);   // 复用游戏已有局部 PRNG，绝不裸 Math.random
+  const PICKUP_SYM = { bombs:'💣', shield:'🛡', fire:'⚡', range:'💣', coin:'💰' };
   function makePickup(type,r,c){ return {type:type, r:r, c:c, life:8}; }
-  function applyPickup(p){ if(!p) return; if(p.type==='range'){ range+=1; if(typeof Juice!=='undefined') Juice.popup('💣 范围+'); } else if(p.type==='coin'){ score+=50; if(typeof Juice!=='undefined') Juice.popup('💰 +50'); } const idx=pickups.indexOf(p); if(idx>=0) pickups.splice(idx,1); }
-  function updatePickups(dt){ for(let i=pickups.length-1;i>=0;i--){ const p=pickups[i]; let got=false; for(const pl of players){ if(pl.x===p.c && pl.y===p.r){ got=true; break; } } if(got){ applyPickup(p); continue; } p.life-=dt; if(p.life<=0) pickups.splice(i,1); } }
+  function applyPickup(arg){
+    var type, p=null;
+    if(typeof arg==='string'){ type=arg; }
+    else { p=arg; if(!p) return; type=p.type; }
+    if(type==='range'){ range+=1; if(typeof Juice!=='undefined'&&Juice.popup) Juice.popup('💣 范围+'); }
+    else if(type==='coin'){ score+=50; if(typeof Juice!=='undefined'&&Juice.popup) Juice.popup('💰 +50'); }
+    else if(type==='bombs'){ bombCap+=1; if(typeof Juice!=='undefined'&&Juice.popup) Juice.popup('💣 弹容+1'); }
+    else if(type==='shield'){ shield+=1; if(typeof Juice!=='undefined'&&Juice.popup) Juice.popup('🛡 护盾'); }
+    else if(type==='fire'){ fire+=1; if(typeof Juice!=='undefined'&&Juice.popup) Juice.popup('⚡ 火力+1'); }
+    if(p){ var idx=pickups.indexOf(p); if(idx>=0) pickups.splice(idx,1); }
+  }
+  // 玩家走到拾取格 → 生效并移除（注入分支，不影响核心玩法）
+  function collectPickups(){
+    for(var i=pickups.length-1;i>=0;i--){
+      var p=pickups[i], got=false;
+      for(var j=0;j<players.length;j++){ var pl=players[j]; if(pl.x===p.c && pl.y===p.r){ got=true; break; } }
+      if(got){ applyPickup(p); }
+    }
+  }
+  function updatePickups(dt){ collectPickups(); for(var i=pickups.length-1;i>=0;i--){ pickups[i].life-=dt; if(pickups[i].life<=0) pickups.splice(i,1); } }
   function inBlast(r,c){ return blastSet.has(r+','+c); }
-  let blastSet=new Set();
   function explode(){
     blastSet=new Set();
-    if(!bombs) return [];
-    const br=bombs.y, bc=bombs.x;        // bombs.x=列, bombs.y=行（与 render 一致）
-    const cells=[[br,bc]];
-    const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
-    for(const [dr,dc] of dirs){ for(let i=1;i<=range;i++){ const r=br+dr*i, c=bc+dc*i; if(r<0||c<0||r>=H||c>=W) break; cells.push([r,c]); if(blocks.has(r+','+c)){ blocks.delete(r+','+c); if(pickupRng()<0.6){ const types=['range','coin']; pickups.push(makePickup(types[Math.floor(pickupRng()*types.length)%types.length], r, c)); } break; } } }
-    blastSet=new Set(cells.map(([r,c])=>r+','+c));
-    for(const p of players){ if(cells.some(([r,c])=>r===p.y&&c===p.x)) p.dead=true; }
-    Juice.sfx('boom'); Juice.addTrauma(.4);
-    bombs=null;
+    if(!bombs.length) return [];
+    var cells=[];
+    var dirs=[[0,1],[0,-1],[1,0],[-1,0]];
+    var R=range+fire;   // 火力加成：爆炸范围 +fire（核心十字公式不变）
+    for(var bi=0;bi<bombs.length;bi++){
+      var bc=bombs[bi].x, br=bombs[bi].y;        // bombs.x=列, bombs.y=行（与 render 一致）
+      if(!cells.some(function(c){return c[0]===br&&c[1]===bc;})) cells.push([br,bc]);
+      for(var d=0;d<dirs.length;d++){
+        var dr=dirs[d][0], dc=dirs[d][1];
+        for(var i=1;i<=R;i++){
+          var r=br+dr*i, c=bc+dc*i;
+          if(r<0||c<0||r>=H||c>=W) break;
+          cells.push([r,c]);
+          if(blocks.has(r+','+c)){
+            blocks.delete(r+','+c);
+            if(pickupRng()<0.6){
+              var types=['range','coin','bombs','shield','fire'];
+              pickups.push(makePickup(types[Math.floor(pickupRng()*types.length)%types.length], r, c));
+            }
+            break;
+          }
+        }
+      }
+    }
+    blastSet=new Set(cells.map(function(c){return c[0]+','+c[1];}));
+    // 击杀：护盾优先消耗，无盾才判死（注入分支，核心爆破判定不变）
+    for(var k=0;k<players.length;k++){
+      var p=players[k];
+      if(cells.some(function(c){return c[0]===p.y&&c[1]===p.x;})){
+        if(shield>0){ shield--; }
+        else { p.dead=true; }
+      }
+    }
+    if(typeof Juice!=='undefined'){ if(Juice.sfx) Juice.sfx('boom'); if(Juice.addTrauma) Juice.addTrauma(.4); }
+    bombs.length=0;
     return cells;
   }
-  function getBlast(){ return [...blastSet].map(s=>s.split(',').map(Number)); }
+  function getBlast(){ return Array.from(blastSet).map(function(s){return s.split(',').map(Number);}); }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
-    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',26px)'; bd.innerHTML=''; for(let r=0;r<H;r++){ for(let c=0;c<W;c++){ const d=document.createElement('div'); let cls='cell'; const k=r+','+c; if(walls.has(k))cls+=' wall'; else if(blocks.has(k))cls+=' block'; if(bombs&&bombs.x===c&&bombs.y===r)cls+=' bomb'; if(blastSet.has(k))cls+=' blast'; const pk=pickups.find(q=>q.r===r&&q.c===c); if(pk){ d.textContent = pk.type==='range'?'💣':'💰'; } bd.appendChild(d); } } }
-    const rg=$('rg'),st=$('st'),bf=$('buff'); if(rg)rg.textContent=range; if(st)st.textContent=bombs?'已布弹':'布弹中'; if(bf){ let s=''; if(score>0)s+='💰'+score+' '; s+='💣x'+range; bf.textContent=s; }
+    var bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',26px)'; bd.innerHTML=''; for(var r=0;r<H;r++){ for(var c=0;c<W;c++){ var d=document.createElement('div'); var cls='cell'; var k=r+','+c; if(walls.has(k))cls+=' wall'; else if(blocks.has(k))cls+=' block'; if(bombs.some(function(b){return b.x===c&&b.y===r;}))cls+=' bomb'; if(blastSet.has(k))cls+=' blast'; var d1=d; d1.className=cls;
+      var pk=pickups.find(function(q){return q.r===r&&q.c===c;});
+      // 玩家前画掉落物（辉光圆 + emoji）——只改绘制层
+      if(pk){ d.textContent = PICKUP_SYM[pk.type]||'★'; d.style.color='#fff'; d.style.textShadow='0 0 8px rgba(255,207,90,.95)'; d.style.background='rgba(255,207,90,.14)'; d.style.borderRadius='50%'; }
+      var pl=players.find(function(q){return q.x===c&&q.y===r;});
+      if(pl){ d.textContent = pl.dead?'💀':'🧨'; if(shield>0){ d.style.boxShadow='inset 0 0 0 2px #5ab4ff, 0 0 9px #5ab4ff'; d.style.borderRadius='50%'; } }
+      bd.appendChild(d); } } }
+    var rg=$('rg'),st=$('st'),bf=$('buff');
+    if(rg)rg.textContent=range+fire;
+    if(st)st.textContent=bombs.length?'已布弹':'布弹中';
+    if(bf){ var s=''; if(score>0)s+='💰'+score+' '; s+='💣x'+(range+fire)+' '; if(bombCap>1)s+='🧨x'+bombCap+' '; if(shield>0)s+='🛡'+shield+' '; bf.textContent=s; }
   }
   function bindUI(){
     if(typeof document==='undefined') return;
-    const bb=$('bomb'),bm=$('boom'),nb=$('new');
-    if(bb) bb.onclick=()=>{ setBomb(2,2); render(); };
-    if(bm) bm.onclick=()=>{ explode(); render(); };
-    if(nb) nb.onclick=()=>{ setup(8,8,[]); render(); };
+    var bb=$('bomb'),bm=$('boom'),nb=$('new');
+    if(bb) bb.onclick=function(){ setBomb(2,2); render(); };
+    if(bm) bm.onclick=function(){ explode(); render(); };
+    if(nb) nb.onclick=function(){ setup(8,8,[]); render(); };
   }
-  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ setup(8,8,[]); render(); }); else { setup(8,8,[]); render(); } }
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){ setup(8,8,[]); render(); }); else { setup(8,8,[]); render(); } }
   if(typeof window!=='undefined'){ window.__t={ setup, setRange, setBomb, setPlayers, explode, getBlast, inBlast,
-    getState(){ return {range, score, pickups:pickups.length}; },
+    getState(){ return {range:range, fire:fire, score:score, pickups:pickups.length, shield:shield, bombCap:bombCap}; },
+    // ---- 掉落道具系统钩子 ----
     spawnPickup(type,r,c){ pickups.push(makePickup(type||'coin', r, c)); },
     stepPickups(dt){ updatePickups(dt); },
-    applyPickup(p){ applyPickup(p); },
+    applyPickup(arg){ applyPickup(arg); },
+    collectPickups(){ collectPickups(); },
     getPickups(){ return pickups.length; },
     getPickup(i){ return pickups[i]; },
     getScore(){ return score; },
-    getRange(){ return range; }
+    getRange(){ return range; },
+    getFire(){ return fire; },
+    setFire(v){ fire=v; },
+    getShield(){ return shield; },
+    setShield(v){ shield=v; },
+    getBombs(){ return bombCap; },
+    setBombs(v){ bombCap=v; },
+    getBombCount(){ return bombs.length; },
+    getPlayers(){ return players.map(function(p){return {x:p.x,y:p.y,dead:p.dead};}); }
   }; }
 })();
 </script>

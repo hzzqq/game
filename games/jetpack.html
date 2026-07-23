@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>TERMINAL // JETPACK</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --sub:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding:24px;
+  }
+  .window{
+    position:relative; width:440px; max-width:100%;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    box-shadow:0 20px 60px rgba(0,0,0,.55); overflow:hidden;
+  }
+  .titlebar{
+    display:flex; align-items:center; gap:10px; height:40px; padding:0 14px;
+    background:linear-gradient(180deg,#161d28,#10151d); border-bottom:1px solid var(--border);
+  }
+  .dot{ width:12px; height:12px; border-radius:50%; }
+  .dot.r{ background:#ff5f56; } .dot.y{ background:#ffbd2e; } .dot.g{ background:#27c93f; }
+  .title{ flex:1; text-align:center; font-size:13px; letter-spacing:2px; }
+  .title .accent{ color:var(--gold); }
+  .stage{ position:relative; padding:14px; background:var(--bg); }
+  canvas{ display:block; width:100%; height:auto; border-radius:6px; background:#0d1420; touch-action:none; }
+  .bar{ display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--border); }
+  button{
+    flex:1; font-family:inherit; font-size:12px; cursor:pointer; border-radius:6px;
+    padding:9px 10px; border:1px solid var(--border); background:transparent; color:var(--text); transition:all .15s;
+  }
+  button:hover:not(:disabled){ border-color:var(--gold); }
+  .btn-main{ background:var(--gold); color:#0a0e14; border-color:var(--gold); font-weight:700; box-shadow:0 0 12px rgba(240,185,11,.35); }
+  .hint{ padding:0 14px 12px; color:var(--sub); font-size:11px; text-align:center; }
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">TERMINAL // <span class="accent">JETPACK</span> · 喷射包飞行</span>
+    </div>
+    <div class="stage">
+      <canvas id="cv" width="400" height="600"></canvas>
+    </div>
+    <div class="bar">
+      <button id="btnThrust" class="btn-main">喷射 ▲</button>
+      <button id="btnMute">🔊 音效</button>
+    </div>
+    <div class="hint">空格 / ↑ / W / 点按 喷射上升 · 松开下落 · 穿过管道得分 · 撞管或落地即结束</div>
+  </div>
+
+  <script src="juice.js"></script>
+  <script>
+  (function () {
+    // ===== 全局常量（固定视口，逻辑与 DOM 解耦，避免 resize 陷阱）=====
+    var W = 400, H = 600;
+    var GROUND = H - 70;
+    var canvas = document.getElementById('cv');
+    var ctx = canvas.getContext('2d');
+
+    var GRAV = 1150;       // 重力 px/s^2
+    var FLAP = -360;       // 喷射初速（向上）
+    var PIPE_W = 62;
+    var BASE_GAP = 158;        // 基准管道间隙
+    var BASE_PIPE_SPD = 155;   // 基准管道左移速度
+    var GAP = BASE_GAP;        // 当前间隙
+    var PIPE_SPD = BASE_PIPE_SPD;
+    var SPAWN_DX = 230;    // 相邻管道水平间距
+
+    var COL = { red:'#f6465d', green:'#02c076', gold:'#f0b90b', dim:'#6b7785', sub:'#6b7785' };
+    var J = (typeof Juice !== 'undefined') ? Juice : null;
+
+    // ===== 局部种子 PRNG（mulberry32）：所有随机必须走它，禁止 Math.random =====
+    function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+    var _rng = mk(0x5E7AC0DE & 0xFFFFFFFF);
+    function reseed(s){ _rng = mk((s>>>0) || 1); }
+    function setRand(fn){ if (typeof fn === 'function') _rng = fn; }
+
+    // ===== 道具系统（纯注入，不改核心玩法移动/碰撞/计分）=====
+    var PICKUP_TYPES = ['coin', 'boost', 'shield'];
+    var PICKUP_SYM = { coin:'💰', boost:'🚀', shield:'🛡' };
+    function makePickup(type, x, y){ return { type:type, x:x, y:y, r:11, vy:42, life:12, sym:PICKUP_SYM[type]||'★' }; }
+
+    // ===== 核心状态 =====
+    var state, bird, pipes, score, best, spawnX, flashMsg, groundHit;
+    var pickups;        // 掉落物数组
+    var shield;         // 护盾计数（免一次撞击/个）
+    var boostTimer;     // 🚀 加速剩余秒数
+    var spawnTimer;     // 自动掉落计时
+    var invuln;         // 护盾消耗后的短暂无敌秒数
+    best = (typeof Juice !== 'undefined') ? (Juice.load('best_jetpack', 0) || 0) : 0;
+
+    function reset() {
+      state = 'menu';
+      bird = { x: 96, y: H * 0.42, vy: 0, r: 13 };
+      pipes = [];
+      score = 0;
+      spawnX = W + 80;
+      flashMsg = '';
+      groundHit = false;
+      // 道具系统状态初始化
+      pickups = [];
+      shield = 0;
+      boostTimer = 0;
+      spawnTimer = 0;
+      invuln = 0;
+      GAP = BASE_GAP;
+      PIPE_SPD = BASE_PIPE_SPD;
+      reseed(0x5E7AC0DE & 0xFFFFFFFF);
+      spawnPipe(W + 120);
+      spawnPipe(W + 120 + SPAWN_DX);
+      spawnPipe(W + 120 + SPAWN_DX * 2);
+    }
+
+    // 当前有效左移速度（加速增益时更快）
+    function scrollSpd(){ return PIPE_SPD * (boostTimer > 0 ? 1.5 : 1); }
+
+    function spawnPipe(x) {
+      var margin = 70;
+      var gapY = margin + _rng() * (GROUND - GAP - margin * 2);  // 局部 PRNG，禁止 Math.random
+      pipes.push({ x: x == null ? spawnX : x, gapY: gapY, scored: false });
+      spawnX += SPAWN_DX;
+    }
+
+    // ---------- 掉落道具（纯注入）----------
+    // 自动掉落：从顶部随机 x 落下，类型走局部 PRNG
+    function spawnPickupAtRandom() {
+      if (pickups.length >= 2) return;
+      var x = 40 + _rng() * (W - 80);
+      var type = PICKUP_TYPES[(_rng() * PICKUP_TYPES.length) | 0];
+      pickups.push(makePickup(type, x, -10));
+    }
+    // 拾取生效：type 可为字符串或 {type:...}
+    function applyPickup(type) {
+      if (type && typeof type === 'object') type = type.type;
+      if (type === 'coin') { score += 50; }                       // 💰 加分
+      else if (type === 'boost') { boostTimer = 8; }              // 🚀 加速计时
+      else if (type === 'shield') { shield = (shield || 0) + 1; } // 🛡 免一次撞击
+      if (J) { J.sfx('pickup'); J.popup(bird.x, bird.y - 20, PICKUP_SYM[type] || '★', COL.gold, { size: 16 }); }
+      return true;
+    }
+    // 随场景滚动 + 下落 + 玩家碰撞拾取（确定性，无随机）
+    function updatePickups(dt) {
+      var spd = scrollSpd();
+      for (var i = pickups.length - 1; i >= 0; i--) {
+        var p = pickups[i];
+        p.x -= spd * dt;          // 随场景滚动
+        p.y += p.vy * dt;         // 下落
+        p.life -= dt;
+        if (p.life <= 0 || p.x < -20 || p.y > H + 20) { pickups.splice(i, 1); continue; }
+        var dx = p.x - bird.x, dy = p.y - bird.y;
+        if (dx * dx + dy * dy < (bird.r + p.r) * (bird.r + p.r)) {
+          applyPickup(p.type);
+          pickups.splice(i, 1);
+        }
+      }
+    }
+    // 致死分支：护盾优先消耗、无盾才失败
+    function takeHit() {
+      if (shield > 0) {
+        shield -= 1;
+        invuln = 1.2;             // 短暂无敌，避免同一障碍连续扣盾
+        bird.vy = -200;           // 给一点上抬帮助脱离
+        if (J) { J.flash('#02c076', 0.3); J.sfx('hit'); }
+        return false;             // 未死
+      }
+      return true;                // 应判失败
+    }
+
+    function flap() {
+      if (state === 'menu') { state = 'play'; bird.vy = FLAP; return; }
+      if (state === 'dead') { reset(); state = 'play'; bird.vy = FLAP; return; }
+      bird.vy = FLAP;
+      if (J) { J.sfx('click'); J.burst(bird.x, bird.y, { color: COL.gold, n: 5, speed: 130, life: 0.4 }); }
+    }
+
+    // 纯碰撞判定：鸟圆 vs 管道矩形 / 地面 / 天花板
+    function hits() {
+      if (bird.y + bird.r >= GROUND) return true;
+      if (bird.y - bird.r <= 0) return true;
+      for (var i = 0; i < pipes.length; i++) {
+        var p = pipes[i];
+        if (bird.x + bird.r < p.x || bird.x - bird.r > p.x + PIPE_W) continue;
+        var topH = p.gapY, botY = p.gapY + GAP;
+        if (bird.y - bird.r < topH || bird.y + bird.r > botY) return true;
+      }
+      return false;
+    }
+
+    function update(dt) {
+      if (state !== 'play') return;
+      // —— 核心物理（不动公式）——
+      bird.vy += GRAV * dt;
+      bird.y += bird.vy * dt;
+      var spd = scrollSpd();
+      for (var i = 0; i < pipes.length; i++) {
+        var p = pipes[i];
+        p.x -= spd * dt;
+        if (!p.scored && p.x + PIPE_W < bird.x) {
+          p.scored = true; score++;
+          if (J) { J.sfx('pickup'); J.popup(bird.x, bird.y - 24, '+1', COL.gold, { size: 18 }); }
+        }
+      }
+      while (pipes.length && pipes[0].x + PIPE_W < -10) pipes.shift();
+      while (pipes.length < 3) spawnPipe();
+
+      // —— 道具系统（纯注入）——
+      if (boostTimer > 0) boostTimer -= dt;
+      if (invuln > 0) invuln -= dt;
+      spawnTimer += dt;
+      if (spawnTimer >= 4.5) { spawnTimer = 0; spawnPickupAtRandom(); }
+      updatePickups(dt);
+
+      // —— 碰撞/护盾（护盾优先消耗，无盾才失败）——
+      if (invuln <= 0 && hits()) {
+        if (takeHit()) {  // 无盾 → 失败
+          state = 'dead';
+          groundHit = (bird.y + bird.r >= GROUND);
+          if (J) {
+            J.sfx('lose'); J.addTrauma(0.6); J.flash('#f6465d', 0.35);
+            J.burst(bird.x, bird.y, { color: '#f6465d', n: 18, speed: 240 });
+            J.ring(bird.x, bird.y, { color: '#f6465d', r1: 70 });
+            var b = J.best('best_jetpack', score);
+            if (b.isNew) J.achievement('🏆 新纪录 ' + score + '！');
+          }
+          best = Math.max(best, score);
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      var g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#0d1420'); g.addColorStop(1, '#0a0e14');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      // 管道
+      for (var i = 0; i < pipes.length; i++) {
+        var p = pipes[i];
+        ctx.fillStyle = COL.green;
+        ctx.fillRect(p.x, 0, PIPE_W, p.gapY);
+        ctx.fillRect(p.x, p.gapY + GAP, PIPE_W, GROUND - (p.gapY + GAP));
+        ctx.fillStyle = 'rgba(255,255,255,.12)';
+        ctx.fillRect(p.x, p.gapY - 6, PIPE_W, 6);
+        ctx.fillRect(p.x, p.gapY + GAP, PIPE_W, 6);
+      }
+      // 地面
+      ctx.fillStyle = '#10161f'; ctx.fillRect(0, GROUND, W, H - GROUND);
+      ctx.fillStyle = COL.gold; ctx.fillRect(0, GROUND, W, 3);
+
+      // 掉落物（玩家前绘制：辉光圆 + emoji）
+      for (var pi = 0; pi < pickups.length; pi++) {
+        var pp = pickups[pi];
+        var pcol = pp.type === 'coin' ? '#f0b90b' : (pp.type === 'boost' ? '#f0b90b' : '#02c076');
+        ctx.save();
+        ctx.shadowColor = pcol; ctx.shadowBlur = 12; ctx.fillStyle = pcol;
+        ctx.beginPath(); ctx.arc(pp.x, pp.y, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#0a0e14'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(pp.sym, pp.x, pp.y + 1);
+      }
+
+      // 护盾环（玩家前已画鸟，此处覆盖环）
+      if (shield > 0) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(2,192,118,.85)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(bird.x, bird.y, bird.r + 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+
+      // 玩家
+      ctx.fillStyle = COL.gold;
+      ctx.beginPath(); ctx.arc(bird.x, bird.y, bird.r, 0, 7); ctx.fill();
+      ctx.fillStyle = '#0a0e14';
+      ctx.beginPath(); ctx.arc(bird.x + 5, bird.y - 3, 3, 0, 7); ctx.fill();
+
+      // 激活增益（左上角）
+      var bx = 8, by = 8;
+      if (boostTimer > 0) { ctx.fillStyle = COL.gold; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('🚀', bx, by); by += 18; }
+      if (shield > 0) { ctx.fillStyle = COL.green; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('🛡' + shield, bx, by); by += 18; }
+
+      // 分数
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = 'bold 30px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(score, W / 2, 44);
+      if (state === 'menu') {
+        ctx.font = 'bold 16px monospace'; ctx.fillStyle = COL.gold;
+        ctx.fillText('点击 / 空格 起飞', W / 2, H / 2 + 40);
+      }
+      if (state === 'dead') {
+        ctx.font = 'bold 22px monospace'; ctx.fillStyle = COL.red;
+        ctx.fillText('坠毁 · 得分 ' + score, W / 2, H / 2);
+        ctx.font = '13px monospace'; ctx.fillStyle = COL.dim;
+        ctx.fillText('最佳 ' + best + ' · 点击重来', W / 2, H / 2 + 26);
+      }
+    }
+
+    function loop() {
+      var last = 0;
+      function frame(ts) {
+        var dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts;
+        if (J) J.update(dt);
+        update(dt);
+        if (J) J.begin(ctx);
+        draw();
+        if (J) J.mid(ctx);
+        if (J) J.end(ctx);
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    // 输入
+    function onThrust(e) { if (e) e.preventDefault(); flap(); }
+    canvas.addEventListener('pointerdown', onThrust);
+    document.getElementById('btnThrust').addEventListener('click', onThrust);
+    document.getElementById('btnMute').addEventListener('click', function () {
+      if (J) { var m = J.toggleMute(); this.textContent = m ? '🔇 静音' : '🔊 音效'; }
+    });
+    window.addEventListener('keydown', function (e) {
+      if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W') { e.preventDefault(); flap(); }
+    });
+
+    // 测试钩子（不影响正常玩法）
+    window.__t = {
+      reset: reset, update: update, flap: flap,
+      start: function () { reset(); state = 'play'; },
+      step: function (dt) { update(dt); },
+      spawnPipe: spawnPipe,
+      hits: hits,
+      setBird: function (y, vy) { bird.y = y; if (vy != null) bird.vy = vy; },
+      clearPipes: function () { pipes = []; },
+      addPipe: function (x, gapY) { pipes.push({ x: x, gapY: gapY, scored: false }); },
+      setStatus: function (s) { state = s; },
+      getStatus: function () { return state; },
+      getScore: function () { return score; },
+      setScore: function (v) { score = v; },
+      getBest: function () { return best; },
+      getGap: function () { return GAP; },
+      getPipeSpd: function () { return PIPE_SPD; },
+      scrollSpd: function () { return scrollSpd(); },
+      GROUND: GROUND, GAP: GAP, PIPE_W: PIPE_W, GRAV: GRAV, FLAP: FLAP,
+      // —— 标准掉落钩子（spec §4）——
+      spawnPickup: function (type, x, y) { pickups.push(makePickup(type, x, y)); },
+      applyPickup: function (type) { return applyPickup(type); },
+      getPickups: function () { return pickups.map(function (p) { return { x: p.x, y: p.y, type: p.type }; }); },
+      setPickups: function (arr) { pickups = (arr || []).map(function (p) { return makePickup(p.type, p.x, p.y); }); },
+      stepPickups: function (dt) { updatePickups(dt); },
+      makePickup: function (type, x, y) { return makePickup(type, x, y); },
+      getShield: function () { return shield > 0; },
+      setShield: function (v) { shield = v ? 1 : 0; },
+      getShieldCount: function () { return shield; },
+      getBoost: function () { return boostTimer > 0; },
+      setBoost: function (v) { boostTimer = v ? 8 : 0; },
+      getInvuln: function () { return invuln; },
+      setRand: setRand,
+      reseed: reseed,
+      getState: function () {
+        return {
+          status: state, score: score, best: best,
+          boost: boostTimer > 0, shield: shield, invuln: invuln,
+          bird: { x: bird.x, y: bird.y, vy: bird.vy, r: bird.r },
+          pipes: pipes.map(function (p) { return { x: p.x, gapY: p.gapY, scored: p.scored }; }),
+          pickups: pickups.map(function (p) { return { x: p.x, y: p.y, type: p.type }; })
+        };
+      }
+    };
+
+    reset();
+    draw();
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

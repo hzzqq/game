@@ -98,3 +98,83 @@ t.setPlayer(10, 3);
 t.spawnPickup('shield', 9, 3);
 t.move('up'); // →(9,3)
 ok('centipede: 移动到道具格拾取护盾', t.getShield() === 1, 'shield=' + t.getShield());
+
+// ===== Boss 系统（B4 蜈蚣女王） =====
+// isBossWave 判定 + BOSS_EVERY 常量
+ok('centipede: BOSS_EVERY === 3', t.BOSS_EVERY === 3);
+ok('centipede: isBossWave(0) === false', t.isBossWave(0) === false);
+ok('centipede: isBossWave(1) === false', t.isBossWave(1) === false);
+ok('centipede: isBossWave(3) === true', t.isBossWave(3) === true);
+ok('centipede: isBossWave(4) === false', t.isBossWave(4) === false);
+ok('centipede: isBossWave(6) === true', t.isBossWave(6) === true);
+ok('centipede: isBossWave(9) === true', t.isBossWave(9) === true);
+
+// spawnBoss：生成 Boss、清空普通蜈蚣、HP 随波缩放
+t.reset(11);
+t.setWave(1);
+t.spawnBoss();
+ok('centipede: spawnBoss 后存在 boss', t.getBoss() !== null);
+ok('centipede: spawnBoss 清空普通蜈蚣', t.getState().centipede.length === 0, 'len=' + t.getState().centipede.length);
+const b1 = t.getBoss();
+ok('centipede: boss 初始满血', b1.hp === b1.maxHp, 'hp=' + b1.hp + ' max=' + b1.maxHp);
+ok('centipede: wave1 boss maxHp = round(28+1*6)=34', b1.maxHp === Math.round(28 + 1*6), 'max=' + b1.maxHp);
+
+t.setWave(3);
+t.spawnBoss();
+const b3 = t.getBoss();
+ok('centipede: wave3 boss maxHp = round(28+3*6)=46', b3.maxHp === Math.round(28 + 3*6), 'max=' + b3.maxHp);
+
+// 玩家子弹命中 → 扣血
+t.reset(12);
+t.setWave(1);
+t.spawnBoss();
+const hp0 = t.getBoss().hp;
+const g = t.getBoss();
+const midC = g.col + Math.floor(g.w/2);
+t.addBullet(g.row + g.h, midC);   // 上移一格后正好落入 boss 底边
+t.updateBoss();
+ok('centipede: 玩家子弹命中 boss 扣 1 血', t.getBoss().hp === hp0 - 1, 'before=' + hp0 + ' after=' + t.getBoss().hp);
+
+// 半血进入 phase2
+t.reset(13);
+t.setWave(1);
+t.spawnBoss();
+const g2 = t.getBoss();
+t.setBossHp(g2.maxHp / 2);
+t.updateBoss();
+ok('centipede: 半血进入 phase2', t.getBoss().phase === 2, 'phase=' + t.getBoss().phase);
+
+// 击败：score += 100*wave、掉落 rapid、boss 置空、返回 true
+t.reset(14);
+t.setWave(2);
+const scBefore = t.getScore();
+t.spawnBoss();
+t.setBossHp(0);
+const beaten = t.updateBoss();
+ok('centipede: 击败 boss 返回 true', beaten === true);
+ok('centipede: 击败后 boss 置空', t.getBoss() === null);
+ok('centipede: 击败奖励 score += 100*wave', t.getScore() === scBefore + 100*2, 'score=' + t.getScore());
+ok('centipede: 击败掉落 rapid 道具', t.getState().pickups.some(p => p.type === 'rapid'));
+
+// 普通波清空 → 第 3 波(每 BOSS_EVERY)出 Boss，且不刷普通蜈蚣
+t.reset(15);
+t.setWave(2);
+t.setCentipede([]);
+t.setBullets([]);
+t.step();   // 推进到第 3 波并 spawnBoss
+ok('centipede: 第 3 波出 Boss', t.getBoss() !== null, 'boss=' + t.getBoss());
+ok('centipede: 第 3 波 wave === 3', t.getWave() === 3, 'wave=' + t.getWave());
+ok('centipede: boss 波不刷普通蜈蚣', t.getState().centipede.length === 0);
+
+// 击败 Boss 后（在 step 内）进下一波普通蜈蚣
+t.reset(16);
+t.setWave(2);
+t.setCentipede([]);
+t.step();                 // → wave3 出 Boss
+ok('centipede: 先到第 3 波 Boss', t.getBoss() !== null && t.getWave() === 3);
+t.setBossHp(0);
+t.step();                 // step 内 updateBoss 击败 → wave4 + buildCentipede
+ok('centipede: 击败 Boss 返回 true 且进入第 4 波普通蜈蚣',
+   t.getBoss() === null && t.getWave() === 4 && t.getState().centipede.length === 10,
+   'wave=' + t.getWave() + ' centi=' + t.getState().centipede.length);
+

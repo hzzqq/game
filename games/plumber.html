@@ -54,9 +54,10 @@
   const U=1,R=2,D=4,L=8;
   let board, over;
   // ---- 注入：掉落道具/增益系统（纯附加，不改核心旋转/连通逻辑）----
-  let coins=0, shield=false, boostTimer=0, pickups=[], pkid=0;
+  let coins=0, shield=false, boostTimer=0, pickups=[], pkid=0, spawnTimer=0;
+  const SPAWN_INTERVAL = 6;   // 场景计时掉落间隔（秒）
   function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
-  const _prng = mk(0x9e3779b9);
+  const _prng = mk(0x9e3779b9);   // 复用局部 PRNG，禁止裸 Math.random 进入掉落逻辑
   const PICK = { COIN:'coin', BOOST:'boost', SHIELD:'shield' };
   const GLY = { coin:'💰', boost:'⏱', shield:'🛡' };
   function makePickup(type,r,c){ return { type, r, c, age:0, id:pkid++ }; }
@@ -78,6 +79,13 @@
   function updatePickups(dt){
     if(boostTimer>0) boostTimer=Math.max(0,boostTimer-(dt||0));
     for(let i=pickups.length-1;i>=0;i--){ pickups[i].age+=(dt||0); if(pickups[i].age>30) pickups.splice(i,1); }
+  }
+  // 场景计时掉落：累计 spawnTimer 跨过间隔则随机撒一个道具（纯附加分支，核心玩法不变）
+  function update(dt){
+    dt = dt||0;
+    spawnTimer += dt;
+    if(spawnTimer >= SPAWN_INTERVAL){ spawnTimer = 0; spawnPickupAtRandom(); }
+    updatePickups(dt);
   }
   function takeHit(){ if(shield){ shield=false; return false; } coins=Math.max(0,coins-10); return true; }
   function getPickups(){ return pickups.map(p=>({type:p.type,r:p.r,c:p.c})); }
@@ -128,7 +136,13 @@
     if(typeof document==='undefined') return;
     cellEls.forEach((el,i)=>{ const r=Math.floor(i/N),c=i%N; const m=board[r][c];
       el.innerHTML='<div class="hub"></div>'+(m&U?'<div class="bar u"></div>':'')+(m&R?'<div class="bar r"></div>':'')+(m&D?'<div class="bar d"></div>':'')+(m&L?'<div class="bar l"></div>':'');
-      for(const p of pickups){ if(p.r===r&&p.c===c){ el.innerHTML+='<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:18px;pointer-events:none">'+GLY[p.type]+'</div>'; } }
+      for(const p of pickups){ if(p.r===r&&p.c===c){
+        const glow = p.type==='shield' ? 'rgba(90,180,255,.4)' : p.type==='boost' ? 'rgba(240,185,11,.4)' : 'rgba(255,207,90,.4)';
+        el.innerHTML+='<div style="position:absolute;left:50%;top:50%;width:32px;height:32px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,'+glow+' 0%,transparent 70%);box-shadow:0 0 10px '+glow+';pointer-events:none"></div>'
+                  +'<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:18px;pointer-events:none">'+GLY[p.type]+'</div>';
+      } }
+      // 护盾>0 画护盾环（绘制层，仅视觉）：在水源格叠加蓝色辉环
+      if(shield && r===0 && c===0){ el.style.boxShadow='inset 0 0 0 3px #5ab4ff, 0 0 14px #5ab4ff'; }
       if(isSolved()&&!over){ over=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} }
     });
     const st=$('st'),msg=$('msg');
@@ -148,7 +162,9 @@
       getPickups, getCoins, getShield, setShield, getBoost, setBoost,
       getState(){ return { coins, shield, boost:boostTimer, pickups:pickups.length, over }; },
       stepPickups(dt){ updatePickups(dt); },
-      reset(){ newGame(); coins=0; shield=false; boostTimer=0; pickups=[]; }
+      // 场景计时掉落钩子（update 中按计时器随机掉落）
+      update, SPAWN_INTERVAL, getSpawnTimer(){ return spawnTimer; },
+      reset(){ newGame(); coins=0; shield=false; boostTimer=0; pickups=[]; spawnTimer=0; }
     };
   }
 })();

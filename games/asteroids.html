@@ -47,8 +47,77 @@
   const W=400, H=300, BR=2, SH=8;
   let ship, asteroids, bullets, score;
   let pickups, boostTimer, shield, lives, over, spawnTimer;
-  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; lives=3; over=false; spawnTimer=4; spawnWave(); }
-  function spawnWave(){ for(let i=0;i<4;i++) asteroids.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()*2-1)*30,vy:(Math.random()*2-1)*30,r:30}); }
+  let wave=1, boss=null, ebullets=[];
+  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; lives=3; over=false; spawnTimer=4; wave=1; boss=null; ebullets=[]; spawnWave(); }
+  function spawnWave(){ asteroids=[]; for(let i=0;i<4;i++) asteroids.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()*2-1)*30,vy:(Math.random()*2-1)*30,r:30}); }
+  // ---------- Boss 系统（每 BOSS_EVERY 波出现：巨大多边形母体，多阶段 + 击败奖励）----------
+  const BOSS_EVERY = 3;
+  function isBossWave(w){ return w>0 && w % BOSS_EVERY === 0; }
+  function spawnBoss(){
+    // 基于 wave 与 bossHpMult 计算血量；无 DIFFICULTY 时按 wave 缩放（mult=1）
+    const mult = (typeof diffCfg==='function') ? (diffCfg().bossHpMult||1) : 1;
+    const maxHp = Math.round((28 + wave*6) * mult);
+    boss = { x: W/2, y: 60, r: 38, hp: maxHp, maxHp: maxHp, phase: 1, vx: 40 + wave*6, dir: 1, downY: 0, fireT: 0.6, splitDone: false };
+    asteroids = []; // 清空普通小行星
+    if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#9b6bff'); }
+  }
+  function spawnBossChildren(){
+    for(let k=0;k<3;k++) asteroids.push({ x: boss.x + (Math.random()*40-20), y: boss.y + boss.r, vx:(Math.random()*2-1)*40, vy:(Math.random()*2-1)*40, r:14 });
+  }
+  // 返回 true 表示本帧击败 Boss
+  function updateBoss(dt){
+    if(!boss) return false;
+    // 半血狂暴：进入 phase2（更快 + 更密弹幕 + 分裂小体）
+    if(boss.phase===1 && boss.hp <= boss.maxHp/2){ boss.phase=2; boss.vx*=1.4; if(typeof Juice!=='undefined') Juice.flash('#f6465d'); }
+    // 左右移动，撞边周期下压
+    boss.x += boss.vx * boss.dir * dt;
+    if(boss.x < boss.r){ boss.x=boss.r; boss.dir=1; boss.downY += boss.phase===2?16:10; }
+    else if(boss.x > W-boss.r){ boss.x=W-boss.r; boss.dir=-1; boss.downY += boss.phase===2?16:10; }
+    boss.y = 60 + boss.downY;
+    // 玩家子弹命中扣血
+    for(const b of bullets){
+      if(b.dead) continue;
+      const dx=b.x-boss.x, dy=b.y-boss.y;
+      if(dx*dx+dy*dy < (boss.r+BR)*(boss.r+BR)){ boss.hp-=1; b.dead=true; if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.burst(b.x,b.y,{color:'#f0b90b'}); } }
+    }
+    bullets = bullets.filter(b=>!b.dead);
+    // 周期向玩家发射子弹（phase2 扇形三连发）
+    boss.fireT -= dt;
+    const interval = boss.phase===2 ? 0.6 : 1.1;
+    if(boss.fireT<=0){
+      boss.fireT = interval;
+      const ang = Math.atan2(ship.y-boss.y, ship.x-boss.x);
+      const spd = boss.phase===2 ? 140 : 110;
+      ebullets.push({ x:boss.x, y:boss.y+boss.r*0.4, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, r:4 });
+      if(boss.phase===2){
+        ebullets.push({ x:boss.x, y:boss.y+boss.r*0.4, vx:Math.cos(ang-0.25)*spd, vy:Math.sin(ang-0.25)*spd, r:4 });
+        ebullets.push({ x:boss.x, y:boss.y+boss.r*0.4, vx:Math.cos(ang+0.25)*spd, vy:Math.sin(ang+0.25)*spd, r:4 });
+      }
+      if(typeof Juice!=='undefined') Juice.sfx('shoot');
+    }
+    // 接触玩家造成伤害
+    const dxs=ship.x-boss.x, dys=ship.y-boss.y;
+    if(dxs*dxs+dys*dys < (boss.r+SH)*(boss.r+SH)){ takeHit(); }
+    // phase2 分裂出小体
+    if(boss.phase===2 && !boss.splitDone){ boss.splitDone=true; spawnBossChildren(); }
+    // 击败：奖励 + 掉落
+    if(boss.hp<=0){
+      score += 100*wave;
+      pickups.push(makePickup('coin', boss.x, boss.y));
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076'); if(Juice.addTrauma) Juice.addTrauma(0.5); }
+      boss=null;
+      return true;
+    }
+    return false;
+  }
+  function updateEBullets(dt){
+    for(const e of ebullets){ e.x+=e.vx*dt; e.y+=e.vy*dt; }
+    ebullets = ebullets.filter(e=> e.x>-12 && e.x<W+12 && e.y>-12 && e.y<H+12);
+    if(!over){
+      for(let i=0;i<ebullets.length;i++){ const e=ebullets[i]; const dx=e.x-ship.x, dy=e.y-ship.y; if(dx*dx+dy*dy < (e.r+SH)*(e.r+SH)){ takeHit(); ebullets.splice(i,1); i--; } }
+    }
+  }
+
   // ---- 注入式掉落道具系统（本地种子 PRNG，禁止 Math.random）----
   function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
   const pickupRng = mk(0x9e3779b9);
@@ -64,8 +133,7 @@
   function getBullets(){ return bullets.map(o=>({...o})); }
   function getScore(){ return score; }
   function shoot(){ const dx=Math.cos(ship.angle),dy=Math.sin(ship.angle); bullets.push({x:ship.x,y:ship.y,vx:dx*200,vy:dy*200}); Juice.sfx('shoot'); }
-  function step(dt){
-    dt=Math.max(dt||0.016,0);
+  function processAsteroids(dt){
     for(const a of asteroids){ a.x+=a.vx*dt; a.y+=a.vy*dt; if(a.x<0)a.x+=W; if(a.x>W)a.x-=W; if(a.y<0)a.y+=H; if(a.y>H)a.y-=H; }
     for(const b of bullets){ b.x+=b.vx*dt; b.y+=b.vy*dt; if(b.x<0)b.x+=W; if(b.x>W)b.x-=W; if(b.y<0)b.y+=H; if(b.y>H)b.y-=H; }
     if(!over){ for(let i=0;i<asteroids.length;i++){ const a=asteroids[i]; const dx=a.x-ship.x, dy=a.y-ship.y; if(dx*dx+dy*dy < (a.r+SH)*(a.r+SH)){ takeHit(); asteroids.splice(i,1); break; } } }
@@ -75,8 +143,21 @@
     for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= (a.r>20?20:10)*(boostTimer>0?2:1); Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(a.x, a.y, {color:'#f0b90b'}); if(a.r>20){ for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(Math.random()*2-1)*60,vy:(Math.random()*2-1)*60,r:20}); } }
     asteroids=asteroids.filter((_,i)=>!deadA.has(i));
     bullets=bullets.filter((_,j)=>!deadB.has(j));
+  }
+  function step(dt){
+    dt=Math.max(dt||0.016,0);
+    processAsteroids(dt);
+    if(boss){
+      updatePickups(dt);
+      spawnTimer-=dt; if(spawnTimer<=0){ spawnPickupAtRandom(); spawnTimer=3+pickupRng()*3; }
+      const beaten = updateBoss(dt);
+      updateEBullets(dt);
+      if(beaten && !over){ wave++; if(isBossWave(wave)) spawnBoss(); else spawnWave(); } // 击败后才 nextWave
+      return;
+    }
     spawnTimer-=dt; if(spawnTimer<=0){ spawnPickupAtRandom(); spawnTimer=3+pickupRng()*3; }
     updatePickups(dt);
+    if(!over && asteroids.length===0){ wave++; if(isBossWave(wave)) spawnBoss(); else spawnWave(); } // 清屏进下一波
   }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
@@ -85,7 +166,21 @@
     ctx.fillStyle='#0e141d'; ctx.fillRect(0,0,W,H);
     ctx.strokeStyle='#f0b90b'; ctx.lineWidth=2;
     for(const a of asteroids){ ctx.beginPath(); ctx.arc(a.x,a.y,a.r,0,Math.PI*2); ctx.stroke(); }
+    // Boss 本体（巨大多边形母体，phase2 转红）+ 顶部血条（只改绘制层）
+    if(boss){
+      const bcol = boss.phase===2 ? '#f6465d' : '#9b6bff';
+      ctx.save(); ctx.shadowColor=bcol; ctx.shadowBlur=16; ctx.fillStyle=bcol;
+      ctx.beginPath(); const sides=7;
+      for(let i=0;i<sides;i++){ const ang=Math.PI*2*i/sides - Math.PI/2; const px=boss.x+Math.cos(ang)*boss.r, py=boss.y+Math.sin(ang)*boss.r; if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); }
+      ctx.closePath(); ctx.fill();
+      ctx.shadowBlur=0; ctx.fillStyle='#0a0e14'; ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.r*0.35, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      const bw=W-20, bx=10, by=4, frac=Math.max(0, boss.hp/boss.maxHp);
+      ctx.fillStyle='#2a2f3a'; ctx.fillRect(bx,by,bw,5);
+      ctx.fillStyle= boss.phase===2 ? '#f6465d' : '#f0b90b'; ctx.fillRect(bx,by,bw*frac,5);
+    }
     ctx.fillStyle='#f6465d'; for(const b of bullets){ ctx.fillRect(b.x-2,b.y-2,4,4); }
+    ctx.fillStyle='#f6465d'; for(const e of ebullets){ ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill(); }
     drawPickups(ctx);
     ctx.fillStyle='#02c076'; ctx.save(); ctx.translate(ship.x,ship.y); ctx.rotate(ship.angle); ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-6,5); ctx.lineTo(-6,-5); ctx.closePath(); ctx.fill(); ctx.restore();
     const sc=$('sc'),rem=$('rem'),bf=$('buff'); if(sc)sc.textContent=score; if(rem)rem.textContent=asteroids.length; if(bf){ let s=''; if(shield>0)s+='🛡'+shield+' '; if(boostTimer>0)s+='🚀'+Math.ceil(boostTimer)+'s'; bf.textContent=s; }
@@ -94,7 +189,7 @@
   reset();
   if(typeof document!=='undefined'){ const sh=$('shoot'),nb=$('new'); if(sh)sh.onclick=()=>{ shoot(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
   if(typeof window!=='undefined'){ window.__t={ reset, setAsteroids, setBullets, getAsteroids, getBullets, getScore, shoot, step,
-    getState(){ return {score, shield, boostTimer, lives, over, pickups:pickups.length, spawnTimer}; },
+    getState(){ return {score, shield, boostTimer, lives, over, pickups:pickups.length, spawnTimer, wave, boss:!!boss, ebullets:ebullets.length}; },
     spawnPickup(type,x,y){ pickups.push(makePickup(type||'coin', x, y)); },
     stepPickups(dt){ updatePickups(dt); },
     applyPickup(p){ applyPickup(p); },
@@ -103,7 +198,16 @@
     getShield(){ return shield; }, setShield(v){ shield=v; },
     getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
     getLives(){ return lives; }, setLives(v){ lives=v; },
-    takeHit, getShip(){ return {x:ship.x,y:ship.y}; }, getOver(){ return over; }
+    takeHit, getShip(){ return {x:ship.x,y:ship.y}; }, getOver(){ return over; },
+    // —— Boss 系统钩子 ——
+    BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
+    getBoss:()=> boss ? {x:boss.x,y:boss.y,r:boss.r,hp:boss.hp,maxHp:boss.maxHp,phase:boss.phase,dir:boss.dir,downY:boss.downY} : null,
+    setBossHp:(v)=>{ if(boss) boss.hp=v; },
+    setWave:(v)=>{ wave=v; },
+    addBullet:(x,y,vx,vy)=>{ bullets.push({x:x,y:y,vx:vx||0,vy:vy||0}); },
+    getEBullets:()=> ebullets.length,
+    setShip:(x,y)=>{ ship.x=x; ship.y=y; },
+    getWave:()=>wave
   }; }
 })();
 </script>

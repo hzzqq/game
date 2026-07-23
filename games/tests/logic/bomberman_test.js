@@ -70,3 +70,81 @@ t.setBomb(2,2);
 const b2 = t.explode();
 ok('砖块被炸毁吸收（掉落不影响爆破）', b2.some(([r,c])=>r===2&&c===3));
 ok('砖块后格不在爆破范围', !b2.some(([r,c])=>r===2&&c===4));
+
+// ===== 注入式道具系统（bombs / shield / fire）=====
+// A. applyPickup 数值：三种新道具各自增益生效，且不污染其它字段
+t.setup(5,5,[]);
+eq('初始 护盾=0', t.getShield(), 0);
+eq('初始 火力=0', t.getFire(), 0);
+eq('初始 弹容=1', t.getBombs(), 1);
+t.applyPickup('shield');
+t.applyPickup('shield');
+eq('🛡 shield 两次 → 护盾=2', t.getShield(), 2);
+t.applyPickup('bombs');
+eq('💣 bombs → 弹容+1 = 2', t.getBombs(), 2);
+t.applyPickup('fire');
+eq('⚡ fire → 火力=1', t.getFire(), 1);
+eq('fire 不改动 range', t.getRange(), 2);
+eq('fire 不改动 score', t.getScore(), 0);
+t.applyPickup('range');
+eq('range 仍 +1 → 3', t.getRange(), 3);
+t.applyPickup('coin');
+eq('coin → +50 分', t.getScore(), 50);
+// setBombs / setFire / setShield 直接赋值回环
+t.setBombs(3); eq('setBombs 回环=3', t.getBombs(), 3);
+t.setFire(2);   eq('setFire 回环=2', t.getFire(), 2);
+t.setShield(1); eq('setShield 回环=1', t.getShield(), 1);
+
+// B. 护盾免一次炸伤：有盾时角色不死亡、护盾被消耗
+t.setup(5,5,[]);
+t.setRange(2);
+t.setBomb(2,2);
+t.setPlayers([{x:3,y:2}]);   // 玩家位于 (行2,列3)，在爆炸十字右侧 → 处于爆破
+t.setShield(1);
+t.explode();
+eq('护盾免死：玩家未死亡', t.getPlayers()[0].dead, false);
+eq('护盾被消耗 → 0', t.getShield(), 0);
+
+// C. 无盾受伤不变：无盾时被炸角色判定死亡
+t.setup(5,5,[]);
+t.setRange(2);
+t.setBomb(2,2);
+t.setPlayers([{x:3,y:2}]);
+t.setShield(0);
+t.explode();
+eq('无盾受伤：玩家死亡', t.getPlayers()[0].dead, true);
+
+// D. 拾取移除：玩家走到道具格，生效且道具消失
+t.setup(5,5,[]);
+t.spawnPickup('bombs', 2, 3);   // 掉落格 (行2,列3)
+eq('生成 1 个掉落物', t.getPickups(), 1);
+t.setPlayers([{x:3, y:2}]);       // 玩家位于该格
+t.stepPickups(0.016);
+eq('拾取 💣 弹容+1 → 2', t.getBombs(), 2);
+eq('拾取后掉落物移除', t.getPickups(), 0);
+
+// E. 护盾道具同样经拾取生效
+t.setup(5,5,[]);
+t.spawnPickup('shield', 1, 1);
+t.setPlayers([{x:1, y:1}]);
+t.stepPickups(0.016);
+eq('拾取 🛡 护盾=1', t.getShield(), 1);
+eq('护盾道具拾取后移除', t.getPickups(), 0);
+
+// F. 火力扩展爆炸范围：fire=1 时 范围2 → 实际覆盖 13 格
+t.setup(7,7,[]);
+t.setRange(2);
+t.setBomb(3,3);
+t.applyPickup('fire');              // fire=1 → 实际 R=3
+const blastFire = t.explode();
+eq('火力+1：范围2→实际3 覆盖 13 格', blastFire.length, 13);
+eq('fire 数值保持=1（不并入 range）', t.getFire(), 1);
+eq('range 仍=2', t.getRange(), 2);
+
+// G. 弹容：setBombs 后可放置多颗炸弹
+t.setup(5,5,[]);
+t.setBombs(2);
+ok('弹容=2 可放置第 1 颗', t.setBomb(1,1) === true);
+ok('弹容=2 可放置第 2 颗', t.setBomb(3,3) === true);
+eq('已放置 2 颗', t.getBombCount(), 2);
+ok('超过弹容不可再放', t.setBomb(4,4) === false);

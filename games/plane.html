@@ -160,10 +160,68 @@
       enemies.push({x,y:-r,vy:base.vy*lf,hp,maxhp:hp,r,type,score:base.score,
         shootT:rnd(.8,2),phase:rnd(0,6.28),baseX:x});
     }
+    // ===== Boss 多阶段系统（标准钩子 + 增强）=====
+    // plane 的 boss 由分数/关卡驱动：每关收尾必出 BOSS，等价于“每波都出”，故 BOSS_EVERY=1。
+    const BOSS_EVERY = 1;
+    function isBossWave(w){ return w>0 && w % BOSS_EVERY === 0; }
     function spawnBoss(){
-      const hp=80+(level-1)*40;
-      boss={x:W/2,y:-80,vy:60,r:46,hp,maxhp:hp,shootT:1.2,phase:0,entering:true,atk:0,spiral:0};
+      const hp=80+(level-1)*40; // 无 DIFFICULTY：按关卡(=波)缩放并保留既有数值
+      boss={x:W/2,y:-80,vy:60,r:46,hp,maxhp:hp,shootT:1.2,phase:0,entering:true,atk:0,spiral:0,phase2:false};
       document.getElementById('bossbar').style.display='block';
+    }
+    // 返回 true 表示本帧 boss 被击败（奖励 + boss=null）
+    function updateBoss(dt){
+      if(!boss) return false;
+      // 进入 / 多阶段移动（phase2 横扫更快）
+      if(boss.entering){ boss.y+=boss.vy*dt; if(boss.y>=90){ boss.y=90; boss.entering=false; } }
+      else { boss.phase+=dt; const sp = boss.phase2 ? 1.5 : 1; boss.x = W/2 + Math.sin(boss.phase*0.7*sp)*(W/2-70); }
+      // 半血进入 phase2（狂暴：弹幕更快更密）
+      if(!boss.phase2 && boss.hp <= boss.maxhp/2){
+        boss.phase2 = true;
+        if(typeof Juice!=='undefined') Juice.flash('#ff2d55', 0.4);
+      }
+      // 开火
+      boss.shootT -= dt;
+      if(boss.shootT<=0){
+        const base = Math.max(0.45, 0.95-(level-1)*0.06);
+        boss.shootT = boss.phase2 ? base*0.6 : base;       // phase2 更快
+        boss.atk=(boss.atk+1)%3;
+        if(boss.phase2 && boss.atk===2){                    // phase2 额外螺旋弹（更密）
+          boss.spiral=(boss.spiral||0)+0.55;
+          for(let k=0;k<8;k++){ const a=boss.spiral+k*Math.PI/4; eBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*200,vy:Math.sin(a)*200,r:6}); }
+        } else if(boss.atk===1){
+          const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+          for(let k=-1;k<=1;k++){ const aa=a+k*0.18; eBullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*300,vy:Math.sin(aa)*300,r:6}); }
+        } else {
+          for(let k=-2;k<=2;k++){ const a=Math.PI/2 + k*0.22; eBullets.push({x:boss.x,y:boss.y+boss.r,vx:Math.cos(a)*240,vy:Math.sin(a)*240,r:6}); }
+        }
+      }
+      // 玩家子弹命中扣血
+      for(const b of bullets){
+        if(b.dead) continue;
+        if(Math.hypot(b.x-boss.x, b.y-boss.y) < boss.r + b.r){
+          boss.hp -= (b.dmg||1); b.dead=true; spawnParticles(b.x,b.y,'#f6465d',3);
+          if(typeof Juice!=='undefined') Juice.addTrauma(0.1);
+        }
+      }
+      // 接触玩家伤害
+      if(player.invuln<=0 && player.shield<=0 && Math.hypot(boss.x-player.x, boss.y-player.y) < boss.r+player.r){
+        hitPlayer(40); player.invuln = Math.max(player.invuln, 0.6);
+      }
+      // 击败奖励（加分 + 掉落 + 进关）
+      if(boss.hp<=0){
+        const nl=level+1; score+=500;
+        spawnParticles(boss.x,boss.y,'#f0b90b',40);
+        if(typeof Juice!=='undefined'){
+          Juice.burst(boss.x,boss.y,{color:'#f0b90b',n:50,speed:280}); Juice.flash('#f0b90b',0.5);
+          Juice.sfx('boom'); Juice.sfx('levelup'); Juice.achievement('⚔ BOSS 击破！进入第 '+nl+' 关');
+        }
+        drops.push({x:boss.x, y:boss.y, type:'bomb'}); // 击败掉落
+        boss=null; level=nl; player.power=Math.min(6,player.power+1); bossNext=score+1400;
+        document.getElementById('bossbar').style.display='none';
+        return true;
+      }
+      return false;
     }
 
     // ===== 更新 =====
@@ -215,29 +273,8 @@
       }
       enemies=enemies.filter(e=>e.y<H+40);
 
-      // BOSS（多弹幕 + 随关卡强化 + 低血狂暴）
-      if(boss){
-        if(boss.entering){ boss.y+=boss.vy*dt; if(boss.y>=90){boss.y=90;boss.entering=false;} }
-        else { boss.phase+=dt; boss.x=W/2+Math.sin(boss.phase*0.7)*(W/2-70); }
-        boss.shootT-=dt;
-        if(boss.shootT<=0){
-          boss.shootT=Math.max(0.45,0.95-(level-1)*0.06);
-          const enraged=boss.hp<boss.maxhp*0.4;
-          boss.atk=(boss.atk+1)%3;
-          if(enraged && boss.atk===2){
-            boss.spiral=(boss.spiral||0)+0.55;
-            for(let k=0;k<8;k++){ const a=boss.spiral+k*Math.PI/4;
-              eBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*200,vy:Math.sin(a)*200,r:6}); }
-          } else if(boss.atk===1){
-            const a=Math.atan2(player.y-boss.y,player.x-boss.x);
-            for(let k=-1;k<=1;k++){ const aa=a+k*0.18;
-              eBullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*300,vy:Math.sin(aa)*300,r:6}); }
-          } else {
-            for(let k=-2;k<=2;k++){ const a=Math.PI/2 + k*0.22;
-              eBullets.push({x:boss.x,y:boss.y+boss.r,vx:Math.cos(a)*240,vy:Math.sin(a)*240,r:6}); }
-          }
-        }
-      }
+      // BOSS（多阶段）：移动/开火/命中/接触/击败统一由 updateBoss 处理
+      if(boss){ updateBoss(dt); }
 
       // 敌方子弹
       for(const b of eBullets){ b.x+=b.vx*dt; b.y+=b.vy*dt; }
@@ -251,14 +288,6 @@
             if(e.hp<=0){ score+=e.score; spawnParticles(e.x,e.y,'#02c076',10); Juice.burst(e.x,e.y,{color:'#02c076',n:8}); Juice.popup(e.x,e.y-12,'+'+e.score,'#f0b90b',{size:15}); maybeDrop(e.x,e.y); }
             break;
           }
-        }
-        if(boss && !b.dead && Math.hypot(b.x-boss.x,b.y-boss.y)<boss.r+b.r){
-          boss.hp-=b.dmg; b.dead=true; spawnParticles(b.x,b.y,'#f6465d',3); Juice.addTrauma(0.1);
-          if(boss.hp<=0){ const nl=level+1; score+=500; spawnParticles(boss.x,boss.y,'#f0b90b',40);
-            Juice.burst(boss.x,boss.y,{color:'#f0b90b',n:50,speed:280}); Juice.flash('#f0b90b',0.5);
-            Juice.sfx('boom'); Juice.sfx('levelup'); Juice.achievement('⚔ BOSS 击破！进入第 '+nl+' 关');
-            boss=null; document.getElementById('bossbar').style.display='none'; level=nl; player.power=Math.min(6,player.power+1);
-            bossNext=score+1400; }
         }
       }
       bullets=bullets.filter(b=>!b.dead);
@@ -287,7 +316,7 @@
 
       // 关卡推进
       if(!boss && score>=bossNext) spawnBoss();
-      if(boss) document.getElementById('bosshp').style.width=Math.max(0,boss.hp/boss.maxhp*100)+'%';
+      if(boss){ const bel=document.getElementById('bosshp'); bel.style.width=Math.max(0,boss.hp/boss.maxhp*100)+'%'; if(boss.phase2) bel.style.background='linear-gradient(90deg,#ff2d55,#ff8a96)'; }
 
       // 注入：胶囊自动掉落 + 下落
       capSpawn -= dt;
@@ -379,9 +408,14 @@
         const col = e.type==='tank'?'#f0b90b':(e.type==='shooter'?'#ff8a96':'#02c076');
         drawShip(e.x,e.y,e.r,col,false);
       }
-      // BOSS
-      if(boss){ drawShip(boss.x,boss.y,boss.r,'#f6465d',false);
-        ctx.fillStyle='rgba(246,70,93,.15)'; ctx.beginPath(); ctx.arc(boss.x,boss.y,boss.r,0,7); ctx.fill(); }
+      // BOSS（phase2 变色 + 光环）
+      if(boss){
+        const bcol = boss.phase2 ? '#ff2d55' : '#f6465d';
+        drawShip(boss.x,boss.y,boss.r,bcol,false);
+        ctx.fillStyle = boss.phase2 ? 'rgba(255,45,85,.22)' : 'rgba(246,70,93,.15)';
+        ctx.beginPath(); ctx.arc(boss.x,boss.y,boss.r,0,7); ctx.fill();
+        if(boss.phase2){ ctx.strokeStyle='rgba(255,45,85,.5)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(boss.x,boss.y,boss.r+6,0,7); ctx.stroke(); }
+      }
       // 玩家子弹
       for(const b of bullets){ ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fillStyle='#f0b90b'; ctx.shadowColor='#f0b90b'; ctx.shadowBlur=8; ctx.fill(); ctx.shadowBlur=0; }
       // 玩家（无敌闪烁）+ 护盾光环
@@ -506,6 +540,14 @@
       spawnEnemy: spawnEnemy,
       spawnBoss: spawnBoss,
       maybeDrop: maybeDrop,
+      /* Boss 多阶段系统钩子（标准）*/
+      BOSS_EVERY: BOSS_EVERY,
+      isBossWave: isBossWave,
+      updateBoss: updateBoss,
+      setBossHp: function(v){ if(boss) boss.hp=v; },
+      setWave: function(v){ level=v; },
+      getWave: function(){ return level; },
+      addBullet: function(x,y,strong){ bullets.push({x:x,y:y,vx:0,vy:-600,r:4,dmg:1,strong:!!strong}); },
       /* 道具/伤害/生命 */
       applyDrop: applyDrop,
       hitPlayer: hitPlayer,
@@ -545,7 +587,7 @@
       getH: function(){ return H; },
 
       /* 注入：胶囊系统测试钩子（与核心 drops/player 平行） */
-      reset: function(){ capPickups=[]; capBoost=0; capShield=false; capLives=3; capDead=false; capSpawn=12; capPower=1; },
+      reset: function(){ capPickups=[]; capBoost=0; capShield=false; capLives=3; capDead=false; capSpawn=12; capPower=1; boss=null; },
       getState: function(){ return { running, over, paused, pickups: capPickups.slice(), capLives, capShield, capBoost, capPower, capDead, capSpawn }; },
       spawnPickup: function(type, x, y){ capPickups.push(makePickup(type, x, y)); },
       stepPickups: function(dt){ updatePickups(dt); },

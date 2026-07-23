@@ -74,3 +74,25 @@ eq('boost 期间金币翻倍=50', t.getCoins(), 50);
 t.stepPickups(8);
 eq('boost 计时归零', t.getBoost(), 0);
 
+// 计时器随机掉落（update 驱动场景掉落）
+t.reset();
+eq('update 前无掉落', t.getPickups().length, 0);
+eq('初始掉落计时为0', t.getSpawnTimer(), 0);
+t.update(t.SPAWN_INTERVAL + 0.1);   // 跨过掉落间隔
+eq('update 触发随机掉落(数量+1)', t.getPickups().length, 1);
+const p0 = t.getPickups()[0];
+ok('随机掉落类型合法', ['coin','boost','shield'].indexOf(p0.type) >= 0, 'type=' + p0.type);
+ok('随机掉落落在网格内', p0.r>=0 && p0.r<t.N && p0.c>=0 && p0.c<t.N);
+
+// update 同时衰减 boost，且无 boost 时不误扣
+t.reset();
+t.applyPickup('boost');
+ok('boost 计时>0', t.getBoost() > 0);
+t.update(8);
+eq('update 后 boost 归零', t.getBoost(), 0);
+
+// 护盾 HUD 状态可见
+t.reset();
+t.applyPickup('shield');
+ok('护盾已激活', t.getShield() === true);
+

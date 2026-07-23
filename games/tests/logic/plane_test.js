@@ -337,6 +337,75 @@ eq('胶囊 无护盾 生命-1', t.getCapLives(), cl1 - 1);
 t.takeHit(99);
 ok('胶囊 生命归零 capDead', t.getCapDead() === true);
 
+// ===== 15. 多阶段 Boss 系统（标准钩子 + 增强）=====
+t.start();
+t.setBoss(null);
+// 15a BOSS_EVERY / isBossWave
+ok('BOSS_EVERY 为正数', t.BOSS_EVERY > 0, 'BOSS_EVERY='+t.BOSS_EVERY);
+ok('isBossWave(0)=false', t.isBossWave(0) === false);
+ok('isBossWave(BOSS_EVERY)=true', t.isBossWave(t.BOSS_EVERY) === true);
+ok('isBossWave(2*BOSS_EVERY)=true', t.isBossWave(t.BOSS_EVERY*2) === true);
+ok('isBossWave(BOSS_EVERY-1)=false', t.isBossWave(t.BOSS_EVERY-1) === false);
+
+// 15b spawnBoss hp===maxHp + 初始 phase2=false
+t.setLevel(1);
+t.setBoss(null);
+t.spawnBoss();
+const b0 = t.getBoss();
+ok('spawnBoss 生成', !!b0);
+eq('spawnBoss hp===maxHp', b0.hp, b0.maxhp);
+ok('spawnBoss 初始 phase2=false', b0.phase2 === false);
+
+// 15c 半血进入 phase2
+t.setBossHp(Math.floor(b0.maxhp/2));
+t.updateBoss(0.016);
+const bHalf = t.getBoss();
+ok('半血触发 phase2', !!bHalf && bHalf.phase2 === true);
+
+// 15d updateBoss 击败返回 true + 奖励（加分 + 掉落 + 进关）
+t.start();
+t.setLevel(2);
+t.setBoss(null);
+t.spawnBoss();
+const bd = t.getBoss();
+const scBefore = t.getScore();
+const lvBefore = t.getLevel();
+const dropsBefore = t.getDrops().length;
+t.setBossHp(1);
+t.addBullet(bd.x, bd.y);            // 必中子弹置于 boss 中心
+const defeated = t.updateBoss(0.016);
+ok('updateBoss 击败返回 true', defeated === true);
+ok('updateBoss 击败后 boss=null', t.getBoss() === null);
+eq('updateBoss 击败加分 +500', t.getScore(), scBefore + 500);
+eq('updateBoss 击败关卡 +1', t.getLevel(), lvBefore + 1);
+ok('updateBoss 击败掉落', t.getDrops().length > dropsBefore);
+
+// 15e update() boss 分支：击败经由 update 触发
+t.start();
+t.setRunning(true); t.setOver(false); t.setPaused(false);
+t.setLevel(1);
+t.setBoss(null);
+t.spawnBoss();
+const b2 = t.getBoss();
+b2.entering=false; b2.y=200;          // 移到屏内，避免被 y>-20 剔除
+const sc2 = t.getScore();
+t.setBossHp(1);
+t.addBullet(b2.x, b2.y);
+t.update(0.016);
+ok('update() boss 分支击败 boss=null', t.getBoss() === null);
+eq('update() boss 分支加分 +500', t.getScore(), sc2 + 500);
+
+// 15f 接触玩家伤害
+t.start();
+t.setBoss(null);
+t.spawnBoss();
+const bf = t.getBoss();
+t.getPlayer().invuln = 0; t.getPlayer().shield = 0;
+bf.x = t.getPlayer().x; bf.y = t.getPlayer().y; bf.entering = false;
+const hpBf = t.getPlayer().hp;
+t.updateBoss(0.016);
+ok('接触玩家伤害 hp 下降', t.getPlayer().hp < hpBf);
+
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;

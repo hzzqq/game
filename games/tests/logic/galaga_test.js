@@ -137,4 +137,58 @@ const rb0 = t.getState().bullets.length;
 t.fire();
 H.eq('回归: 普通开火只 +1 颗', t.getState().bullets.length, rb0 + 1);
 
+// ===== Boss 系统（注入，钩子驱动）=====
+// 15) 常量与判定
+H.eq('BOSS_EVERY=3', t.BOSS_EVERY, 3);
+H.ok('isBossWave: 3 为真', t.isBossWave(3) === true);
+H.ok('isBossWave: 6 为真', t.isBossWave(6) === true);
+H.ok('isBossWave: 1 为假', t.isBossWave(1) === false);
+H.ok('isBossWave: 0 为假', t.isBossWave(0) === false);
+H.ok('isBossWave: 非倍数 4 为假', t.isBossWave(4) === false);
+
+// 16) spawnBoss 后 hp === maxHp，且清空普通编队
+t.newGame(21); t.setWave(3);
+t.spawnBoss();
+let boss = t.getBoss();
+H.ok('spawnBoss 后有 boss', boss !== null);
+H.eq('spawnBoss: hp === maxHp', boss.hp, boss.maxHp);
+// 公式校验：maxHp = round((28 + wave*6) * bossHpMult)，galaga 无难度 → bossHpMult=1
+H.eq('spawnBoss: maxHp 公式正确', boss.maxHp, Math.round((28 + 3*6) * 1));
+H.eq('spawnBoss: 清空普通编队(敌机=0)', t.getState().enemyCount, 0);
+
+// 17) 非 boss 波不进入 boss 状态
+t.newGame(22); t.setWave(2);
+H.ok('波2 不是 boss 波', t.isBossWave(2) === false);
+
+// 18) phase2：半血触发
+t.newGame(23); t.setWave(3);
+t.spawnBoss();
+t.setBossHp(Math.floor(t.getBoss().maxHp / 2));  // 半血
+t.updateBoss(1);
+H.eq('半血触 phase2', t.getBoss().phase, 2);
+
+// 19) 击败：返回 true + 奖励加分(100*wave) + 掉落奖励 + boss 清空
+t.newGame(24); t.setWave(3);
+t.spawnBoss();
+const b3 = t.getBoss();
+const scoreBefore = t.getScore();
+t.setBossHp(1);                                   // 一击致死
+t.addBullet(b3.x + b3.w/2, b3.y + b3.h/2, false); // 在 boss 中心放一颗玩家子弹
+const beaten = t.updateBoss(1);
+H.ok('击败返回 true', beaten === true);
+H.eq('击败奖励加分 = 100*wave', t.getScore(), scoreBefore + 100*3);
+H.ok('击败后 boss 清空', t.getBoss() === null);
+H.ok('击败掉落奖励(rocket/道具)', t.getPickups() > 0);
+
+// 20) 击败后推进下一波（wave++ 且重建编队）—— 经由 step() 驱动（wave 推进在 update 层）
+t.newGame(25); t.setWave(3);
+t.spawnBoss();
+t.setBossHp(0);
+t.step();   // step 的 boss 分支：updateBoss 击败 → wave++ + buildAliens
+H.eq('击败后 wave 推进到 4', t.getWave(), 4);
+H.ok('击败后重建普通编队', t.getState().enemyCount > 0);
+
+// 注：galaga 核心为「清空即胜」，故 boss 波通过 spawnBoss 钩子/显式 wave 进入，
+// 不破坏原有「清空编队→胜利」断言（测试 5）。
+
 console.log('  ✓ galaga_test.js 全部通过');

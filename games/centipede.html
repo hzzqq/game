@@ -54,17 +54,28 @@
   const ROWS = 20, COLS = 15;
   let mush, centi, player, bullets, gameOver, score, pickups, killStreak;
 
+  // —— Boss 系统（每 BOSS_EVERY 波出现"蜈蚣女王"）——
+  const BOSS_EVERY = 3;
+  function isBossWave(w){ return w>0 && w % BOSS_EVERY === 0; }
+  let wave = 1;        // 波次：每清完一整条普通蜈蚣 +1
+  let boss = null;     // Boss 态：{col,row,w,h,hp,maxHp,phase,dir,fireT,down}
+
   function inMush(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS && mush[r][c]; }
   function mushroomList(){ const out=[]; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(mush[r][c]) out.push([r,c]); return out; }
+
+  function buildCentipede(){
+    centi = [];
+    const len = 10;
+    for(let i=0;i<len;i++) centi.push({ row: 0, col: i, dir: 1 });
+  }
 
   function genField(){
     mush = Array.from({length:ROWS},()=>new Array(COLS).fill(false));
     for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
       if(r < ROWS-6 && _rng() < 0.12) mush[r][c] = true;   // 顶部蘑菇田
     }
-    centi = [];
-    const len = 10;
-    for(let i=0;i<len;i++) centi.push({ row: 0, col: i, dir: 1 });
+    wave = 1; boss = null;   // 新局重置波次与 Boss
+    buildCentipede();
     player = { row: ROWS-1, col: Math.floor(COLS/2), rapid: 0, spread: 0, shield: 0 };
     bullets = [];
     gameOver = false;
@@ -116,6 +127,17 @@
 
   function step(){
     if(gameOver) return;
+    // Boss 波：走独立分支（不清普通蜈蚣、击败后才进下一波）
+    if(boss){
+      if(player.rapid > 0){ player.rapid--; shoot(); }
+      const beaten = updateBoss();
+      collectPickups();
+      if(!gameOver && beaten){
+        wave++;
+        if(isBossWave(wave)) spawnBoss(); else buildCentipede();
+      }
+      return;
+    }
     if(player.rapid > 0){ player.rapid--; shoot(); }   // 连射增益：自动开火
     // 1) 子弹上移
     for(const b of bullets) b.row -= 1;
@@ -144,11 +166,89 @@
     for(const s of centi){
       if(s.row === player.row && s.col === player.col){ die(); break; }
     }
+    // 5) 全部清除 → 下一波（每 BOSS_EVERY 波出 Boss）
+    if(!gameOver && centi.length === 0){
+      wave++;
+      if(isBossWave(wave)) spawnBoss(); else buildCentipede();
+    }
   }
   // 死亡：有护盾则消耗护盾免死，否则结束（注入式分支，shield=0 时行为不变）
   function die(){
     if(player.shield > 0){ player.shield--; if(J) J.sfx('block'); return; }
     gameOver = true; if(J) J.sfx('lose');
+  }
+
+  // ---------- Boss：蜈蚣女王（带 HP 的大头，自顶部下压、左右摆动、周期弹幕）----------
+  function spawnBoss(){
+    const mult = (typeof diffCfg==='function' && diffCfg().bossHpMult) ? diffCfg().bossHpMult : 1;
+    const maxHp = Math.round((28 + wave*6) * mult);
+    const w = 5, h = 2;
+    boss = {
+      col: Math.floor((COLS - w)/2),   // 左上角列
+      row: 0,
+      w: w, h: h,
+      hp: maxHp, maxHp: maxHp,
+      phase: 1,
+      dir: 1,
+      fireT: 0,
+      down: 0
+    };
+    centi = [];   // 清空普通蜈蚣
+    if(J && J.sfx) J.sfx('levelup');
+  }
+  // 返回 true 表示本帧击败 Boss
+  function updateBoss(){
+    if(!boss) return false;
+    // 半血进 phase2（更快、更密弹幕）
+    if(boss.phase===1 && boss.hp <= boss.maxHp/2){ boss.phase = 2; if(J && J.flash) J.flash('#f6465d'); }
+    // 玩家子弹上移
+    for(const b of bullets){ if(!b.boss && !b.dead) b.row -= 1; }
+    bullets = bullets.filter(b => b.boss || b.row >= 0);
+    // 横向摆动 + 下压（phase2 更急）
+    const stepX = boss.phase===2 ? 2 : 1;
+    boss.col += boss.dir * stepX;
+    if(boss.col <= 0){ boss.col = 0; boss.dir = 1; boss.row += 1; }
+    else if(boss.col + boss.w >= COLS){ boss.col = COLS - boss.w; boss.dir = -1; boss.row += 1; }
+    else { boss.down += (boss.phase===2 ? 0.6 : 0.35); if(boss.down >= 1){ boss.down -= 1; boss.row += 1; } }
+    // 玩家子弹命中扣血
+    for(const b of bullets){
+      if(b.boss || b.dead) continue;
+      if(b.col >= boss.col && b.col <= boss.col+boss.w-1 && b.row >= boss.row && b.row <= boss.row+boss.h-1){
+        boss.hp -= 1; b.dead = true;
+      }
+    }
+    bullets = bullets.filter(b=>!b.dead);
+    // 弹幕：周期向下发射
+    boss.fireT += 1;
+    const interval = boss.phase===2 ? 3 : 5;
+    if(boss.fireT >= interval){
+      boss.fireT = 0;
+      const mid = boss.col + Math.floor(boss.w/2);
+      bullets.push({ row: boss.row + boss.h, col: mid, boss: true });
+      if(boss.phase===2){
+        bullets.push({ row: boss.row + boss.h, col: boss.col, boss: true });
+        bullets.push({ row: boss.row + boss.h, col: boss.col + boss.w - 1, boss: true });
+      }
+    }
+    // boss 子弹下移并命中玩家
+    for(let i=bullets.length-1;i>=0;i--){
+      const b = bullets[i];
+      if(!b.boss) continue;
+      b.row += 1;
+      if(b.row === player.row && b.col === player.col){ die(); bullets.splice(i,1); continue; }
+      if(b.row > ROWS){ bullets.splice(i,1); }
+    }
+    // 接触玩家（头部压到玩家所在行）
+    if(boss.row + boss.h >= player.row){ die(); }
+    // 击败：奖励 + 掉落 + 置空
+    if(boss.hp <= 0){
+      score += 100 * wave;
+      pickups.push({ type: 'rapid', row: boss.row, col: boss.col + Math.floor(boss.w/2) });
+      if(J && J.sfx) J.sfx('win');
+      boss = null;
+      return true;
+    }
+    return false;
   }
   function applyPickup(type){
     if(type === 'coin'){ score += 50; if(J) J.sfx('pickup'); }
@@ -170,8 +270,9 @@
       centipede: centi.map(s => ({ row:s.row, col:s.col, dir:s.dir })),
       mushrooms: mushroomList(),
       player: { row: player.row, col: player.col },
-      bullets: bullets.map(b => ({ row:b.row, col:b.col })),
-      gameOver, score,
+      bullets: bullets.map(b => ({ row:b.row, col:b.col, boss: !!b.boss })),
+      gameOver, score, wave,
+      boss: boss ? { col:boss.col, row:boss.row, w:boss.w, h:boss.h, hp:boss.hp, maxHp:boss.maxHp, phase:boss.phase } : null,
       pickups: pickups.map(p => ({ type:p.type, row:p.row, col:p.col })),
       shield: player.shield, rapid: player.rapid, spread: player.spread
     };
@@ -199,9 +300,33 @@
     // 蜈蚣
     ctx.fillStyle = '#f6465d';
     for(const s of centi) ctx.fillRect(s.col*cw+cw*0.2, s.row*chh+chh*0.2, cw*0.6, chh*0.6);
-    // 子弹
-    ctx.fillStyle = '#f0b90b';
-    for(const b of bullets) ctx.fillRect(b.col*cw+cw*0.4, b.row*chh+chh*0.1, cw*0.2, chh*0.6);
+    // 子弹（boss 弹幕标红）
+    for(const b of bullets){
+      ctx.fillStyle = b.boss ? '#f6465d' : '#f0b90b';
+      ctx.fillRect(b.col*cw+cw*0.4, b.row*chh+chh*0.1, cw*0.2, chh*0.6);
+    }
+    // Boss：蜈蚣女王（多边形大头 + 顶部血条）
+    if(boss){
+      const bx = boss.col*cw, by = boss.row*chh, bw = boss.w*cw, bh = boss.h*chh;
+      const bodyCol = boss.phase===2 ? '#f6465d' : '#9b6bff';
+      ctx.save();
+      ctx.shadowColor = bodyCol; ctx.shadowBlur = 14; ctx.fillStyle = bodyCol;
+      ctx.beginPath();
+      ctx.moveTo(bx+bw*0.5, by);
+      ctx.lineTo(bx+bw, by+bh*0.3);
+      ctx.lineTo(bx+bw*0.82, by+bh);
+      ctx.lineTo(bx+bw*0.18, by+bh);
+      ctx.lineTo(bx, by+bh*0.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0; ctx.fillStyle = '#0a0e14';
+      ctx.fillRect(bx+bw*0.3, by+bh*0.35, bw*0.12, bh*0.22);
+      ctx.fillRect(bx+bw*0.58, by+bh*0.35, bw*0.12, bh*0.22);
+      ctx.restore();
+      const barW = cv.width - 20, barX = 10, barY = 4, frac = Math.max(0, boss.hp/boss.maxHp);
+      ctx.fillStyle = '#2a2f3a'; ctx.fillRect(barX, barY, barW, 6);
+      ctx.fillStyle = boss.phase===2 ? '#f6465d' : '#f0b90b'; ctx.fillRect(barX, barY, barW*frac, 6);
+    }
     // 玩家
     ctx.fillStyle = '#02c076';
     ctx.fillRect(player.col*cw+cw*0.2, player.row*chh+chh*0.2, cw*0.6, chh*0.6);
@@ -242,7 +367,14 @@
       getShield:()=>player.shield, setShield:(v)=>{ player.shield=v; },
       getRapid:()=>player.rapid, setRapid:(v)=>{ player.rapid=v; },
       getSpread:()=>player.spread, setSpread:(v)=>{ player.spread=v; },
-      applyPickup, collectPickups };
+      applyPickup, collectPickups,
+      // ---- Boss 系统钩子（B4 蜈蚣女王）----
+      BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
+      getBoss:()=> boss ? { col:boss.col, row:boss.row, w:boss.w, h:boss.h, hp:boss.hp, maxHp:boss.maxHp, phase:boss.phase, dir:boss.dir } : null,
+      setBossHp:(v)=>{ if(boss) boss.hp = v; },
+      setWave:(v)=>{ wave = v; },
+      getWave:()=>wave,
+      addBullet:(row,col)=>{ bullets.push({ row:row, col:col }); } };
   }
 })();
 </script>
