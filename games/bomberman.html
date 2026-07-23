@@ -127,12 +127,24 @@
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
-    var bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',26px)'; bd.innerHTML=''; for(var r=0;r<H;r++){ for(var c=0;c<W;c++){ var d=document.createElement('div'); var cls='cell'; var k=r+','+c; if(walls.has(k))cls+=' wall'; else if(blocks.has(k))cls+=' block'; if(bombs.some(function(b){return b.x===c&&b.y===r;}))cls+=' bomb'; if(blastSet.has(k))cls+=' blast'; var d1=d; d1.className=cls;
+    var bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+W+',26px)'; bd.innerHTML=''; for(var r=0;r<H;r++){ for(var c=0;c<W;c++){ var d=document.createElement('div'); var cls='cell'; var k=r+','+c; if(walls.has(k))cls+=' wall'; else if(blocks.has(k))cls+=' block'; if(bombs.some(function(b){return b.x===c&&b.y===r;}))cls+=' bomb'; if(blastSet.has(k))cls+=' blast';       var d1=d; d1.className=cls;
+      // 炸弹：描边 + 高光（内联样式近似建模精细化，只改绘制层）
+      if(cls.indexOf('bomb')>=0){
+        d.style.boxShadow='inset 0 0 0 2px rgba(255,255,255,.55), inset 0 -6px 8px rgba(0,0,0,.35), 0 0 8px rgba(246,70,93,.85)';
+        d.style.border='1px solid rgba(255,255,255,.4)';
+        d.style.borderRadius='6px';
+      }
       var pk=pickups.find(function(q){return q.r===r&&q.c===c;});
       // 玩家前画掉落物（辉光圆 + emoji）——只改绘制层
       if(pk){ d.textContent = PICKUP_SYM[pk.type]||'★'; d.style.color='#fff'; d.style.textShadow='0 0 8px rgba(255,207,90,.95)'; d.style.background='rgba(255,207,90,.14)'; d.style.borderRadius='50%'; }
       var pl=players.find(function(q){return q.x===c&&q.y===r;});
-      if(pl){ d.textContent = pl.dead?'💀':'🧨'; if(shield>0){ d.style.boxShadow='inset 0 0 0 2px #5ab4ff, 0 0 9px #5ab4ff'; d.style.borderRadius='50%'; } }
+      if(pl){ d.textContent = pl.dead?'💀':'🧨';
+        var psh='inset 0 2px 0 rgba(255,255,255,.45)';   // 顶部高光
+        if(shield>0){ psh += ', inset 0 0 0 2px #5ab4ff, 0 0 9px #5ab4ff'; }
+        d.style.boxShadow = psh;
+        d.style.border='1px solid rgba(255,255,255,.45)';  // 对比描边
+        d.style.borderRadius='50%';
+      }
       bd.appendChild(d); } } }
     var rg=$('rg'),st=$('st'),bf=$('buff');
     if(rg)rg.textContent=range+fire;
@@ -149,6 +161,7 @@
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){ setup(8,8,[]); render(); }); else { setup(8,8,[]); render(); } }
   if(typeof window!=='undefined'){ window.__t={ setup, setRange, setBomb, setPlayers, explode, getBlast, inBlast,
     getState(){ return {range:range, fire:fire, score:score, pickups:pickups.length, shield:shield, bombCap:bombCap}; },
+    render,
     // ---- 掉落道具系统钩子 ----
     spawnPickup(type,r,c){ pickups.push(makePickup(type||'coin', r, c)); },
     stepPickups(dt){ updatePickups(dt); },

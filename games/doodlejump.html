@@ -25,6 +25,9 @@
   .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
   .msg.over{color:var(--red);font-weight:700}
   .foot{width:min(400px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  .diffbar{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+  .diffbar button{background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:8px;padding:6px 13px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px}
+  .diffbar button.active{background:var(--gold);color:#0a0e14;border-color:var(--gold)}
 </style>
 </head>
 <body>
@@ -38,6 +41,7 @@
       <button id="right">右 ▶</button>
       <button id="new" class="ghost">新局 NEW</button>
     </div>
+    <div class="diffbar" id="diffbar"></div>
     <div class="msg" id="msg">小人自动跳上平台，越往上分数越高；掉出屏幕底部即失败。捡道具：🌀弹簧跳更高 · 🚀火箭升空 · 🛡护盾免一次坠落 · ⭐星星加分。</div>
   </div>
   <div class="foot">Doodle Jump（涂鸦跳跃）：自动跳跃穿越平台，向上攀登刷新高度分；收集增益道具助你飞得更高。</div>
@@ -69,8 +73,42 @@
   const START_Y = 200;          // 玩家起始世界 y（向下为正）
   const PLAT_W = 60, PLAT_H = 12;
 
+  // ---------- 难度系统（倍率法，normal=1.0 保持经典手感）----------
+  const DIFFICULTY = {
+    easy:   { label:'简单', speedMult:0.75, countMult:0.7, bossHpMult:0.7 },
+    normal: { label:'普通', speedMult:1.0,  countMult:1.0, bossHpMult:1.0 },
+    hard:   { label:'困难', speedMult:1.25, countMult:1.3, bossHpMult:1.4 },
+    hell:   { label:'地狱', speedMult:1.5,  countMult:1.7, bossHpMult:1.9 }
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
+  function setDifficulty(d){ if(!DIFFICULTY[d]) return; difficulty=d; reset(); if(typeof buildDiffBar==='function') buildDiffBar(); }
+  function getDifficulty(){ return difficulty; }
+  // 重力随 speedMult 缩放（越高难度下落越快）；普通档不变 = 1400
+  function curGravity(){ return GRAVITY * diffCfg().speedMult; }
+  // 危险平台概率（倍率法）：破碎平台非致命仍可弹跳；尖刺平台致命且仅困难/地狱出现
+  const HAZARD_BREAK_BASE = 0.12;   // 普通档破碎平台基础概率（非致命，保持经典手感）
+  const HAZARD_SPIKE_BASE = 0.18;   // 尖刺基础系数（仅 countMult>1 时生效）
+  function breakProb(){ return HAZARD_BREAK_BASE * diffCfg().countMult; }
+  function spikeProb(){ return Math.max(0, diffCfg().countMult - 1.0) * HAZARD_SPIKE_BASE; }
+
+  // ---------- 生存型 Boss 系统（每 BOSS_EVERY 高度里程碑出现，向上跳跃类无射击适配）----------
+  // Boss 悬停在屏幕顶部拦截，向下砸落石块攻击；玩家持续上升使 boss.hp 递减，归零即击败并奖励。
+  const BOSS_EVERY = 3;                 // 每 3 个高度里程碑出一次 Boss
+  const SCORE_PER_MILESTONE = 200;      // 每个高度里程碑对应的分数推进（高度代理）
+  const BOSS_SCREEN_Y = 64;             // Boss 悬停的屏幕 y
+  const BOSS_DRAIN = 0.16;              // 每世界单位攀爬削减的 boss hp
+  const BOSS_ROCK_R = 12;               // 坠落石块半径
+  const BOSS_REWARD = 100;              // 击败奖励 = BOSS_REWARD * wave
+  function isBossWave(w){ return w > 0 && (w % BOSS_EVERY) === 0; }
+
   // 核心状态（普通 JS 变量，逻辑脱离 DOM）
   let player, platforms, cam, score, maxClimbY, gameOver, pickups, spawnTimer;
+  let boss = null;                      // 生存型 Boss：{x,y,w,h,hp,maxHp,phase,dir,vx,fireT,climbRef}
+  let wave = 0;                         // 当前高度里程碑（=Boss 波计数）
+  let bossWaveMark = -1;                // 已为哪个里程碑生成过 Boss（避免重复触发）
+  let bossRocks = [];                   // Boss 砸落的石块（世界坐标）
 
   // ---------- 拾取增益道具系统（注入式，不改跳跃物理/计分公式本身）----------
   const PICKUP_TYPES = ['spring','rocket','shield','star'];
@@ -105,6 +143,79 @@
     }
   }
 
+  // ---------- 生存型 Boss：悬停拦截 + 周期攻击 + 上升削减 HP ----------
+  function spawnBoss(){
+    const cfg = diffCfg();
+    const maxHp = Math.round((28 + wave*6) * (cfg.bossHpMult || 1));
+    boss = {
+      x: W/2, y: BOSS_SCREEN_Y, w: Math.round(W*0.34), h: 46,
+      hp: maxHp, maxHp: maxHp, phase: 1,
+      vx: (90 + wave*8) * cfg.speedMult, dir: 1,
+      fireT: 1.0, climbRef: START_Y - maxClimbY
+    };
+    bossRocks = [];
+    bossWaveMark = wave;
+    if(J) J.flash && J.flash('#f0b90b', .3);
+    if(J) J.sfx && J.sfx('levelup');
+  }
+  // 返回 true 表示本帧 Boss 被击败
+  function updateBoss(dt){
+    if(!boss) return false;
+    const cfg = diffCfg();
+    // 半血进入 phase2：移动更快、攻击更密
+    if(boss.phase === 1 && boss.hp <= boss.maxHp/2){
+      boss.phase = 2; boss.vx *= 1.4;
+      if(J) J.flash && J.flash('#f6465d', .3);
+    }
+    // 横向巡逻 + 边界反弹
+    boss.x += boss.vx * boss.dir * dt;
+    if(boss.x < boss.w/2){ boss.x = boss.w/2; boss.dir = 1; }
+    else if(boss.x > W - boss.w/2){ boss.x = W - boss.w/2; boss.dir = -1; }
+    // 周期砸落石块
+    boss.fireT -= dt;
+    if(boss.fireT <= 0){
+      boss.fireT = (boss.phase === 2 ? 0.6 : 1.0) / cfg.speedMult;
+      const rx = boss.x + (boss.w*0.5) * (_rng()*2 - 1);
+      bossRocks.push({ x: rx, y: cam + boss.y + boss.h, vy: 150 + wave*8, r: BOSS_ROCK_R });
+    }
+    // 石块下落 + 命中玩家（护盾优先消耗，无盾判负）
+    for(let i=bossRocks.length-1;i>=0;i--){
+      const rk = bossRocks[i];
+      rk.y += rk.vy * dt;
+      if(Math.abs(rk.x - player.x) < player.r + rk.r && Math.abs(rk.y - player.y) < player.r + rk.r){
+        takeBossHit(); bossRocks.splice(i,1); continue;
+      }
+      if(rk.y - cam > H + 40) bossRocks.splice(i,1);
+    }
+    // 玩家上升使 boss.hp 递减（高度推进）：climb 随攀爬递增
+    const climbNow = START_Y - maxClimbY;
+    const gain = Math.max(0, climbNow - boss.climbRef);
+    boss.climbRef = climbNow;
+    boss.hp -= gain * BOSS_DRAIN;
+    // 击败：奖励 + 掉落 + 清空
+    if(boss.hp <= 0){
+      score += BOSS_REWARD * wave;
+      pickups.push(makePickup('rocket', boss.x, cam + boss.y));   // 掉落 🚀 助力继续上升
+      if(J) J.flash && J.flash('#02c076', .3);
+      if(J) J.sfx && J.sfx('win');
+      boss = null; bossRocks = [];
+      return true;
+    }
+    return false;
+  }
+  // Boss 命中玩家：护盾优先消耗并救援，无盾才判负（不改坠落逻辑）
+  function takeBossHit(){
+    if(player.shield > 0){
+      player.shield--;
+      if(J) J.flash && J.flash('#02c076', .3);
+      if(J) J.sfx && J.sfx('hit');
+    } else {
+      gameOver = true;
+      if(J) J.sfx && J.sfx('lose');
+      if(J) J.best && J.best('doodlejump', score);
+    }
+  }
+
   // ---------- 平台生成（向上无限延伸，携带随机掉落）----------
   function ensurePlatforms(){
     let topY = Infinity;
@@ -114,13 +225,18 @@
       const gap = 50 + _rng()*50;
       topY -= gap;
       const x = _rng()*(W - PLAT_W);
-      const plat = { x:x, y:topY, w:PLAT_W };
+      const plat = { x:x, y:topY, w:PLAT_W, type:'normal' };
+      // 危险平台（倍率法）：尖刺优先于破碎，二者均随 countMult 提升
+      const sp = spikeProb(), bp = breakProb();
+      const rr = _rng();
+      if(rr < sp) plat.type = 'spike';
+      else if(rr < sp + bp) plat.type = 'broken';
       platforms.push(plat);
       if(_rng() < PICKUP_PROB) spawnPickupAtRandom(plat);
     }
   }
   function cullPlatforms(){
-    platforms = platforms.filter(p => (p.y - cam) <= H + 80);
+    platforms = platforms.filter(p => (p.y - cam) <= H + 80 && !p.broken);
   }
 
   function reset(seed){
@@ -129,9 +245,10 @@
     pickups = [];
     spawnTimer = 0;
     score = 0; maxClimbY = START_Y; gameOver = false;
+    boss = null; bossRocks = []; wave = 0; bossWaveMark = -1;   // Boss 状态复位
     player = { x: W/2, y: START_Y, vy: JUMP_V, r: R, shield: 0, rocketTimer: 0 };
     cam = player.y - H*0.7;
-    platforms.push({ x: W/2 - PLAT_W/2, y: START_Y + 18, w: PLAT_W }); // 起始平台
+    platforms.push({ x: W/2 - PLAT_W/2, y: START_Y + 18, w: PLAT_W, type:'normal' }); // 起始平台
     ensurePlatforms();
     return getState();
   }
@@ -162,7 +279,7 @@
       player.rocketTimer -= dt;
       player.vy = ROCKET_V;
     } else {
-      player.vy += GRAVITY * dt;
+      player.vy += curGravity() * dt;
     }
     const prevFeet = player.y + player.r;        // 上一帧脚底（用于落地扫掠）
     player.y += player.vy * dt;
@@ -175,10 +292,30 @@
     if(player.vy > 0){
       const feetNow = player.y + player.r;
       for(const p of platforms){
+        if(p.type==='spike'){
+          // 尖刺平台：接触即受伤（护盾优先消耗并弹开；无盾坠落判负），不提供弹跳
+          if(player.x + player.r > p.x && player.x - player.r < p.x + p.w){
+            if(prevFeet <= p.y + 2 && feetNow >= p.y){
+              if(player.shield > 0){
+                player.shield--;
+                player.y = p.y - player.r; player.vy = JUMP_V;
+                if(J) J.flash&&J.flash('#f6465d', .3);
+                if(J) J.sfx&&J.sfx('hit');
+              } else {
+                gameOver = true;
+                if(J) J.sfx&&J.sfx('lose');
+                if(J) J.best&&J.best('doodlejump', score);
+              }
+              break;
+            }
+          }
+          continue;
+        }
         if(player.x + player.r > p.x && player.x - player.r < p.x + p.w){
           if(prevFeet <= p.y + 2 && feetNow >= p.y){
             player.y = p.y - player.r;
             player.vy = JUMP_V;
+            if(p.type==='broken') p.broken = true;  // 落地后破碎，稍后移除
             break;
           }
         }
@@ -189,6 +326,16 @@
     cullPlatforms();
     updateScore();
     stepPickups(dt);
+
+    // Boss 分支 / 高度里程碑推进
+    if(boss){
+      updateBoss(dt);   // 击败后才恢复普通生成
+    } else {
+      // 以分数（高度代理）计里程碑；每 BOSS_EVERY 个里程碑出一次 Boss
+      const ms = Math.floor(score / SCORE_PER_MILESTONE);
+      if(ms > wave) wave = ms;
+      if(wave > 0 && isBossWave(wave) && wave !== bossWaveMark) spawnBoss();
+    }
 
     // 坠落失败：玩家掉出屏幕底部；护盾优先消耗并救援，无盾才判负
     if(player.y - cam > H + player.r){
@@ -233,12 +380,26 @@
     ctx.clearRect(0,0,W,H);
     const sy = (wy) => wy - cam;   // 世界 y -> 屏幕 y
 
-    // 平台
-    ctx.fillStyle = '#3a4a5e';
+    // 平台（含危险平台绘制）
     for(const p of platforms){
       const y = sy(p.y);
       if(y < -PLAT_H || y > H) continue;
-      ctx.fillRect(p.x, y, p.w, PLAT_H);
+      if(p.type==='spike'){
+        ctx.fillStyle = '#5a2530';
+        ctx.fillRect(p.x, y, p.w, PLAT_H);
+        ctx.fillStyle = '#f6465d';
+        for(let sx=p.x+5; sx<p.x+p.w-2; sx+=8){
+          ctx.beginPath(); ctx.moveTo(sx, y); ctx.lineTo(sx+4, y-7); ctx.lineTo(sx+8, y); ctx.closePath(); ctx.fill();
+        }
+      } else if(p.type==='broken'){
+        ctx.fillStyle = '#4a3a2a';
+        ctx.fillRect(p.x, y, p.w, PLAT_H);
+        ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(p.x+p.w*0.42, y); ctx.lineTo(p.x+p.w*0.5, y+PLAT_H); ctx.stroke();
+      } else {
+        ctx.fillStyle = '#3a4a5e';
+        ctx.fillRect(p.x, y, p.w, PLAT_H);
+      }
     }
 
     // 道具（玩家之前绘制：辉光圆 + emoji）
@@ -252,6 +413,47 @@
       ctx.fillStyle = '#fff'; ctx.font = '16px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(p.sym, px, py);
       ctx.restore();
+    }
+
+    // Boss（生存型：多边形怪物 + 顶部血条）+ 砸落石块（只改绘制层）
+    for(const rk of bossRocks){
+      const ry = sy(rk.y);
+      if(ry < -20 || ry > H + 20) continue;
+      ctx.fillStyle = '#caa15a';
+      ctx.beginPath(); ctx.arc(rk.x, ry, rk.r, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    if(boss){
+      const bc = boss.phase===2 ? '#f6465d' : '#9b6bff';
+      const bx = boss.x - boss.w/2, by = boss.y;
+      ctx.save();
+      ctx.shadowColor = bc; ctx.shadowBlur = 14; ctx.fillStyle = bc;
+      // 锯齿多边形怪物本体
+      const teeth = 6;
+      ctx.beginPath();
+      ctx.moveTo(bx, by + boss.h*0.5);
+      for(let k=0;k<=teeth;k++){
+        const tx = bx + boss.w*(k/teeth);
+        const ty = (k%2===0) ? by : by + boss.h;
+        ctx.lineTo(tx, ty);
+      }
+      ctx.lineTo(bx + boss.w, by + boss.h*0.5);
+      ctx.closePath(); ctx.fill();
+      // 眼睛
+      ctx.shadowBlur = 0; ctx.fillStyle = '#0a0e14';
+      ctx.beginPath(); ctx.arc(boss.x - boss.w*0.12, by + boss.h*0.42, 5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(boss.x + boss.w*0.12, by + boss.h*0.42, 5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = boss.phase===2 ? '#ffcf5a' : '#c3a6ff';
+      ctx.beginPath(); ctx.arc(boss.x - boss.w*0.12, by + boss.h*0.42, 2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(boss.x + boss.w*0.12, by + boss.h*0.42, 2, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      // 顶部血条
+      const barW = W - 40, barX = 20, barY = 6, frac = Math.max(0, boss.hp/boss.maxHp);
+      ctx.fillStyle = '#2a2f3a'; ctx.fillRect(barX, barY, barW, 5);
+      ctx.fillStyle = boss.phase===2 ? '#f6465d' : '#f0b90b'; ctx.fillRect(barX, barY, barW*frac, 5);
+      ctx.fillStyle = '#fff'; ctx.font = '10px JetBrains Mono, monospace'; ctx.textAlign = 'center';
+      ctx.fillText('BOSS' + (boss.phase===2 ? ' · 狂暴' : ''), W/2, barY + 16);
+      ctx.textAlign = 'left';
     }
 
     // 玩家
@@ -282,6 +484,18 @@
       });
     }
   }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    const bar = $('diffbar'); if(!bar) return;
+    bar.innerHTML = '';
+    DIFF_ORDER.forEach(function(k){
+      const b = document.createElement('button');
+      b.textContent = DIFFICULTY[k].label;
+      if(k === difficulty) b.className = 'active';
+      b.addEventListener('click', function(){ setDifficulty(k); reset(); buildDiffBar(); });
+      bar.appendChild(b);
+    });
+  }
   function loop(){
     step(0.016); render(); uiTick();
     if(typeof document!=='undefined') requestAnimationFrame(loop);
@@ -289,19 +503,34 @@
   function uiTick(){ /* HUD 已在 render 内更新，占位保持结构一致 */ }
 
   reset();
-  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render(); loop(); }
+  if(typeof document!=='undefined'){ bindUI(); buildDiffBar(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render(); loop(); }
   if(typeof window!=='undefined'){
     window.__t = {
-      W, H, R, START_Y, PLAT_W, JUMP_V, SPRING_V, ROCKET_V, ROCKET_DUR, STAR_VALUE,
+      W, H, R, START_Y, PLAT_W, JUMP_V, SPRING_V, ROCKET_V, ROCKET_DUR, STAR_VALUE, GRAVITY,
       PICKUP_TYPES, PICKUP_PROB,
       setRand, reseed, newGame, reset, step, move, isGameOver, getScore, getState,
       setPlayerX, setPlayerY, setVY, triggerFall,
+      getPlatforms:()=>platforms.map(p=>({x:p.x,y:p.y,w:p.w,type:p.type,broken:!!p.broken})),
+      setPlatforms:(arr)=>{ platforms = (arr||[]).map(p=>({x:p.x,y:p.y,w:p.w,type:p.type||'normal',broken:false})); },
+      // ---- 难度系统钩子（倍率法）----
+      DIFFICULTY, DIFF_ORDER, setDifficulty, getDifficulty, diffCfg,
+      getGravity: curGravity, getBreakProb: breakProb, getSpikeProb: spikeProb,
       // ---- 拾取增益道具系统钩子 ----
       spawnPickup:(type,x,y)=>{ pickups.push(makePickup(type, x, y)); },
       getPickups:()=>pickups.length,
       getShield:()=>player.shield, setShield:(v)=>{ player.shield=v; },
       getRocket:()=>player.rocketTimer, setRocket:(v)=>{ player.rocketTimer=v; },
       applyPickup, stepPickups,
+      // ---- 生存型 Boss 系统钩子 ----
+      BOSS_EVERY, SCORE_PER_MILESTONE, isBossWave, spawnBoss, updateBoss,
+      getBoss:()=> boss ? { x:boss.x, y:boss.y, w:boss.w, h:boss.h, hp:boss.hp, maxHp:boss.maxHp, phase:boss.phase, dir:boss.dir, climbRef:boss.climbRef } : null,
+      setBossHp:(v)=>{ if(boss) boss.hp = v; },
+      setBossPhase:(v)=>{ if(boss) boss.phase = v; },
+      setWave:(v)=>{ wave = v; },
+      getWave:()=>wave,
+      getBossWaveMark:()=>bossWaveMark,
+      getRocks:()=>bossRocks.length,
+      takeBossHit,
     };
   }
 })();

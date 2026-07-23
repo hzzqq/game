@@ -343,18 +343,30 @@
     if(nowMs() < boostUntil){ drawBuff('⚡', '#f6465d', by); by += 20; }
     if(nowMs() < shieldUntil){ drawBuff('🛡', '#02c076', by); by += 20; }
 
-    // snake body (green) + head (red)
+    // snake body (green) + head (red)：渐变 + 对比描边 + 顶部高光
     for(var j=snake.length-1;j>=0;j--){
       var s = snake[j];
-      if(j===0){
-        ctx.fillStyle = '#f6465d';
-        ctx.shadowColor = 'rgba(246,70,93,0.5)';
-        ctx.shadowBlur = 10;
-      } else {
-        ctx.fillStyle = '#02c076';
-        ctx.shadowBlur = 0;
-      }
-      roundRect(s.x*CELL+2, s.y*CELL+2, CELL-4, CELL-4, 4);
+      var isHead = (j===0);
+      var base = isHead ? '#f6465d' : '#02c076';
+      var lite = isHead ? '#ff7b72' : '#3fdf9a';
+      var x0 = s.x*CELL+2, y0 = s.y*CELL+2, w = CELL-4, h = CELL-4;
+      ctx.shadowBlur = 0;
+      if(isHead){ ctx.shadowColor = 'rgba(246,70,93,0.5)'; ctx.shadowBlur = 10; }
+      var grad = ctx.createLinearGradient(x0, y0, x0, y0+h);
+      grad.addColorStop(0, lite);
+      grad.addColorStop(1, base);
+      ctx.fillStyle = grad;
+      roundRect(x0, y0, w, h, 4);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      // 对比描边
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      roundRect(x0, y0, w, h, 4);
+      ctx.stroke();
+      // 顶部高光
+      ctx.fillStyle = 'rgba(255,255,255,0.30)';
+      roundRect(x0+2, y0+2, w-4, 3, 2);
       ctx.fill();
     }
     ctx.shadowBlur = 0;
@@ -475,7 +487,7 @@
   window.__t = {
     GRID,
     DIFFICULTY, setDifficulty, getDifficulty, getStepMs(){ return stepMs; },
-    reset, step, spawnFood, spawnPowerup, applyPower, occupied, setDir, nowMs, makePickup,
+    reset, step, spawnFood, spawnPowerup, applyPower, occupied, setDir, nowMs, makePickup, draw,
     // —— 标准掉落钩子（别名 / 扩展）——
     spawnPickup(type, x, y) { powerups.push(makePickup(type, x, y)); },
     applyPickup(type, x, y) { return applyPower(type, x, y); },

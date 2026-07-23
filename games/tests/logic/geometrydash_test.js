@@ -64,6 +64,48 @@ t.setShield(0);
 t.stepPickups(1);
 ok('geometrydash: 拾取护盾生效', t.getShield() === 1, 'shield=' + t.getShield());
 
+// ===== 难度系统（D5：倍率法，normal=1.0 不动现有行为）=====
+
+// --- 钩子存在 ---
+ok('geometrydash: 暴露 DIFFICULTY', typeof t.DIFFICULTY === 'object' && !!t.DIFFICULTY.hell);
+ok('geometrydash: 暴露 setDifficulty', typeof t.setDifficulty === 'function');
+ok('geometrydash: 暴露 getDifficulty', typeof t.getDifficulty === 'function');
+ok('geometrydash: 暴露 diffCfg', typeof t.diffCfg === 'function');
+
+// --- 地狱档前进速度 > 简单档（speedMult）---
+t.setDifficulty('easy');     // setDifficulty 内部重开一局（state=play）
+t.update(1);
+const spdEasy = t.getState().speed;
+t.setDifficulty('hell');
+t.update(1);
+const spdHell = t.getState().speed;
+ok('geometrydash: 地狱前进速度>简单', spdHell > spdEasy, 'hell=' + spdHell.toFixed(3) + ' easy=' + spdEasy.toFixed(3));
+
+// --- 地狱障碍更密（countMult -> spawnGap 更小）---
+t.setDifficulty('easy');
+t.update(1);
+const gapEasy = t.getSpawnGap();
+t.setDifficulty('hell');
+t.update(1);
+const gapHell = t.getSpawnGap();
+ok('geometrydash: 地狱障碍间隔<简单(更密)', gapHell < gapEasy, 'hell=' + gapHell.toFixed(2) + ' easy=' + gapEasy.toFixed(2));
+
+// --- setDifficulty 生效：返回新难度 + 重开使距离归零 ---
+t.setDifficulty('hell');
+ok('geometrydash: setDifficulty 生效(返回地狱)', t.getDifficulty() === 'hell', 'd=' + t.getDifficulty());
+ok('geometrydash: setDifficulty 重开(距离归零)', t.getDistance() === 0, 'dist=' + t.getDistance());
+
+// --- 非法难度被忽略，保持当前难度 ---
+t.setDifficulty('easy');
+t.setDifficulty('???');
+ok('geometrydash: 非法难度被忽略', t.getDifficulty() === 'easy', 'd=' + t.getDifficulty());
+
+// --- normal=1.0 保持原速度基线（baseSpeed=4.5）---
+t.setDifficulty('normal');
+t.update(1);
+const spdNorm = t.getState().speed;
+ok('geometrydash: normal 速度≈基线4.5', Math.abs(spdNorm - 4.5) < 0.05, 'spd=' + spdNorm.toFixed(3));
+
 // ===== 结果汇总 =====
 const passed = require('./harness').results.filter(r => r.pass).length;
 const total = require('./harness').results.length;

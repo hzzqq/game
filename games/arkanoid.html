@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>TERMINAL // BREAKOUT</title>
+<title>TERMINAL // ARKANOID</title>
 <style>
   :root{
     --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
@@ -19,7 +19,6 @@
     display:flex; align-items:center; justify-content:center;
     min-height:100vh; padding:24px;
   }
-  /* 窗口外壳 */
   .window{
     position:relative;
     width:820px; max-width:100%;
@@ -29,7 +28,6 @@
     box-shadow:0 20px 60px rgba(0,0,0,.55);
     overflow:hidden;
   }
-  /* 扫描线 / 网格叠层 */
   .window::before{
     content:""; position:absolute; inset:0; pointer-events:none; z-index:5;
     background:
@@ -37,7 +35,6 @@
       linear-gradient(0deg, rgba(31,42,56,.05), rgba(31,42,56,.05));
     mix-blend-mode:screen;
   }
-  /* 标题栏 */
   .titlebar{
     display:flex; align-items:center; gap:10px;
     height:40px; padding:0 14px;
@@ -66,7 +63,6 @@
     box-shadow:0 0 12px rgba(246,70,93,.35);
   }
   .btn-main:hover:not(:disabled){ filter:brightness(1.1); }
-  /* 画布区 */
   .stage{ position:relative; z-index:6; padding:14px; background:var(--bg); }
   canvas{
     display:block; margin:0 auto;
@@ -90,7 +86,7 @@
       <div class="dots">
         <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
       </div>
-      <div class="title">TERMINAL <span class="accent">//</span> BREAKOUT</div>
+      <div class="title">TERMINAL <span class="accent">//</span> ARKANOID</div>
       <div class="bar-btns">
         <button id="pauseBtn" disabled>暂停</button>
         <button id="startBtn" class="btn-main">开始游戏</button>
@@ -98,7 +94,7 @@
     </div>
     <div class="stage">
       <canvas id="game" width="780" height="540"></canvas>
-      <div class="hint">鼠标 / ←→ / 触屏拖动 移动挡板 · 接住掉落道具（宽/多/慢/♥/炸）· 打碎所有砖块过关</div>
+      <div class="hint">鼠标 / ←→ / 触屏拖动 移动挡板 · 接住掉落道具（🔴多球 / 🟦加长挡板 / 🐢慢速球）· 打碎所有砖块过关</div>
       <div class="diffbar" id="diffbar"></div>
     </div>
   </div>
@@ -125,14 +121,12 @@
   let score=0, level=1, lives=3;
   let high = loadHigh();
   let state='menu'; // menu | ready | playing | paused | levelcomplete | gameover
-  let now = performance.now();
+  let now = (typeof performance!=='undefined') ? performance.now() : Date.now();
   let levelClearTime=0;
-  let shakeTime=0, slowUntil=0, wideUntil=0;
+  let shakeTime=0;
   const baseSpeed = 4.2;
 
   // ---------- 难度系统（简单/普通/困难/地狱）----------
-  // spdMult=球速倍率；rowBonus=额外砖块行数（越多越难）；capBonus=球速上限加成
-  // normal=1.0/0 保持原有平衡（避免破坏既有单测）
   const DIFFICULTY = {
     easy:   { label:'简单', spdMult:0.82, rowBonus:0, capBonus:0 },
     normal: { label:'普通', spdMult:1.0,  rowBonus:0, capBonus:0 },
@@ -150,7 +144,6 @@
 
   let balls=[];
   let bricks=[];
-  let powerups=[];
   let particles=[];
 
   let keyLeft=false, keyRight=false;
@@ -161,11 +154,11 @@
   // ---- 工具 ----
   function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
   function loadHigh(){
-    try{ return parseInt(localStorage.getItem('breakout_high')||'0',10)||0; }
+    try{ return parseInt(localStorage.getItem('arkanoid_high')||'0',10)||0; }
     catch(e){ return 0; }
   }
   function saveHigh(){
-    try{ localStorage.setItem('breakout_high', String(high)); }catch(e){}
+    try{ localStorage.setItem('arkanoid_high', String(high)); }catch(e){}
   }
   function setState(s){ state=s; updateUI(); }
   function updateUI(){
@@ -213,9 +206,10 @@
 
   function startGame(){
     score=0; lives=3; level=1;
-    powerups=[]; particles=[];
-    pickups=[]; boostTimer=0; shield=false; spawnTimer=12; plives=3; pdead=false;
-    paddle.w=paddle.baseW; wideUntil=0; slowUntil=0;
+    particles=[];
+    // ===== 道具系统初始化 =====
+    pickups=[]; wideUntil=0; slowUntil=0;
+    paddle.w=paddle.baseW;
     buildLevel(); resetBall();
     setState('ready');
   }
@@ -223,7 +217,7 @@
   function launch(){
     if(state!=='ready' || !balls.length) return;
     const b = balls[0];
-    const angle = (-Math.PI/2) + (Math.random()*0.5 - 0.25);
+    const angle = (-Math.PI/2) + (_rng()*0.5 - 0.25);
     const sp = targetSpeed();
     b.vx = Math.cos(angle)*sp;
     b.vy = Math.sin(angle)*sp;
@@ -231,153 +225,109 @@
     setState('playing');
   }
 
-  // ---- 道具 ----
-  function maybeDrop(x,y){
-    if(Math.random()<0.16){
-      const types=['wide','multi','slow','heart','bomb'];
-      const t = types[(Math.random()*types.length)|0];
-      powerups.push({ x:x-9, y:y-9, w:18, h:18, vy:1.7, type:t });
+  // ============================================================
+  // 道具系统（打砖块贴合玩法）：🔴多球 / 🟦加长挡板 / 🐢慢速球
+  // 纯注入分支，不改动挡板移动 / 球反弹 / 消砖计分等核心玩法逻辑。
+  // 砖块击碎时按概率掉落，挡板接住后生效。
+  // ============================================================
+  function mk(s){ return function(){ s|=0; s=s+0x6D2B79F5|0; var t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  var _rng = mk(0x9ABC);
+  function setRand(fn){ if(typeof fn==='function') _rng = fn; }
+
+  var pickups=[];          // 掉落道具列表
+  var wideUntil=0;         // 加长挡板到期时刻（与 now 比较）
+  var slowUntil=0;         // 慢速球到期时刻（与 now 比较）
+  var FIELD_W=W, FIELD_H=H;
+  var PICKUP_TYPES=['multiball','expand','slow'];
+  var PICKUP_EMOJI={multiball:'🔴',expand:'🟦',slow:'🐢'};
+  var PICKUP_COLOR={multiball:'#f6465d',expand:'#3aa0ff',slow:'#02c076'};
+  var DROP_PROB=0.18;      // 砖块击碎掉落概率
+
+  function makePickup(type, x, y){
+    return { type:type, x:x, y:y, r:14, vy:70, dead:false };
+  }
+  // 砖块击碎回调：按概率掉落一个随机道具（用局部 _rng，禁止裸 Math.random）
+  function maybeDrop(x, y){
+    if(_rng() < DROP_PROB){
+      const t = PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+      pickups.push(makePickup(t, x, y));
     }
   }
-  function applyPower(t){
-    if(t==='wide'){
+  function applyPickup(p){
+    if(!p) return;
+    if(typeof Juice!=='undefined') Juice.sfx('pickup');
+    if(p.type==='multiball'){
+      // 多球：为每个在场的非吸附球镜像出最多 2 颗，总数上限 6
+      const add=[];
+      for(const b of balls){
+        if(b.stuck) continue;
+        add.push({ x:b.x, y:b.y, r:b.r, vx:-b.vx, vy:b.vy, stuck:false });
+        add.push({ x:b.x, y:b.y, r:b.r, vx:b.vx, vy:-b.vy, stuck:false });
+      }
+      for(const e of add){ if(balls.length<6) balls.push(e); }
+      if(typeof Juice!=='undefined') Juice.popup(p.x, p.y, '🔴', '#f6465d', {size:16});
+    } else if(p.type==='expand'){
+      // 加长挡板：宽度 1.5 倍，记录到期时刻
       const cx = paddle.x + paddle.w/2;
       paddle.w = paddle.baseW*1.5;
       paddle.x = clamp(cx - paddle.w/2, 0, W-paddle.w);
       wideUntil = now + 12000;
-    } else if(t==='slow'){
+      if(typeof Juice!=='undefined') Juice.popup(p.x, p.y, '🟦', '#3aa0ff', {size:16});
+    } else if(p.type==='slow'){
+      // 慢速球：球速倍率 0.6，记录到期时刻
       slowUntil = now + 8000;
-    } else if(t==='multi'){
-      const extra=[];
-      for(const b of balls){
-        if(b.stuck) continue;
-        extra.push({ x:b.x, y:b.y, r:b.r, vx:-b.vx, vy:b.vy, stuck:false });
-      }
-      for(const e of extra){ if(balls.length<6) balls.push(e); }
-    } else if(t==='heart'){
-      lives = Math.min(5, lives+1);
-      if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076',0.2); Juice.popup(W/2, paddle.y-30, '+♥', C.green, {size:18}); }
-    } else if(t==='bomb'){
-      // 清屏：清除最底部 2 行砖块
-      const rowsSet = new Set();
-      for(const br of bricks){ if(br.alive) rowsSet.add(Math.round(br.y)); }
-      const rowsArr = [...rowsSet].sort((a,b)=>b-a).slice(0,2);
-      let cleared = 0;
-      for(const br of bricks){
-        if(br.alive && rowsArr.includes(Math.round(br.y))){
-          br.alive = false; score += br.points; cleared++;
-          spawnParticles(br.x+br.w/2, br.y+br.h/2);
-        }
-      }
-      if(cleared){ if(score>high){ high=score; saveHigh(); } }
-      if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.3); Juice.flash('#f6465d',0.25); Juice.achievement('💥 炸弹清屏！'); }
+      if(typeof Juice!=='undefined') Juice.popup(p.x, p.y, '🐢', '#02c076', {size:16});
     }
   }
-
-  // ============================================================
-  // 注入：能量胶囊掉落 / 增益系统（纯注入，不改动核心玩法逻辑）
-  // 真实游玩随 spawnTimer 周期掉落；测试经 window.__t 钩子驱动。
-  // ============================================================
-  function mk(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-  var _rng = mk(0x9ABC);
-  var pickups=[];      // 掉落胶囊列表
-  var boostTimer=0;    // 加速剩余秒数
-  var shield=false;    // 护盾（布尔）
-  var plives=3;        // 注入层生命（takeHit 演示用）
-  var pdead=false;     // 注入层死亡标记
-  var spawnTimer=12;   // 距离下次自动掉落秒数
-  var FIELD_W=W, FIELD_H=H;
-  var PICKUP_TYPES=['boost','shield','bomb'];
-  var PICKUP_EMOJI={boost:'🚀',shield:'🛡',bomb:'💣'};
-  var PICKUP_COLOR={boost:'#02c076',shield:'#3aa0ff',bomb:'#f6465d'};
-
-  function makePickup(type,x,y){
-    var p={type:type,x:x,y:y,vy:70,r:14,dead:false};
-    pickups.push(p); return p;
-  }
-  function spawnPickupAtRandom(){
-    var t=PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
-    var x=_rng()*(FIELD_W-40)+20;
-    return makePickup(t,x,-20);
-  }
-  function applyPickup(p){
-    if(typeof Juice!=='undefined') Juice.sfx('pickup');
-    if(p.type==='boost'){
-      boostTimer=6;
-      if(typeof Juice!=='undefined') Juice.popup(p.x,p.y,'🚀','#02c076',{size:16});
-    } else if(p.type==='shield'){
-      shield=true;
-      if(typeof Juice!=='undefined') Juice.popup(p.x,p.y,'🛡','#3aa0ff',{size:16});
-    } else if(p.type==='bomb'){
-      // 炸行：清除最底部仍有砖的一行
-      var maxRow=-1, k;
-      for(k=0;k<bricks.length;k++){ if(bricks[k].alive){ var r=Math.round(bricks[k].y); if(r>maxRow) maxRow=r; } }
-      if(maxRow>=0){
-        for(k=0;k<bricks.length;k++){ if(bricks[k].alive && Math.round(bricks[k].y)===maxRow){ bricks[k].alive=false; score+=bricks[k].points; } }
-        if(score>high){ high=score; saveHigh(); }
-      }
-      if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.3); Juice.flash('#f6465d',0.25); }
-    }
-  }
-  function playerPositions(){
-    return [{x:paddle.x+paddle.w/2, y:paddle.y}];
-  }
+  // 挡板接住判定：普通 AABB-类重叠（带 p.r 容差）
   function updatePickups(dt){
-    var pr=28;
-    for(var i=0;i<pickups.length;i++){
-      var p=pickups[i]; if(p.dead) continue;
+    for(let i=0;i<pickups.length;i++){
+      const p = pickups[i];
+      if(p.dead) continue;
       p.y += p.vy*dt;
-      var ps=playerPositions(), j, hit=false;
-      for(j=0;j<ps.length;j++){
-        var dx=p.x-ps[j].x, dy=p.y-ps[j].y;
-        if(dx*dx+dy*dy < (p.r+pr)*(p.r+pr)){ hit=true; applyPickup(p); break; }
-      }
-      if(hit || p.y>FIELD_H+30) p.dead=true;
+      const hit = (p.y + p.r >= paddle.y && p.y - p.r <= paddle.y + paddle.h &&
+                   p.x >= paddle.x - p.r && p.x <= paddle.x + paddle.w + p.r);
+      if(hit){ applyPickup(p); p.dead=true; }
+      else if(p.y > FIELD_H + 30){ p.dead=true; }
     }
-    pickups = pickups.filter(function(p){return !p.dead;});
+    pickups = pickups.filter(function(p){ return !p.dead; });
   }
-  function drawPickup(ctx){
-    for(var i=0;i<pickups.length;i++){
-      var p=pickups[i];
-      ctx.save();
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-      ctx.fillStyle=PICKUP_COLOR[p.type]||'#02c076';
-      ctx.shadowColor=PICKUP_COLOR[p.type]||'#02c076'; ctx.shadowBlur=14;
-      ctx.fill(); ctx.shadowBlur=0;
-      ctx.fillStyle='#0a0e14'; ctx.font='bold 13px '+FONT;
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(PICKUP_EMOJI[p.type]||'?', p.x, p.y+1);
-      ctx.restore();
+  function drawPickup(g){
+    for(let i=0;i<pickups.length;i++){
+      const p = pickups[i];
+      g.save();
+      g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      g.fillStyle = PICKUP_COLOR[p.type] || '#02c076';
+      g.shadowColor = PICKUP_COLOR[p.type] || '#02c076'; g.shadowBlur = 14;
+      g.fill(); g.shadowBlur = 0;
+      g.fillStyle = '#0a0e14'; g.font = 'bold 14px ' + FONT;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(PICKUP_EMOJI[p.type] || '★', p.x, p.y+1);
+      g.restore();
     }
-    ctx.save(); ctx.font='14px '+FONT; ctx.textAlign='left'; ctx.textBaseline='middle';
-    var bx=14, by=HUD_H+18;
-    if(shield){ ctx.fillStyle='#3aa0ff'; ctx.fillText('🛡 护盾', bx, by); bx+=78; }
-    if(boostTimer>0){ ctx.fillStyle='#02c076'; ctx.fillText('🚀'+boostTimer.toFixed(1)+'s', bx, by); }
-    ctx.restore();
-  }
-  function takeHit(i){
-    i=i||1;
-    if(shield){ shield=false; if(typeof Juice!=='undefined'){ Juice.flash('#3aa0ff',0.2); Juice.popup(FIELD_W/2, FIELD_H/2, '🛡 抵消', '#3aa0ff',{size:16}); } return; }
-    plives=Math.max(0, plives-i);
-    if(typeof Juice!=='undefined'){ Juice.addTrauma(0.3); Juice.flash('#f6465d',0.25); }
-    if(plives<=0) pdead=true;
+    // HUD 增益指示
+    g.save(); g.font = '14px ' + FONT; g.textAlign = 'left'; g.textBaseline = 'middle';
+    let bx = 14, by = HUD_H + 18;
+    if(now < wideUntil){ g.fillStyle = '#3aa0ff'; g.fillText('🟦 加长 ' + ((wideUntil-now)/1000).toFixed(1) + 's', bx, by); bx += 110; }
+    if(now < slowUntil){ g.fillStyle = '#02c076'; g.fillText('🐢 慢速 ' + ((slowUntil-now)/1000).toFixed(1) + 's', bx, by); }
+    g.restore();
   }
 
-  // ---- 粒子 ----
+  // ---- 粒子（视觉，仅 render 用）----
   function spawnParticles(x,y){
     for(let i=0;i<14;i++){
-      const a=Math.random()*Math.PI*2;
-      const sp=1+Math.random()*3.5;
+      const a = _rng()*Math.PI*2;
+      const sp = 1 + _rng()*3.5;
       particles.push({
         x, y,
         vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-1,
         life:1,
-        color: Math.random()<0.5 ? C.red : C.gold
+        color: _rng()<0.5 ? C.red : C.gold
       });
     }
   }
 
-  // ---- 更新 ----
+  // ---- 更新：核心玩法（挡板/球反弹/消砖）不变 ----
   function updateBalls(){
     const tgt = targetSpeed();
     for(let i=balls.length-1;i>=0;i--){
@@ -411,6 +361,7 @@
           if(score>high){ high=score; saveHigh(); }
           spawnParticles(cx, cy);
           if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.burst(cx,cy,{color:br.color,n:6,speed:140}); Juice.ring(cx,cy,{color:br.color,r1:40}); Juice.popup(cx, cy-8, '+'+br.points, br.color, {size:13}); }
+          // 仅在此处（砖块击碎）按概率掉落道具——完全独立于核心反弹逻辑
           if(cx===br.x || cx===br.x+br.w) b.vx=-b.vx; else b.vy=-b.vy;
           maybeDrop(br.x+br.w/2, br.y+br.h/2);
           break;
@@ -425,25 +376,11 @@
       if(lives<=0){
         setState('gameover');
         if(typeof Juice!=='undefined'){
-          const b=Juice.best('breakout',score); const rk=Juice.rank(score);
-          if(b.isNew) Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk);
+          const bk=Juice.best('arkanoid',score); const rk=Juice.rank(score);
+          if(bk.isNew) Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk);
         }
       }
       else { resetBall(); setState('ready'); }
-    }
-  }
-
-  function updatePowerups(){
-    for(let i=powerups.length-1;i>=0;i--){
-      const p = powerups[i];
-      p.y += p.vy;
-      if(p.y+p.h>=paddle.y && p.y<=paddle.y+paddle.h &&
-         p.x+p.w>=paddle.x && p.x<=paddle.x+paddle.w){
-        applyPower(p.type); powerups.splice(i,1);
-        if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.popup(p.x+p.w/2, p.y-8, '道具', C.green, {size:13}); }
-        continue;
-      }
-      if(p.y>H){ powerups.splice(i,1); }
     }
   }
 
@@ -479,7 +416,6 @@
 
     if(state==='playing'){
       updateBalls();
-      updatePowerups();
       updateParticles();
       if(state==='playing' && bricks.every(b=>!b.alive)){
         setState('levelcomplete');
@@ -489,14 +425,12 @@
     } else if(state==='levelcomplete'){
       updateParticles();
       if(now > levelClearTime){
-        level++; buildLevel(); resetBall(); powerups=[]; setState('ready');
+        level++; buildLevel(); resetBall(); setState('ready');
       }
     } else {
       updateParticles();
     }
-    // ===== 注入：能量胶囊掉落系统 =====
-    spawnTimer -= dt;
-    if(spawnTimer<=0){ spawnTimer = 6 + _rng()*4; spawnPickupAtRandom(); }
+    // ===== 道具系统：仅推进掉落物与接住判定，不触碰核心玩法 =====
     updatePickups(dt);
   }
 
@@ -522,18 +456,14 @@
     ctx.strokeStyle=C.border; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(0,HUD_H); ctx.lineTo(W,HUD_H); ctx.stroke();
     ctx.textBaseline='middle'; ctx.font='14px '+FONT;
-    // 分数
     ctx.textAlign='left';
     ctx.fillStyle=C.sub; ctx.fillText('分数', 14, HUD_H/2);
     const sw = ctx.measureText('分数').width;
     ctx.fillStyle=C.gold; ctx.fillText(String(score), 14+sw+8, HUD_H/2);
-    // 关卡
     ctx.textAlign='center';
     ctx.fillStyle=C.sub; ctx.fillText('关卡 LV '+level, W/2, HUD_H/2);
-    // 最高分
     ctx.textAlign='right';
     ctx.fillStyle=C.sub; ctx.fillText('最高 '+high, W-92, HUD_H/2);
-    // 命数
     ctx.font='16px '+FONT;
     let hx = W-14;
     for(let i=0;i<3;i++){
@@ -546,18 +476,11 @@
   function drawBricks(){
     for(const br of bricks){
       if(!br.alive) continue;
-      // 渐变填充（顶部更亮，营造体积高光）
-      var grad = ctx.createLinearGradient(br.x, br.y, br.x, br.y+br.h);
-      grad.addColorStop(0, 'rgba(255,255,255,0.22)');
-      grad.addColorStop(0.5, br.color);
-      grad.addColorStop(1, br.color);
-      ctx.fillStyle = grad;
+      ctx.fillStyle = br.color;
       roundRect(br.x, br.y, br.w, br.h, 4); ctx.fill();
-      // 顶部高光
       ctx.fillStyle='rgba(255,255,255,0.18)';
       roundRect(br.x+2, br.y+2, br.w-4, 4, 2); ctx.fill();
-      // 对比描边
-      ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=1.5;
+      ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1;
       roundRect(br.x, br.y, br.w, br.h, 4); ctx.stroke();
     }
   }
@@ -565,51 +488,19 @@
   function drawPaddle(){
     ctx.save();
     ctx.shadowColor='rgba(246,70,93,0.6)'; ctx.shadowBlur=14;
-    // 渐变填充（上亮下深）
-    var grad = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x, paddle.y+paddle.h);
-    grad.addColorStop(0, '#ff7b72');
-    grad.addColorStop(1, C.red);
-    ctx.fillStyle = grad;
+    ctx.fillStyle=C.red;
     roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 5); ctx.fill();
     ctx.restore();
-    // 顶部高光 + 对比描边
-    ctx.fillStyle='rgba(255,255,255,0.30)';
-    roundRect(paddle.x+3, paddle.y+2, paddle.w-6, 3, 2); ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=1.5;
-    roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 5); ctx.stroke();
   }
 
   function drawBalls(){
     ctx.save();
     ctx.shadowColor='rgba(246,70,93,0.7)'; ctx.shadowBlur=10;
+    ctx.fillStyle=C.text;
     for(const b of balls){
-      // 径向渐变（左上高光 → 主色）
-      var grad = ctx.createRadialGradient(b.x - b.r*0.3, b.y - b.r*0.3, b.r*0.1, b.x, b.y, b.r);
-      grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(1, C.text);
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill();
-      // 对比描边
-      ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill();
     }
     ctx.restore();
-  }
-
-  function drawPowerups(){
-    const style = { wide:C.green, multi:C.red, slow:C.gold, heart:'#ff5f56', bomb:C.gold };
-    const label = { wide:'宽', multi:'多', slow:'慢', heart:'♥', bomb:'炸' };
-    for(const p of powerups){
-      ctx.save();
-      ctx.fillStyle = style[p.type];
-      ctx.shadowColor = style[p.type]; ctx.shadowBlur=10;
-      roundRect(p.x, p.y, p.w, p.h, 4); ctx.fill();
-      ctx.shadowBlur=0;
-      ctx.fillStyle='#0a0e14'; ctx.font='bold 12px '+FONT;
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(label[p.type], p.x+p.w/2, p.y+p.h/2+1);
-      ctx.restore();
-    }
   }
 
   function drawParticles(){
@@ -631,7 +522,7 @@
     function sub(txt,color){ ctx.font='15px '+FONT; ctx.fillStyle=color||C.text; ctx.fillText(txt,cx,cy+14); }
     function sub2(txt,color){ ctx.font='13px '+FONT; ctx.fillStyle=color||C.sub; ctx.fillText(txt,cx,cy+40); }
     if(state==='menu'){
-      big('TERMINAL // BREAKOUT', C.red);
+      big('TERMINAL // ARKANOID', C.red);
       sub('金融终端 · 打砖块');
       sub2('按 [开始游戏] 或 空格 开始');
     } else if(state==='ready'){
@@ -658,24 +549,23 @@
     let sx=0, sy=0;
     if(shakeTime>0){
       const m = (shakeTime/350)*8;
-      sx=(Math.random()*2-1)*m; sy=(Math.random()*2-1)*m;
+      sx=(_rng()*2-1)*m; sy=(_rng()*2-1)*m;
     }
     ctx.save(); ctx.translate(sx,sy);
     drawGrid();
     drawHUD();
     drawBricks();
+    drawPickup(ctx);   // 玩家（挡板）前绘制掉落物
     drawPaddle();
     drawBalls();
-    drawPowerups();
     drawParticles();
-    drawPickup(ctx);
     ctx.restore();
     drawOverlay();
     if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
   // ---- 主循环（固定步长）----
-  let last = performance.now(), acc=0;
+  let last = (typeof performance!=='undefined') ? performance.now() : Date.now(), acc=0;
   function frame(t){
     now = t;
     let f = t - last; last = t;
@@ -699,7 +589,6 @@
     const x = (e.clientX-rect.left) * (W/rect.width);
     paddle.x = clamp(x - paddle.w/2, 0, W-paddle.w);
   });
-  // 触屏拖动挡板（与鼠标逻辑一致的坐标缩放映射）
   function touchToCanvas(clientX){
     const rect = canvas.getBoundingClientRect();
     const x = (clientX-rect.left) * (W/rect.width);
@@ -710,10 +599,9 @@
   }, { passive:true });
   canvas.addEventListener('touchmove', function(e){
     if(e.touches && e.touches.length){ touchToCanvas(e.touches[0].clientX); }
-    e.preventDefault(); // 阻止触屏滚动/缩放干扰
+    e.preventDefault();
   }, { passive:false });
   canvas.addEventListener('click', primaryAction);
-  // ---- 输入（共享输入层 input.js：失焦清键 + 快速点按缓冲，修复断触）----
   if (typeof Input !== 'undefined') {
     Input.init({ keymap: { 'KeyP':'pause' } });
   }
@@ -754,14 +642,14 @@
 
   // ---- 测试钩子 ----
   window.__t = {
-    buildLevel: buildLevel, applyPower: applyPower, makeBall: makeBall, render,
-    resetBall: resetBall, startGame: startGame, maybeDrop: maybeDrop, launch: launch,
-    clamp: clamp,
-    DIFFICULTY: DIFFICULTY, setDifficulty: setDifficulty, getDifficulty: getDifficulty,
+    buildLevel: buildLevel, makeBall: makeBall,
+    resetBall: resetBall, startGame: startGame, launch: launch,
+    maybeDrop: maybeDrop, clamp: clamp, setRand: setRand,
+    DIFFICULTY: DIFFICULTY, DIFF_ORDER: DIFF_ORDER,
+    setDifficulty: setDifficulty, getDifficulty: getDifficulty, diffCfg: diffCfg,
     targetSpeed: targetSpeed,
     getBricks: function(){ return bricks.map(function(b){ return {x:b.x,y:b.y,w:b.w,h:b.h,color:b.color,points:b.points,alive:b.alive}; }); },
     getBalls: function(){ return balls.map(function(b){ return {x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r,stuck:b.stuck}; }); },
-    getPowerups: function(){ return powerups.map(function(p){ return {x:p.x,y:p.y,w:p.w,h:p.h,vy:p.vy,type:p.type}; }); },
     getPaddle: function(){ return {baseW:paddle.baseW,w:paddle.w,h:paddle.h,x:paddle.x,y:paddle.y}; },
     getScore: function(){ return score; }, getLives: function(){ return lives; },
     getLevel: function(){ return level; }, getState: function(){ return state; },
@@ -769,17 +657,13 @@
     setLives: function(v){ lives=v; }, setScore: function(v){ score=v; },
     setBalls: function(arr){ balls = arr.map(function(b){ return {x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r||7,stuck:!!b.stuck}; }); },
     getWideUntil: function(){ return wideUntil; }, getSlowUntil: function(){ return slowUntil; },
-    // ===== 注入：能量胶囊钩子 =====
-    reset: startGame, update: update,
-    spawnPickup: makePickup,
+    // ===== 道具系统钩子 =====
+    reset: startGame,
+    spawnPickup: function(type, x, y){ var p = makePickup(type, x, y); pickups.push(p); return p; },
     stepPickups: updatePickups,
-    applyPickup: function(p){ if(typeof p==='string') p=makePickup(p, FIELD_W/2, FIELD_H/2); applyPickup(p); return p; },
-    getPickups: function(){ return pickups.map(function(p){ return {type:p.type,x:p.x,y:p.y,dead:p.dead}; }); },
-    getShield: function(){ return shield; }, setShield: function(v){ shield=!!v; },
-    getBoost: function(){ return boostTimer; }, setBoost: function(v){ boostTimer=v; },
-    takeHit: takeHit,
-    getPLives: function(){ return plives; }, setPLives: function(v){ plives=v; }, getDead: function(){ return pdead; },
-    getSpawnTimer: function(){ return spawnTimer; }
+    applyPickup: function(p){ if(typeof p==='string') p = makePickup(p, paddle.x+paddle.w/2, paddle.y); applyPickup(p); return p; },
+    getPickups: function(){ return pickups.map(function(p){ return {type:p.type, x:p.x, y:p.y, r:p.r, dead:p.dead}; }); },
+    getPickupTypes: function(){ return PICKUP_TYPES.slice(); }
   };
 })();
 </script>

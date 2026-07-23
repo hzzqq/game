@@ -141,6 +141,15 @@ const hellSpd = t.targetSpeed();
 ok('地狱档球速 > 简单档', hellSpd > easySpd);
 t.setDifficulty('normal');
 
+// 19. 建模精细化（仅绘制层：描边/高光/渐变）不破坏任何逻辑状态
+t.startGame();
+const bScore = t.getScore(), bLives = t.getLives(), bState = t.getState(), bBricks = t.getBricks().length;
+t.render(); // 仅绘制，不应改动任何逻辑状态
+eq('建模 渲染后 score 不变', t.getScore(), bScore);
+eq('建模 渲染后 lives 不变', t.getLives(), bLives);
+eq('建模 渲染后 state 不变', t.getState(), bState);
+eq('建模 渲染后 砖块数不变', t.getBricks().length, bBricks);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

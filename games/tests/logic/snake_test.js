@@ -147,3 +147,16 @@ function head() { return t.getSnake()[0]; }
   H.ok('snake 地狱步进 < 140（比普通快）', hellStep < 140);
   t.setDifficulty('normal'); t.reset();
 })();
+
+// 14) 建模精细化（仅绘制层：描边/高光/渐变）不破坏任何逻辑状态
+(() => {
+  t.reset();
+  t.setSnake([{ x: 5, y: 5 }]);
+  t.setDir(1, 0);
+  t.setFood({ x: 0, y: 0 });
+  const before = { score: t.getScore(), alive: t.getAlive(), snake: JSON.stringify(t.getSnake()) };
+  t.draw(); // 仅绘制，不应改动任何逻辑状态
+  H.ok('建模 渲染后 score 不变', t.getScore() === before.score);
+  H.ok('建模 渲染后 alive 不变', t.getAlive() === before.alive);
+  H.ok('建模 渲染后 snake 不变', JSON.stringify(t.getSnake()) === before.snake);
+})();

@@ -24,6 +24,10 @@
   .controls button:hover{filter:brightness(1.1)}
   .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
   .msg.over{color:var(--red);font-weight:700}
+  .diffbar{display:flex;gap:6px;justify-content:center;margin-top:10px}
+  .diffbar button{flex:0 0 auto;font:600 12px/1 inherit;color:var(--dim);background:transparent;border:1px solid var(--border);border-radius:6px;padding:6px 12px;cursor:pointer;transition:.12s}
+  .diffbar button:hover{color:#fff;border-color:#666}
+  .diffbar button.active{color:#0a0e14;background:var(--gold);border-color:var(--gold)}
   .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
 </style>
 </head>
@@ -38,6 +42,7 @@
       <button data-d="down">↓下</button><button data-d="right">→右</button>
       <button id="new" class="ghost">新局 NEW</button>
     </div>
+    <div class="diffbar" id="diffbar"></div>
     <div class="msg" id="msg">方向键跳跃穿越马路与河流。撞车或被水冲走即结束，分数 = 抵达的最前行。</div>
   </div>
   <div class="foot">Crossy Road（过马路）：操纵角色向前跳跃，躲避横向车流、踩着浮木过河。越靠前行号越高分。</div>
@@ -52,10 +57,33 @@
   let _rng = mk(0x1234c0de);
   function setRand(fn){ if(typeof fn==='function') _rng=fn; }
 
+  // ---- 难度选择系统（简单/普通/困难/地狱，倍率法）----
+  // speedMult 缩放障碍移动速度；countMult 缩放障碍生成密度。normal=1.0 保持基线行为。
+  var DIFFICULTY = {
+    easy:   { label:'简单', speedMult:0.75, countMult:0.7, bossHpMult:0.7 },
+    normal: { label:'普通', speedMult:1.0,  countMult:1.0, bossHpMult:1.0 },
+    hard:   { label:'困难', speedMult:1.25, countMult:1.3, bossHpMult:1.4 },
+    hell:   { label:'地狱', speedMult:1.5,  countMult:1.7, bossHpMult:1.9 }
+  };
+  var DIFF_ORDER = ['easy','normal','hard','hell'];
+  var difficulty = 'normal';
+  function diffCfg(){ return DIFFICULTY[difficulty]; }
+  function setDifficulty(d){ if(!DIFFICULTY[d]) return false; difficulty=d; if(typeof startGame==='function') startGame(); else if(typeof reset==='function') reset(); return true; }
+  function getDifficulty(){ return difficulty; }
+
   const ROWS = 15, COLS = 9;
   const START_ROW = ROWS - 1;
   let rows, player, gameOver, furthest, score, pickups, bonus;
   const COIN_VALUE = 20;
+
+  // ---- Boss 系统（生存型「鹰 Boss」，每 BOSS_EVERY 个里程碑出现）----
+  // wave = 里程碑计数：玩家每推进到更靠前的一行 +1；isBossWave 命中的波次召唤鹰。
+  const BOSS_EVERY = 3;
+  function isBossWave(w){ return w > 0 && (w % BOSS_EVERY) === 0; }
+  let boss = null;     // { hp,maxHp,phase,diving,diveCol,diveProgress,diveCd,diveDur,dmgPerRow,lastFurthest }
+  let wave = 1;
+  // 鹰俯冲命中玩家走护盾优先伤害（复用 die 分支）
+  function bossHitPlayer(){ die(); }
 
   function genField(){
     rows = [];
@@ -69,13 +97,13 @@
         else type = 'river';
       }
       const dir = _rng() < 0.5 ? -1 : 1;
-      const speed = 0.4 + _rng() * 1.6;
+      const speed = (0.4 + _rng() * 1.6) * diffCfg().speedMult;
       const obstacles = [];
       if(type === 'road'){
-        const n = 2 + Math.floor(_rng()*3);
+        const n = Math.max(1, Math.round((2 + Math.floor(_rng()*3)) * diffCfg().countMult));
         for(let i=0;i<n;i++) obstacles.push(_rng()*COLS);
       } else if(type === 'river'){
-        const n = 2 + Math.floor(_rng()*2);
+        const n = Math.max(1, Math.round((2 + Math.floor(_rng()*2)) * diffCfg().countMult));
         for(let i=0;i<n;i++){ obstacles.push({ pos: _rng()*COLS, len: 1 + Math.floor(_rng()*2) }); }
       }
       rows.push({ type, dir, speed, obstacles });
@@ -84,6 +112,7 @@
     gameOver = false;
     furthest = START_ROW;
     score = 0; bonus = 0;
+    boss = null; wave = 1;
     // 道具：随机撒在若干格（coin 加分 / shield 免一次死）
     pickups = [];
     for(let i=0;i<5;i++){
@@ -138,7 +167,11 @@
     else if(dir === 'down')  player.row = Math.min(ROWS-1, player.row + 1);
     else if(dir === 'left')  player.col = Math.max(0, player.col - 1);
     else if(dir === 'right') player.col = Math.min(COLS-1, player.col + 1);
-    if(player.row < furthest) furthest = player.row;
+    if(player.row < furthest){
+      furthest = player.row;
+      wave++;                                  // 里程碑 +1
+      if(!boss && isBossWave(wave)) spawnBoss(); // 到达 Boss 波召唤鹰
+    }
     score = (START_ROW - furthest) + bonus;
     if(J) J.sfx('click'); if(J) J.addTrauma(0.1);
     collectPickups();
@@ -161,6 +194,8 @@
   function step(dt){
     if(gameOver) return;
     dt = dt || 1;
+    // Boss 波：走独立分支（暂停普通车流/河流危险，专注躲鹰）
+    if(boss){ updateBoss(dt); return; }
     const prow = player.row;
     const riverPlayer = rows[prow].type === 'river';
     for(let r=0;r<ROWS;r++){
@@ -191,7 +226,8 @@
         type: r.type, dir: r.dir, speed: r.speed,
         obstacles: r.obstacles.map(o => typeof o==='number' ? o : { pos: o.pos, len: o.len })
       })),
-      gameOver, score, furthest, startRow: START_ROW,
+      gameOver, score, furthest, startRow: START_ROW, wave,
+      boss: boss ? { hp:boss.hp, maxHp:boss.maxHp, phase:boss.phase, diving:boss.diving, diveCol:boss.diveCol, diveProgress:boss.diveProgress } : null,
       pickups: pickups.map(p => ({ type: p.type, row: p.row, col: p.col })),
       shield: player.shield, bonus
     };
@@ -203,6 +239,66 @@
   function setPlayer(r, c){ player.row = r; player.col = c; if(r < furthest) furthest = r; score = (START_ROW - furthest) + bonus; }
   function setRowDir(r, d){ rows[r].dir = d; }
   function setRowSpeed(r, s){ rows[r].speed = s; }
+
+  // ---------- Boss：鹰 ----------
+  // 召唤鹰：基于当前里程碑 wave 与难度 bossHpMult 计算 maxHp；
+  // 玩家每成功前进一行削减 dmgPerRow，归零即击败（见 updateBoss）。
+  function spawnBoss(){
+    const maxHp = Math.round((28 + wave * 6) * diffCfg().bossHpMult);
+    // dmgPerRow 取「刚好能在到达顶端前推进削空」的量级，确保可击败
+    const dmgPerRow = Math.max(1, Math.ceil(maxHp / Math.max(3, furthest)));
+    boss = {
+      hp: maxHp, maxHp: maxHp, phase: 1,
+      diving: false, diveCol: player.col, diveProgress: 0,
+      diveCd: 2.4, diveDur: 0.55,         // 阶段1：俯冲间隔/俯冲时长（秒）
+      dmgPerRow: dmgPerRow,
+      lastFurthest: furthest
+    };
+    if(J) J.sfx('levelup');
+  }
+  // 返回 true 表示本帧击败 Boss
+  function updateBoss(dt){
+    if(!boss) return false;
+    dt = dt || 0.016;
+    // 半血狂暴：更快、更密的俯冲
+    if(boss.phase === 1 && boss.hp <= boss.maxHp / 2){
+      boss.phase = 2;
+      boss.diveCd = Math.max(0.8, boss.diveCd * 0.55);
+      boss.diveDur *= 0.7;
+      if(J) J.flash('#f6465d');
+    }
+    // 俯冲周期：锁定玩家当前列 → 下扑 → 落点命中判定（护盾优先）
+    if(boss.diving){
+      boss.diveProgress += dt / boss.diveDur;
+      if(boss.diveProgress >= 1){
+        if(player.col === boss.diveCol) bossHitPlayer(); // 仍在俯冲列 → 受击（die 内含护盾免死）
+        boss.diving = false;
+        boss.diveCd = (boss.phase === 2) ? 1.4 : 2.4;
+      }
+    } else {
+      boss.diveCd -= dt;
+      if(boss.diveCd <= 0){
+        boss.diving = true; boss.diveProgress = 0;
+        boss.diveCol = player.col; // 锁定玩家当前列
+      }
+    }
+    // 玩家成功前进（行号更小的 furthest）→ 削减 Boss 血
+    const adv = boss.lastFurthest - furthest;
+    if(adv > 0){ boss.hp -= adv * boss.dmgPerRow; boss.lastFurthest = furthest; }
+    // 击败：奖励 + 掉落 + 清空 + 安全着陆（清掉脚下障碍，避免刚胜利就被冻结的车/水秒杀）
+    if(boss.hp <= 0){
+      const reward = 100 * wave;
+      bonus += reward;
+      score = (START_ROW - furthest) + bonus;
+      rows[player.row].type = 'safe';
+      rows[player.row].obstacles = [];
+      pickups.push({ type: 'coin', row: Math.max(0, player.row - 1), col: player.col });
+      if(J){ J.sfx('win'); J.flash('#02c076'); }
+      boss = null;
+      return true;
+    }
+    return false;
+  }
 
   /* ===================== UI ===================== */
   function $(id){ return (typeof document!=='undefined') ? document.getElementById(id) : null; }
@@ -242,6 +338,44 @@
       ctx.font = (cellH*0.42|0)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(p.type==='coin' ? '💰' : '🛡', px, py);
     }
+    // ---- 鹰 Boss（多边形本体 + 顶部血条 + 俯冲预警）----
+    if(boss){
+      // 顶部血条（横贯）
+      const barX=0, barY=2, barW=cv.width, frac=Math.max(0, boss.hp/boss.maxHp);
+      ctx.fillStyle='#2a2f3a'; ctx.fillRect(barX, barY, barW, 6);
+      ctx.fillStyle = boss.phase===2 ? '#f6465d' : '#f0b90b';
+      ctx.fillRect(barX, barY, barW*frac, 6);
+      ctx.fillStyle='#fff'; ctx.font='10px monospace'; ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText('鹰 BOSS' + (boss.phase===2?' · 狂暴':''), cv.width/2, barY+8);
+      ctx.textAlign='left';
+      // 俯冲预警：目标列红色竖带
+      if(boss.diving){
+        ctx.fillStyle='rgba(246,70,93,0.18)';
+        ctx.fillRect(boss.diveCol*cellW, 0, cellW, cv.height);
+      }
+      // 鹰本体
+      let cx = cv.width/2, cy = 26;
+      if(boss.diving){
+        cx = (boss.diveCol+0.5)*cellW;
+        const targetY = player.row*cellH + cellH*1.5;
+        cy = 26 + (targetY-26)*Math.min(1, boss.diveProgress);
+      }
+      const col = boss.phase===2 ? '#f6465d' : '#9b6bff';
+      ctx.save();
+      ctx.shadowColor=col; ctx.shadowBlur=12; ctx.fillStyle=col;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy-16);
+      ctx.lineTo(cx+22, cy);
+      ctx.lineTo(cx, cy+10);
+      ctx.lineTo(cx-22, cy);
+      ctx.closePath(); ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.fillStyle='#ffcf5a'; // 喙
+      ctx.beginPath(); ctx.moveTo(cx, cy-16); ctx.lineTo(cx+5, cy-22); ctx.lineTo(cx-5, cy-22); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#0a0e14'; // 眼
+      ctx.beginPath(); ctx.arc(cx-7, cy-2, 2.5, 0, 7); ctx.arc(cx+7, cy-2, 2.5, 0, 7); ctx.fill();
+      ctx.restore();
+    }
     // 玩家
     ctx.fillStyle = '#02c076';
     ctx.fillRect(player.col*cellW+cellW*0.2, player.row*cellH+cellH*0.2, cellW*0.6, cellH*0.6);
@@ -251,7 +385,11 @@
     }
     const sc = $('score'); if(sc) sc.textContent = String(score);
     const st = $('st'); if(st) st.textContent = gameOver ? '结束' : '进行中';
-    const msg = $('msg'); if(msg){ if(gameOver){ msg.className='msg over'; msg.textContent='💀 撞车或落水，游戏结束。'; } else msg.className='msg'; }
+    const msg = $('msg'); if(msg){
+      if(gameOver){ msg.className='msg over'; msg.textContent='💀 撞车或落水，游戏结束。'; }
+      else if(boss){ msg.className='msg'; msg.textContent='⚠ 鹰 BOSS 来袭！躲开红色俯冲列，向前推进削弱它。'; }
+      else msg.className='msg';
+    }
   }
   function bindUI(){
     if(typeof document==='undefined') return;
@@ -260,19 +398,49 @@
     });
     const nb = $('new'); if(nb) nb.onclick = () => { reset(); render(); };
   }
+  function buildDiffBar(){
+    var bar = (typeof document!=='undefined') ? document.getElementById('diffbar') : null;
+    if(!bar) return;
+    bar.innerHTML = '';
+    DIFF_ORDER.forEach(function(k){
+      var b = document.createElement('button');
+      b.textContent = DIFFICULTY[k].label;
+      if(k === difficulty) b.className = 'active';
+      b.addEventListener('click', function(){ setDifficulty(k); buildDiffBar(); render(); });
+      bar.appendChild(b);
+    });
+  }
 
   reset();
-  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render(); }
+  if(typeof document!=='undefined'){ bindUI(); buildDiffBar(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render();
+    // 动画循环：驱动障碍移动 / Boss 俯冲（harness 中 requestAnimationFrame 为 no-op，不会自走）
+    let lastT = 0;
+    function frame(ts){
+      const dt = Math.min(0.05, (ts - lastT)/1000 || 0.016); lastT = ts;
+      step(dt); render();
+      if(typeof requestAnimationFrame!=='undefined') requestAnimationFrame(frame);
+    }
+    if(typeof requestAnimationFrame!=='undefined') requestAnimationFrame(frame);
+  }
   if(typeof window!=='undefined'){
     window.__t = { setRand, reset, newGame, hop, step, isGameOver, getScore, getState,
       setRow, setObstacles, setPlayer, setRowDir, setRowSpeed,
+      // ---- 难度系统钩子（D1） ----
+      DIFFICULTY, DIFF_ORDER, setDifficulty, getDifficulty, diffCfg,
       // ---- 道具系统钩子 ----
       spawnPickup:(type,row,col)=>{ pickups.push({ type:type, row:row, col:col }); },
       getPickups:()=>pickups.length,
       getShield:()=>player.shield, setShield:(v)=>{ player.shield=v; },
       getBonus:()=>bonus,
       applyPickup:(type)=>{ if(type==='coin'){ bonus+=COIN_VALUE; score=(START_ROW-furthest)+bonus; } else if(type==='shield'){ player.shield++; } },
-      collectPickups };
+      collectPickups,
+      // ---- Boss 系统钩子（B6 鹰 Boss）----
+      BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
+      getBoss:()=>boss ? { hp:boss.hp, maxHp:boss.maxHp, phase:boss.phase, diving:boss.diving, diveCol:boss.diveCol, diveProgress:boss.diveProgress, dmgPerRow:boss.dmgPerRow } : null,
+      setBossHp:(v)=>{ if(boss) boss.hp=v; },
+      setBoss:(v)=>{ boss=v; },
+      getWave:()=>wave, setWave:(v)=>{ wave=v; },
+      update:step };
   }
 })();
 </script>

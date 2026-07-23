@@ -153,3 +153,132 @@ ok('青蛙: 护盾被消耗', t.getShield() === 0);
 t.takeHit(); // 无盾再受创
 ok('青蛙: 无盾再受创死亡', t.isDead() === true);
 
+// ============ 难度系统（倍率法；normal=1.0 保持现有行为） ============
+// 默认普通档
+t.reset();
+ok('青蛙: 默认难度为 normal', t.getDifficulty() === 'normal');
+
+// DIFFICULTY 含四档配置
+ok('青蛙: DIFFICULTY 含四档', !!(t.DIFFICULTY && t.DIFFICULTY.easy && t.DIFFICULTY.normal && t.DIFFICULTY.hard && t.DIFFICULTY.hell));
+
+// 地狱档速度 > 简单档速度（speedMult 生效）
+t.setDifficulty('easy'); t.reset();
+const se = t.getRowSpeed(7);   // 马路行基准速度
+t.setDifficulty('hell'); t.reset();
+const sh = t.getRowSpeed(7);
+ok('青蛙: 地狱档速度 > 简单档速度', sh > se, 'hell='+sh+' easy='+se);
+
+// 地狱档障碍密度 > 简单档（countMult 生效）
+t.setDifficulty('easy'); t.reset();
+const ce = t.getRowCount(7);
+t.setDifficulty('hell'); t.reset();
+const ch = t.getRowCount(7);
+ok('青蛙: 地狱档障碍密度 > 简单档', ch > ce, 'hell='+ch+' easy='+ce);
+
+// 难度递增：四档速度单调递增
+t.setDifficulty('easy'); const vE=t.diffCfg().speedMult;
+t.setDifficulty('normal'); const vN=t.diffCfg().speedMult;
+t.setDifficulty('hard'); const vH=t.diffCfg().speedMult;
+t.setDifficulty('hell'); const vX=t.diffCfg().speedMult;
+ok('青蛙: 速度倍率 easy<normal<hard<hell', vE<vN && vN<vH && vH<vX, [vE,vN,vH,vX].join(','));
+
+// setDifficulty 生效：切换后难度值改变
+t.setDifficulty('hard');
+ok('青蛙: setDifficulty 生效 (hard)', t.getDifficulty() === 'hard');
+
+// 非法档位被忽略，难度不变
+t.setDifficulty('not_a_real_diff');
+ok('青蛙: 非法难度被忽略', t.getDifficulty() === 'hard');
+
+// setDifficulty 重开一局：重置后状态回到初始（未死亡、未到达）
+t.setDifficulty('normal'); t.reset();
+ok('青蛙: 重开后处于进行中', t.isDead() === false && t.isGoal() === false);
+
+// 切到地狱后普通档单测不受影响：normal 倍率为 1.0（现有行为基准）
+t.setDifficulty('normal');
+ok('青蛙: normal 速度倍率为 1.0', t.diffCfg().speedMult === 1.0);
+
+// ============ BOSS 系统（鳄鱼王 · 生存型）============
+// 1) BOSS_EVERY 常量
+eq('青蛙Boss: BOSS_EVERY=3', t.BOSS_EVERY, 3);
+
+// 2) isBossWave 判断
+ok('青蛙Boss: w=3 是 Boss 波', t.isBossWave(3) === true);
+ok('青蛙Boss: w=6 是 Boss 波', t.isBossWave(6) === true);
+ok('青蛙Boss: w=1 非 Boss 波', t.isBossWave(1) === false);
+ok('青蛙Boss: w=2 非 Boss 波', t.isBossWave(2) === false);
+ok('青蛙Boss: w=0 非 Boss 波', t.isBossWave(0) === false);
+
+// 3) spawnBoss 生成 Boss：满血、phase1
+t.reset(); t.setDifficulty('normal'); t.spawnBoss();
+const b0 = t.getBoss();
+ok('青蛙Boss: spawnBoss 生成 Boss', b0 !== null);
+ok('青蛙Boss: 初始满血 hp=maxHp', b0 && b0.hp === b0.maxHp && b0.hp > 0, 'hp='+(b0&&b0.hp));
+ok('青蛙Boss: 初始 phase=1', b0 && b0.phase === 1);
+
+// 4) 难度 bossHpMult 缩放 maxHp：hell > normal > easy
+t.reset(); t.setDifficulty('easy');   t.spawnBoss(); const he = t.getBoss().maxHp;
+t.reset(); t.setDifficulty('normal'); t.spawnBoss(); const hn = t.getBoss().maxHp;
+t.reset(); t.setDifficulty('hell');   t.spawnBoss(); const hh = t.getBoss().maxHp;
+ok('青蛙Boss: maxHp hell>normal>easy', hh > hn && hn > he, 'hell='+hh+' normal='+hn+' easy='+he);
+
+// 5) setWave / getWave 生效
+t.reset(); t.setWave(6);
+ok('青蛙Boss: setWave 生效', t.getWave() === 6);
+ok('青蛙Boss: wave=6 是 Boss 波', t.isBossWave(6) === true);
+
+// 6) 前进削减 Boss HP（updateBoss 检测行号推进）
+t.reset(); t.setDifficulty('normal'); t.setShield(1); t.spawnBoss();
+const bHp0 = t.getBoss().hp;
+t.setFrog(5,5); t.setFrog(3,5);   // 行号推进 5→3
+t.updateBoss(1);
+const bHp1 = t.getBoss() ? t.getBoss().hp : 0;
+ok('青蛙Boss: 前进后 HP 削减', bHp1 < bHp0, 'hp '+bHp0+'->'+bHp1);
+
+// 7) 半血进入 phase2（转红/更快）
+t.reset(); t.setDifficulty('normal'); t.spawnBoss();
+const mx = t.getBoss().maxHp;
+t.setBossHp(Math.floor(mx/2));
+t.setFrog(5,5); t.updateBoss(1);
+ok('青蛙Boss: 半血进入 phase2', t.getBoss() && t.getBoss().phase === 2, 'phase='+(t.getBoss()&&t.getBoss().phase));
+
+// 8) 护盾优先：Boss 命中先耗盾不致死
+t.reset(); t.setDifficulty('normal'); t.spawnBoss();
+const bg = t.getBoss();
+t.setFrog(Math.round(bg.row), Math.round(bg.col));   // 站到鳄鱼嘴边
+t.setShield(1);
+t.updateBoss(1);
+ok('青蛙Boss: 命中先耗护盾不死', t.isDead() === false && t.getShield() === 0, 'dead='+t.isDead()+' shield='+t.getShield());
+
+// 9) 无盾被 Boss 咬中致死
+t.reset(); t.setDifficulty('normal'); t.spawnBoss();
+const bg2 = t.getBoss();
+t.setFrog(Math.round(bg2.row), Math.round(bg2.col));
+t.setShield(0);
+t.updateBoss(1);
+ok('青蛙Boss: 无盾被咬致死', t.isDead() === true);
+
+// 10) 击败：抵达终点(hp=0) 返回 true、Boss 清空、加分奖励
+t.reset(); t.setDifficulty('normal'); t.spawnBoss();
+const sc0 = t.getScore();
+t.setFrog(0,5);                 // 抵达终点 → 强制击溃
+const beaten = t.updateBoss(1);
+ok('青蛙Boss: 击败返回 true', beaten === true);
+ok('青蛙Boss: 击败后 Boss 清空', t.getBoss() === null);
+ok('青蛙Boss: 击败加分奖励', t.getScore() > sc0, 'score '+sc0+'->'+t.getScore());
+
+// 11) 击败掉落护盾道具
+t.reset(); t.setDifficulty('normal'); t.spawnBoss();
+const pkBefore = t.getPickups();
+t.setFrog(0,5); t.updateBoss(1);
+ok('青蛙Boss: 击败掉落道具', t.getPickups() > pkBefore, 'pickups '+pkBefore+'->'+t.getPickups());
+
+// ============ 汇总 ============
+const { results } = require('./harness');
+const pass = results.filter(r=>r.pass).length;
+const fail = results.length - pass;
+console.log('青蛙单测: 共 '+results.length+' 项, 通过 '+pass+', 失败 '+fail);
+if(fail>0) process.exitCode = 1;
+
+
+

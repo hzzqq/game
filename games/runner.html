@@ -47,6 +47,9 @@
   body.touch #jbtn{display:block}
   #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;color:var(--dim);font-size:12px;text-align:center;width:100%}
   body.touch #hint{display:none}
+  .diffbar{position:fixed;bottom:46px;left:50%;transform:translateX(-50%);z-index:8;display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+  .diffbar button{background:rgba(18,24,33,.9);color:var(--dim);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px}
+  .diffbar button.active{background:var(--gold);color:#0a0e14;border-color:var(--gold)}
 </style>
 </head>
 <body>
@@ -69,6 +72,8 @@
   <button id="jbtn">跳跃<br>JUMP</button>
   <div id="hint">SPACE / ↑ / W 跳跃（可二段跳）· 💰金币加分 · 🚀加速计分×2 · 🛡护盾免死一次</div>
 
+  <div class="diffbar" id="diffbar"></div>
+
   <div id="overlay">
     <div class="box">
       <h1 id="ovTitle">RUNNER // 跑酷</h1>
@@ -88,6 +93,27 @@
   function mk(s){ return function(){ s|=0; s=s+0x6D2B79F5|0; var t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
   let _rng = mk(0x2a17f00d);
   function setRand(fn){ if(typeof fn==='function') _rng = fn; }
+
+  // ---------- 难度系统（标准样板 §2：倍率法，normal=1.0 保持现有行为）----------
+  // runner 仅使用 speedMult（滚动/障碍移动速度）与 countMult（障碍生成间隔，越大越密）。
+  var DIFFICULTY = {
+    easy:   { label:'简单', speedMult:0.75, growth:1.08, bulletMult:0.6,  countMult:0.7, hpMult:0.75, dmgMult:0.8,  bossHpMult:0.7, dropMult:1.4 },
+    normal: { label:'普通', speedMult:1.0,  growth:1.12, bulletMult:1.0,  countMult:1.0, hpMult:1.0,  dmgMult:1.0,  bossHpMult:1.0, dropMult:1.0 },
+    hard:   { label:'困难', speedMult:1.25, growth:1.16, bulletMult:1.4,  countMult:1.3, hpMult:1.35, dmgMult:1.25, bossHpMult:1.4, dropMult:0.85 },
+    hell:   { label:'地狱', speedMult:1.5,  growth:1.22, bulletMult:1.9,  countMult:1.7, hpMult:1.9,  dmgMult:1.5,  bossHpMult:1.9, dropMult:0.7 }
+  };
+  var DIFF_ORDER = ['easy','normal','hard','hell'];
+  var difficulty = 'normal';
+  function diffCfg(){ return DIFFICULTY[difficulty]; }
+  function setDifficulty(d){ if(!DIFFICULTY[d]) return false; difficulty = d; if(typeof startGame==='function') startGame(); else if(typeof reset==='function') reset(); return true; }
+  function getDifficulty(){ return difficulty; }
+
+  // ---------- 生存型 Boss 系统（标准样板 §3：每 BOSS_EVERY 个距离里程碑触发）----------
+  // runner 是"无射击"的生存躲避类：Boss 适配为"障碍 Boss"（巨型碾压机/路障墙），
+  // 有顶部血条，玩家需躲过其攻击波；Boss 的 HP 随玩家成功生存（距离推进）而削减，归零即击败并奖励。
+  var BOSS_EVERY = 3;
+  function isBossWave(w){ return w > 0 && w % BOSS_EVERY === 0; }
+  var BOSS_HP_PER_DIST = 18;   // 生存耗竭速率：每次 update 随距离推进扣除的 Boss HP
 
   var stage = document.getElementById('stage');
   var canvas = document.createElement('canvas');
@@ -140,6 +166,11 @@
   var runner, obstacles, particles, pickups;
   var speed, baseSpeed, distance, coins, spawnTimer, spawnGap, frame, scroll, lastTime, bgScroll, farScroll;
   var pickTimer, boostTimer;
+  // ---- 生存型 Boss 状态 ----
+  var boss = null;           // 障碍 Boss：{x,y,w,h,hp,maxHp,phase,vx,dir,fireT,mc}
+  var bossBullets = [];      // Boss 攻击波（弹幕）
+  var bossMilestone = 0;     // 已处理过的 Boss 里程碑，避免重复触发
+  var score = 0;             // 击败 Boss 等奖励累计（与距离并列计分）
 
   function reset(){
     runner = { x: 90, y: GROUND_Y, w: 26, h: 38, vy: 0, onGround: true, jumps: 0, ducking: false,
@@ -160,9 +191,111 @@
     bgScroll = 0;
     farScroll = 0;
     milestone = 100;
+    // Boss 状态归零
+    boss = null;
+    bossBullets = [];
+    bossMilestone = 0;
+    score = 0;
   }
 
   var GRAV = 0.62;
+
+  // ---------- 生存型 Boss：障碍 Boss（巨型碾压机 / 路障墙）----------
+  // 召唤 Boss：基于里程碑 mc 与难度 bossHpMult 计算 maxHp；清空普通障碍，改刷攻击波。
+  function spawnBoss(mc){
+    var m = (mc === undefined || mc === null) ? Math.floor(distance / 100) : mc;
+    var cfg = diffCfg();
+    var w = Math.round(W * 0.34);
+    var maxHp = Math.round((120 + m * 40) * cfg.bossHpMult);
+    boss = {
+      x: W/2, y: 72, w: w, h: 46,
+      hp: maxHp, maxHp: maxHp,
+      phase: 1,
+      vx: (60 + m * 6) * cfg.speedMult,
+      dir: 1,
+      fireT: 18,              // 距下次开火的帧数（phase2 更密）
+      mc: m
+    };
+    obstacles = [];           // 清空普通障碍生成
+    bossBullets = [];
+    if (J){ J.sfx('levelup'); J.flash('#f0b90b', 0.3); J.popup('⚠ 障碍 BOSS 来袭'); }
+  }
+
+  // 更新 Boss：半血进 phase2（攻击更密/更快）；玩家随距离推进使 hp 递减（生存消耗）；
+  // Boss 子弹/冲撞命中玩家走护盾优先伤害；hp<=0 时 score += 奖励 + 掉落 + boss=null，返回 true。
+  function updateBoss(dt){
+    if (!boss) return false;
+    var cfg = diffCfg();
+    // 半血狂暴
+    if (boss.phase === 1 && boss.hp <= boss.maxHp / 2){
+      boss.phase = 2;
+      boss.vx *= 1.4;
+      if (J){ J.flash && J.flash('#f6465d', 0.3); J.addTrauma && J.addTrauma(0.4); }
+    }
+    // 横向移动 + 反弹
+    boss.x += boss.vx * boss.dir * dt;
+    if (boss.x < boss.w/2){ boss.x = boss.w/2; boss.dir = 1; }
+    else if (boss.x > W - boss.w/2){ boss.x = W - boss.w/2; boss.dir = -1; }
+    // 攻击波：朝玩家扇形弹幕（phase2 更密 + 贴地横扫弹）
+    boss.fireT -= dt;
+    if (boss.fireT <= 0){
+      boss.fireT = (boss.phase === 2) ? 11 : 18;
+      var spd = (150 + boss.mc * 8) * cfg.speedMult;
+      var aim = Math.atan2((runner.y - runner.h) - boss.y, runner.x - boss.x);
+      var fan = (boss.phase === 2) ? 5 : 3;
+      for (var i=0;i<fan;i++){
+        var a = aim + (i - (fan-1)/2) * 0.25;
+        bossBullets.push({ x: boss.x, y: boss.y + boss.h, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, r: 8 });
+      }
+      if (boss.phase === 2){
+        for (var j=0;j<3;j++){
+          bossBullets.push({ x: W*(0.2 + 0.3*j), y: 40, vx: -(120 + boss.mc*6) * cfg.speedMult, vy: 0, r: 9 });
+        }
+      }
+    }
+    // 生存耗竭：随距离推进（speed*0.1*dt 即本帧距离增量）扣除 Boss HP
+    boss.hp -= speed * 0.1 * dt * BOSS_HP_PER_DIST;
+    if (boss.hp <= 0){
+      var pts = 100 * Math.max(1, boss.mc);   // 击败奖励
+      score += pts;
+      if (J){
+        J.popup && J.popup('BOSS 击败 +' + pts);
+        J.burst && J.burst(boss.x, boss.y, { color:'#f6465d', n:36, speed:300 });
+        J.addTrauma && J.addTrauma(0.7);
+        J.flash('#ffcf5a', 0.5);
+        J.sfx && J.sfx('win');
+      }
+      spawnPickup('coin', boss.x, boss.y + boss.h);
+      spawnPickup('shield', boss.x + 24, boss.y + boss.h);
+      boss = null;
+      bossBullets = [];
+      return true;
+    }
+    return false;
+  }
+
+  // Boss 攻击波移动（离屏移除）
+  function updateBossBullets(dt){
+    for (var i=bossBullets.length-1;i>=0;i--){
+      var b = bossBullets[i];
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      if (b.x < -30 || b.x > W+30 || b.y < -30 || b.y > H+30) bossBullets.splice(i,1);
+    }
+  }
+
+  // Boss 子弹命中玩家判定（AABB，与障碍判定并列，护盾优先）
+  function bossBulletHit(){
+    if (!boss) return false;
+    var rx = runner.x, ry = runner.y - runner.h, rw = runner.w, rh = runner.h;
+    if (runner.ducking){ ry += rh*0.35; rh *= 0.65; }
+    for (var i=0;i<bossBullets.length;i++){
+      var b = bossBullets[i];
+      var bx = b.x - b.r, by = b.y - b.r, bw = b.r*2, bh = b.r*2;
+      if (rx < bx+bw && rx+rw > bx && ry < by+bh && ry+rh > by) return true;
+    }
+    return false;
+  }
 
   function jump(){
     if (state !== 'play') return;
@@ -277,9 +410,10 @@
   function update(dt){
     frame++;
     // difficulty ramp: speed grows with distance; spawn gap shrinks（核心玩法，不动）
-    speed = baseSpeed + Math.min(7.5, distance / 520);
+    // 难度倍率：speedMult 缩放滚动/障碍移动速度，countMult 缩放障碍间隔（normal=1.0 不变）
+    speed = (baseSpeed + Math.min(7.5, distance / 520)) * diffCfg().speedMult;
     var diff = distance / 520;
-    spawnGap = Math.max(34, 84 - diff * 30);
+    spawnGap = Math.max(34, 84 - diff * 30) / diffCfg().countMult;
 
     scroll += speed;
     bgScroll += speed * 0.35;
@@ -311,19 +445,32 @@
       runner.jumps = 0;
     }
 
-    // spawn obstacles
-    spawnTimer++;
-    if (spawnTimer >= spawnGap){
-      spawnTimer = 0;
-      spawnObstacle();
+    // ---- 生存型 Boss 触发：每 BOSS_EVERY 个距离里程碑出现一次障碍 Boss ----
+    var mc = Math.floor(distance / 100);
+    if (!boss && mc > bossMilestone && isBossWave(mc)){
+      spawnBoss(mc);
+      bossMilestone = mc;
     }
 
-    // move obstacles
-    for (var i=obstacles.length-1;i>=0;i--){
-      var o = obstacles[i];
-      o.x -= speed;
-      if (o.x + (o.w||60) < -40){
-        obstacles.splice(i,1);
+    if (boss){
+      // Boss 波：清空普通障碍生成，改刷 Boss 攻击波（生存耗竭）
+      updateBoss(dt);
+      updateBossBullets(dt);
+    } else {
+      // spawn obstacles
+      spawnTimer++;
+      if (spawnTimer >= spawnGap){
+        spawnTimer = 0;
+        spawnObstacle();
+      }
+
+      // move obstacles
+      for (var i=obstacles.length-1;i>=0;i--){
+        var o = obstacles[i];
+        o.x -= speed;
+        if (o.x + (o.w||60) < -40){
+          obstacles.splice(i,1);
+        }
       }
     }
 
@@ -344,10 +491,10 @@
     // 道具移动 + 拾取
     updatePickups(dt);
 
-    // 护盾 / 无敌处理：护盾优先消耗，无盾才判失败（注入式分支，不动核心碰撞）
+    // 护盾 / 无敌处理：护盾优先消耗，无盾才判失败（含 Boss 攻击波命中，注入式分支）
     if (runner.invuln > 0) runner.invuln -= dt;
     var blocked = runner.invuln > 0;
-    if (!blocked && hitTest()){
+    if (!blocked && (hitTest() || bossBulletHit())){
       if (runner.shield > 0){
         runner.shield--;
         runner.invuln = 30;          // 短暂无敌，避免立即再次判定
@@ -449,6 +596,9 @@
     }
     ctx.globalAlpha = 1;
 
+    // 生存型 Boss：多边形本体（紫/红）+ 攻击波 + 顶部血条（只改绘制层）
+    drawBoss();
+
     // runner
     drawRunner();
 
@@ -456,6 +606,46 @@
     ctx.font = '12px monospace';
     ctx.fillText('AUTO-RUN', 16, GROUND_Y - 60);
     if (J){ J.mid(ctx); J.end(ctx); }
+  }
+
+  function drawBoss(){
+    if (!boss) return;
+    var b = boss;
+    var bc = b.phase === 2 ? '#f6465d' : '#9b6bff';   // phase2 转红
+    // 本体：梯形碾压机（多边形）
+    ctx.save();
+    ctx.shadowColor = bc; ctx.shadowBlur = 16;
+    ctx.fillStyle = bc;
+    ctx.beginPath();
+    ctx.moveTo(b.x - b.w/2, b.y + b.h);
+    ctx.lineTo(b.x - b.w/2 + 8, b.y);
+    ctx.lineTo(b.x + b.w/2 - 8, b.y);
+    ctx.lineTo(b.x + b.w/2, b.y + b.h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // 履带/眼睛造型
+    ctx.fillStyle = '#0a0e14';
+    ctx.fillRect(b.x - b.w/2 + 12, b.y + b.h*0.45, 10, 10);
+    ctx.fillRect(b.x + b.w/2 - 22, b.y + b.h*0.45, 10, 10);
+    ctx.restore();
+    // Boss 攻击波（弹幕）
+    for (var i=0;i<bossBullets.length;i++){
+      var bb = bossBullets[i];
+      ctx.beginPath();
+      ctx.arc(bb.x, bb.y, bb.r, 0, Math.PI*2);
+      ctx.fillStyle = b.phase === 2 ? '#ff8a96' : '#f0b90b';
+      ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 8; ctx.fill(); ctx.shadowBlur = 0;
+    }
+    // 顶部血条
+    var barW = W * 0.6, bx = (W - barW)/2, by = 8;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(bx-2, by-2, barW+4, 12);
+    ctx.fillStyle = bc;
+    ctx.fillRect(bx, by, barW * Math.max(0, b.hp / b.maxHp), 8);
+    ctx.fillStyle = '#fff'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('BOSS' + (b.phase === 2 ? ' · 狂暴' : ''), W/2, by + 7);
+    ctx.textAlign = 'left';
   }
 
   function drawRunner(){
@@ -573,6 +763,21 @@
 
   startBtn.addEventListener('click', function(e){ e.stopPropagation(); startGame(); });
 
+  // 难度选择条（统一 CSS + 四档按钮，点击重开一局）
+  function buildDiffBar(){
+    if (typeof document === 'undefined') return;
+    var bar = document.getElementById('diffbar'); if (!bar) return;
+    bar.innerHTML = '';
+    DIFF_ORDER.forEach(function(k){
+      var b = document.createElement('button');
+      b.textContent = DIFFICULTY[k].label;
+      if (k === difficulty) b.className = 'active';
+      b.addEventListener('click', function(){ setDifficulty(k); buildDiffBar(); });
+      bar.appendChild(b);
+    });
+  }
+  buildDiffBar();
+
   // 测试钩子（不影响正常玩法）
   window.__t = {
     GROUND_Y: function(){ return GROUND_Y; },
@@ -594,7 +799,25 @@
     setRunner: function(o){ for (var k in o) runner[k] = o[k]; },
     getRunner: function(){ return { x:runner.x, y:runner.y, h:runner.h, w:runner.w, shield:runner.shield, invuln:runner.invuln }; },
     setObstacles: function(arr){ obstacles = arr; },
-    spawnObstacle: spawnObstacle
+    spawnObstacle: spawnObstacle,
+    // ---- 难度系统钩子（标准样板 §2）----
+    DIFFICULTY: DIFFICULTY,
+    setDifficulty: setDifficulty,
+    getDifficulty: getDifficulty,
+    diffCfg: diffCfg,
+    getSpeed: function(){ return speed; },
+    getSpawnGap: function(){ return spawnGap; },
+    // ---- 生存型 Boss 系统钩子（标准样板 §3）----
+    BOSS_EVERY: BOSS_EVERY,
+    isBossWave: isBossWave,
+    spawnBoss: spawnBoss,
+    updateBoss: updateBoss,
+    getBoss: function(){ return boss ? { x:boss.x, y:boss.y, w:boss.w, h:boss.h, hp:boss.hp, maxHp:boss.maxHp, phase:boss.phase, vx:boss.vx, mc:boss.mc } : null; },
+    setBossHp: function(v){ if (boss) boss.hp = v; },
+    setWave: function(n){ distance = n * 100; },          // 以距离里程碑 n 计
+    addBullet: function(x,y,vx,vy,r){ bossBullets.push({ x:x, y:y, vx:vx, vy:vy, r:r||8 }); },
+    getBossBullets: function(){ return bossBullets.length; },
+    getScore: function(){ return score; }
   };
 
   reset();

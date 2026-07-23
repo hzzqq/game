@@ -141,4 +141,55 @@ H.ok('jetpack: 重置加速为 0', T.getBoost() === false);
   H.ok('jetpack 加速时滚动更快', T.scrollSpd() > s0);
 })();
 
+// ===================== 难度系统（spec §2，倍率法，normal=1.0 保持原行为）=====================
+// 18) 默认难度为普通；DIFFICULTY / DIFF_ORDER 钩子存在
+H.eq('jetpack 默认难度=normal', T.getDifficulty(), 'normal');
+H.ok('jetpack DIFFICULTY 含四档', T.DIFFICULTY && T.DIFFICULTY.easy && T.DIFFICULTY.hell);
+H.eq('jetpack DIFF_ORDER 顺序', T.DIFF_ORDER, ['easy','normal','hard','hell']);
+
+// 19) normal=1.0 保持原有行为：速度=基准、间隔=基准
+(() => {
+  T.reset(); T.setDifficulty('normal');
+  H.eq('jetpack normal 速度=基准', T.getPipeSpd(), 155);
+  H.eq('jetpack normal 间隔=基准', T.getSpawnDx(), 230);
+})();
+
+// 20) 地狱档速度 > 简单档速度（speedMult 生效）
+(() => {
+  T.reset(); T.setDifficulty('easy');   var se = T.getPipeSpd();
+  T.reset(); T.setDifficulty('hell');    var sh = T.getPipeSpd();
+  H.ok('jetpack 地狱速度>简单速度 (' + se + '→' + sh + ')', sh > se);
+})();
+
+// 21) countMult 影响障碍密度/间隔：地狱间隔 < 简单间隔（越密）
+(() => {
+  T.reset(); T.setDifficulty('easy');   var de = T.getSpawnDx();
+  T.reset(); T.setDifficulty('hell');    var dh = T.getSpawnDx();
+  H.ok('jetpack 地狱间隔<简单间隔 (' + de.toFixed(0) + '→' + dh.toFixed(0) + ')', dh < de);
+})();
+
+// 22) setDifficulty 生效且重开：改变难度后 getDifficulty 更新、速度按新档重算并回到菜单（新一局）
+(() => {
+  T.reset(); T.setDifficulty('hard');
+  H.eq('jetpack setDifficulty 生效', T.getDifficulty(), 'hard');
+  H.eq('jetpack setDifficulty 重开速度=基准*1.25', T.getPipeSpd(), 155 * 1.25);
+  H.eq('jetpack setDifficulty 重开后状态=menu', T.getStatus(), 'menu');
+})();
+
+// 23) 非法难度被忽略，保持原档
+(() => {
+  T.reset(); T.setDifficulty('normal');
+  T.setDifficulty('nope');
+  H.eq('jetpack 非法难度被忽略', T.getDifficulty(), 'normal');
+})();
+
+// 24) 难度只影响配置，不动核心玩法：normal 下原单测基线（计分/碰撞）仍成立
+(() => {
+  T.reset(); T.clearPipes(); T.setStatus('play'); T.setScore(0);
+  var bx = T.getState().bird.x;
+  T.addPipe(bx + T.PIPE_W + 4, 300);
+  T.step(1.0);
+  H.eq('jetpack 难度不影响计分公式', T.getScore(), 1);
+})();
+
 module.exports = {};

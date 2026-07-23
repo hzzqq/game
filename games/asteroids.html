@@ -46,9 +46,9 @@
   "use strict";
   const W=400, H=300, BR=2, SH=8;
   let ship, asteroids, bullets, score;
-  let pickups, boostTimer, shield, lives, over, spawnTimer;
+  let pickups, boostTimer, shield, rapid, spread, lives, over, spawnTimer;
   let wave=1, boss=null, ebullets=[];
-  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; lives=3; over=false; spawnTimer=4; wave=1; boss=null; ebullets=[]; spawnWave(); }
+  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; rapid=0; spread=0; lives=3; over=false; spawnTimer=4; fireCd=0; wave=1; boss=null; ebullets=[]; spawnWave(); }
   function spawnWave(){ asteroids=[]; for(let i=0;i<4;i++) asteroids.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()*2-1)*30,vy:(Math.random()*2-1)*30,r:30}); }
   // ---------- Boss 系统（每 BOSS_EVERY 波出现：巨大多边形母体，多阶段 + 击败奖励）----------
   const BOSS_EVERY = 3;
@@ -119,20 +119,44 @@
   }
 
   // ---- 注入式掉落道具系统（本地种子 PRNG，禁止 Math.random）----
+  // 适配 3 种贴合玩法的道具：⚡连射 rapid / ✳散射 spread / 🛡护盾 shield（保留 coin/boost 兼容既有断言）
+  const DROP_PROB = 0.22;     // 小行星击碎时掉落概率（走本地 PRNG，禁止裸 Math.random）
+  const RAPID_CD = 0.12;      // 连射增益下的自动开火间隔（秒）
+  let fireCd = 0;
   function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
-  const pickupRng = mk(0x9e3779b9);
-  function makePickup(type,x,y){ return {type:type,x:x,y:y,vy:25,r:9,life:9}; }
-  function spawnPickupAtRandom(){ const types=['coin','shield','boost']; const type=types[Math.floor(pickupRng()*types.length)%types.length]; pickups.push(makePickup(type, pickupRng()*W, -10)); }
-  function applyPickup(p){ if(!p) return; if(p.type==='coin'){ score+=50; if(typeof Juice!=='undefined') Juice.popup('+50 💰'); } else if(p.type==='shield'){ shield=Math.min(shield+1,3); if(typeof Juice!=='undefined') Juice.popup('🛡'); } else if(p.type==='boost'){ boostTimer=8; if(typeof Juice!=='undefined') Juice.popup('🚀'); } const idx=pickups.indexOf(p); if(idx>=0) pickups.splice(idx,1); }
-  function updatePickups(dt){ for(let i=pickups.length-1;i>=0;i--){ const p=pickups[i]; p.y+=p.vy*dt; p.life-=dt; const dx=p.x-ship.x, dy=p.y-ship.y; if(dx*dx+dy*dy < (p.r+SH)*(p.r+SH)){ applyPickup(p); continue; } if(p.life<=0 || p.y>H+20) pickups.splice(i,1); } if(boostTimer>0) boostTimer=Math.max(0,boostTimer-dt); }
-  function drawPickups(ctx){ for(const p of pickups){ const sym=p.type==='coin'?'💰':p.type==='shield'?'🛡':'🚀'; ctx.save(); ctx.beginPath(); ctx.arc(p.x,p.y,p.r+4,0,Math.PI*2); ctx.fillStyle='rgba(240,185,11,.15)'; ctx.fill(); ctx.strokeStyle='rgba(240,185,11,.6)'; ctx.stroke(); ctx.fillStyle='#fff'; ctx.font='14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(sym,p.x,p.y); ctx.restore(); } }
+  let pickupRng = mk(0x9e3779b9);
+  function makePickup(type,x,y){ return {type:type,x:x,y:y,vy:25,r:9,life:9,sym:({rapid:'⚡',spread:'✳',shield:'🛡',coin:'💰',boost:'🚀'})[type]||'★'}; }
+  function spawnPickupAtRandom(){ const types=['rapid','spread','shield']; const type=types[Math.floor(pickupRng()*types.length)%types.length]; pickups.push(makePickup(type, pickupRng()*W, -10)); }
+  function applyPickup(p){
+    if(!p) return;
+    const type = (typeof p==='string') ? p : p.type;   // 兼容「字符串类型」与「掉落物对象」两种调用
+    if(type==='coin'){ score+=50; if(typeof Juice!=='undefined') Juice.popup('+50 💰'); }
+    else if(type==='shield'){ shield=Math.min(shield+1,3); if(typeof Juice!=='undefined') Juice.popup('🛡'); }
+    else if(type==='boost'){ boostTimer=8; if(typeof Juice!=='undefined') Juice.popup('🚀'); }
+    else if(type==='rapid'){ rapid=6; if(typeof Juice!=='undefined') Juice.popup('⚡连射'); }   // 连射计时
+    else if(type==='spread'){ spread=6; if(typeof Juice!=='undefined') Juice.popup('✳散射'); } // 散射计时
+    if(typeof p==='object' && p!==null && typeof p.type==='string'){ const idx=pickups.indexOf(p); if(idx>=0) pickups.splice(idx,1); }
+    if(typeof Juice!=='undefined' && Juice.sfx) Juice.sfx('pickup');
+  }
+  function updatePickups(dt){ for(let i=pickups.length-1;i>=0;i--){ const p=pickups[i]; p.y+=p.vy*dt; p.life-=dt; const dx=p.x-ship.x, dy=p.y-ship.y; if(dx*dx+dy*dy < (p.r+SH)*(p.r+SH)){ applyPickup(p); continue; } if(p.life<=0 || p.y>H+20) pickups.splice(i,1); } if(boostTimer>0) boostTimer=Math.max(0,boostTimer-dt); if(rapid>0) rapid=Math.max(0,rapid-dt); if(spread>0) spread=Math.max(0,spread-dt); }
+  function drawPickups(ctx){ for(const p of pickups){ const col=p.type==='rapid'?'#f0b90b':p.type==='spread'?'#3aa0ff':p.type==='shield'?'#02c076':p.type==='coin'?'#f0b90b':'#5ab4ff'; ctx.save(); ctx.beginPath(); ctx.arc(p.x,p.y,p.r+4,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fill(); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke(); ctx.fillStyle='#fff'; ctx.font='14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(p.sym||'★',p.x,p.y); ctx.restore(); } }
   function takeHit(){ if(shield>0){ shield--; if(typeof Juice!=='undefined') Juice.flash('#02c076',.3); return; } lives--; if(lives<=0){ over=true; if(typeof Juice!=='undefined') Juice.flash('#f6465d',.5); } }
   function setAsteroids(a){ asteroids=a.map(o=>({...o})); }
   function setBullets(b){ bullets=b.map(o=>({...o})); }
   function getAsteroids(){ return asteroids.map(o=>({...o})); }
   function getBullets(){ return bullets.map(o=>({...o})); }
   function getScore(){ return score; }
-  function shoot(){ const dx=Math.cos(ship.angle),dy=Math.sin(ship.angle); bullets.push({x:ship.x,y:ship.y,vx:dx*200,vy:dy*200}); Juice.sfx('shoot'); }
+  function shoot(){
+    const dx=Math.cos(ship.angle),dy=Math.sin(ship.angle);
+    if(spread>0){ // 散射增益：中间 + 两翼，仅增益态生效，不改基础射击
+      bullets.push({x:ship.x,y:ship.y,vx:dx*200,vy:dy*200});
+      bullets.push({x:ship.x,y:ship.y,vx:dx*200-90,vy:dy*200});
+      bullets.push({x:ship.x,y:ship.y,vx:dx*200+90,vy:dy*200});
+    } else {
+      bullets.push({x:ship.x,y:ship.y,vx:dx*200,vy:dy*200});
+    }
+    if(typeof Juice!=='undefined') Juice.sfx('shoot');
+  }
   function processAsteroids(dt){
     for(const a of asteroids){ a.x+=a.vx*dt; a.y+=a.vy*dt; if(a.x<0)a.x+=W; if(a.x>W)a.x-=W; if(a.y<0)a.y+=H; if(a.y>H)a.y-=H; }
     for(const b of bullets){ b.x+=b.vx*dt; b.y+=b.vy*dt; if(b.x<0)b.x+=W; if(b.x>W)b.x-=W; if(b.y<0)b.y+=H; if(b.y>H)b.y-=H; }
@@ -140,12 +164,13 @@
     const hit=[];
     for(let i=0;i<asteroids.length;i++){ for(let j=0;j<bullets.length;j++){ const a=asteroids[i],b=bullets[j]; const dx=a.x-b.x,dy=a.y-b.y; if(dx*dx+dy*dy<(a.r+BR)*(a.r+BR)){ hit.push([i,j]); break; } } }
     const deadA=new Set(),deadB=new Set();
-    for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= (a.r>20?20:10)*(boostTimer>0?2:1); Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(a.x, a.y, {color:'#f0b90b'}); if(a.r>20){ for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(Math.random()*2-1)*60,vy:(Math.random()*2-1)*60,r:20}); } }
+    for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= (a.r>20?20:10)*(boostTimer>0?2:1); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(a.x, a.y, {color:'#f0b90b'}); } if(a.r>20){ for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(Math.random()*2-1)*60,vy:(Math.random()*2-1)*60,r:20}); } if(pickupRng()<DROP_PROB){ const PT=['rapid','spread','shield']; pickups.push(makePickup(PT[(pickupRng()*PT.length)|0], a.x, a.y)); } } // 击碎按概率掉落增益
     asteroids=asteroids.filter((_,i)=>!deadA.has(i));
     bullets=bullets.filter((_,j)=>!deadB.has(j));
   }
   function step(dt){
     dt=Math.max(dt||0.016,0);
+    if(!over && rapid>0){ fireCd-=dt; if(fireCd<=0){ shoot(); fireCd=RAPID_CD; } } // 连射增益：自动开火，仅增益态生效
     processAsteroids(dt);
     if(boss){
       updatePickups(dt);
@@ -183,20 +208,25 @@
     ctx.fillStyle='#f6465d'; for(const e of ebullets){ ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill(); }
     drawPickups(ctx);
     ctx.fillStyle='#02c076'; ctx.save(); ctx.translate(ship.x,ship.y); ctx.rotate(ship.angle); ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-6,5); ctx.lineTo(-6,-5); ctx.closePath(); ctx.fill(); ctx.restore();
-    const sc=$('sc'),rem=$('rem'),bf=$('buff'); if(sc)sc.textContent=score; if(rem)rem.textContent=asteroids.length; if(bf){ let s=''; if(shield>0)s+='🛡'+shield+' '; if(boostTimer>0)s+='🚀'+Math.ceil(boostTimer)+'s'; bf.textContent=s; }
+    if(shield>0){ ctx.strokeStyle='rgba(80,180,255,.85)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(ship.x,ship.y,14,0,Math.PI*2); ctx.stroke(); } // 护盾环（仅绘制层）
+    const sc=$('sc'),rem=$('rem'),bf=$('buff'); if(sc)sc.textContent=score; if(rem)rem.textContent=asteroids.length; if(bf){ let s=''; if(shield>0)s+='🛡'+shield+' '; if(rapid>0)s+='⚡'+Math.ceil(rapid)+'s '; if(spread>0)s+='✳'+Math.ceil(spread)+'s'; if(boostTimer>0)s+='🚀'+Math.ceil(boostTimer)+'s'; bf.textContent=s; }
   }
   function loop(){ if(typeof requestAnimationFrame==='undefined') return; step(0.016); render(); requestAnimationFrame(loop); }
   reset();
   if(typeof document!=='undefined'){ const sh=$('shoot'),nb=$('new'); if(sh)sh.onclick=()=>{ shoot(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
   if(typeof window!=='undefined'){ window.__t={ reset, setAsteroids, setBullets, getAsteroids, getBullets, getScore, shoot, step,
-    getState(){ return {score, shield, boostTimer, lives, over, pickups:pickups.length, spawnTimer, wave, boss:!!boss, ebullets:ebullets.length}; },
+    getState(){ return {score, shield, boostTimer, rapid, spread, lives, over, pickups:pickups.length, spawnTimer, wave, boss:!!boss, ebullets:ebullets.length}; },
     spawnPickup(type,x,y){ pickups.push(makePickup(type||'coin', x, y)); },
     stepPickups(dt){ updatePickups(dt); },
-    applyPickup(p){ applyPickup(p); },
+    applyPickup:(p)=>applyPickup(p),
     getPickups(){ return pickups.length; },
     getPickup(i){ return pickups[i]; },
     getShield(){ return shield; }, setShield(v){ shield=v; },
     getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
+    getRapid(){ return rapid; }, setRapid(v){ rapid=v; },
+    getSpread(){ return spread; }, setSpread(v){ spread=v; },
+    setRand:(fn)=>{ if(typeof fn==='function') pickupRng=fn; },
+    DROP_PROB,
     getLives(){ return lives; }, setLives(v){ lives=v; },
     takeHit, getShip(){ return {x:ship.x,y:ship.y}; }, getOver(){ return over; },
     // —— Boss 系统钩子 ——

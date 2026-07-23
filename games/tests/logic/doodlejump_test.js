@@ -103,4 +103,121 @@ t.triggerFall();
 t.step(0.016);
 H.ok('回归: 无盾坠落仍 gameOver', t.isGameOver() === true);
 
+// ===== 难度系统（倍率法，normal=1.0 保持经典手感）=====
+// 11) DIFFICULTY 结构 + diffCfg
+H.ok('DIFFICULTY 含四档', t.DIFF_ORDER.length === 4 && ['easy','normal','hard','hell'].every(k => t.DIFFICULTY[k]));
+H.ok('默认难度=normal', t.getDifficulty() === 'normal');
+H.ok('diffCfg 返回对象', typeof t.diffCfg() === 'object');
+H.eq('normal 倍率为 1.0', t.diffCfg().speedMult, 1.0);
+
+// 12) 地狱档下落更快（speedMult -> 重力）：地狱重力 > 普通重力
+t.newGame(1);
+const gNorm = t.getGravity();
+t.setDifficulty('hell');
+t.newGame(1);                       // 重开后应用地狱难度
+const gHell = t.getGravity();
+H.ok('地狱重力 > 普通重力', gHell > gNorm);
+H.eq('普通重力 = 基准 GRAVITY(1400)', gNorm, 1400);
+
+// 13) 概率更高（countMult）：地狱破碎/尖刺概率 > 普通；普通尖刺=0（保持经典手感）
+t.setDifficulty('normal');
+const bpN = t.getBreakProb(), spN = t.getSpikeProb();
+t.setDifficulty('hell');
+const bpH = t.getBreakProb(), spH = t.getSpikeProb();
+H.ok('地狱破碎概率 > 普通', bpH > bpN);
+H.ok('地狱尖刺概率 > 普通', spH > spN);
+H.eq('普通档尖刺概率=0（不破坏原行为）', spN, 0);
+
+// 14) setDifficulty 生效：改变当前难度并重开一局（未结束、平台已生成）
+t.setDifficulty('hard');
+H.eq('setDifficulty 生效: 当前=hard', t.getDifficulty(), 'hard');
+const stHard = t.getState();
+H.ok('setDifficulty 重开: 未结束', stHard.gameOver === false);
+H.ok('setDifficulty 重开: 平台已生成', stHard.platformCount > 0);
+H.eq('hard 重力倍率应用', t.getGravity(), 1400 * 1.25);
+
+// 15) 尖刺平台机制（确定性放置）：无盾接触即判负；有盾消耗护盾并弹开
+t.newGame(41);
+const pl0 = t.getState().player;
+t.setShield(0);
+t.setPlatforms([{ x: pl0.x - 30, y: pl0.y + 20, w: 60, type: 'spike' }]);
+t.setPlayerY(pl0.y + 20 - t.R);     // 脚底正好压在尖刺顶面
+t.setVY(60);
+t.step(0.016);
+H.ok('尖刺落地(无盾): gameOver', t.isGameOver() === true);
+
+t.newGame(42);
+const pl1 = t.getState().player;
+t.setShield(1);
+t.setPlatforms([{ x: pl1.x - 30, y: pl1.y + 20, w: 60, type: 'spike' }]);
+t.setPlayerY(pl1.y + 20 - t.R);
+t.setVY(60);
+t.step(0.016);
+H.ok('尖刺落地(有盾): 未结束', t.isGameOver() === false);
+H.eq('尖刺落地(有盾): 护盾被消耗=0', t.getShield(), 0);
+
+// 还原默认难度，避免影响其它运行
+t.setDifficulty('normal');
+
+// ===== 生存型 Boss 系统（每 BOSS_EVERY 高度里程碑出现，无射击适配）=====
+// 16) isBossWave 以高度里程碑计（BOSS_EVERY=3）
+H.eq('BOSS_EVERY=3', t.BOSS_EVERY, 3);
+H.ok('isBossWave(0)=false', t.isBossWave(0) === false);
+H.ok('isBossWave(3)=true', t.isBossWave(3) === true);
+H.ok('isBossWave(6)=true', t.isBossWave(6) === true);
+H.ok('isBossWave(4)=false', t.isBossWave(4) === false);
+
+// 17) spawnBoss：maxHp 随里程碑与 bossHpMult 缩放；起始 phase=1、hp=maxHp
+t.setDifficulty('normal');
+t.newGame(51);
+t.setWave(3);                 // 第 3 个里程碑出 Boss
+t.spawnBoss();
+let b = t.getBoss();
+H.ok('spawnBoss: boss 已生成', b !== null);
+H.eq('spawnBoss: 起始 phase=1', b.phase, 1);
+H.eq('spawnBoss: hp=maxHp', b.hp, b.maxHp);
+H.eq('spawnBoss: normal maxHp=(28+wave*6)', b.maxHp, 28 + 3*6);   // bossHpMult=1.0
+t.setDifficulty('hell'); t.newGame(51); t.setWave(3); t.spawnBoss();
+H.ok('spawnBoss: 地狱 maxHp 更大(bossHpMult=1.9)', t.getBoss().maxHp > 46);
+t.setDifficulty('normal');
+
+// 18) 半血进入 phase2（更快/更密攻击）
+t.newGame(52); t.setWave(6); t.spawnBoss();
+t.setBossHp(t.getBoss().maxHp / 2);   // 触发半血阈值
+t.updateBoss(0.016);
+H.eq('phase2: 半血后 phase=2', t.getBoss().phase, 2);
+
+// 19) 玩家上升使 boss.hp 递减（高度推进削减）
+t.newGame(53); t.setWave(3); t.spawnBoss();
+const hpBeforeRise = t.getBoss().hp;
+t.setVY(-400);
+t.step(0.05);                           // 一帧内迅速上升
+H.ok('上升削减 hp: hp 下降', t.getBoss().hp < hpBeforeRise);
+
+// 20) 击败：hp<=0 时奖励 + 掉落 + boss=null
+t.newGame(54); t.setWave(3); t.spawnBoss();
+const scBeforeBoss = t.getScore();
+const dropsBefore = t.getPickups();
+t.setBossHp(1);                          // 接近击败
+t.setVY(-400);
+t.step(0.1);                            // 上升削减 hp 至 <=0 → 击败
+H.ok('击败: boss 已清空(null)', t.getBoss() === null);
+H.ok('击败: 分数增加奖励(100*wave=300)', t.getScore() - scBeforeBoss >= 300);
+H.ok('击败: 掉落道具(+1)', t.getPickups() > dropsBefore);
+
+// 21) Boss 命中玩家：护盾优先免一次；无盾判负（不改坠落逻辑）
+t.newGame(55); t.setWave(3); t.spawnBoss();
+t.setShield(1);
+t.takeBossHit();
+H.ok('Boss命中(有盾): 未结束', t.isGameOver() === false);
+H.eq('Boss命中(有盾): 护盾已消耗=0', t.getShield(), 0);
+
+t.newGame(56); t.setWave(3); t.spawnBoss();
+t.setShield(0);
+t.takeBossHit();
+H.ok('Boss命中(无盾): 判负', t.isGameOver() === true);
+
+// 还原默认难度
+t.setDifficulty('normal');
+
 console.log('  ✓ doodlejump_test.js 全部通过');

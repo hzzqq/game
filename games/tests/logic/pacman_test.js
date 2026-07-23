@@ -159,3 +159,21 @@ H.ok('吃豆人 边界(0,0)是墙', t.isWall(0,0) === true);
   t.setDifficulty('normal'); t.startGame(); // 还原
 })();
 
+// 14) 建模精细化（仅绘制层：描边/高光/渐变）不破坏任何逻辑状态
+(() => {
+  t.startGame();
+  const before = {
+    score: t.getScore(),
+    lives: t.getLives(),
+    dots: t.getDotsLeft(),
+    pac: JSON.stringify(t.getPac()),
+    ghosts: t.getGhosts().length
+  };
+  t.draw(); // 仅绘制，不应改动任何逻辑状态
+  H.ok('建模 渲染后 score 不变', t.getScore() === before.score);
+  H.ok('建模 渲染后 lives 不变', t.getLives() === before.lives);
+  H.ok('建模 渲染后 dotsLeft 不变', t.getDotsLeft() === before.dots);
+  H.ok('建模 渲染后 pac 位置不变', JSON.stringify(t.getPac()) === before.pac);
+  H.ok('建模 渲染后 ghost 数不变', t.getGhosts().length === before.ghosts);
+})();
+

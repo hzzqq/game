@@ -633,15 +633,20 @@
   // ====== 绘制 ======
   function drawCell(c, px, py, color, alpha){
     c.globalAlpha = alpha===undefined?1:alpha;
-    c.fillStyle = color;
+    // 渐变填充（顶部更亮 → 主色，营造体积高光）
+    var grad = c.createLinearGradient(px+1, py+1, px+1, py+CELL-2);
+    grad.addColorStop(0, 'rgba(255,255,255,0.22)');
+    grad.addColorStop(0.45, color);
+    grad.addColorStop(1, color);
+    c.fillStyle = grad;
     c.fillRect(px+1, py+1, CELL-2, CELL-2);
     // 顶部高光
     c.fillStyle = 'rgba(255,255,255,.18)';
     c.fillRect(px+1, py+1, CELL-2, 4);
-    // 边框
+    // 对比描边
     c.globalAlpha = (alpha===undefined?0.9:alpha*0.9);
-    c.strokeStyle = 'rgba(255,255,255,.25)';
-    c.lineWidth = 1;
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 1.5;
     c.strokeRect(px+1.5, py+1.5, CELL-3, CELL-3);
     c.globalAlpha = 1;
   }
@@ -887,6 +892,7 @@
       getGrid: () => grid,
       setGrid(g){ grid = g; },
       getCurrent: () => current,
+      draw,
       setCurrent(p){ current = p; },
       getScore: () => score,
       getLines: () => linesCleared,

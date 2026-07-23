@@ -166,3 +166,80 @@ t.setAsteroids([]);
 t.updateBoss(0.016);
 eq('Boss 存在期间普通小行星不刷出', t.getAsteroids().length, 0);
 
+// ===== 道具系统（⚡连射 rapid / ✳散射 spread / 🛡护盾 shield，贴合 asteroids 玩法）=====
+// 1. 钩子签名：applyPickup 兼容「字符串类型」（直接授予增益）
+t.reset();
+t.spawnPickup('rapid', 100, 100);
+eq('生成 1 个掉落物(rapid)', t.getPickups(), 1);
+t.applyPickup('rapid');
+eq('applyPickup("rapid") 设置连射增益', t.getRapid(), 6);
+
+// 2. 散射增益生效
+t.reset();
+t.spawnPickup('spread', 80, 80);
+t.applyPickup('spread');
+eq('applyPickup("spread") 设置散射增益', t.getSpread(), 6);
+
+// 3. 护盾增益（新增类型）：applyPickup('shield') 叠加护盾
+t.reset();
+t.setShield(0);
+t.applyPickup('shield');
+eq('applyPickup("shield") 叠加护盾', t.getShield(), 1);
+
+// 4. getRapid/setRapid 与 getSpread/setSpread 直读直写
+t.reset();
+t.setRapid(5); eq('setRapid 后 getRapid 一致', t.getRapid(), 5);
+t.setSpread(3); eq('setSpread 后 getSpread 一致', t.getSpread(), 3);
+
+// 5. 碰撞拾取（位置重叠）：飞船接触自动生效并移除
+t.reset();
+const sp1 = t.getShip();
+t.spawnPickup('rapid', sp1.x, sp1.y);
+t.stepPickups(0.016);
+ok('掉落到飞船自动拾取连射', t.getRapid() > 0);
+eq('自动拾取后掉落物移除', t.getPickups(), 0);
+
+t.reset();
+const sp2 = t.getShip();
+t.spawnPickup('spread', sp2.x, sp2.y);
+t.stepPickups(0.016);
+ok('掉落到飞船自动拾取散射', t.getSpread() > 0);
+eq('散射自动拾取后移除', t.getPickups(), 0);
+
+// 6. 增益计时递减：stepPickups 让 rapid/spread 随时间归零
+t.reset();
+t.setRapid(0.5);
+t.stepPickups(0.3);
+ok('rapid 计时递减', t.getRapid() > 0 && t.getRapid() <= 0.5);
+t.stepPickups(0.3);
+eq('rapid 计时归零', t.getRapid(), 0);
+
+// 7. 连射自动开火：rapid>0 时 step 自动产生子弹（不改基础射击逻辑）
+t.reset();
+t.setAsteroids([]); t.setBullets([]); t.setRapid(6);
+const fb0 = t.getBullets().length;
+t.step(0.2);
+ok('连射增益下自动开火产生子弹', t.getBullets().length > fb0);
+
+// 8. 散射开火：spread>0 时 shoot 产生 3 发
+t.reset();
+t.setAsteroids([]); t.setBullets([]); t.setSpread(6); t.setRapid(6);
+const fb1 = t.getBullets().length;
+t.step(0.2);
+ok('散射增益下开火产生多发子弹(>=3)', t.getBullets().length - fb1 >= 3);
+
+// 9. 小行星击碎按概率掉落（确定性：setRand 强制掉落/不掉落）
+t.reset(); t.setRand(()=>0.01);
+t.setAsteroids([{x:120,y:120,vx:0,vy:0,r:40}]); t.setBullets([{x:120,y:120,vx:0,vy:0}]);
+const dp0 = t.getPickups();
+t.step(0.016);
+eq('击碎小行星按概率掉落 1 个道具', t.getPickups(), dp0 + 1);
+
+t.reset(); t.setRand(()=>0.99);
+t.setAsteroids([{x:120,y:120,vx:0,vy:0,r:40}]); t.setBullets([{x:120,y:120,vx:0,vy:0}]);
+const dp1 = t.getPickups();
+t.step(0.016);
+eq('高随机值不掉落道具', t.getPickups(), dp1);
+
+t.setRand(()=>0.5); // 复位 PRNG，避免影响后续
+

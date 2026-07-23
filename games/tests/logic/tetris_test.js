@@ -195,3 +195,19 @@ H.eq('俄罗斯 rotateCW', t.rotateCW([[1,2],[3,4]]), [[3,1],[4,2]]);
   H.ok('难度 computeDropInterval 随 level 递减', di5 < di1, 'lvl1=' + di1 + ' lvl5=' + di5);
   t.setRand(Math.random);
 })();
+
+// 15) 建模精细化（仅绘制层：高光/描边/渐变）不破坏任何逻辑状态
+(() => {
+  t.startGame();
+  const before = {
+    score: t.getScore(),
+    lines: t.getLines(),
+    level: t.getLevel(),
+    grid: JSON.stringify(t.getGrid())
+  };
+  t.draw(); // 仅绘制，不应改动任何逻辑状态
+  H.ok('建模 渲染后 score 不变', t.getScore() === before.score);
+  H.ok('建模 渲染后 lines 不变', t.getLines() === before.lines);
+  H.ok('建模 渲染后 level 不变', t.getLevel() === before.level);
+  H.ok('建模 渲染后 grid 不变', JSON.stringify(t.getGrid()) === before.grid);
+})();

@@ -148,3 +148,12 @@ ok('弹容=2 可放置第 1 颗', t.setBomb(1,1) === true);
 ok('弹容=2 可放置第 2 颗', t.setBomb(3,3) === true);
 eq('已放置 2 颗', t.getBombCount(), 2);
 ok('超过弹容不可再放', t.setBomb(4,4) === false);
+
+// ===== 建模精细化（DOM 内联样式近似：玩家/炸弹 描边+高光）不破坏任何逻辑状态 =====
+t.setup(5,5,[]);
+t.setRange(2);
+const bRange = t.getRange(), bScore = t.getScore(), bShield = t.getShield();
+t.render(); // 仅绘制，不应改动任何逻辑状态
+eq('建模 渲染后 range 不变', t.getRange(), bRange);
+eq('建模 渲染后 score 不变', t.getScore(), bScore);
+eq('建模 渲染后 shield 不变', t.getShield(), bShield);

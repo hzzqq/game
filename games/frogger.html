@@ -31,6 +31,17 @@
   .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
   .controls button:hover{filter:brightness(1.1)}
   .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  .diffbar{display:flex;gap:6px;justify-content:center;margin-top:10px}
+  .diffbar button{flex:0 0 auto;font:600 12px/1 inherit;color:var(--dim);background:transparent;border:1px solid var(--border);border-radius:6px;padding:6px 12px;cursor:pointer;transition:.12s}
+  .diffbar button:hover{color:#fff;border-color:#666}
+  .diffbar button.active{color:#0a0e14;background:var(--gold);border-color:var(--gold)}
+  /* Boss 血条 + 鳄鱼王本体 */
+  .bossbar{display:none;align-items:center;gap:8px;margin:8px auto 0;width:min(480px,98vw)}
+  .bossbar .bl{font-size:12px;color:var(--gold);font-weight:700;white-space:nowrap}
+  .bossbar .bt{flex:1;height:10px;background:var(--border);border-radius:6px;overflow:hidden}
+  .bossbar .bf{height:100%;width:100%;background:#9b6bff;transition:width .12s}
+  .cell.boss{background:linear-gradient(180deg,#9b6bff,#6a3bff);color:#fff;font-size:16px;box-shadow:0 0 12px rgba(155,107,255,.75)}
+  .cell.boss.p2{background:linear-gradient(180deg,#f6465d,#b3263a);box-shadow:0 0 12px rgba(246,70,93,.8)}
 </style>
 </head>
 <body>
@@ -39,11 +50,13 @@
   <div class="wrap">
     <div class="hud"><span>位置 · <span class="st" id="pos">--</span></span><span>状态 · <span class="st" id="st">进行中</span></span><span>BUFF · <span class="st" id="buff">-</span></span></div>
     <div class="board" id="board"></div>
+    <div class="bossbar" id="bossbar"><span class="bl" id="bossbarLabel"></span><div class="bt"><div class="bf" id="bossbarFill"></div></div></div>
     <div class="msg" id="msg">方向键移动青蛙，躲开马路车流、踩着河面浮木过河，抵达顶部终点即胜。被撞或落水即失败。</div>
     <div class="controls">
       <button data-d="up">↑</button><button data-d="left">←</button><button data-d="down">↓</button><button data-d="right">→</button>
       <button id="new" class="ghost">新局 NEW</button>
     </div>
+    <div class="diffbar" id="diffbar"></div>
   </div>
   <div class="foot">Frogger（青蛙过河）：操纵青蛙穿越车流与河流，踩浮木过河中抵达对岸终点。考验时机与走位。</div>
 
@@ -54,6 +67,19 @@
   const ROWS=13, COLS=11;
   let frog, rows, dead, goal;
   let pickups, shield, boostTimer, lives, score, _dropTimer;
+  let wave=1, boss=null, bossShots=[];
+  // ---- 难度系统（倍率法；normal=1.0 保持现有行为，不影响既有单测） ----
+  var DIFFICULTY = {
+    easy:   { label:'简单', speedMult:0.75, countMult:0.7, bossHpMult:0.7 },
+    normal: { label:'普通', speedMult:1.0,  countMult:1.0, bossHpMult:1.0 },
+    hard:   { label:'困难', speedMult:1.25, countMult:1.3, bossHpMult:1.4 },
+    hell:   { label:'地狱', speedMult:1.5,  countMult:1.7, bossHpMult:1.9 }
+  };
+  var DIFF_ORDER = ['easy','normal','hard','hell'];
+  var difficulty = 'normal';
+  function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
+  function setDifficulty(d){ if(!DIFFICULTY[d]) return false; difficulty=d; reset(); return true; }
+  function getDifficulty(){ return difficulty; }
   function defaultRows(){
     rows=[];
     for(let r=0;r<ROWS;r++){
@@ -63,8 +89,23 @@
       else if(r>=7&&r<=11) type='road';
       rows.push({ type, dir: r%2===0?1:-1, speed:1, obstacles:[] });
     }
+    populateObstacles();
   }
-  function reset(){ frog={row:ROWS-1,col:Math.floor(COLS/2)}; defaultRows(); dead=false; goal=false; pickups=[]; shield=0; boostTimer=0; lives=1; score=0; _dropTimer=4; }
+  // 依据当前难度填充车流/浮木密度与速度；位置确定（基于行号），不依赖 PRNG
+  function populateObstacles(){
+    const cfg=diffCfg();
+    for(let r=0;r<ROWS;r++){
+      const row=rows[r];
+      if(row.type!=='road'&&row.type!=='water'){ row.obstacles=[]; continue; }
+      const base = 3;
+      let n = Math.max(1, Math.round(base*cfg.countMult));
+      row.obstacles=[];
+      const step = COLS / n;
+      for(let k=0;k<n;k++){ let p=(k*step + r*1.7) % COLS; if(p<0)p+=COLS; row.obstacles.push(p); }
+      row.speed = 1 * cfg.speedMult;
+    }
+  }
+  function reset(){ frog={row:ROWS-1,col:Math.floor(COLS/2)}; defaultRows(); dead=false; goal=false; pickups=[]; shield=0; boostTimer=0; lives=1; score=0; _dropTimer=4; wave=1; boss=null; bossShots=[]; }
   function setFrog(r,c){ frog.row=r; frog.col=c; }
   function setRow(r,type){ rows[r].type=type; }
   function setObstacles(r,cols){ rows[r].obstacles=cols.slice(); }
@@ -84,9 +125,90 @@
       updatePickups(0);
     }
   }
+  // ---------- Boss 系统（鳄鱼王 · 生存型 Boss）----------
+  // 每 BOSS_EVERY 波出现一次；Boss 在河道里追咬玩家、周期吐弹/张嘴攻击，
+  // 玩家成功前进（行号推进）即削减其 HP，归零即击败并奖励（无射击、纯生存）。
+  var BOSS_EVERY = 3;
+  function isBossWave(w){ return w>0 && w % BOSS_EVERY === 0; }
+  function spawnBoss(){
+    const cfg = diffCfg();
+    const maxHp = Math.round((20 + wave*4) * cfg.bossHpMult);
+    boss = {
+      row: 3, col: COLS/2,                 // 河道中段（rows 1..5）
+      hp: maxHp, maxHp: maxHp,
+      phase: 1,
+      spd: 0.5 * cfg.speedMult,            // 追击速度（格/回合）
+      atkCd: 2, biteCd: 0,
+      trackRow: frog.row                      // 用于按"前进"削减 HP
+    };
+    bossShots = [];
+    if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#9b6bff',.4); }
+  }
+  // 返回 true 表示本帧击败 Boss
+  function updateBoss(dt){
+    if(!boss) return false;
+    const cfg = diffCfg();
+    // 半血狂暴（phase2：更快追击、更密吐弹）
+    if(boss.phase===1 && boss.hp <= boss.maxHp/2){ boss.phase=2; boss.spd*=1.4; if(typeof Juice!=='undefined') Juice.flash('#f6465d',.3); }
+    // 追击：横向对齐青蛙；纵向仅当青蛙在河道内(1..5)时跟随
+    if(boss.col < frog.col) boss.col = Math.min(frog.col, boss.col + boss.spd);
+    else if(boss.col > frog.col) boss.col = Math.max(frog.col, boss.col - boss.spd);
+    if(frog.row>=1 && frog.row<=5){
+      if(boss.row < frog.row) boss.row = Math.min(frog.row, boss.row + 0.5);
+      else if(boss.row > frog.row) boss.row = Math.max(frog.row, boss.row - 0.5);
+    }
+    // 周期吐弹（朝青蛙方向）
+    boss.atkCd -= 1;
+    if(boss.atkCd<=0){
+      boss.atkCd = (boss.phase===2 ? 2 : 3);
+      const ang = Math.atan2(frog.row - boss.row, frog.col - boss.col);
+      bossShots.push({ col: boss.col, row: boss.row, vcol: Math.cos(ang)*0.5, vrow: Math.sin(ang)*0.5, life: 12 });
+    }
+    // 弹幕移动 + 命中（护盾优先）
+    for(let i=bossShots.length-1;i>=0;i--){
+      const s=bossShots[i]; s.col+=s.vcol; s.row+=s.vrow; s.life--;
+      if(s.life<=0 || s.col<0 || s.col>COLS-1 || s.row<0 || s.row>ROWS-1){ bossShots.splice(i,1); continue; }
+      if(Math.abs(s.col-frog.col)<0.6 && Math.abs(s.row-frog.row)<0.6){ takeHit(); bossShots.splice(i,1); }
+    }
+    // 张嘴咬（同格附近）
+    boss.biteCd -= 1;
+    if(boss.biteCd<=0 && Math.round(boss.row)===frog.row && Math.abs(boss.col-frog.col)<0.8){
+      takeHit(); boss.biteCd = 3;
+    }
+    // 玩家成功前进（行号推进）→ 削减 Boss HP
+    if(frog.row < boss.trackRow){ boss.hp = Math.max(0, boss.hp - (boss.trackRow - frog.row)); boss.trackRow = frog.row; }
+    // 抵达终点（行号 0）≡ 击溃 Boss
+    if(frog.row===0) boss.hp = 0;
+    // 击败：奖励 + 掉落 + 清空
+    if(boss.hp<=0){
+      const reward = 100*wave;
+      score += reward;
+      pickups.push(makePickup('shield', Math.round(boss.row), Math.round(boss.col)));
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#f0b90b',.5); if(Juice.burst) Juice.burst(boss.col*30, boss.row*24, {color:'#f6465d', n:20}); }
+      boss = null;
+      return true;
+    }
+    return false;
+  }
+  // 普通波到达终点：进入下一波（每 BOSS_EVERY 波刷 Boss），继续无尽生存
+  function onCrossing(){
+    wave++;
+    score += 50 + wave*10;
+    if(isBossWave(wave)) spawnBoss();
+    frog.row = ROWS-1; frog.col = Math.floor(COLS/2); goal = false;
+    if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.4); }
+  }
+
   function tick(dt){
-    if(dead||goal) return;
+    if(dead) return;
     dt=dt||1;
+    // Boss 波：走独立分支（击败后才恢复普通生成）
+    if(boss){
+      const beaten = updateBoss(dt);
+      if(beaten){ wave++; frog.row=ROWS-1; frog.col=Math.floor(COLS/2); goal=false; }
+    }
+    if(goal && !boss){ onCrossing(); return; }
+    if(goal) return;   // Boss 波中到达顶部由 updateBoss 处理击败
     for(const row of rows){ for(let i=0;i<row.obstacles.length;i++){ let c=row.obstacles[i]+row.dir*row.speed*dt; if(c<0)c+=COLS; if(c>=COLS)c-=COLS; row.obstacles[i]=c; } }
     const row=rows[frog.row];
     if(row.type==='road'){ if(row.obstacles.some(c=>Math.abs(c-frog.col)<0.6)){ takeHit(); } }
@@ -98,6 +220,7 @@
         else frog.col=nc;
       }
     }
+    if(dead) return;
     if(!dead && !goal) updatePickups(dt);
   }
   function isDead(){ return dead; }
@@ -136,23 +259,51 @@
   }
   function update(dt){
     if(boostTimer>0) boostTimer-=dt;
+    if(boss){
+      updatePickups(dt);
+      const beaten=updateBoss(dt);
+      if(beaten){ wave++; frog.row=ROWS-1; frog.col=Math.floor(COLS/2); goal=false; }
+      return;
+    }
     if(!dead && !goal) updatePickups(dt);
   }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
-    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+COLS+',30px)'; bd.innerHTML=''; for(let r=0;r<ROWS;r++){ for(let c=0;c<COLS;c++){ const d=document.createElement('div'); let cls='cell'; const row=rows[r]; const hasObs=row.obstacles.some(o=>Math.abs(o-c)<0.6); if(row.type==='goal') cls+=' goal'; else if(row.type==='road'&&hasObs) cls+=' car'; else if(row.type==='water'&&hasObs) cls+=' log'; if(frog.row===r&&frog.col===c) cls+=' frog'; d.className=cls; let txt=(frog.row===r&&frog.col===c)?'🐸':''; const pk=pickups.find(pp=>Math.abs(pp.x-r)<0.6&&Math.abs(pp.y-c)<0.6); if(pk) txt+=(PICKUP_EMOJI[pk.type]||'❓'); d.textContent=txt; bd.appendChild(d); } } }
+    const bd=$('board'); if(bd){ bd.style.gridTemplateColumns='repeat('+COLS+',30px)'; bd.innerHTML=''; for(let r=0;r<ROWS;r++){ for(let c=0;c<COLS;c++){ const d=document.createElement('div'); let cls='cell'; const row=rows[r]; const hasObs=row.obstacles.some(o=>Math.abs(o-c)<0.6); if(row.type==='goal') cls+=' goal'; else if(row.type==='road'&&hasObs) cls+=' car'; else if(row.type==='water'&&hasObs) cls+=' log'; if(frog.row===r&&frog.col===c) cls+=' frog'; let isBoss=false; if(boss && Math.round(boss.row)===r && Math.round(boss.col)===c){ isBoss=true; cls+=(boss.phase===2?' boss p2':' boss'); } d.className=cls; let txt=(frog.row===r&&frog.col===c)?'🐸':''; if(isBoss) txt='🐊'; const pk=pickups.find(pp=>Math.abs(pp.x-r)<0.6&&Math.abs(pp.y-c)<0.6); if(pk && !isBoss) txt+=(PICKUP_EMOJI[pk.type]||'❓'); const shot=bossShots.find(s=>Math.round(s.row)===r && Math.round(s.col)===c); if(shot && !isBoss && txt==='') txt='💢'; d.textContent=txt; bd.appendChild(d); } } }
     const p=$('pos'),st=$('st'),buff=$('buff'); if(p)p.textContent='('+frog.row+','+frog.col+')'; if(st)st.textContent=goal?'已到达':(dead?'失败':'进行中');
     if(buff){ let b=[]; if(shield>0)b.push('🛡'+shield); if(boostTimer>0)b.push('🚀'+Math.ceil(boostTimer)+'s'); if(lives>1)b.push('❤'+lives); b.push('💰'+score); buff.textContent=b.length?b.join(' '):'-'; }
     const msg=$('msg'); if(msg){ if(goal){msg.className='msg win';msg.textContent='🎉 青蛙成功过河！';} else if(dead){msg.className='msg';msg.textContent='💀 被撞或落水，失败。';} }
+    // Boss 顶部血条
+    const bar=$('bossbar'), fill=$('bossbarFill'), label=$('bossbarLabel');
+    if(bar){
+      if(boss){
+        bar.style.display='flex';
+        const frac=Math.max(0,Math.min(1,boss.hp/boss.maxHp));
+        if(fill){ fill.style.width=(frac*100)+'%'; fill.style.background= boss.phase===2?'#f6465d':'#9b6bff'; }
+        if(label) label.textContent=(boss.phase===2?'⚠ 鳄鱼王 · 狂暴':'🐊 鳄鱼王')+'  '+Math.ceil(boss.hp)+'/'+boss.maxHp;
+      } else { bar.style.display='none'; }
+    }
   }
   function bindUI(){
     if(typeof document==='undefined') return;
     document.querySelectorAll('.controls button[data-d]').forEach(b=>{ b.onclick=()=>{ move(b.getAttribute('data-d')); tick(0); render(); }; });
-    const nb=$('new'); if(nb) nb.onclick=()=>{ reset(); render(); };
+    const nb=$('new'); if(nb) nb.onclick=()=>{ reset(); render(); buildDiffBar(); };
+  }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    const bar=$('diffbar'); if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(function(k){
+      const b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click', function(){ setDifficulty(k); render(); buildDiffBar(); });
+      bar.appendChild(b);
+    });
   }
   reset();
-  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
+  if(typeof document!=='undefined'){ bindUI(); buildDiffBar(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
   if(typeof window!=='undefined'){ window.__t={ reset, setFrog, setRow, setObstacles, setRowDir, setRowSpeed, move, tick, isDead, isGoal, getFrog, update, takeHit,
     getState(){ return {dead,goal,shield,boostTimer,lives,score,pickups:pickups.length}; },
     spawnPickup(type,r,c){ pickups.push(makePickup(type,r,c)); },
@@ -164,7 +315,20 @@
     getShield(){ return shield; }, setShield(v){ shield=v; },
     getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
     getLives(){ return lives; }, setLives(v){ lives=v; },
-    getScore(){ return score; } }; }
+    getScore(){ return score; },
+    // ---- 难度钩子 ----
+    DIFFICULTY, setDifficulty, getDifficulty, diffCfg,
+    getRowSpeed(r){ return rows[r].speed; },
+    getRowCount(r){ return rows[r].obstacles.length; },
+    // ---- Boss 系统钩子（鳄鱼王 · 生存型） ----
+    BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
+    getBoss(){ return boss?{row:Math.round(boss.row),col:boss.col,hp:boss.hp,maxHp:boss.maxHp,phase:boss.phase,atkCd:boss.atkCd,biteCd:boss.biteCd}:null; },
+    setBossHp(v){ if(boss) boss.hp=v; },
+    setBoss(v){ boss=v; },
+    getShots(){ return bossShots.length; },
+    setShots(v){ bossShots=v||[]; },
+    setWave(v){ wave=v; },
+    getWave(){ return wave; } }; }
 })();
 </script>
 </body>
