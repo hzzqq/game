@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // 涂鸦跳跃 DOODLE JUMP</title>
+<style>
+  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
+    color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;padding:16px 10px}
+  .titlebar{width:min(400px,98vw);display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .dot{width:12px;height:12px;border-radius:50%}.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}.titlebar .t b{color:var(--green)}
+  .wrap{width:min(400px,98vw)}
+  .hud{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:10px}
+  .hud .sc{color:var(--gold);font-weight:700}.hud .st{color:var(--green);font-weight:700}
+  .boardwrap{display:flex;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:8px;margin-bottom:10px}
+  canvas{background:#0e141d;border-radius:8px;display:block;touch-action:none}
+  .controls{display:flex;gap:8px}
+  .controls button{flex:1;background:var(--green);color:#0a0e14;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-family:inherit}
+  .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .controls button:hover{filter:brightness(1.1)}
+  .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
+  .msg.over{color:var(--red);font-weight:700}
+  .foot{width:min(400px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>涂鸦跳跃</b> DOODLE JUMP</span></div>
+  <div class="wrap">
+    <div class="hud"><span>得分 <span class="sc" id="score">0</span></span><span>状态 <span class="st" id="st">进行中</span></span></div>
+    <div class="boardwrap"><canvas id="cv" width="400" height="600"></canvas></div>
+    <div class="controls">
+      <button id="left">◀ 左</button>
+      <button id="right">右 ▶</button>
+      <button id="new" class="ghost">新局 NEW</button>
+    </div>
+    <div class="msg" id="msg">小人自动跳上平台，越往上分数越高；掉出屏幕底部即失败。捡道具：🌀弹簧跳更高 · 🚀火箭升空 · 🛡护盾免一次坠落 · ⭐星星加分。</div>
+  </div>
+  <div class="foot">Doodle Jump（涂鸦跳跃）：自动跳跃穿越平台，向上攀登刷新高度分；收集增益道具助你飞得更高。</div>
+
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const J = (typeof Juice!=='undefined') ? Juice : null;
+
+  // 视口：只用 window.innerWidth/innerHeight，带兜底避免 NaN（harness 取 800/600）
+  const W = (typeof window!=='undefined' && window.innerWidth) ? Math.min(window.innerWidth, 400) : 400;
+  const H = (typeof window!=='undefined' && window.innerHeight) ? Math.min(window.innerHeight, 600) : 600;
+
+  // 局部种子 PRNG（mulberry32）：所有随机必须走它，禁止裸 Math.random
+  function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  let _rng = mk(0xd00d1e);
+  function setRand(fn){ if(typeof fn==='function') _rng = fn; }
+  function reseed(s){ _rng = mk((s>>>0) || 1); }
+
+  // 物理 / 玩法常量
+  const R = 14;                 // 玩家半径
+  const GRAVITY = 1400;         // px/s^2
+  const JUMP_V = -640;          // 普通起跳速度（向上为负）
+  const SPRING_V = -1100;       // 弹簧强力起跳
+  const ROCKET_V = -640;        // 火箭持续上升速度
+  const ROCKET_DUR = 3.0;       // 火箭持续秒数
+  const STAR_VALUE = 50;        // 星星加分
+  const START_Y = 200;          // 玩家起始世界 y（向下为正）
+  const PLAT_W = 60, PLAT_H = 12;
+
+  // 核心状态（普通 JS 变量，逻辑脱离 DOM）
+  let player, platforms, cam, score, maxClimbY, gameOver, pickups, spawnTimer;
+
+  // ---------- 拾取增益道具系统（注入式，不改跳跃物理/计分公式本身）----------
+  const PICKUP_TYPES = ['spring','rocket','shield','star'];
+  const PICKUP_PROB = 0.18;     // 新生成平台携带道具的概率
+  const PICKUP_VY = 0;          // 道具静止于世界坐标，随世界滚动（由 cam 渲染偏移）
+  const PICKUP_LIFE = 12;       // 道具存活秒数（兜底清理）
+  const SYM = { spring:'🌀', rocket:'🚀', shield:'🛡', star:'⭐' };
+  function makePickup(type, x, y){
+    return { type:type, x:x, y:y, r:13, sym:SYM[type]||'★', life:PICKUP_LIFE, vy:PICKUP_VY };
+  }
+  function spawnPickupAtRandom(plat){
+    const type = PICKUP_TYPES[(_rng()*PICKUP_TYPES.length)|0];
+    pickups.push(makePickup(type, plat.x + plat.w/2, plat.y - 16));
+  }
+  function applyPickup(type){
+    if(type && typeof type==='object') type = type.type;   // 兼容对象式调用
+    if(type==='spring'){ player.vy = SPRING_V; if(J) J.sfx&&J.sfx('pickup'); }
+    else if(type==='rocket'){ player.rocketTimer = ROCKET_DUR; if(J) J.sfx&&J.sfx('pickup'); }
+    else if(type==='shield'){ player.shield = (player.shield||0)+1; if(J) J.sfx&&J.sfx('pickup'); }
+    else if(type==='star'){ score += STAR_VALUE; if(J) J.sfx&&J.sfx('pickup'); }
+  }
+  function stepPickups(dt){
+    for(let i=pickups.length-1;i>=0;i--){
+      const p = pickups[i];
+      if(p.vy) p.y += p.vy*dt;
+      p.life -= dt;
+      // 玩家接触拾取（世界坐标直接比对）
+      if(Math.abs(p.x - player.x) < player.r + p.r && Math.abs(p.y - player.y) < player.r + p.r){
+        applyPickup(p.type); pickups.splice(i,1); continue;
+      }
+      if(p.life <= 0 || (p.y - cam) > H + 80){ pickups.splice(i,1); }
+    }
+  }
+
+  // ---------- 平台生成（向上无限延伸，携带随机掉落）----------
+  function ensurePlatforms(){
+    let topY = Infinity;
+    for(const p of platforms) if(p.y < topY) topY = p.y;
+    if(!isFinite(topY)) topY = START_Y;
+    while(topY > cam - 200){
+      const gap = 50 + _rng()*50;
+      topY -= gap;
+      const x = _rng()*(W - PLAT_W);
+      const plat = { x:x, y:topY, w:PLAT_W };
+      platforms.push(plat);
+      if(_rng() < PICKUP_PROB) spawnPickupAtRandom(plat);
+    }
+  }
+  function cullPlatforms(){
+    platforms = platforms.filter(p => (p.y - cam) <= H + 80);
+  }
+
+  function reset(seed){
+    if(typeof seed==='number' && !isNaN(seed)) _rng = mk(seed>>>0);
+    platforms = [];
+    pickups = [];
+    spawnTimer = 0;
+    score = 0; maxClimbY = START_Y; gameOver = false;
+    player = { x: W/2, y: START_Y, vy: JUMP_V, r: R, shield: 0, rocketTimer: 0 };
+    cam = player.y - H*0.7;
+    platforms.push({ x: W/2 - PLAT_W/2, y: START_Y + 18, w: PLAT_W }); // 起始平台
+    ensurePlatforms();
+    return getState();
+  }
+  function newGame(seed){ return reset(seed); }
+
+  // 仅横向移动（核心玩法：玩家只能左右，跳跃由落地自动触发）
+  function move(dir){
+    if(gameOver) return;
+    player.x += dir * 6;
+    if(player.x < 0) player.x += W;
+    if(player.x > W) player.x -= W;
+  }
+
+  function updateScore(){
+    if(player.y < maxClimbY){
+      const gain = Math.floor((maxClimbY - player.y)/10);
+      if(gain > 0){ score += gain; maxClimbY = player.y; }
+    }
+  }
+
+  // 推进一帧模拟
+  function step(dt){
+    if(gameOver) return;
+    dt = dt || 0.016;
+
+    // 火箭：持续上升，覆盖重力与落地
+    if(player.rocketTimer > 0){
+      player.rocketTimer -= dt;
+      player.vy = ROCKET_V;
+    } else {
+      player.vy += GRAVITY * dt;
+    }
+    const prevFeet = player.y + player.r;        // 上一帧脚底（用于落地扫掠）
+    player.y += player.vy * dt;
+
+    // 相机只向上跟随（玩家下落时不动，从而掉出底部判负）
+    const targetCam = player.y - H*0.4;
+    if(targetCam < cam) cam = targetCam;
+
+    // 落地检测：向下运动且脚底扫过某平台顶面
+    if(player.vy > 0){
+      const feetNow = player.y + player.r;
+      for(const p of platforms){
+        if(player.x + player.r > p.x && player.x - player.r < p.x + p.w){
+          if(prevFeet <= p.y + 2 && feetNow >= p.y){
+            player.y = p.y - player.r;
+            player.vy = JUMP_V;
+            break;
+          }
+        }
+      }
+    }
+
+    ensurePlatforms();
+    cullPlatforms();
+    updateScore();
+    stepPickups(dt);
+
+    // 坠落失败：玩家掉出屏幕底部；护盾优先消耗并救援，无盾才判负
+    if(player.y - cam > H + player.r){
+      if(player.shield > 0){
+        player.shield--;
+        player.y = cam + H*0.5;
+        player.vy = JUMP_V;
+        if(J) J.flash&&J.flash('#02c076', .3);
+        if(J) J.sfx&&J.sfx('hit');
+      } else {
+        gameOver = true;
+        if(J) J.sfx&&J.sfx('lose');
+        if(J) J.best&&J.best('doodlejump', score);
+      }
+    }
+  }
+
+  function isGameOver(){ return gameOver; }
+  function getScore(){ return score; }
+  function getState(){
+    return {
+      player: { x:player.x, y:player.y, vy:player.vy, r:player.r },
+      cam: cam, score, gameOver,
+      shield: player.shield, rocketTimer: player.rocketTimer,
+      platformCount: platforms.length,
+      pickups: pickups.map(p=>({ type:p.type, x:+p.x.toFixed(2), y:+p.y.toFixed(2) })),
+    };
+  }
+
+  // ---- 测试辅助 setter（不影响核心玩法，便于确定性测试）----
+  function setPlayerX(v){ player.x = v; }
+  function setPlayerY(v){ player.y = v; }
+  function setVY(v){ player.vy = v; }
+  function triggerFall(){ player.y = cam + H + 100; }   // 把玩家推到屏幕底外，触发坠落判定
+
+  /* ===================== UI ===================== */
+  function $(id){ return (typeof document!=='undefined') ? document.getElementById(id) : null; }
+  function render(){
+    if(typeof document==='undefined') return;
+    const cv = $('cv'); if(!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0,0,W,H);
+    const sy = (wy) => wy - cam;   // 世界 y -> 屏幕 y
+
+    // 平台
+    ctx.fillStyle = '#3a4a5e';
+    for(const p of platforms){
+      const y = sy(p.y);
+      if(y < -PLAT_H || y > H) continue;
+      ctx.fillRect(p.x, y, p.w, PLAT_H);
+    }
+
+    // 道具（玩家之前绘制：辉光圆 + emoji）
+    for(const p of pickups){
+      const px = p.x, py = sy(p.y);
+      if(py < -20 || py > H + 20) continue;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(px, py, p.r + 4, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,207,90,.7)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = '16px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(p.sym, px, py);
+      ctx.restore();
+    }
+
+    // 玩家
+    const py = sy(player.y);
+    ctx.fillStyle = player.rocketTimer > 0 ? '#f0b90b' : '#02c076';
+    ctx.beginPath(); ctx.arc(player.x, py, player.r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.stroke();
+    // 护盾环
+    if(player.shield > 0){
+      ctx.strokeStyle = 'rgba(2,192,118,.85)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(player.x, py, player.r + 6, 0, Math.PI*2); ctx.stroke();
+    }
+
+    const sc = $('score'); if(sc) sc.textContent = String(score);
+    const st = $('st'); if(st) st.textContent = gameOver ? '结束' : '进行中';
+    const msg = $('msg'); if(msg){ if(gameOver){ msg.className='msg over'; msg.textContent='💀 掉出屏幕，游戏结束 · 得分 '+score+' · 刷新重开'; } else msg.className='msg'; }
+  }
+  function bindUI(){
+    if(typeof document==='undefined') return;
+    const l=$('left'), r=$('right'), n=$('new');
+    if(l) l.onclick = () => { move(-1); render(); };
+    if(r) r.onclick = () => { move(1); render(); };
+    if(n) n.onclick = () => { reset(); render(); };
+    if(typeof document!=='undefined'){
+      document.addEventListener('keydown', e => {
+        if(e.key==='ArrowLeft' || e.key==='a' || e.key==='A'){ move(-1); render(); }
+        if(e.key==='ArrowRight'|| e.key==='d' || e.key==='D'){ move(1); render(); }
+      });
+    }
+  }
+  function loop(){
+    step(0.016); render(); uiTick();
+    if(typeof document!=='undefined') requestAnimationFrame(loop);
+  }
+  function uiTick(){ /* HUD 已在 render 内更新，占位保持结构一致 */ }
+
+  reset();
+  if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render(); loop(); }
+  if(typeof window!=='undefined'){
+    window.__t = {
+      W, H, R, START_Y, PLAT_W, JUMP_V, SPRING_V, ROCKET_V, ROCKET_DUR, STAR_VALUE,
+      PICKUP_TYPES, PICKUP_PROB,
+      setRand, reseed, newGame, reset, step, move, isGameOver, getScore, getState,
+      setPlayerX, setPlayerY, setVY, triggerFall,
+      // ---- 拾取增益道具系统钩子 ----
+      spawnPickup:(type,x,y)=>{ pickups.push(makePickup(type, x, y)); },
+      getPickups:()=>pickups.length,
+      getShield:()=>player.shield, setShield:(v)=>{ player.shield=v; },
+      getRocket:()=>player.rocketTimer, setRocket:(v)=>{ player.rocketTimer=v; },
+      applyPickup, stepPickups,
+    };
+  }
+})();
+</script>
+</body>
+</html>

@@ -83,4 +83,58 @@ t.step();
 H.ok('命数0: isGameOver=true', t.isGameOver() === true);
 H.ok('命数0: over 状态为真', t.getState().over === true);
 
+// ===== 掉落道具系统 =====
+// 8) 道具类型表 + 常量
+H.ok('PICKUP_TYPES 含 rapid/spread/shield/life', ['rapid','spread','shield','life'].every(x=>t.PICKUP_TYPES.includes(x)));
+H.ok('DROP_PROB 合法概率', t.DROP_PROB>0 && t.DROP_PROB<=1);
+
+// 9) spawnPickup 生成 + stepPickups 下坠拾取（护盾）
+t.newGame(11); t.setDiveEnabled(false);
+const px = t.getState().player.x;
+t.spawnPickup('shield', px, t.getState().player.y - 24);
+H.eq('spawnPickup 生成 1 个', t.getPickups(), 1);
+let g=0; while(t.getPickups()>0 && g<40){ t.stepPickups(); g++; }
+H.eq('下坠到玩家自动拾取', t.getPickups(), 0);
+H.eq('拾取护盾 shield=1', t.getShield(), 1);
+
+// 10) 护盾抵挡一次敌弹：命数不变、护盾清零
+t.newGame(12); t.setLives(3); t.setShield(1);
+const plS = t.getState().player;
+t.spawnEnemyBullet(plS.x, plS.y + 2);
+t.step();
+H.eq('护盾抵挡: 命数不变', t.getState().lives, 3);
+H.eq('护盾抵挡: 护盾清零', t.getShield(), 0);
+
+// 11) 连射：冷却减半（rapid 时 3 帧后可再开火，普通需 6 帧）
+t.newGame(13);
+t.setRapid(100);
+H.ok('rapid fire 返回 true', t.fire()===true);
+t.step(); t.step(); t.step();      // 冷却 3→0
+H.ok('连射: 3 帧后可再开火', t.fire()===true);
+// 对照：无连射，3 帧后仍在冷却
+t.newGame(14);
+t.fire();
+t.step(); t.step(); t.step();
+H.ok('普通: 3 帧后仍冷却无法开火', t.fire()===false);
+
+// 12) 散射：一次开火生成 3 颗子弹
+t.newGame(15);
+t.setSpread(100);
+const b0 = t.getState().bullets.length;
+t.fire();
+H.eq('散射: 一次开火 +3 颗子弹', t.getState().bullets.length, b0 + 3);
+
+// 13) 加命道具：+1 命，上限 5
+t.newGame(16); t.setLives(2);
+t.applyPickup({type:'life'});
+H.eq('加命: 命数+1', t.getLives(), 3);
+t.setLives(5); t.applyPickup({type:'life'});
+H.eq('加命: 上限 5', t.getLives(), 5);
+
+// 14) 回归：无增益时 fire 仍只产 1 颗、敌弹仍扣命
+t.newGame(17);
+const rb0 = t.getState().bullets.length;
+t.fire();
+H.eq('回归: 普通开火只 +1 颗', t.getState().bullets.length, rb0 + 1);
+
 console.log('  ✓ galaga_test.js 全部通过');

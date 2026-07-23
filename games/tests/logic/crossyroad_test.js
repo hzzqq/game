@@ -53,3 +53,35 @@ ok('crossyroad: 多次前进分数变大', t.getScore() > before, 'before=' + be
 t.reset(111); const a = JSON.stringify(t.getState().rows);
 t.reset(222); const b = JSON.stringify(t.getState().rows);
 ok('crossyroad: 两个种子布局不同', a !== b);
+
+// ===== 道具系统（P1） =====
+// applyPickup 数值
+t.reset(5);
+const b0 = t.getBonus();
+t.applyPickup('coin');
+ok('crossyroad: 金币加分 > 0', t.getBonus() > b0, 'bonus=' + t.getBonus());
+t.applyPickup('shield');
+ok('crossyroad: 护盾 +1', t.getShield() === 1, 'shield=' + t.getShield());
+
+// 护盾免一次死（撞车）
+t.reset(1);
+t.setPlayer(5, 3);
+t.setRow(5, 'road');
+t.setObstacles(5, [3]);
+t.setRowSpeed(5, 0);
+t.setShield(1);
+t.step(1);
+ok('crossyroad: 有护盾时撞车不死', t.isGameOver() === false, 'shield=' + t.getShield());
+ok('crossyroad: 护盾被消耗', t.getShield() === 0);
+// 无盾才死
+t.step(1);
+ok('crossyroad: 护盾耗尽后再撞车死亡', t.isGameOver() === true);
+
+// 落在道具格可拾取（hop 触发 collectPickups），用 safe 行避免干扰
+t.reset(4);
+t.setRow(7, 'safe'); t.setRow(8, 'safe');
+t.setPlayer(8, 2);
+t.spawnPickup('shield', 7, 2);
+t.hop('up'); // 移动到 (7,2)
+ok('crossyroad: hop 到道具格拾取护盾', t.getShield() === 1, 'shield=' + t.getShield());
+

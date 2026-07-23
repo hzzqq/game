@@ -55,3 +55,46 @@ ok('centipede: 撞墙后方向反向', s.dir === -1, 'dir=' + s.dir);
 t.reset(555); const a = JSON.stringify(t.getState().mushrooms);
 t.reset(666); const b = JSON.stringify(t.getState().mushrooms);
 ok('centipede: 两个种子蘑菇布局不同', a !== b);
+
+// ===== 道具系统（P2） =====
+t.reset(7);
+const sc0 = t.getScore();
+t.applyPickup('coin');
+ok('centipede: 金币加分 +50', t.getScore() === sc0 + 50, 'score=' + t.getScore());
+t.applyPickup('shield');
+ok('centipede: 护盾 +1', t.getShield() === 1, 'shield=' + t.getShield());
+t.applyPickup('rapid');
+ok('centipede: 连射计时 >0', t.getRapid() > 0, 'rapid=' + t.getRapid());
+
+// 散射：一发 shoot 出 3 颗子弹
+t.reset(8);
+t.setSpread(5);
+t.setPlayer(18, 7);
+t.shoot();
+ok('centipede: 散射时 shoot 出 3 颗子弹', t.getState().bullets.length === 3, 'n=' + t.getState().bullets.length);
+
+// 连射：step 自动开火
+t.reset(9);
+t.setRapid(3);
+t.setPlayer(18, 7);
+t.step();
+ok('centipede: 连射期间 step 自动产生子弹', t.getState().bullets.length > 0, 'n=' + t.getState().bullets.length);
+
+// 护盾免一次死（蜈蚣撞玩家）；无护盾死亡已由上方"蜈蚣碰到玩家→结束"覆盖
+t.reset(4);
+t.setMushrooms([]); t.setPlayer(10, 5);
+t.setCentipede([{ row: 10, col: 4, dir: 1 }]);
+t.setShield(1);
+t.step();
+ok('centipede: 有护盾时蜈蚣撞玩家不死', t.isGameOver() === false, 'shield=' + t.getShield());
+ok('centipede: 护盾被消耗', t.getShield() === 0);
+
+// 移动到道具格拾取
+t.reset(10);
+t.setPlayer(10, 3);
+t.spawnPickup('shield', 10, 3);
+t.move('right'); // 仍在同一格？(10,3)→(10,4) 偏移；改为 spawn 在目标格
+t.setPlayer(10, 3);
+t.spawnPickup('shield', 9, 3);
+t.move('up'); // →(9,3)
+ok('centipede: 移动到道具格拾取护盾', t.getShield() === 1, 'shield=' + t.getShield());

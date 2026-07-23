@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TERMINAL // RUNNER</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
+    --text:#e6edf3; --dim:#6b7785;
+    --red:#f6465d; --green:#02c076; --gold:#f0b90b; --blue:#3aa0ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);
+    font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    -webkit-tap-highlight-color:transparent;user-select:none}
+  #stage{position:fixed;inset:0;z-index:0}
+  #stage canvas{display:block;touch-action:none}
+  #scan{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px}
+  .titlebar{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:10px;
+    padding:10px 16px;background:linear-gradient(180deg,#16202c,#10161f);border-bottom:1px solid var(--border)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+  .titlebar .t{margin-left:8px;color:var(--dim);font-size:13px;letter-spacing:1px}
+  .titlebar .t b{color:var(--red)}
+  #hud{position:fixed;top:52px;left:16px;right:16px;z-index:5;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+  .stat{background:rgba(18,24,33,.85);border:1px solid var(--border);border-radius:8px;padding:8px 14px;backdrop-filter:blur(4px)}
+  .stat .k{color:var(--dim);font-size:11px;letter-spacing:.5px}
+  .stat .v{font-size:19px;margin-top:2px}
+  .v.dist{color:var(--gold)} .v.best{color:var(--green)} .v.spd{color:var(--red)} .v.coin{color:#ffd94a}
+  #buff{position:fixed;top:52px;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:8px}
+  .badge{background:rgba(18,24,33,.9);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:13px}
+  .badge.shield{border-color:var(--blue);color:var(--blue)}
+  .badge.boost{border-color:var(--gold);color:var(--gold)}
+  #overlay{position:fixed;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,.88)}
+  #overlay .box{text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;max-width:90vw}
+  #overlay h1{font-size:26px;letter-spacing:2px;margin-bottom:10px;text-shadow:0 0 18px rgba(246,70,93,.35)}
+  #overlay p{color:var(--dim);font-size:13px;line-height:1.9;margin-bottom:18px}
+  #overlay .start{background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;box-shadow:0 0 14px rgba(246,70,93,.4)}
+  #jbtn{position:fixed;bottom:22px;right:22px;z-index:6;width:96px;height:96px;border-radius:50%;
+    background:rgba(246,70,93,.12);border:2px solid var(--red);color:var(--red);
+    font-family:inherit;font-weight:700;font-size:14px;letter-spacing:1px;cursor:pointer;display:none}
+  #jbtn:active{background:rgba(246,70,93,.3)}
+  body.touch #jbtn{display:block}
+  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;color:var(--dim);font-size:12px;text-align:center;width:100%}
+  body.touch #hint{display:none}
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="scan"></div>
+
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="t">TERMINAL // <b>RUNNER</b> · 跑酷</span>
+  </div>
+
+  <div id="hud">
+    <div class="stat"><div class="k">DIST / 距离</div><div class="v dist" id="distEl">0</div></div>
+    <div class="stat"><div class="k">SPEED / 速度</div><div class="v spd" id="spdEl">1.0x</div></div>
+    <div class="stat"><div class="k">COIN / 金币</div><div class="v coin" id="coinEl">0</div></div>
+    <div class="stat"><div class="k">BEST / 最佳</div><div class="v best" id="bestEl">0</div></div>
+  </div>
+  <div id="buff"></div>
+
+  <button id="jbtn">跳跃<br>JUMP</button>
+  <div id="hint">SPACE / ↑ / W 跳跃（可二段跳）· 💰金币加分 · 🚀加速计分×2 · 🛡护盾免死一次</div>
+
+  <div id="overlay">
+    <div class="box">
+      <h1 id="ovTitle">RUNNER // 跑酷</h1>
+      <p id="ovText">自动向右奔跑。跳过红色尖刺与深坑，活得越久分数越高。<br>SPACE / ↑ / W 或 点屏跳跃（可二段跳）。<br>碰撞即结束。</p>
+      <button class="start" id="startBtn">新局 / START</button>
+    </div>
+  </div>
+
+<script src="input.js"></script>
+<script src="juice.js"></script>
+<script>
+(function(){
+  "use strict";
+  const J = (typeof Juice!=='undefined') ? Juice : null;
+
+  // 局部 PRNG（mulberry32）—— 所有随机只走它，绝不用裸 Math.random
+  function mk(s){ return function(){ s|=0; s=s+0x6D2B79F5|0; var t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  let _rng = mk(0x2a17f00d);
+  function setRand(fn){ if(typeof fn==='function') _rng = fn; }
+
+  var stage = document.getElementById('stage');
+  var canvas = document.createElement('canvas');
+  stage.appendChild(canvas);
+  var ctx = canvas.getContext('2d');
+
+  var distEl = document.getElementById('distEl');
+  var spdEl  = document.getElementById('spdEl');
+  var coinEl = document.getElementById('coinEl');
+  var bestEl = document.getElementById('bestEl');
+  var buffEl = document.getElementById('buff');
+  var overlay = document.getElementById('overlay');
+  var ovTitle = document.getElementById('ovTitle');
+  var ovText  = document.getElementById('ovText');
+  var startBtn= document.getElementById('startBtn');
+  var jbtn    = document.getElementById('jbtn');
+
+  var isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if (isTouch) document.body.classList.add('touch');
+
+  var W = 0, H = 0, DPR = 1;
+  var GROUND_Y = 0;
+  var groundH = 90;
+
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth || 800;
+    H = window.innerHeight || 480;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    GROUND_Y = H - groundH;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---- 道具参数（标准样板 §4：coin/boost/shield）----
+  var COIN_BONUS_DIST = 15;   // 金币给的距离奖励
+  var BOOST_DUR = 300;        // 加速增益持续帧数（约 5s @60fps），期间距离计分 ×2
+
+  // ---- game state ----
+  var state = 'menu';        // menu | play | over
+  var best = 0;
+  var milestone = 0;
+  try { best = parseInt(localStorage.getItem('runner_best')||'0',10) || 0; } catch(e){ best = 0; }
+  bestEl.textContent = best;
+
+  var runner, obstacles, particles, pickups;
+  var speed, baseSpeed, distance, coins, spawnTimer, spawnGap, frame, scroll, lastTime, bgScroll, farScroll;
+  var pickTimer, boostTimer;
+
+  function reset(){
+    runner = { x: 90, y: GROUND_Y, w: 26, h: 38, vy: 0, onGround: true, jumps: 0, ducking: false,
+               shield: 0, invuln: 0 };
+    obstacles = [];
+    particles = [];
+    pickups = [];
+    speed = 4.2;
+    baseSpeed = 4.2;
+    distance = 0;
+    coins = 0;
+    boostTimer = 0;          // 加速增益计时
+    spawnTimer = 0;
+    spawnGap = 78;
+    pickTimer = 60;          // 首枚道具刷新前的帧数
+    frame = 0;
+    scroll = 0;
+    bgScroll = 0;
+    farScroll = 0;
+    milestone = 100;
+  }
+
+  var GRAV = 0.62;
+
+  function jump(){
+    if (state !== 'play') return;
+    if (runner.jumps < 2){
+      runner.vy = -11.2;
+      runner.onGround = false;
+      runner.jumps++;
+      if (J) J.sfx('shoot');
+      spawnParticles(runner.x + runner.w/2, GROUND_Y, 6, false);
+    }
+  }
+
+  function spawnObstacle(){
+    var r = _rng();
+    var type;
+    if (r < 0.5) type = 0;
+    else if (r < 0.8) type = 1;
+    else type = 2;
+    var ob = { type: type, passed: false };
+    if (type === 0){
+      ob.w = 22 + _rng()*16; ob.h = 26 + _rng()*16;
+      ob.x = W + 20; ob.y = GROUND_Y - ob.h;
+    } else if (type === 1){
+      ob.w = 46 + _rng()*40; ob.h = 0;
+      ob.x = W + 20; ob.y = GROUND_Y; ob.isPit = true;
+    } else {
+      ob.w = 26 + _rng()*18; ob.h = 40 + _rng()*26;
+      ob.x = W + 20; ob.y = GROUND_Y - ob.h;
+    }
+    obstacles.push(ob);
+  }
+
+  function spawnParticles(x,y,n,upward){
+    for (var i=0;i<n;i++){
+      particles.push({
+        x:x, y:y,
+        vx:(_rng()-0.5)*3,
+        vy: upward ? -_rng()*4-1 : (_rng()-0.5)*3,
+        life: 18 + _rng()*14,
+        col: _rng()<0.5 ? '#f6465d' : '#f0b90b'
+      });
+    }
+  }
+
+  // ---- 道具：💰金币(距离+奖励) / 🚀加速(boost 计时，计分×2) / 🛡护盾(免一次撞击) ----
+  function spawnPickup(type, x, y){
+    if (!type){
+      var rr = _rng();
+      type = rr < 0.5 ? 'coin' : (rr < 0.74 ? 'boost' : 'shield');
+    }
+    var px = (x === undefined) ? (W + 22) : x;
+    var py = (y === undefined) ? (GROUND_Y - 44 - _rng()*64) : y;
+    var r  = (type === 'coin') ? 9 : 11;
+    pickups.push({ type: type, x: px, y: py, r: r, bob: _rng()*Math.PI*2 });
+  }
+
+  function applyPickup(type){
+    if (type === 'coin'){
+      coins++;
+      distance += COIN_BONUS_DIST;            // 距离奖励（拾取增益，不动基础计分公式）
+      if (J){ J.sfx('pickup'); J.popup(runner.x, runner.y - runner.h - 22, '+¥', '#ffd94a'); J.burst(runner.x, runner.y - runner.h, { color:'#ffd94a', n:8, speed:120 }); }
+    } else if (type === 'boost'){
+      boostTimer = BOOST_DUR;
+      if (J){ J.sfx('pickup'); J.popup(runner.x, runner.y - runner.h - 22, '🚀 加速', '#f0b90b'); J.burst(runner.x, runner.y - runner.h, { color:'#f0b90b', n:10, speed:140 }); }
+    } else if (type === 'shield'){
+      runner.shield = (runner.shield||0) + 1;
+      if (J){ J.sfx('pickup'); J.popup(runner.x, runner.y - runner.h - 22, '🛡 护盾', '#3aa0ff'); J.burst(runner.x, runner.y - runner.h, { color:'#3aa0ff', n:10, speed:120 }); }
+    }
+  }
+
+  // 道具随场景向左滚 + 玩家 AABB 碰撞拾取（可被 stepPickups 独立驱动）
+  function updatePickups(dt){
+    var rx = runner.x, ry = runner.y - runner.h, rw = runner.w, rh = runner.h;
+    for (var i=pickups.length-1;i>=0;i--){
+      var p = pickups[i];
+      p.x -= speed * dt;
+      p.bob += 0.1 * dt;
+      var pbx = p.x - p.r, pby = p.y - p.r, pbw = p.r*2, pbh = p.r*2;
+      if (rx < pbx+pbw && rx+rw > pbx && ry < pby+pbh && ry+rh > pby){
+        applyPickup(p.type);
+        pickups.splice(i,1);
+        continue;
+      }
+      if (p.x + p.r < -20) pickups.splice(i,1);
+    }
+  }
+
+  // corrected collision: runner box vs obstacle box
+  function hitTest(){
+    var rx = runner.x, ry = runner.y - runner.h, rw = runner.w, rh = runner.h;
+    if (runner.ducking){ ry += rh*0.35; rh *= 0.65; }
+    for (var i=0;i<obstacles.length;i++){
+      var o = obstacles[i];
+      if (o.isPit){
+        var footX = runner.x + runner.w/2;
+        if (!runner.onGround && runner.y < GROUND_Y - 2){
+          continue;
+        }
+        if (footX > o.x && footX < o.x + o.w){
+          return true;
+        }
+      } else {
+        var ox = o.x, oy = o.y, ow = o.w, oh = o.h;
+        if (rx < ox + ow && rx + rw > ox && ry < oy + oh && ry + rh > oy){
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function update(dt){
+    frame++;
+    // difficulty ramp: speed grows with distance; spawn gap shrinks（核心玩法，不动）
+    speed = baseSpeed + Math.min(7.5, distance / 520);
+    var diff = distance / 520;
+    spawnGap = Math.max(34, 84 - diff * 30);
+
+    scroll += speed;
+    bgScroll += speed * 0.35;
+    farScroll += speed * 0.12;
+    distance += speed * 0.1;
+
+    // 拾取增益：加速期间距离计分 ×2（在基础计分公式之外叠加，不改基础公式）
+    if (boostTimer > 0){
+      distance += speed * 0.1;
+      boostTimer -= dt;
+      if (boostTimer < 0) boostTimer = 0;
+    }
+
+    if (J && distance >= milestone){
+      J.popup(runner.x, runner.y - runner.h - 22, milestone + 'm', '#f0b90b', { size:15 });
+      milestone += 100;
+    }
+
+    // runner physics
+    runner.vy += GRAV;
+    runner.y += runner.vy;
+    if (runner.y >= GROUND_Y){
+      runner.y = GROUND_Y;
+      runner.vy = 0;
+      if (!runner.onGround){
+        spawnParticles(runner.x + runner.w/2, GROUND_Y, 5, false);
+      }
+      runner.onGround = true;
+      runner.jumps = 0;
+    }
+
+    // spawn obstacles
+    spawnTimer++;
+    if (spawnTimer >= spawnGap){
+      spawnTimer = 0;
+      spawnObstacle();
+    }
+
+    // move obstacles
+    for (var i=obstacles.length-1;i>=0;i--){
+      var o = obstacles[i];
+      o.x -= speed;
+      if (o.x + (o.w||60) < -40){
+        obstacles.splice(i,1);
+      }
+    }
+
+    // particles
+    for (var p=particles.length-1;p>=0;p--){
+      var pt = particles[p];
+      pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.15; pt.life--;
+      if (pt.life <= 0) particles.splice(p,1);
+    }
+
+    // 道具刷新（按计时器随机掉落，走局部 PRNG）
+    pickTimer -= dt;
+    if (pickTimer <= 0){
+      spawnPickup();
+      pickTimer = 70 + Math.floor(_rng()*90);
+    }
+
+    // 道具移动 + 拾取
+    updatePickups(dt);
+
+    // 护盾 / 无敌处理：护盾优先消耗，无盾才判失败（注入式分支，不动核心碰撞）
+    if (runner.invuln > 0) runner.invuln -= dt;
+    var blocked = runner.invuln > 0;
+    if (!blocked && hitTest()){
+      if (runner.shield > 0){
+        runner.shield--;
+        runner.invuln = 30;          // 短暂无敌，避免立即再次判定
+        if (J){
+          J.sfx('hit');
+          J.burst(runner.x + runner.w/2, runner.y - runner.h/2, { color:'#3aa0ff', n:14, speed:160 });
+          J.addTrauma(0.3);
+        }
+      } else {
+        gameOver();
+      }
+    }
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    if (J) J.begin(ctx);
+    var g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#0b1019');
+    g.addColorStop(1,'#0a0e14');
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H);
+
+    // far parallax
+    ctx.fillStyle = 'rgba(31,42,56,0.55)';
+    var fs = farScroll % 60;
+    for (var x = -fs; x < W; x += 60){
+      var bh = 60 + ((x*7)%90);
+      ctx.fillRect(x, GROUND_Y - bh*0.4 - 20, 30, bh*0.4 + 20);
+    }
+    // mid parallax
+    ctx.fillStyle = 'rgba(40,54,72,0.5)';
+    var bs = bgScroll % 44;
+    for (var x2 = -bs; x2 < W; x2 += 44){
+      ctx.fillRect(x2, GROUND_Y + 8, 24, 4);
+    }
+
+    // ground band
+    ctx.fillStyle = '#121821';
+    ctx.fillRect(0, GROUND_Y, W, groundH);
+    ctx.strokeStyle = '#1f2a38';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    ctx.lineTo(W, GROUND_Y);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(240,185,11,0.25)';
+    var ds = scroll % 40;
+    for (var x3 = -ds; x3 < W; x3 += 40){
+      ctx.fillRect(x3, GROUND_Y + 2, 18, 2);
+    }
+
+    // obstacles
+    for (var i=0;i<obstacles.length;i++){
+      var o = obstacles[i];
+      if (o.isPit){
+        ctx.fillStyle = '#06080c';
+        ctx.fillRect(o.x, GROUND_Y, o.w, groundH);
+        ctx.strokeStyle = '#f6465d';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(o.x, GROUND_Y); ctx.lineTo(o.x, GROUND_Y+8);
+        ctx.moveTo(o.x+o.w, GROUND_Y); ctx.lineTo(o.x+o.w, GROUND_Y+8);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(246,70,93,0.18)';
+        ctx.fillRect(o.x, GROUND_Y, o.w, 4);
+      } else {
+        ctx.fillStyle = '#f6465d';
+        ctx.fillRect(o.x, o.y, o.w, o.h);
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.fillRect(o.x, o.y, o.w, 4);
+        ctx.strokeStyle = '#ff8a96';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(o.x+0.5, o.y+0.5, o.w-1, o.h-1);
+      }
+    }
+
+    // 道具（在玩家前绘制：辉光圆 + emoji）
+    for (var pk=0;pk<pickups.length;pk++){
+      var pp = pickups[pk];
+      var by = pp.y + Math.sin(pp.bob)*3;
+      var col = pp.type==='coin' ? '#ffd94a' : pp.type==='boost' ? '#f0b90b' : '#3aa0ff';
+      var sym = pp.type==='coin' ? '💰' : pp.type==='boost' ? '🚀' : '🛡';
+      ctx.beginPath(); ctx.arc(pp.x, by, pp.r+4, 0, Math.PI*2);
+      ctx.fillStyle = col; ctx.globalAlpha = 0.18; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.shadowColor = col; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff'; ctx.font = (pp.type==='coin'?'bold 14px':'bold 16px') + ' monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(sym, pp.x, by+1);
+    }
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+
+    // particles
+    for (var p=0;p<particles.length;p++){
+      var pt = particles[p];
+      ctx.globalAlpha = Math.max(0, pt.life/30);
+      ctx.fillStyle = pt.col;
+      ctx.fillRect(pt.x, pt.y, 3, 3);
+    }
+    ctx.globalAlpha = 1;
+
+    // runner
+    drawRunner();
+
+    ctx.fillStyle = 'rgba(107,119,133,0.6)';
+    ctx.font = '12px monospace';
+    ctx.fillText('AUTO-RUN', 16, GROUND_Y - 60);
+    if (J){ J.mid(ctx); J.end(ctx); }
+  }
+
+  function drawRunner(){
+    var rx = runner.x, ry = runner.y - runner.h, rw = runner.w, rh = runner.h;
+    var duck = runner.ducking && runner.onGround;
+    if (duck){ ry += rh*0.35; rh *= 0.65; }
+    // body
+    ctx.fillStyle = boostTimer > 0 ? '#f0b90b' : '#02c076';
+    ctx.fillRect(rx, ry, rw, rh);
+    // head highlight
+    ctx.fillStyle = '#e6edf3';
+    ctx.fillRect(rx+3, ry+3, rw-6, 6);
+    // legs animation
+    ctx.fillStyle = '#0a0e14';
+    if (runner.onGround){
+      var ph = (frame % 16 < 8) ? 1 : -1;
+      ctx.fillRect(rx+3, ry+rh-4, 7, 4 + ph*2);
+      ctx.fillRect(rx+rw-10, ry+rh-4, 7, 4 - ph*2);
+    } else {
+      ctx.fillRect(rx+3, ry+rh-4, 7, 4);
+      ctx.fillRect(rx+rw-10, ry+rh-4, 7, 4);
+    }
+    // eye / direction
+    ctx.fillStyle = '#f0b90b';
+    ctx.fillRect(rx+rw-7, ry+5, 3, 3);
+
+    // 护盾环（绘制层，不动玩法）
+    if (runner.shield > 0){
+      ctx.strokeStyle = 'rgba(58,160,255,0.85)'; ctx.lineWidth = 2;
+      ctx.strokeRect(rx-3, ry-3, rw+6, rh+6);
+    }
+  }
+
+  var loopPrevT = 0;
+  function loop(ts){
+    var fdt = loopPrevT ? Math.min(0.05, (ts - loopPrevT)/1000) : 0.016;
+    loopPrevT = ts;
+    if (J) J.update(fdt);
+    if (typeof Input !== 'undefined'){
+      if (Input.pressed('a') || Input.pressed('up')) onAction();
+      if (state === 'play') runner.ducking = Input.down('down');
+      Input.update();
+    }
+    if (state === 'play'){
+      if (!lastTime) lastTime = ts;
+      var dt = (ts - lastTime) / 16.6667;
+      lastTime = ts;
+      if (dt > 3) dt = 3;
+      update(dt);
+    }
+    draw();
+    distEl.textContent = Math.floor(distance);
+    spdEl.textContent = (boostTimer > 0 ? (speed/baseSpeed*2).toFixed(1) : (speed/baseSpeed).toFixed(1)) + 'x';
+    coinEl.textContent = coins;
+    renderBuff();
+    requestAnimationFrame(loop);
+  }
+
+  function renderBuff(){
+    if (!buffEl) return;
+    var html = '';
+    if (runner && runner.shield > 0) html += '<span class="badge shield">🛡 ×' + runner.shield + '</span>';
+    if (boostTimer > 0) html += '<span class="badge boost">🚀 ' + Math.ceil(boostTimer/60) + 's</span>';
+    buffEl.innerHTML = html;
+  }
+
+  function startGame(){
+    reset();
+    state = 'play';
+    overlay.style.display = 'none';
+    lastTime = 0;
+  }
+
+  function gameOver(){
+    state = 'over';
+    spawnParticles(runner.x + runner.w/2, runner.y - runner.h/2, 22, true);
+    if (J){ J.sfx('lose'); J.addTrauma(0.6); J.flash('#f6465d',0.4); }
+    draw();
+    var d = Math.floor(distance);
+    var nb = false;
+    if (d > best){
+      best = d; nb = true;
+      try { localStorage.setItem('runner_best', String(best)); } catch(e){}
+    }
+    bestEl.textContent = best;
+    ovTitle.textContent = 'GAME OVER // 撞毁';
+    ovTitle.style.color = '#f6465d';
+    ovText.innerHTML = '本次距离 <b style="color:#f0b90b">'+d+'</b>' +
+      (nb ? ' · <b style="color:#02c076">新纪录!</b>' : '') +
+      '<br>最佳 '+best+'<br>再来一局？';
+    startBtn.textContent = '新局 / RETRY';
+    overlay.style.display = 'flex';
+    if (J){ var rk = J.rank(d); if (d > 0 && nb) J.achievement('🏆 新纪录 '+d+'！段位 '+rk); }
+  }
+
+  function onAction(e){
+    if (state === 'menu' || state === 'over'){
+      startGame();
+    } else if (state === 'play'){
+      jump();
+    }
+    if (e && e.preventDefault) e.preventDefault();
+  }
+
+  if (typeof Input !== 'undefined') { Input.init(); }
+
+  stage.addEventListener('pointerdown', function(e){
+    if (e.target === jbtn) return;
+    onAction(e);
+  });
+  jbtn.addEventListener('pointerdown', function(e){
+    e.preventDefault();
+    onAction(e);
+  });
+
+  startBtn.addEventListener('click', function(e){ e.stopPropagation(); startGame(); });
+
+  // 测试钩子（不影响正常玩法）
+  window.__t = {
+    GROUND_Y: function(){ return GROUND_Y; },
+    reset: reset, update: update, hitTest: hitTest, startGame: startGame,
+    setRand: setRand,
+    // ---- 道具系统钩子（标准样板 §4）----
+    spawnPickup: spawnPickup,           // (type,x,y)
+    getPickups: function(){ return pickups.map(function(p){ return { type:p.type, x:p.x, y:p.y, r:p.r }; }); },
+    applyPickup: applyPickup,           // (type)
+    stepPickups: updatePickups,         // (dt)
+    getShield: function(){ return runner ? runner.shield : 0; },
+    setShield: function(v){ if(runner) runner.shield = v; },
+    getBoost: function(){ return boostTimer; },
+    setBoost: function(v){ boostTimer = v; },
+    getCoins: function(){ return coins; },
+    getDistance: function(){ return distance; },
+    getState: function(){ return state; },
+    setState: function(s){ state = s; },
+    setRunner: function(o){ for (var k in o) runner[k] = o[k]; },
+    getRunner: function(){ return { x:runner.x, y:runner.y, h:runner.h, w:runner.w, shield:runner.shield, invuln:runner.invuln }; },
+    setObstacles: function(arr){ obstacles = arr; },
+    spawnObstacle: spawnObstacle
+  };
+
+  reset();
+  state = 'menu';
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

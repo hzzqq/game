@@ -52,7 +52,7 @@
   function setRand(fn){ if(typeof fn==='function') _rng=fn; }
 
   const ROWS = 20, COLS = 15;
-  let mush, centi, player, bullets, gameOver, score;
+  let mush, centi, player, bullets, gameOver, score, pickups, killStreak;
 
   function inMush(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS && mush[r][c]; }
   function mushroomList(){ const out=[]; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(mush[r][c]) out.push([r,c]); return out; }
@@ -65,10 +65,17 @@
     centi = [];
     const len = 10;
     for(let i=0;i<len;i++) centi.push({ row: 0, col: i, dir: 1 });
-    player = { row: ROWS-1, col: Math.floor(COLS/2) };
+    player = { row: ROWS-1, col: Math.floor(COLS/2), rapid: 0, spread: 0, shield: 0 };
     bullets = [];
     gameOver = false;
-    score = 0;
+    score = 0; pickups = []; killStreak = 0;
+    // 道具：随机撒在网格（coin 加分 / shield 护盾 / rapid 连射 / spread 散射）
+    for(let i=0;i<4;i++){
+      const r = 2 + Math.floor(_rng()*(ROWS-8));
+      const c = Math.floor(_rng()*COLS);
+      const t = _rng();
+      pickups.push({ type: t<0.4?'coin' : t<0.7?'shield' : t<0.85?'rapid':'spread', row: r, col: c });
+    }
   }
 
   function reset(seed){
@@ -85,10 +92,12 @@
     else if(dir==='up')    player.row = Math.max(0, player.row-1);
     else if(dir==='down')  player.row = Math.min(ROWS-1, player.row+1);
     if(J) J.sfx('click');
+    collectPickups();
   }
   function shoot(){
     if(gameOver) return;
-    bullets.push({ row: player.row-1, col: player.col });
+    const cs = player.spread > 0 ? [-1, 0, 1] : [0];
+    for(const dc of cs) bullets.push({ row: player.row-1, col: player.col + dc });
     if(J) J.sfx('pew');
   }
 
@@ -96,7 +105,8 @@
     const seg = centi[segIndex];
     mush[seg.row][seg.col] = true;          // 被击中的一节变成蘑菇
     centi.splice(segIndex, 1);
-    score += 10;
+    score += 10; killStreak++;
+    if(killStreak % 3 === 0) pickups.push({ type: 'rapid', row: seg.row, col: seg.col }); // 每 3 杀掉道具
     if(J) J.sfx('pop'); if(J) J.addTrauma(0.15);
     // 分裂：原“之后”的那一节反向，作为新的头部
     if(segIndex < centi.length){
@@ -106,6 +116,7 @@
 
   function step(){
     if(gameOver) return;
+    if(player.rapid > 0){ player.rapid--; shoot(); }   // 连射增益：自动开火
     // 1) 子弹上移
     for(const b of bullets) b.row -= 1;
     // 2) 子弹碰撞（先蜈蚣，再蘑菇）
@@ -131,7 +142,24 @@
     }
     // 4) 玩家被击中
     for(const s of centi){
-      if(s.row === player.row && s.col === player.col){ gameOver = true; if(J) J.sfx('lose'); break; }
+      if(s.row === player.row && s.col === player.col){ die(); break; }
+    }
+  }
+  // 死亡：有护盾则消耗护盾免死，否则结束（注入式分支，shield=0 时行为不变）
+  function die(){
+    if(player.shield > 0){ player.shield--; if(J) J.sfx('block'); return; }
+    gameOver = true; if(J) J.sfx('lose');
+  }
+  function applyPickup(type){
+    if(type === 'coin'){ score += 50; if(J) J.sfx('pickup'); }
+    else if(type === 'shield'){ player.shield++; if(J) J.sfx('pickup'); }
+    else if(type === 'rapid'){ player.rapid = 8; if(J) J.sfx('pickup'); }
+    else if(type === 'spread'){ player.spread = 8; if(J) J.sfx('pickup'); }
+  }
+  function collectPickups(){
+    for(let i=pickups.length-1;i>=0;i--){
+      const p = pickups[i];
+      if(p.row === player.row && p.col === player.col){ applyPickup(p.type); pickups.splice(i,1); }
     }
   }
 
@@ -143,7 +171,9 @@
       mushrooms: mushroomList(),
       player: { row: player.row, col: player.col },
       bullets: bullets.map(b => ({ row:b.row, col:b.col })),
-      gameOver, score
+      gameOver, score,
+      pickups: pickups.map(p => ({ type:p.type, row:p.row, col:p.col })),
+      shield: player.shield, rapid: player.rapid, spread: player.spread
     };
   }
 
@@ -175,6 +205,19 @@
     // 玩家
     ctx.fillStyle = '#02c076';
     ctx.fillRect(player.col*cw+cw*0.2, player.row*chh+chh*0.2, cw*0.6, chh*0.6);
+    if(player.shield > 0){
+      ctx.strokeStyle = '#5ab4ff'; ctx.lineWidth = 2;
+      ctx.strokeRect(player.col*cw+cw*0.1, player.row*chh+chh*0.1, cw*0.8, chh*0.8);
+    }
+    // 道具
+    for(const p of pickups){
+      const px = p.col*cw+cw*0.5, py = p.row*chh+chh*0.5;
+      ctx.beginPath(); ctx.arc(px, py, cw*0.3, 0, 7);
+      ctx.fillStyle = p.type==='coin' ? 'rgba(255,207,90,0.3)' : p.type==='shield' ? 'rgba(80,180,255,0.3)' : p.type==='rapid' ? 'rgba(240,185,11,0.3)' : 'rgba(255,99,132,0.3)';
+      ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font=(chh*0.4|0)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(p.type==='coin'?'💰':p.type==='shield'?'🛡':p.type==='rapid'?'⚡':'✳', px, py);
+    }
     const sc = $('score'); if(sc) sc.textContent = String(score);
     const st = $('st'); if(st) st.textContent = gameOver ? '结束' : '进行中';
     const msg = $('msg'); if(msg){ if(gameOver){ msg.className='msg over'; msg.textContent='💀 被蜈蚣击中，游戏结束。'; } else msg.className='msg'; }
@@ -192,7 +235,14 @@
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render(); }
   if(typeof window!=='undefined'){
     window.__t = { setRand, reset, newGame, move, shoot, step, isGameOver, getScore, getState,
-      setCentipede, setMushrooms, setPlayer, setBullets };
+      setCentipede, setMushrooms, setPlayer, setBullets,
+      // ---- 道具系统钩子 ----
+      spawnPickup:(type,row,col)=>{ pickups.push({ type:type, row:row, col:col }); },
+      getPickups:()=>pickups.length,
+      getShield:()=>player.shield, setShield:(v)=>{ player.shield=v; },
+      getRapid:()=>player.rapid, setRapid:(v)=>{ player.rapid=v; },
+      getSpread:()=>player.spread, setSpread:(v)=>{ player.spread=v; },
+      applyPickup, collectPickups };
   }
 })();
 </script>

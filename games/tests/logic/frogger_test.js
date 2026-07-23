@@ -112,3 +112,44 @@ t.reset();
 t.takeHit();
 ok('青蛙: 无护盾受创死亡', t.isDead() === true);
 ok('青蛙: 死亡时 lives=0', t.getLives() === 0);
+
+// ============ 道具系统（按任务规范增强块） ============
+// 新增适配道具：🪰苍蝇(fly) 作为计分掉落物
+t.reset();
+const fFly = t.getScore();
+t.applyPickup('fly');
+ok('青蛙: 苍蝇(fly) 计分 score+5', t.getScore() === fFly + 5);
+
+// collectPickups 钩子：踩中所在格即拾取并移除
+t.reset();
+t.setFrog(5,1);
+t.spawnPickup('fly',5,1);
+const nBefore = t.getPickups();
+const sBefore = t.getScore();
+t.collectPickups();
+ok('青蛙: collectPickups 拾取后移除', t.getPickups() === nBefore - 1, '剩 '+t.getPickups());
+ok('青蛙: collectPickups 苍蝇加分', t.getScore() === sBefore + 5);
+
+// 远处道具不被 collectPickups 拾取
+t.reset();
+t.setFrog(5,1);
+t.spawnPickup('fly',2,2);
+t.collectPickups();
+ok('青蛙: 远处道具 collectPickups 不拾取', t.getPickups() === 1);
+
+// 移动到道具格拾取（move 触发 updatePickups → collectPickups）
+t.reset();
+t.setFrog(5,2);
+t.spawnPickup('shield',5,1);
+t.move('left'); // → (5,1)
+ok('青蛙: 移动到道具格拾取护盾', t.getShield() === 1, 'shield='+t.getShield());
+
+// 护盾免一次死 + 无盾失败行为不变
+t.reset();
+t.setShield(1);
+t.takeHit();
+ok('青蛙: 有护盾受创不死', t.isDead() === false);
+ok('青蛙: 护盾被消耗', t.getShield() === 0);
+t.takeHit(); // 无盾再受创
+ok('青蛙: 无盾再受创死亡', t.isDead() === true);
+
