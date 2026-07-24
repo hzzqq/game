@@ -236,6 +236,7 @@
       updateMineLeft(); render();
       document.getElementById('face').textContent='😎';
       showOverlay('🎉 通关！','用时 '+timer+' 秒 · 雷区全部标记');
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
     }
   }
 

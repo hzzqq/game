@@ -106,3 +106,8 @@ t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; 
 }
 
 t.setRand(Math.random);
+
+// ---------- 难度系统 ----------
+eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+eq('getDifficulty 为 hell', t.getDifficulty(), 'hell');
+eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);

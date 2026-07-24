@@ -202,6 +202,10 @@ let currentPlayer=0, selected=null, drawnTile=null, over=false;
 let claimPhase=false, pendingDiscard=null, pendingDiscarder=null, humanSelfWin=false;
 let messageText='';
 
+/* 胜利/完成特效：仅渲染层，受 Juice 存在性守卫（confetti 在桩环境为 no-op） */
+function celebrate(){ if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+function discardFx(){ if(typeof Juice!=='undefined' && Juice.spawnParticle) Juice.spawnParticle(window.innerWidth/2, window.innerHeight*0.72, {color:'#e6edf3', n:6}); }
+
 function tileLabel(t){ const r=t%9+1; const s=Math.floor(t/9); return r+['万','条','筒'][s]; }
 function tileClass(t){ return ['t-wan','t-tiao','t-tong'][Math.floor(t/9)]; }
 function msg(t){ messageText=t; render(); }
@@ -312,6 +316,7 @@ function winGame(p, type){
     if(human){ Juice.sfx('win'); Juice.best('mahjong',1); Juice.rank(1); Juice.achievement('胡牌！'); }
     else { Juice.sfx('lose'); Juice.best('mahjong',1); Juice.rank(1); }
   }
+  celebrate();
   render();
 }
 function drawGame(){
@@ -332,6 +337,7 @@ function humanDiscard(){
   drawnTile=null; selected=null; humanSelfWin=false;
   discards.push(t);
   if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.popup(window.innerWidth/2, window.innerHeight*0.72, '出 '+tileLabel(t), '#e6edf3', {size:13}); }
+  discardFx();
   render();
   resolveDiscard(t, 0);
 }
@@ -429,7 +435,8 @@ function hideOverlay(){ const o=document.getElementById('overlay'); if(o) o.styl
   window.__t = {
     buildWall, shuffle, countTile, removeTile,
     canFormMelds, canWin, mostIsolated,
-    tileLabel, tileClass
+    tileLabel, tileClass,
+    triggerWinEffect:celebrate, winGame
   };
 
   newGame();

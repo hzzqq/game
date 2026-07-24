@@ -77,7 +77,7 @@
   function moveTableauToFree(col){ if(free.every(x=>x!==null)) return false; if(!tableau[col].length) return false; const c=tableau[col].pop(); const i=free.indexOf(null); free[i]=c; Juice.sfx('pickup'); return true; }
   function moveTableauToFoundation(col){ if(!tableau[col].length) return false; const c=tableau[col][tableau[col].length-1]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; tableau[col].pop(); checkWin(); Juice.sfx('hit'); Juice.addTrauma(.2); won && (Juice.sfx('win'), Juice.flash('#02c076',.5)); return true; }
   function moveTableauToTableau(from,to){ if(!tableau[from].length) return false; const c=tableau[from][tableau[from].length-1]; if(!canTableau(c,to)) return false; tableau[to].push(c); tableau[from].pop(); Juice.sfx('click'); return true; }
-  function checkWin(){ won = foundations.every(f=>f===13); if(won) over=true; }
+  function checkWin(){ won = foundations.every(f=>f===13); if(won) over=true; if(won && typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
   function isWin(){ return won || foundations.every(f=>f===13); }
   function foundationsCount(){ return foundations.reduce((a,b)=>a+b,0); }
   function getState(){ return { tableau:tableau.map(t=>t.map(c=>({...c}))), free:free.map(x=>x?{...x}:null), foundations:foundations.slice(), over, won }; }

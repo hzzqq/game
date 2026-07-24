@@ -27,6 +27,10 @@
   .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit}
   .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
   .controls button:hover{filter:brightness(1.1)}
+  .diffbar{display:flex;gap:8px;margin-bottom:10px}
+  .diffbar button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--dim);padding:8px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:1px;transition:.15s ease}
+  .diffbar button:hover{border-color:var(--green);color:var(--text)}
+  .diffbar button.active{border-color:var(--gold);color:var(--gold);font-weight:700;box-shadow:0 0 12px rgba(240,185,11,.25)}
   .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
   .msg.win{color:var(--gold);font-weight:700}
   .foot{width:min(540px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
@@ -36,6 +40,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>播棋</b> MANCALA</span></div>
   <div class="wrap">
+    <div class="diffbar" id="diffbar"></div>
     <div class="hud"><span>轮到 TURN · <span class="st" id="turn">你 (绿)</span></span><span id="status">把更多石子收进自己的大库</span></div>
     <div class="board" id="board"></div>
     <div class="controls">
@@ -56,6 +61,19 @@
   // board 索引: 0..5 你(绿)的坑, 6 你的大库, 7..12 对手(红)的坑, 13 对手大库
   const STORE = { 0:6, 1:13 };
   const OWN = { 0:[0,1,2,3,4,5], 1:[7,8,9,10,11,12] };
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn || Math.random; }
+  const DIFFICULTY = {
+    easy:   { label:'简单', depth:1, aiRandom:0.55 },
+    normal: { label:'普通', depth:2, aiRandom:0.30 },
+    hard:   { label:'困难', depth:3, aiRandom:0.10 },
+    hell:   { label:'地狱', depth:4, aiRandom:0    },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
 
   let board, current, over, winner;
   function newGame(){
@@ -123,6 +141,46 @@
   function getBoard(){ return board.slice(); }
   function setBoard(b,cur){ board=b.slice(); current=cur; over=false; winner=null; }
 
+  // ===================== AI 对手（红方 side=1）=====================
+  // 模拟 player 在 pit 处走子并打分：额外回合、吃子、自家大库增量优先
+  function scoreMove(player,pit){
+    const b=board.slice();
+    let stones=b[pit]; b[pit]=0;
+    const skip=oppStore(player);
+    let pos=pit;
+    while(stones>0){ pos=(pos+1)%14; if(pos===skip) continue; b[pos]++; stones--; }
+    let sc=0;
+    if(pos===STORE[player]) sc+=100;                       // 额外回合
+    if(inOwn(pos,player) && b[pos]===1){ const opp=12-pos; if(b[opp]>0) sc+=b[opp]+1; } // 吃子
+    sc += b[STORE[player]];                                 // 自家大库增量
+    return sc;
+  }
+  function aiChoosePit(){
+    const legal=OWN[1].filter(p=>board[p]>0);
+    if(!legal.length) return -1;
+    const cfg=DIFFICULTY[difficulty]||DIFFICULTY.normal;
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) return legal[Math.floor(_rand()*legal.length)];
+    let best=-1, bestScore=-1;
+    for(const p of legal){ const sc=scoreMove(1,p); if(sc>bestScore){ bestScore=sc; best=p; } }
+    return best;
+  }
+  function aiPlay(){
+    let guard=0;
+    while(current===1 && !over && guard++<30){
+      const pit=aiChoosePit();
+      if(pit<0) break;
+      sow(1,pit);
+    }
+  }
+  function humanPlay(pit){
+    if(over) return;
+    if(current!==0) return; // 仅绿方(玩家)可点；红方由 AI 接管
+    const ok=sow(0,pit);
+    if(!ok) return;
+    if(current===1 && !over) aiPlay();
+    render();
+  }
+
   /* ===================== UI ===================== */
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function buildBoard(){
@@ -131,9 +189,9 @@
     b.innerHTML='';
     // 上排：对手大库 + 对手坑(12..7 反向显示)
     const topStore=document.createElement('div'); topStore.className='store'; topStore.id='store1'; b.appendChild(topStore);
-    for(let i=12;i>=7;i--){ const p=document.createElement('div'); p.className='pit foe'; p.dataset.pit=i; p.addEventListener('click',()=>{ if(current===1) sow(1,i); render(); }); b.appendChild(p); }
+    for(let i=12;i>=7;i--){ const p=document.createElement('div'); p.className='pit foe'; p.dataset.pit=i; p.addEventListener('click',()=>{ render(); }); b.appendChild(p); }
     const botStore=document.createElement('div'); botStore.className='store'; botStore.id='store0'; b.appendChild(botStore);
-    for(let i=0;i<6;i++){ const p=document.createElement('div'); p.className='pit you'; p.dataset.pit=i; p.addEventListener('click',()=>{ if(current===0) sow(0,i); render(); }); b.appendChild(p); }
+    for(let i=0;i<6;i++){ const p=document.createElement('div'); p.className='pit you'; p.dataset.pit=i; p.addEventListener('click',()=>{ humanPlay(i); }); b.appendChild(p); }
   }
   function render(){
     if(typeof document==='undefined') return;
@@ -162,16 +220,33 @@
     if(nb) nb.onclick=()=>{ newGame(); render(); };
     if(rb) rb.onclick=()=>{ reset(); render(); };
   }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    let bar=$('diffbar');
+    if(!bar){
+      bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
+      const wrap=$('wrap')||document.body; if(wrap) wrap.insertBefore(bar, wrap.firstChild);
+    }
+    if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{
+      const b=document.createElement('button'); b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click',()=>{ if(setDifficulty(k)){ newGame(); render(); } });
+      bar.appendChild(b);
+    });
+  }
   newGame();
   if(typeof document!=='undefined'){
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
-    else { buildBoard(); bindUI(); render(); }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); buildDiffBar(); render(); });
+    else { buildBoard(); bindUI(); buildDiffBar(); render(); }
   }
   if(typeof window!=='undefined'){
     window.__t = {
       PITS, INIT, STORE, OWN,
       newGame, reset, sow, getCurrent, isOver, getWinner, getBoard, getStore, sumPits,
       setBoard, checkEnd,
+      setRand, DIFFICULTY, setDifficulty, getDifficulty, aiChoosePit,
     };
   }
 })();

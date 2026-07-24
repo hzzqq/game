@@ -52,6 +52,9 @@
   let _rand=Math.random;
   function setRand(fn){ _rand=fn; }
   function reset(){ totals=[0,0]; roundScore=0; turn=0; over=false; winner=-1; last=0; }
+  // 胜利/完成特效：仅渲染层，受 Juice 存在性守卫（confetti 在桩环境为 no-op）
+  function celebrate(){ if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+  function landingFx(){ if(typeof Juice!=='undefined' && Juice.spawnParticle) Juice.spawnParticle(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:8}); }
   function roll(){
     if(over) return last;
     const v=1+Math.floor(_rand()*6);
@@ -59,15 +62,16 @@
     if(v===1){ turn=1-turn; roundScore=0; Juice.sfx('error'); Juice.addTrauma(.2); }
     else {
       roundScore+=v; Juice.sfx('hit'); Juice.addTrauma(.2);
-      if(totals[turn]+roundScore>=TARGET){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); }
+      if(totals[turn]+roundScore>=TARGET){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); celebrate(); }
     }
+    landingFx();
     return v;
   }
   function hold(){
     if(over) return;
     totals[turn]+=roundScore;
     roundScore=0; Juice.sfx('pickup');
-    if(totals[turn]>=TARGET){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); }
+    if(totals[turn]>=TARGET){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); celebrate(); }
     else turn=1-turn;
   }
   function getTotal(p){ return totals[p]; }
@@ -95,7 +99,7 @@
   }
   reset();
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
-  if(typeof window!=='undefined'){ window.__t={ roll, hold, getTotal, getRound, getTurn, getLast, isOver, getWinner, setTotal, setRand, reset }; }
+  if(typeof window!=='undefined'){ window.__t={ roll, hold, getTotal, getRound, getTurn, getLast, isOver, getWinner, setTotal, setRand, reset, triggerWinEffect:celebrate }; }
 })();
 </script>
 </body>

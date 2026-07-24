@@ -115,9 +115,25 @@
     if(typeof document==='undefined') return;
     const cv=$('cv'); if(!cv||!cv.getContext) return; const ctx=cv.getContext('2d');
     ctx.fillStyle='#0e141d'; ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#f0b90b'; ctx.fillRect(0,leftY-PH/2,PW,PH); ctx.fillRect(W-PW,rightY-PH/2,PW,PH);
-    ctx.beginPath(); ctx.arc(ball.x,ball.y,R,0,Math.PI*2); ctx.fill();
-    for(const p of pickups){ ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle='rgba(240,185,11,.22)'; ctx.fill(); ctx.fillStyle='#fff'; ctx.font='13px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(GLY[p.type],p.x,p.y); }
+    // paddles (gradient + highlight outline)
+    for(const [px,py] of [[0,leftY],[W-PW,rightY]]){
+      ctx.save();
+      const g=ctx.createLinearGradient(px,py-PH/2,px,py+PH/2);
+      g.addColorStop(0,'#ffd54a'); g.addColorStop(1,'#f0b90b');
+      ctx.fillStyle=g; ctx.fillRect(px,py-PH/2,PW,PH);
+      ctx.lineWidth=2; ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.strokeRect(px,py-PH/2,PW,PH);
+      ctx.restore();
+    }
+    // ball (gradient + highlight + outline)
+    ctx.save();
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,R,0,Math.PI*2);
+    const g=ctx.createRadialGradient(ball.x-R*0.3,ball.y-R*0.3,1,ball.x,ball.y,R);
+    g.addColorStop(0,'#ffffff'); g.addColorStop(1,'#cfd6dd');
+    ctx.fillStyle=g; ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(ball.x-R*0.3,ball.y-R*0.3,R*0.3,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.fill();
+    ctx.restore();
+    for(const p of pickups){ ctx.save(); ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle='rgba(240,185,11,.22)'; ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.stroke(); ctx.fillStyle='#fff'; ctx.font='13px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(GLY[p.type],p.x,p.y); ctx.restore(); }
     const sc=$('sc'),st=$('st'); if(sc)sc.textContent=score[0]+' : '+score[1]; if(st)st.textContent=over?'结束':'进行中'+(coins>0?(' · 💰'+coins):'')+(shieldL||shieldR?' · 🛡':'');
   }
   function loop(){ if(typeof requestAnimationFrame==='undefined') return; step(1); render(); requestAnimationFrame(loop); }

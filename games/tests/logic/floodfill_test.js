@@ -25,3 +25,9 @@ t.step(3);
 eq('step3 后满盘同色(16格)', t.getFlooded(), 16);
 eq('step3 后步数=3', t.getMoves(), 3);
 ok('step3 后已通关', t.isSolved() === true);
+
+// ---------- 通关特效：满盘同色触发 celebrate（Juice 桩无 confetti → 不崩） ----------
+ok('step3 通关触发 celebrate', t.wasCelebrated() === true);
+let threw = false;
+try { t.triggerWinEffect(); } catch (e) { threw = true; }
+ok('triggerWinEffect 不抛错', threw === false);

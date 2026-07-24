@@ -145,8 +145,8 @@
       else if (result === 'blackjack') chips += Math.floor(bet * 2.5);
       else if (result === 'push') chips += bet;
       if (typeof Juice !== 'undefined') {
-        if (result === 'blackjack') { Juice.sfx('win'); Juice.achievement('🂡 黑杰克 BLACKJACK!'); Juice.burst(W / 2, H / 2, { color: COL.gold, n: 22, speed: 240 }); Juice.ring(W / 2, H / 2, { color: COL.gold, r1: 120 }); }
-        else if (result === 'win') { Juice.sfx('win'); Juice.burst(W / 2, H / 2, { color: COL.green, n: 16, speed: 220 }); Juice.popup(W / 2, H / 2, '+' + bet, COL.green, { size: 28, big: true }); }
+        if (result === 'blackjack') { Juice.sfx('win'); Juice.achievement('🂡 黑杰克 BLACKJACK!'); Juice.burst(W / 2, H / 2, { color: COL.gold, n: 22, speed: 240 }); Juice.ring(W / 2, H / 2, { color: COL.gold, r1: 120 }); if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+        else if (result === 'win') { Juice.sfx('win'); Juice.burst(W / 2, H / 2, { color: COL.green, n: 16, speed: 220 }); Juice.popup(W / 2, H / 2, '+' + bet, COL.green, { size: 28, big: true }); if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
         else if (result === 'lose') { Juice.sfx('lose'); Juice.addTrauma(0.35); Juice.flash('#f6465d', 0.25); Juice.popup(W / 2, H / 2, '-' + bet, COL.red, { size: 26, big: true }); }
         else { Juice.sfx('click'); Juice.popup(W / 2, H / 2, 'PUSH', COL.dim, { size: 22 }); }
       }

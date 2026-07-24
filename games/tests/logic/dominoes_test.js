@@ -45,3 +45,11 @@ ok('对手无法接可过牌', t.pass());
 ok('轮回玩家0 仍无法接可过牌', t.pass());
 ok('流局结束', t.isOver());
 ok('分出胜负(非平局)', t.getWinner()!=='draw');
+
+// --- Round 7: 胜利/完成特效（纯渲染层，Juice 桩无 confetti → 守卫式 no-op 不抛错）---
+t.setHands([[1,2]],[[3,3]], []);
+t.place([1,2],'right'); // 出完手牌 → 胜利路径 → celebrate()
+ok('多米诺出完获胜 over', t.isOver());
+let dthrew=false;
+try { t.triggerWinEffect(); } catch(e){ dthrew=true; }
+ok('triggerWinEffect 在 Juice 无 confetti 时不抛错', dthrew === false);

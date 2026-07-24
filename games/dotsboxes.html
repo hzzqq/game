@@ -30,6 +30,10 @@
   .controls button{flex:1;background:var(--red);color:#0a0e14;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit}
   .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
   .controls button:hover{filter:brightness(1.1)}
+  .diffbar{display:flex;gap:8px;margin-bottom:10px}
+  .diffbar button{flex:1;background:#0e141d;border:1px solid var(--border);color:var(--dim);padding:8px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:1px;transition:.15s ease}
+  .diffbar button:hover{border-color:var(--green);color:var(--text)}
+  .diffbar button.active{border-color:var(--gold);color:var(--gold);font-weight:700;box-shadow:0 0 12px rgba(240,185,11,.25)}
   .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
   .msg.win{color:var(--gold);font-weight:700}
   .foot{width:min(460px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
@@ -39,6 +43,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>围点成线</b> DOTS &amp; BOXES</span></div>
   <div class="wrap">
+    <div class="diffbar" id="diffbar"></div>
     <div class="hud"><span>轮到 TURN · <span class="st" id="turn">你 (绿)</span></span><span>比分 <span class="st" id="score">0 : 0</span></span></div>
     <div class="board" id="board"></div>
     <div class="controls">
@@ -55,6 +60,19 @@
   "use strict";
   /* ===================== 纯逻辑核心 ===================== */
   const DEF_R = 4, DEF_C = 4; // 4x4 点 → 3x3 方格
+
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn || Math.random; }
+  const DIFFICULTY = {
+    easy:   { label:'简单', depth:1, aiRandom:0.55 },
+    normal: { label:'普通', depth:2, aiRandom:0.30 },
+    hard:   { label:'困难', depth:3, aiRandom:0.10 },
+    hell:   { label:'地狱', depth:4, aiRandom:0    },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
 
   let R, C, h, v, owner, current, scores, over, winner;
   function newGame(r,c){
@@ -114,6 +132,60 @@
     owner=ownArr.map(r=>r.slice()); current=cur; scores=sc.slice(); over=false; winner=null;
   }
 
+  // ===================== AI 对手（红方 side=1）=====================
+  // 画某条线是否立即围成方格
+  function wouldComplete(t,r,c){
+    if(t==='H'){
+      if(r-1>=0 && h[r-1][c] && v[r-1][c] && v[r-1][c+1]) return true;
+      if(r+1<R && h[r+1][c] && v[r][c] && v[r][c+1]) return true;
+    } else {
+      if(c-1>=0 && h[r][c-1] && h[r+1][c-1] && v[r][c-1]) return true;
+      if(c+1<C && h[r][c] && h[r+1][c] && v[r][c+1]) return true;
+    }
+    return false;
+  }
+  // 画某条线后是否制造出“三边格”（对手可立即成格）
+  function makesThree(t,r,c){
+    const hb=h.map(row=>row.slice()), vb=v.map(row=>row.slice());
+    if(t==='H') hb[r][c]=true; else vb[r][c]=true;
+    for(let br=0;br<R-1;br++) for(let bc=0;bc<C-1;bc++){
+      if(owner[br][bc]>=0) continue;
+      let n=0;
+      if(hb[br][bc])n++; if(hb[br+1][bc])n++; if(vb[br][bc])n++; if(vb[br][bc+1])n++;
+      if(n===3) return true;
+    }
+    return false;
+  }
+  function aiChooseLine(){
+    const lines=[];
+    for(let r=0;r<R;r++) for(let c=0;c<C-1;c++) if(!h[r][c]) lines.push({t:'H',r,c});
+    for(let r=0;r<R-1;r++) for(let c=0;c<C;c++) if(!v[r][c]) lines.push({t:'V',r,c});
+    if(!lines.length) return null;
+    const cfg=DIFFICULTY[difficulty]||DIFFICULTY.normal;
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) return lines[Math.floor(_rand()*lines.length)];
+    // 地狱/困难：优先抢能成格的线（得额外回合），再避免落下三边格送对手
+    for(const ln of lines) if(wouldComplete(ln.t,ln.r,ln.c)) return ln;
+    const safe=lines.filter(ln=>!makesThree(ln.t,ln.r,ln.c));
+    if(safe.length) return safe[Math.floor(_rand()*safe.length)];
+    return lines[Math.floor(_rand()*lines.length)];
+  }
+  function aiPlay(){
+    let guard=0;
+    while(current===1 && !over && guard++<60){
+      const ln=aiChooseLine();
+      if(!ln) break;
+      if(ln.t==='H') playH(ln.r,ln.c); else playV(ln.r,ln.c);
+    }
+  }
+  function humanPlay(type,r,c){
+    if(over) return;
+    if(current!==0) return; // 仅绿方(玩家)可点；红方由 AI 接管
+    const ok = type==='H'?playH(r,c):playV(r,c);
+    if(!ok) return;
+    if(current===1 && !over) aiPlay();
+    render();
+  }
+
   /* ===================== UI ===================== */
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
@@ -126,10 +198,10 @@
       const box=document.createElement('div'); box.className='box';
       // top
       const top=document.createElement('button'); top.className='edge h top'+(h[br][bc]?' on':'')+(over?'':' cur');
-      top.onclick=()=>{ playH(br,bc); render(); }; box.appendChild(top);
+      top.onclick=()=>{ humanPlay('H',br,bc); }; box.appendChild(top);
       // left
       const left=document.createElement('button'); left.className='edge v left'+(v[br][bc]?' on':'')+(over?'':' cur');
-      left.onclick=()=>{ playV(br,bc); render(); }; box.appendChild(left);
+      left.onclick=()=>{ humanPlay('V',br,bc); }; box.appendChild(left);
       // center
       const ctr=document.createElement('div');
       const o=owner[br][bc];
@@ -137,10 +209,10 @@
       ctr.textContent = o<0?'':(o===0?'你':'敌'); box.appendChild(ctr);
       // right
       const right=document.createElement('button'); right.className='edge v right'+(v[br][bc+1]?' on':'')+(over?'':' cur');
-      right.onclick=()=>{ playV(br,bc+1); render(); }; box.appendChild(right);
+      right.onclick=()=>{ humanPlay('V',br,bc+1); }; box.appendChild(right);
       // bottom
       const bot=document.createElement('button'); bot.className='edge h bottom'+(h[br+1][bc]?' on':'')+(over?'':' cur');
-      bot.onclick=()=>{ playH(br+1,bc); render(); }; box.appendChild(bot);
+      bot.onclick=()=>{ humanPlay('H',br+1,bc); }; box.appendChild(bot);
       board.appendChild(box);
     }
     if(turn) turn.textContent = over?'结束':(current===0?'你 (绿)':'对手 (红)');
@@ -157,16 +229,33 @@
     if(nb) nb.onclick=()=>{ newGame(); render(); };
     if(rb) rb.onclick=()=>{ reset(); render(); };
   }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    let bar=$('diffbar');
+    if(!bar){
+      bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
+      const wrap=$('wrap')||document.body; if(wrap) wrap.insertBefore(bar, wrap.firstChild);
+    }
+    if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{
+      const b=document.createElement('button'); b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click',()=>{ if(setDifficulty(k)){ newGame(); render(); } });
+      bar.appendChild(b);
+    });
+  }
   newGame();
   if(typeof document!=='undefined'){
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
-    else { bindUI(); render(); }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); buildDiffBar(); render(); });
+    else { bindUI(); buildDiffBar(); render(); }
   }
   if(typeof window!=='undefined'){
     window.__t = {
       DEF_R, DEF_C,
       newGame, reset, playH, playV, getCurrent, getScores, isOver, getWinner,
       getOwner, getH, getV, getRC, setRaw,
+      setRand, DIFFICULTY, setDifficulty, getDifficulty, aiChooseLine,
     };
   }
 })();

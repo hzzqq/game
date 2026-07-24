@@ -67,3 +67,10 @@ t.rollDice();
 ok(Array.isArray(t.legalMoves()) && t.legalMoves().length > 0, '能枚举合法步');
 
 console.log('✓ backgammon_test 完成 · 共 21 条断言');
+
+// ---------- 难度系统 ----------
+{
+  eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty 返回 hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
+}

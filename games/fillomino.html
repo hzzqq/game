@@ -157,6 +157,7 @@
     grid[r][c]=v;
     won=isWin();
     if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
     return true;
   }
   function cycle(r,c){ if(clue[r][c]>0) return false; const cur=grid[r][c]; const nxt=(cur>=maxVal)?0:cur+1; return setCell(r,c,nxt); }

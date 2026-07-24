@@ -20,3 +20,11 @@ eq('开出实际数量=3', r.count, 3);
 t.placeBid(4,1);
 r = t.call();
 eq('叫注过大(实际3<4)→开牌者(1)胜', r.winner, 1);
+
+// --- Round 7: 胜利/完成特效（纯渲染层，Juice 桩无 confetti → 守卫式 no-op 不抛错）---
+t.setDice([[1,1,1],[2,2,3]]);
+t.placeBid(2,1);
+t.call(); // 开牌分胜负 → 胜利路径 → celebrate()
+let lthrew=false;
+try { t.triggerWinEffect(); } catch(e){ lthrew=true; }
+ok('triggerWinEffect 在 Juice 无 confetti 时不抛错', lthrew === false);

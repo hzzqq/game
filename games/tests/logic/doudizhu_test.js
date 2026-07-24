@@ -180,6 +180,11 @@ ok('chooseFollow 能压则压', follow !== null && t.getCombo(follow).rank > 4);
 const noF = t.chooseFollow([C(3)], {type:'single',rank:15,len:1});
 eq('chooseFollow 压不过 null', noF, null);
 
+// 27. 难度系统
+eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+eq('getDifficulty 为 hell', t.getDifficulty(), 'hell');
+eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

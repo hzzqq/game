@@ -188,6 +188,40 @@
 
     var player, cpu, projectiles, floats, items, itemTimer;
 
+    // ===== 注入：手感(震动/粒子) + 确定性拾取道具（纯附加）=====
+    var particles = [];
+    var shake = 0;
+    var _rand = Math.random;
+    function setRand(fn){ _rand = fn || Math.random; }
+    function spawnParticle(x, y, color, opts){
+      opts = opts || {};
+      var n = opts.n || 8, speed = opts.speed || 180, life = opts.life || 0.4, i;
+      for (i=0;i<n;i++){
+        var ang = (Math.PI*2)*(i/n);
+        var sp = speed*(0.6 + 0.4*((i%3)/2));
+        particles.push({ x:x, y:y, vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp, age:0, life:life, color:color });
+      }
+    }
+    function addParticle(p){ particles.push(p); }
+    function addShake(v){ if (v>shake) shake=v; }
+    function updateParticles(dt){
+      for (var i=particles.length-1;i>=0;i--){
+        var p=particles[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=400*dt; p.age+=dt;
+        if (p.age>=p.life) particles.splice(i,1);
+      }
+    }
+    // 确定性拾取道具（固定位置，零 Math.random）
+    function makePickup(type, x, y){
+      items.push({ type: type||'meat', x:(x!=null?x:240), y:(y!=null?y:GROUND), life:13, taken:false, bob:0 });
+      return items[items.length-1];
+    }
+    function applyPickup(it, f){ applyItem(f || player, it); }
+    function winConfetti(){
+      if (typeof Juice !== 'undefined' && Juice.confetti){
+        Juice.confetti(W/2, H/2, { n: 80, colors:['#f6465d','#02c076','#f0b90b'], spread:0.9, life:1.2, up:true });
+      }
+    }
+
     function makeFighter(side) {
       return {
         side: side, x: 0, y: GROUND, vx: 0, vy: 0, onGround: true, facing: 1,
@@ -278,6 +312,7 @@
       if (att.combo > 1 && !blocked) addFloat(att.x, att.y - 132, 'COMBO ×' + att.combo, '#f0b90b');
       sfxHit(blocked);
       if (typeof Juice !== 'undefined') { Juice.sfx('hit'); Juice.addTrauma(blocked ? 0.15 : 0.35); Juice.burst(def.x, def.y - 46, { color: blocked ? '#6b7785' : (att === player ? '#f6465d' : '#02c076'), n: blocked ? 6 : 12, speed: 180 }); }
+      addShake(blocked ? 0.15 : 0.35); spawnParticle(def.x, def.y - 46, blocked ? '#6b7785' : (att === player ? '#f6465d' : '#02c076'), { n: blocked ? 6 : 12, speed: 180 });
     }
 
     // ---- projectiles ----
@@ -490,6 +525,7 @@
       updateProjectiles(dt);
       updateItems(dt);
       updateFloats(dt);
+      updateParticles(dt);
 
       if (bannerTimer > 0) bannerTimer -= dt;
 
@@ -670,12 +706,16 @@
   function draw() {
     drawBackground();
     if(typeof Juice!=='undefined') Juice.begin(ctx);
+    ctx.save();
+    if (shake > 0) ctx.translate(Math.sin(shake*37.7)*shake*6, Math.cos(shake*21.3)*shake*6);
     items.forEach(drawItem);
     drawFighter(cpu);
     drawFighter(player);
     projectiles.forEach(drawProj);
     floats.forEach(drawFloat);
+    for (var pi=0; pi<particles.length; pi++){ var pp=particles[pi]; var pk=1-pp.age/pp.life; ctx.save(); ctx.globalAlpha=Math.max(0,pk); ctx.fillStyle=pp.color; ctx.beginPath(); ctx.arc(pp.x,pp.y,2.5*pk+0.5,0,Math.PI*2); ctx.fill(); ctx.restore(); }
     drawCenter();
+    ctx.restore();
     if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
@@ -696,6 +736,7 @@
         if (youWin) { Juice.sfx('win'); Juice.flash('#02c076', 0.3); Juice.addTrauma(0.7); var b = Juice.best('fight', 1); Juice.rank(1); if (b.isNew) Juice.achievement('新纪录！'); }
         else { Juice.sfx('lose'); Juice.flash('#f6465d', 0.32); Juice.addTrauma(0.7); }
       }
+      winConfetti();
       show(matchOv);
     }
 
@@ -728,6 +769,7 @@
       if (dt < 0) dt = 0;
       if (typeof Juice !== 'undefined') Juice.update(dt);
       step(dt);
+      if (shake>0) shake=Math.max(0, shake - dt*1.5);
       draw();
       Input.update();
       requestAnimationFrame(loop);
@@ -762,7 +804,19 @@
       getPips: function () { return pips; },
       getRoundNum: function () { return roundNum; },
       getRoundTimer: function () { return roundTimer; },
-      getConstants: function () { return { W: W, H: H, GROUND: GROUND, JUMP_VY: JUMP_VY, GRAVITY: GRAVITY, WALK_SPEED: WALK_SPEED, DASH_SPEED: DASH_SPEED, ROUND_TIME: ROUND_TIME, COMBO_WINDOW: COMBO_WINDOW }; }
+      getConstants: function () { return { W: W, H: H, GROUND: GROUND, JUMP_VY: JUMP_VY, GRAVITY: GRAVITY, WALK_SPEED: WALK_SPEED, DASH_SPEED: DASH_SPEED, ROUND_TIME: ROUND_TIME, COMBO_WINDOW: COMBO_WINDOW }; },
+      // ---- 注入：手感 / 拾取道具 钩子 ----
+      setRand: setRand,
+      makePickup: makePickup,
+      applyPickup: applyPickup,
+      spawnPickupAt: function(type,x,y){ return makePickup(type,x,y); },
+      getPickups: function(){ return items.length; },
+      getParticles: function(){ return particles.length; },
+      spawnParticle: spawnParticle,
+      addParticle: addParticle,
+      getShake: function(){ return shake; },
+      setShake: function(v){ shake=v; },
+      forceWin: winConfetti
     };
 
     requestAnimationFrame(loop);

@@ -190,6 +190,63 @@
     let remoteTank=null;      // 在线时对手坦克状态
     let lastInput={fwd:false,back:false,left:false,right:false,fire:false};
 
+    // ===== 注入：手感(震动/粒子) + 拾取道具（纯附加，不改核心战斗/胜负）=====
+    let pickups = [];
+    let particles = [];
+    let shake = 0;
+    let pickupClock = 0;
+    const PICKUP_PERIOD = 200;
+    const PICKUP_POS = { x: W * 0.5, y: H * 0.5 };
+
+    // 手感：确定性粒子（角度由循环推出，零 Math.random 消耗，避免污染共享随机流）
+    function spawnParticle(x, y, color, opts) {
+      opts = opts || {};
+      const n = opts.n || 8, speed = opts.speed || 180, life = opts.life || 0.4;
+      for (let i = 0; i < n; i++) {
+        const ang = (Math.PI * 2) * (i / n);
+        const sp = speed * (0.6 + 0.4 * ((i % 3) / 2));
+        particles.push({ x: x, y: y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, age: 0, life: life, color: color });
+      }
+    }
+    function addParticle(p) { particles.push(p); }
+    function addShake(v) { if (v > shake) shake = v; }
+    function updateParticles(dt) {
+      const s = dt / 1000;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * s; p.y += p.vy * s; p.vy += 400 * s; p.age += s;
+        if (p.age >= p.life) particles.splice(i, 1);
+      }
+    }
+    // 拾取道具：确定性生成（固定格点），不消耗 Math.random
+    function makePickup(type, x, y) {
+      const p = { type: type || 'heal', x: (x != null ? x : PICKUP_POS.x), y: (y != null ? y : PICKUP_POS.y), age: 0, life: 12, dead: false };
+      pickups.push(p);
+      return p;
+    }
+    // 增益仅作用于玩家 P1(tankA)，绝不改胜负规则
+    function applyPickup(p) {
+      if (!p) return;
+      if (p.type === 'heal') tankA.hp = Math.min(MAXHP, tankA.hp + 25);
+      else if (p.type === 'boost') { tankA._boost = (tankA._boost || 0) + 1; tankA.fireCd = Math.max(0, tankA.fireCd - 8); }
+      else if (p.type === 'speed') tankA._spd = (tankA._spd || 0) + 1;
+      if (typeof Juice !== 'undefined' && Juice.burst) Juice.burst(tankA.x, tankA.y, { color: '#f0b90b', n: 8, speed: 140 });
+    }
+    function updatePickups(dt) {
+      const s = dt / 1000;
+      for (let i = pickups.length - 1; i >= 0; i--) {
+        const p = pickups[i]; p.age += s;
+        if (!p.dead && Math.hypot(tankA.x - p.x, tankA.y - p.y) < TANK_R + 12) { p.dead = true; applyPickup(p); }
+        if (p.dead || p.age >= p.life) pickups.splice(i, 1);
+      }
+    }
+    // 胜利彩带（受控：Juice 未定义或不含 confetti 时直接跳过，绝不抛错）
+    function winConfetti() {
+      if (typeof Juice !== 'undefined' && Juice.confetti) {
+        Juice.confetti(W / 2, H / 2, { n: 80, colors: ['#f6465d', '#02c076', '#f0b90b'], spread: 0.9, life: 1.2, up: true });
+      }
+    }
+
     // ============ 输入 ============
     window.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true; if([ ' ','arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase()))e.preventDefault();});
     window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
@@ -283,11 +340,17 @@
         b.x+=b.vx; b.y+=b.vy;
         if(b.x<0||b.x>W||b.y<0||b.y>H){ b.dead=true; continue; }
         for(const o of obstacles){ if(b.x>o.x&&b.x<o.x+o.w&&b.y>o.y&&b.y<o.y+o.h){ b.dead=true; } }
-        if(b.owner==='A'){ if(hitTank(b,tankB)){ tankB.hp-=DMG; b.dead=true; if(mode==='online'&&role==='host') sendState(); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.3); Juice.burst(b.x,b.y,{color:'#02c076',n:10,speed:180}); } } }
-        else { if(hitTank(b,tankA)){ tankA.hp-=DMG; b.dead=true; if(mode==='online'&&role==='guest') sendState(); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.3); Juice.burst(b.x,b.y,{color:'#f6465d',n:10,speed:180}); } } }
+        if(b.owner==='A'){ if(hitTank(b,tankB)){ tankB.hp-=DMG; b.dead=true; if(mode==='online'&&role==='host') sendState(); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.3); Juice.burst(b.x,b.y,{color:'#02c076',n:10,speed:180}); } addShake(0.35); spawnParticle(b.x,b.y,'#02c076',{n:10,speed:200}); } }
+        else { if(hitTank(b,tankA)){ tankA.hp-=DMG; b.dead=true; if(mode==='online'&&role==='guest') sendState(); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.3); Juice.burst(b.x,b.y,{color:'#f6465d',n:10,speed:180}); } addShake(0.35); spawnParticle(b.x,b.y,'#f6465d',{n:10,speed:200}); } }
       }
       bullets=bullets.filter(b=>!b.dead);
       if(mode==='online'){ myBullets=myBullets.filter(b=>!b.dead); remoteBullets=remoteBullets.filter(b=>!b.dead); }
+
+      // 手感 + 拾取道具（确定性调度，零 Math.random）
+      updateParticles(dt);
+      updatePickups(dt);
+      pickupClock++;
+      if(running && !over && mode && pickupClock % PICKUP_PERIOD === 0 && pickups.length < 3) makePickup('heal');
 
       if(tankA.hp<=0){ endRound('B'); } else if(tankB.hp<=0){ endRound('A'); }
     }
@@ -299,7 +362,7 @@
     setStatus((winner==='A'?'红方 P1':'绿方 P2')+' 获胜本回合！');
     if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.5); Juice.flash(winner==='A'?'#f6465d':'#02c076',0.25); }
     over=true; setTimeout(()=>{
-      if(scoreA>=3||scoreB>=3){ setStatus((scoreA>scoreB?'红方 P1':'绿方 P2')+' 赢得比赛！点击返回大厅再战。'); if(typeof Juice!=='undefined'){ if(scoreA>scoreB){ Juice.sfx('win'); Juice.flash('#02c076',0.3); } else { Juice.sfx('lose'); Juice.flash('#f6465d',0.3); } Juice.addTrauma(0.7); } return; }
+      if(scoreA>=3||scoreB>=3){ winConfetti(); setStatus((scoreA>scoreB?'红方 P1':'绿方 P2')+' 赢得比赛！点击返回大厅再战。'); if(typeof Juice!=='undefined'){ if(scoreA>scoreB){ Juice.sfx('win'); Juice.flash('#02c076',0.3); } else { Juice.sfx('lose'); Juice.flash('#f6465d',0.3); } Juice.addTrauma(0.7); } return; }
       resetPositions(); over=false; setStatus('');
     }, 1600);
   }
@@ -320,6 +383,8 @@
   function render(){
     ctx.clearRect(0,0,W,H);
     if(typeof Juice!=='undefined') Juice.begin(ctx);
+    ctx.save();
+    if(shake>0) ctx.translate(Math.sin(shake*37.7)*shake*6, Math.cos(shake*21.3)*shake*6);
       // 网格底
       ctx.strokeStyle='rgba(31,42,56,.5)'; ctx.lineWidth=1;
       for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
@@ -335,11 +400,31 @@
       drawTank(tankA,'#f6465d');
       const bt = (mode==='online'&&remoteTank)?remoteTank:tankB;
       drawTank(bt,'#02c076');
+      // 拾取道具（发光小图标）
+      for(const p of pickups){
+        const bob=Math.sin(p.age*5)*3;
+        ctx.save();
+        const col=p.type==='heal'?'#02c076':(p.type==='boost'?'#f6465d':'#f0b90b');
+        ctx.shadowColor=col; ctx.shadowBlur=14; ctx.fillStyle=col;
+        ctx.beginPath(); ctx.arc(p.x,p.y+bob,11,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0; ctx.fillStyle='#0a0e14'; ctx.font='bold 12px monospace';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(p.type==='heal'?'✚':(p.type==='boost'?'⚔':'⚡'), p.x, p.y+bob+1);
+        ctx.restore();
+      }
+      // 命中粒子
+      for(const p of particles){
+        const k=Math.max(0,1-p.age/p.life);
+        ctx.save(); ctx.globalAlpha=k; ctx.fillStyle=p.color;
+        ctx.beginPath(); ctx.arc(p.x,p.y,2.5*k+0.5,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
       // HUD 条
       document.getElementById('hp1').style.width=Math.max(0,tankA.hp)+'%';
       document.getElementById('hp2').style.width=Math.max(0,(mode==='online'&&remoteTank?remoteTank.hp:tankB.hp))+'%';
       document.getElementById('s1').textContent=scoreA;
       document.getElementById('s2').textContent=scoreB;
+    ctx.restore();
     if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
@@ -350,6 +435,7 @@
     const dt=Math.min(40, ts-last)||16; last=ts;
     if(typeof Juice!=='undefined') Juice.update(dt/1000);
     if(!over) step(dt);
+    if(shake>0) shake=Math.max(0, shake - (dt/1000)*1.5);
     render();
       if(mode==='online' && role==='host') sendState();
       raf=requestAnimationFrame(loop);
@@ -466,7 +552,19 @@
       cpuStep: function(){ step(16); },
       setRand: setRand,
       getCpuSeed: function(){ return _cpuSeed; },
-      getState: function(){ return { A:{x:tankA.x,y:tankA.y,hp:tankA.hp}, B:{x:tankB.x,y:tankB.y,hp:tankB.hp}, over:over, scoreA:scoreA, scoreB:scoreB }; }
+      getState: function(){ return { A:{x:tankA.x,y:tankA.y,hp:tankA.hp}, B:{x:tankB.x,y:tankB.y,hp:tankB.hp}, over:over, scoreA:scoreA, scoreB:scoreB }; },
+      // ---- 注入：手感 / 拾取道具 钩子 ----
+      makePickup: makePickup,
+      applyPickup: applyPickup,
+      spawnPickupAt: function(type,x,y){ return makePickup(type,x,y); },
+      getPickups: function(){ return pickups.length; },
+      resetPickups: function(){ pickups = []; pickupClock = 0; },
+      getParticles: function(){ return particles.length; },
+      spawnParticle: spawnParticle,
+      addParticle: addParticle,
+      getShake: function(){ return shake; },
+      setShake: function(v){ shake = v; },
+      forceWin: winConfetti
     };
   })();
   </script>

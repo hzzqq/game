@@ -30,6 +30,9 @@
   .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
   .msg.win{color:var(--gold);font-weight:700}
   .foot{width:min(460px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  .diffbar{display:flex;gap:8px;margin:10px 0;justify-content:center;flex-wrap:wrap}
+  .diffbar button{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;cursor:pointer}
+  .diffbar button.active{outline:2px solid var(--gold);background:var(--red);color:#0a0e14}
 </style>
 </head>
 <body>
@@ -81,6 +84,75 @@
   function getPending(){ return pending; }
   function getAvailable(){ return available.slice(); }
   function setBoard(b,t,p){ board=b.map(r=>r.slice()); turn=t||0; available=PIECES.map((_,i)=>i).filter(i=>!b.flat().includes(i)); pending=(p===null||p===undefined)?null:p; over=false; winner=null; }
+
+  /* ===================== 难度系统 ===================== */
+  const DIFFICULTY = {
+    easy:   { label:'简单', depth:1, aiRandom:0.6 },
+    normal: { label:'普通', depth:2, aiRandom:0.25 },
+    hard:   { label:'困难', depth:3, aiRandom:0.05 },
+    hell:   { label:'地狱', depth:4, aiRandom:0 },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty='normal';
+  let _rand=Math.random;
+  function setRand(fn){ _rand=fn||Math.random; }
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+  function legalMoves(){
+    const out=[];
+    if(pending===null) return out;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(board[r][c]===null) out.push([r,c]);
+    return out;
+  }
+  function aiMove(){
+    const cfg=DIFFICULTY[difficulty]||DIFFICULTY.normal;
+    const cells=legalMoves();
+    if(!cells.length) return null;
+    let cell;
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) cell=cells[Math.floor(_rand()*cells.length)];
+    else {
+      let best=null, bestScore=-1e9;
+      for(const [r,c] of cells){
+        const b=board.map(x=>x.slice()); b[r][c]=pending;
+        let win=false;
+        const row=[]; for(let cc=0;cc<N;cc++) row.push(b[r][cc]); if(winLine(row)) win=true;
+        const col=[]; for(let rr=0;rr<N;rr++) col.push(b[rr][c]); if(winLine(col)) win=true;
+        if(r===c){ const d=[]; for(let i=0;i<N;i++) d.push(b[i][i]); if(winLine(d)) win=true; }
+        if(r+c===N-1){ const d=[]; for(let i=0;i<N;i++) d.push(b[i][N-1-i]); if(winLine(d)) win=true; }
+        const center=Math.abs(r-1.5)+Math.abs(c-1.5);
+        const score=(win?1000:0) - center + _rand()*0.01;
+        if(score>bestScore){ bestScore=score; best=[r,c]; }
+      }
+      cell=best;
+    }
+    // 选一枚给对手：尽量不送给对手能立即连线的棋子
+    let give = available.length ? available[0] : null;
+    if(available.length){
+      for(const p of available){
+        let danger=false;
+        for(let r=0;r<N&&!danger;r++) for(let c=0;c<N&&!danger;c++){
+          if(board[r][c]===null){ const b=board.map(x=>x.slice()); b[r][c]=p;
+            const row=[]; for(let cc=0;cc<N;cc++) row.push(b[r][cc]); if(winLine(row)) danger=true;
+            const col=[]; for(let rr=0;rr<N;rr++) col.push(b[rr][c]); if(winLine(col)) danger=true;
+            if(r===c){ const d=[]; for(let i=0;i<N;i++) d.push(b[i][i]); if(winLine(d)) danger=true; }
+            if(r+c===N-1){ const d=[]; for(let i=0;i<N;i++) d.push(b[i][N-1-i]); if(winLine(d)) danger=true; }
+          }
+        }
+        if(!danger){ give=p; break; }
+      }
+    }
+    return { r:cell[0], c:cell[1], piece:give };
+  }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    let bar=document.getElementById('diffbar');
+    if(!bar){ bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
+      const ref=document.querySelector('.controls')||document.querySelector('.wrap');
+      if(ref&&ref.parentNode) ref.parentNode.insertBefore(bar, ref); }
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{ const b=document.createElement('button'); b.textContent=DIFFICULTY[k].label; if(k===difficulty) b.className='active';
+      b.addEventListener('click',()=>{ setDifficulty(k); buildDiffBar(); }); bar.appendChild(b); });
+  }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function attHTML(p){ if(p===null) return ''; const cols=['#f6465d','#02c076','#f0b90b','#6b7785']; return '<div class="att">'+p.map((v,i)=>'<span class="dot2" style="background:'+(v?cols[i]:'#1f2a38')+'"></span>').join('')+'</div>'; }
   let cellEls=[];
@@ -105,11 +177,12 @@
   function bindUI(){ if(typeof document==='undefined') return; const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); build(); render(); }; }
   newGame();
   if(typeof document!=='undefined'){
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ build(); bindUI(); render(); });
-    else { build(); bindUI(); render(); }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ build(); bindUI(); render(); buildDiffBar(); });
+    else { build(); bindUI(); render(); buildDiffBar(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ N, PIECES, newGame, give, place, getBoard, getTurn, isOver, getWinner, getPending, getAvailable, checkWin, setBoard };
+    window.__t={ N, PIECES, newGame, give, place, getBoard, getTurn, isOver, getWinner, getPending, getAvailable, checkWin, setBoard,
+      DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves };
   }
 })();
 </script>

@@ -279,6 +279,45 @@ t.setMode('2p'); t.resetPositions(); t.setOver(false); t.setRunning(true); t.set
 t.step(16);
 ok('2p 模式切换无异常', t.getMode()==='local');
 
+// ===== 17. 拾取道具 + 手感（注入）=====
+// makePickup + applyPickup 增益（确定性，无随机）
+t.getTankA().hp = 50;
+const pk = t.makePickup('heal', 10, 10);
+t.applyPickup(pk);
+ok('makePickup+applyPickup 回血 +25', t.getTankA().hp === 75, 'hp='+t.getTankA().hp);
+t.getTankA().hp = 90;
+t.applyPickup(t.makePickup('heal', 10, 10));
+ok('makePickup+applyPickup 封顶 MAXHP', t.getTankA().hp === t.MAXHP);
+
+// 胜利彩带（Juice 无 confetti 桩时不抛错）
+let threwConfetti=false;
+try { t.forceWin(); } catch(e){ threwConfetti=true; }
+ok('forceWin 不抛错（Juice 无 confetti）', !threwConfetti);
+
+// 确定性步进调度生成道具（零 Math.random）
+(function(){
+  t.setMode('local'); t.setOver(false); t.setRunning(true); t.resetPositions(); t.resetPickups();
+  t.setKeys({w:false,s:false,a:false,d:false,' ':false,arrowup:false,arrowdown:false,arrowleft:false,arrowright:false,enter:false});
+  t.setFireCd(0);
+  const before = t.getPickups();
+  for (let i=0;i<200;i++) t.step(1);
+  ok('确定性调度每 200 步生成道具', t.getPickups() > before, 'pickups='+t.getPickups());
+})();
+
+// 步进全程不消耗 Math.random
+(function(){
+  const _o=Math.random; let _c=0; Math.random=function(){_c++;return _o();};
+  try { for(let i=0;i<60;i++) t.step(1); } finally { Math.random=_o; }
+  ok('步进不消耗 Math.random', _c===0, 'calls='+_c);
+})();
+
+// 命中触发手感（粒子 + 震动），不抛错
+t.setShake(0); t.setMode('local'); t.setOver(false); t.setRunning(true); t.resetPositions(); t.setFireCd(0);
+let threwFeel=false;
+try { t.step(1); t.spawnParticle(t.getTankA().x, t.getTankA().y, '#f6465d', {n:5}); } catch(e){ threwFeel=true; }
+ok('手感 spawnParticle/step 不抛错', !threwFeel);
+ok('手感 生成粒子', t.getParticles() > 0);
+
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;

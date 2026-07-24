@@ -27,6 +27,9 @@
   .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
   .msg.win{color:var(--gold);font-weight:700}
   .foot{width:min(440px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  .diffbar{display:flex;gap:8px;margin:10px 0;justify-content:center;flex-wrap:wrap}
+  .diffbar button{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;cursor:pointer}
+  .diffbar button.active{outline:2px solid var(--gold);background:var(--red);color:#0a0e14}
 </style>
 </head>
 <body>
@@ -86,6 +89,66 @@
   function isOver(){ return over; }
   function getWinner(){ return winner; }
   function setBoard(b,t,p){ board=b.map(r=>r.slice()); turn=t||'b'; phase=p||'place'; over=false; winner=null; }
+
+  /* ===================== 难度系统 ===================== */
+  const DIFFICULTY = {
+    easy:   { label:'简单', depth:1, aiRandom:0.6 },
+    normal: { label:'普通', depth:2, aiRandom:0.25 },
+    hard:   { label:'困难', depth:3, aiRandom:0.05 },
+    hell:   { label:'地狱', depth:4, aiRandom:0 },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty='normal';
+  let _rand=Math.random;
+  function setRand(fn){ _rand=fn||Math.random; }
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+  // 在克隆棋盘上判定某方是否连线（与 lineWin 同规则，但不依赖全局 board）
+  function simLineWin(bd, col){
+    for(let r=0;r<N;r++){ let ok=true; for(let c=0;c<N;c++) if(bd[r][c]!==col){ok=false;break;} if(ok) return true; }
+    for(let c=0;c<N;c++){ let ok=true; for(let r=0;r<N;r++) if(bd[r][c]!==col){ok=false;break;} if(ok) return true; }
+    if(bd[0][0]===col&&bd[1][1]===col&&bd[2][2]===col) return true;
+    if(bd[0][2]===col&&bd[1][1]===col&&bd[2][0]===col) return true;
+    return false;
+  }
+  function legalMoves(){
+    const out=[];
+    if(phase==='place'){
+      if(placed[turn]<NEED){ for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(board[r][c]===null) out.push(['place',r,c]); }
+    } else {
+      for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(board[r][c]===turn)
+        for(const [ar,ac] of adj(r,c)) if(board[ar][ac]===null) out.push(['move',r,c,ar,ac]);
+    }
+    return out;
+  }
+  function aiMove(){
+    const cfg=DIFFICULTY[difficulty]||DIFFICULTY.normal;
+    const moves=legalMoves();
+    if(!moves.length) return null;
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) return moves[Math.floor(_rand()*moves.length)];
+    const col=turn;
+    let best=null, bestScore=-1e9;
+    for(const mv of moves){
+      const b=board.map(r=>r.slice());
+      if(mv[0]==='place') b[mv[1]][mv[2]]=col; else { b[mv[3]][mv[4]]=col; b[mv[1]][mv[2]]=null; }
+      let s = simLineWin(b, col) ? 1000 : 0;
+      const rc = mv[0]==='place' ? [mv[1],mv[2]] : [mv[3],mv[4]];
+      const center=Math.abs(rc[0]-1)+Math.abs(rc[1]-1);
+      s += -center + _rand()*0.01;
+      if(s>bestScore){ bestScore=s; best=mv; }
+    }
+    return best;
+  }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    let bar=document.getElementById('diffbar');
+    if(!bar){ bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
+      const ref=document.querySelector('.controls')||document.querySelector('.wrap');
+      if(ref&&ref.parentNode) ref.parentNode.insertBefore(bar, ref); }
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{ const b=document.createElement('button'); b.textContent=DIFFICULTY[k].label; if(k===difficulty) b.className='active';
+      b.addEventListener('click',()=>{ setDifficulty(k); buildDiffBar(); }); bar.appendChild(b); });
+  }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   let cellEls=[];
   function buildBoard(){
@@ -112,11 +175,12 @@
   function bindUI(){ if(typeof document==='undefined') return; const nb=$('new'); if(nb) nb.onclick=()=>{ newGame(); render(); }; }
   newGame();
   if(typeof document!=='undefined'){
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); });
-    else { buildBoard(); bindUI(); render(); }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindUI(); render(); buildDiffBar(); });
+    else { buildBoard(); bindUI(); render(); buildDiffBar(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ N, NEED, newGame, place, move, getBoard, getTurn, getPhase, isOver, getWinner, setBoard };
+    window.__t={ N, NEED, newGame, place, move, getBoard, getTurn, getPhase, isOver, getWinner, setBoard,
+      DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves };
   }
 })();
 </script>

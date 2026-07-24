@@ -94,4 +94,17 @@ function lockRand(){ t.setRand(()=>0); }
   ok('over 后 move moved=false', r.moved===false);
 }
 
+// ---------- 胜利特效：达成 128 触发 celebrate（Juice 桩无 confetti → 不崩） ----------
+{
+  t.reset(); lockRand();
+  t.setBoard([[64,64,0],[0,0,0],[0,0,0]]);
+  let threw=false;
+  try { t.move('left'); } catch(e){ threw=true; }
+  ok('胜利 move 不抛错 (confetti 被守卫)', threw===false);
+  ok('胜利触发 celebrate 标志', t.wasCelebrated()===true);
+  let threw2=false;
+  try { t.triggerWinEffect(); } catch(e){ threw2=true; }
+  ok('triggerWinEffect 不抛错', threw2===false);
+}
+
 console.log('mini2048: 全部断言通过');

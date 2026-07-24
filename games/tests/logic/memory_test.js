@@ -111,6 +111,23 @@ t.newGame(4);
 t.flip(999);
 eq('flip 越界索引安全 openIdx=0', t.getOpen(), 0);
 
+// 13. 胜利特效：全部配对触发 celebrate（Juice 桩无 confetti → 不崩）
+{
+  let threw = false;
+  try {
+    t.newGame(4);
+    const cs = t.getCards();
+    const byKey = {};
+    cs.forEach((c, i) => { (byKey[c.key] = byKey[c.key] || []).push(i); });
+    Object.keys(byKey).forEach(k => { const [a, b] = byKey[k]; t.flip(a); t.flip(b); t.resolvePair(); });
+  } catch (e) { threw = true; }
+  eq('全部配对庆祝不抛错', threw, false);
+  eq('全部配对触发 celebrate 标志', t.wasCelebrated(), true);
+  let threw2 = false;
+  try { t.triggerWinEffect(); } catch (e) { threw2 = true; }
+  eq('triggerWinEffect 不抛错', threw2, false);
+}
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

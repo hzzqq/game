@@ -26,3 +26,10 @@ eq('nim-sum=3^4^5=2', t.getNimSum(), (3^4^5));
 t.newGame([3,4,2]);
 ok('取3-1=2使必败态', t.remove(0,1));
 eq('剩余 nim-sum=0', t.getNimSum(), (2^4^2));
+
+// ---------- 难度系统 ----------
+{
+  eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
+}

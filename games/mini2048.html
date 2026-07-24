@@ -54,11 +54,11 @@
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
 
-  let board, score, status; // status: 'playing' | 'win' | 'over'
+  let board, score, status, _celebrated = false; // status: 'playing' | 'win' | 'over'
 
   function emptyBoard(){ return Array.from({length:SIZE},()=>new Array(SIZE).fill(0)); }
   function reset(){
-    board = emptyBoard(); score = 0; status = 'playing';
+    board = emptyBoard(); score = 0; status = 'playing'; _celebrated = false;
     spawn(); spawn();
   }
   function spawn(){
@@ -72,7 +72,7 @@
   }
   function setBoard(b){
     board = b.map(row=>row.slice());
-    score = 0; status = 'playing';
+    score = 0; status = 'playing'; _celebrated = false;
   }
   // 单行向左压缩+合并（相邻相同翻倍，一次合并只生效一次），返回 {row, gained}
   function slideLine(line){
@@ -124,7 +124,18 @@
       else if(status==='over') Juice.sfx('boom');
       else if(gained>0) Juice.sfx('click');
     }
+    if(status==='win'){ celebrate(); }
+    else if(gained>0){ spawnParticle(window.innerWidth/2, window.innerHeight/2, '#f0b90b'); }
     return {moved, gained, status};
+  }
+  function celebrate(){
+    _celebrated = true;
+    if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+  }
+  function spawnParticle(x,y,color){
+    if(typeof Juice==='undefined') return;
+    if(Juice.spawnParticle) Juice.spawnParticle(x,y,{color:color||'#f0b90b'});
+    else if(Juice.addParticle) Juice.addParticle(x,y,{color:color||'#f0b90b'});
   }
   function getState(){ return {board:board.map(r=>r.slice()), score, status}; }
 
@@ -177,6 +188,9 @@
       SIZE, WIN,
       setRand, reset, setBoard, move, getState,
       hasValue, canMove,
+      celebrate, spawnParticle,
+      triggerWinEffect:function(){ celebrate(); },
+      wasCelebrated:function(){ return _celebrated; },
     };
   }
 })();

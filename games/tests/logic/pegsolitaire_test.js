@@ -46,3 +46,22 @@ const { t } = loadGame('../pegsolitaire.html');
   t.move(3,1,3,3);
   ok('31 子未胜', t.isWin()===false);
 }
+
+// ===== 6. 胜利特效：跳吃至剩 1 子自然触发 celebrate =====
+{
+  const b=Array.from({length:7},()=>new Array(7).fill(0));
+  b[3][1]=1; b[3][2]=1; b[3][3]=0;
+  t.setBoard(b);
+  eq('开局 2 子', t.getPegsLeft(), 2);
+  const okMove = t.move(3,1,3,3);
+  ok('跳吃成功剩 1 子', okMove===true && t.getPegsLeft()===1);
+  ok('自然胜利触发 celebrate', t.wasCelebrated()===true);
+}
+
+// ===== 7. triggerWinEffect 不抛错（Juice 桩无 confetti） =====
+{
+  t.newGame();
+  let threw=false;
+  try { t.triggerWinEffect(); } catch(e){ threw=true; }
+  ok('triggerWinEffect 不抛错', threw===false);
+}

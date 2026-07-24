@@ -27,3 +27,10 @@ ok('占用格被拒', !t.place(1,1));
 t.newGame();
 t.give(0); t.place(2,2);
 ok('已用棋子不可再选', !t.give(0));
+
+// ---------- 难度系统 ----------
+{
+  eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
+}

@@ -58,7 +58,7 @@
   function shuffleArr(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rand()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
 
   let grid; // grid[r][c] = symbol id (1..SYMS) or 0
-  let score, sel, combo, gameOver;
+  let score, sel, combo, gameOver, celebrated=false;
 
   function initGrid(){
     const total = ROWS*COLS; // 72
@@ -70,7 +70,7 @@
     grid = [];
     for(let r=0;r<ROWS;r++){ grid.push(cells.slice(r*COLS, r*COLS+COLS)); }
   }
-  function reset(){ initGrid(); score=0; sel=null; combo=0; gameOver=false; }
+  function reset(){ initGrid(); score=0; sel=null; combo=0; gameOver=false; celebrated=false; }
   function countLeft(){ let n=0; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(grid[r][c]!==0) n++; return n; }
   function isWin(){ return countLeft()===0; }
 
@@ -167,7 +167,8 @@
     if(tryRemove(sel,{r,c})){
       sel=null;
       if(typeof Juice!=='undefined'){ Juice.flash&&Juice.flash('#02c076'); }
-      if(isWin()){ gameOver=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('lianliankan',score); } }
+      spawnParticle(window.innerWidth/2, window.innerHeight/2, '#02c076');
+      if(isWin()){ gameOver=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('lianliankan',score); } celebrate(); }
     } else { sel={r,c}; }
     render();
     if(!gameOver && !hasMove()){ reshuffle(); render(); }
@@ -185,6 +186,16 @@
     else { buildBoard(); bindUI(); render(); }
   }
 
+  function celebrate(){
+    celebrated = true;
+    if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+  }
+  function spawnParticle(x,y,color){
+    if(typeof Juice==='undefined') return;
+    if(Juice.spawnParticle) Juice.spawnParticle(x,y,{color:color||'#02c076'});
+    else if(Juice.addParticle) Juice.addParticle(x,y,{color:color||'#02c076'});
+  }
+
   if(typeof window!=='undefined'){
     window.__t = {
       ROWS, COLS, SYMS, SYM_CHARS,
@@ -193,6 +204,10 @@
       getGrid:()=>grid, setCell:(r,c,v)=>{grid[r][c]=v;}, getCell:(r,c)=>grid[r][c],
       getScore:()=>score, setScore:(v)=>{score=v;}, getSel:()=>sel, setSel:(v)=>{sel=v;},
       getCombo:()=>combo, isGameOver:()=>gameOver,
+      celebrate, spawnParticle,
+      triggerWinEffect:function(){ celebrate(); },
+      celebrateOnWin:function(){ if(isWin()){ gameOver=true; celebrate(); } },
+      wasCelebrated:function(){ return celebrated; },
     };
   }
 })();

@@ -108,3 +108,10 @@ eq('舰长 [5,4,3,3,2]', JSON.stringify(t.SHIP_LENS), JSON.stringify([5,4,3,3,2]
 }
 
 console.log('battleship: 全部断言通过');
+
+// ---------- 难度系统 ----------
+{
+  eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty 返回 hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
+}

@@ -66,3 +66,10 @@ function OWNsum(b,p){ return (p===0?[0,1,2,3,4,5]:[7,8,9,10,11,12]).reduce((s,i)
   eq('你剩余 1 子归你大库', t.getStore(0), 1);
   eq('你获胜', t.getWinner(), 0);
 }
+
+// ---------- 难度系统 ----------
+{
+  eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty 返回 hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
+}

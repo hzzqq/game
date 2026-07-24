@@ -120,9 +120,32 @@
     if(typeof document==='undefined') return;
     const cv=$('cv'); if(!cv||!cv.getContext) return; const ctx=cv.getContext('2d');
     ctx.fillStyle='#0e141d'; ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#3b4654'; for(const o of obstacles) ctx.fillRect(o.x,o.y,o.w,o.h);
-    ctx.fillStyle='#f0b90b'; ctx.beginPath(); ctx.arc(hole.x,hole.y,HOLE_R,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(ball.x,ball.y,5,0,Math.PI*2); ctx.fill();
+    // obstacles (gradient + highlight outline)
+    for(const o of obstacles){
+      ctx.save();
+      const g=ctx.createLinearGradient(o.x,o.y,o.x,o.y+o.h);
+      g.addColorStop(0,'#4a5765'); g.addColorStop(1,'#3b4654');
+      ctx.fillStyle=g; ctx.fillRect(o.x,o.y,o.w,o.h);
+      ctx.lineWidth=2; ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.strokeRect(o.x,o.y,o.w,o.h);
+      ctx.restore();
+    }
+    // hole / target (gradient depth + highlight rim)
+    ctx.save();
+    ctx.beginPath(); ctx.arc(hole.x,hole.y,HOLE_R,0,Math.PI*2);
+    const hg=ctx.createRadialGradient(hole.x,hole.y,1,hole.x,hole.y,HOLE_R);
+    hg.addColorStop(0,'#5a4400'); hg.addColorStop(1,'#f0b90b');
+    ctx.fillStyle=hg; ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.stroke();
+    ctx.restore();
+    // ball (gradient + highlight + outline)
+    ctx.save();
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,5,0,Math.PI*2);
+    const bg=ctx.createRadialGradient(ball.x-1.5,ball.y-1.5,0.5,ball.x,ball.y,5);
+    bg.addColorStop(0,'#ffffff'); bg.addColorStop(1,'#cfd6dd');
+    ctx.fillStyle=bg; ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(ball.x-1.5,ball.y-1.5,1.6,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.fill();
+    ctx.restore();
     drawPickup(ctx);
     const st=$('st'),st2=$('st2'),buff=$('buff'); if(st)st.textContent=strokes; if(st2)st2.textContent=inHole?'进洞!':'进行中';
     if(buff){ let b=[]; if(shield>0)b.push('🛡'+shield); if(boostTimer>0)b.push('🚀'+Math.ceil(boostTimer)+'s'); b.push('💰'+score); buff.textContent=b.length?b.join(' '):'-'; }

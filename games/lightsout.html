@@ -80,7 +80,7 @@
     toggle(r,c); moves++;
     if(isWin()){ won = true; over = true; }
     if(typeof Juice!=='undefined'){
-      if(won){ Juice.sfx('levelup'); Juice.best('lightsout', moves); }
+      if(won){ Juice.sfx('levelup'); Juice.best('lightsout', moves); if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       else Juice.sfx('click');
     }
     return true;

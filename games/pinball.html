@@ -162,13 +162,36 @@
   function render(){
     if(typeof document==='undefined' || !ctx) return;
     ctx.clearRect(0,0,W,H);
-    // bumpers
-    BUMPERS.forEach(b=>{ ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.strokeStyle='#f0b90b'; ctx.lineWidth=3; ctx.stroke(); });
-    // flippers
-    ctx.strokeStyle = leftDown?'#f0b90b':'#6b7785'; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(FLIP_LX-FLIP_RANGE, FLIP_Y); ctx.lineTo(FLIP_LX+10, FLIP_Y+18); ctx.stroke();
-    ctx.strokeStyle = rightDown?'#f0b90b':'#6b7785'; ctx.beginPath(); ctx.moveTo(FLIP_RX+FLIP_RANGE, FLIP_Y); ctx.lineTo(FLIP_RX-10, FLIP_Y+18); ctx.stroke();
-    // ball
-    ctx.beginPath(); ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2); ctx.fillStyle='#02c076'; ctx.fill();
+    // bumpers (gradient fill + highlight + outline)
+    BUMPERS.forEach(b=>{
+      ctx.save();
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+      const g=ctx.createRadialGradient(b.x-b.r*0.3,b.y-b.r*0.3,1,b.x,b.y,b.r);
+      g.addColorStop(0,'#ffe27a'); g.addColorStop(1,'#f0b90b');
+      ctx.fillStyle=g; ctx.fill();
+      ctx.lineWidth=2; ctx.strokeStyle='rgba(255,255,255,0.45)'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(b.x-b.r*0.3,b.y-b.r*0.3,b.r*0.28,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.fill();
+      ctx.restore();
+    });
+    // flippers (base stroke + white highlight stroke)
+    [['L',FLIP_LX,1],['R',FLIP_RX,-1]].forEach(([side,fx,sgn])=>{
+      const down = side==='L'?leftDown:rightDown;
+      ctx.save();
+      ctx.strokeStyle = down?'#f0b90b':'#6b7785'; ctx.lineWidth=6;
+      ctx.beginPath(); ctx.moveTo(fx-sgn*FLIP_RANGE, FLIP_Y); ctx.lineTo(fx+sgn*10, FLIP_Y+18); ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(fx-sgn*FLIP_RANGE, FLIP_Y); ctx.lineTo(fx+sgn*10, FLIP_Y+18); ctx.stroke();
+      ctx.restore();
+    });
+    // ball (gradient + highlight + outline)
+    ctx.save();
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2);
+    const g=ctx.createRadialGradient(ball.x-BALL_R*0.3,ball.y-BALL_R*0.3,1,ball.x,ball.y,BALL_R);
+    g.addColorStop(0,'#7dffb0'); g.addColorStop(1,'#02c076');
+    ctx.fillStyle=g; ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='rgba(255,255,255,0.45)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(ball.x-BALL_R*0.3,ball.y-BALL_R*0.3,BALL_R*0.3,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.fill();
+    ctx.restore();
     // 注入：掉落物（辉光圆 + emoji）
     for(const p of pickups){
       const d=PICKUPS[p.type];

@@ -58,3 +58,10 @@ t.setBoard([
 t.resign('w');
 ok('终局已结束', t.isOver());
 eq('黑胜', t.getWinner(), 'b');
+
+// ---------- 难度系统 ----------
+{
+  eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
+}

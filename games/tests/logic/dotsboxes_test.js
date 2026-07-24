@@ -52,3 +52,10 @@ const { t } = loadGame('../dotsboxes.html');
   eq('你获胜', t.getWinner(), 0);
   eq('你占 1 格', t.getScores()[0], 1);
 }
+
+// ---------- 难度系统 ----------
+{
+  eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty 返回 hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
+}

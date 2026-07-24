@@ -24,3 +24,12 @@ t.setTotal(0,99);
 t.roll(); // 3 → 99+3=102 ≥100
 ok('达到目标分 → 游戏结束', t.isOver() === true);
 eq('玩家0 获胜', t.getWinner(), 0);
+
+// --- Round 7: 胜利/完成特效（纯渲染层，Juice 桩无 confetti → 守卫式 no-op 不抛错）---
+t.setRand(()=>0.4);
+t.setTotal(0,99);
+t.roll(); // 触发胜利路径 → celebrate()
+ok('胜利路径触发后 over', t.isOver() === true);
+let dthrew=false;
+try { t.triggerWinEffect(); } catch(e){ dthrew=true; }
+ok('triggerWinEffect 在 Juice 无 confetti 时不抛错', dthrew === false);

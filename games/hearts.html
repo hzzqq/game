@@ -80,6 +80,18 @@
   let _rng = mk(0x1234abcd);
   function setRand(fn){ if(typeof fn==='function') _rng = fn; }
 
+  /* ---------- 四档难度 ---------- */
+  const DIFFICULTY = {
+    easy:   { label:'简单', aiRandom:0.55 },
+    normal: { label:'普通', aiRandom:0.3 },
+    hard:   { label:'困难', aiRandom:0.1 },
+    hell:   { label:'地狱', aiRandom:0 },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+
   // ---- 牌编码：c=0..51，suit=floor(c/13) 0♠1♥2♦3♣，rank=c%13 0=A..12=K ----
   const SUITS = ['♠','♥','♦','♣'];
   const RNAMES = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
@@ -171,6 +183,10 @@
 
   // ---- AI 选牌（纯函数，确定性）----
   function aiChooseFor(H, player, moves, trk, ls){
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    if(moves.length && cfg.aiRandom>0 && _rng() < cfg.aiRandom){
+      return moves[Math.floor(_rng()*moves.length)];
+    }
     if(trk.length===0){
       const nonHearts = moves.filter(c=>suit(c)!==1);
       const pool = nonHearts.length ? nonHearts : moves;
@@ -265,6 +281,7 @@
   // ---- 全 AI 模拟一局（确定性，仅供测试/不污染状态）----
   function playRound(seed){
     const rng = mk((seed>>>0)||1);
+    _rng = rng; // 测试用确定性种子：AI 随机与发牌同流，保证 playRound(seed) 可复现
     const d=[]; for(let c=0;c<52;c++) d.push(c);
     for(let i=51;i>0;i--){ const j=Math.floor(rng()*(i+1)); const t=d[i]; d[i]=d[j]; d[j]=t; }
     const H=[[],[],[],[]]; for(let i=0;i<52;i++) H[i%4].push(d[i]);
@@ -384,6 +401,28 @@
     };
     if(nb) nb.onclick=()=>{ newGame(); render(); };
   }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    let bar=document.getElementById('diffbar');
+    if(!bar){
+      bar=document.createElement('div'); bar.id='diffbar';
+      bar.style.cssText='display:flex;gap:6px;justify-content:center;margin:8px 0;flex-wrap:wrap';
+      const ctr=document.querySelector('.controls');
+      if(ctr&&ctr.parentNode) ctr.parentNode.insertBefore(bar, ctr);
+      else { const bd=document.getElementById('board'); if(bd&&bd.parentNode) bd.parentNode.insertBefore(bar, bd.nextSibling); else if(typeof document.body!=='undefined') document.body.appendChild(bar); }
+    }
+    if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{
+      const b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      b.style.cssText='background:'+(k===difficulty?'#f0b90b':'#1f2a38')+';color:'+(k===difficulty?'#0a0e14':'#e6edf3')+';border:1px solid #1f2a38;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:inherit';
+      b.addEventListener('click',()=>{ setDifficulty(k); buildDiffBar(); render(); });
+      bar.appendChild(b);
+    });
+  }
+
+  buildDiffBar();
   newGame();
   if(typeof document!=='undefined'){
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
@@ -393,7 +432,8 @@
     window.__t = {
       SUITS, RNAMES, CLUBS2, QS, suit, rank, rankNum, cardName,
       setRand, newGame, reset, getState, legalMoves, playCard, step,
-      passCards, aiChoose, winnerOfTrick, scoreRound, playRound, getScores, isOver, setHands
+      passCards, aiChoose, winnerOfTrick, scoreRound, playRound, getScores, isOver, setHands,
+      DIFFICULTY, setDifficulty, getDifficulty
     };
   }
 })();

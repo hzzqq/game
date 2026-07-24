@@ -40,3 +40,10 @@ eq('绿胜', t.getWinner(), 'g');
 t.newGame(3);
 t.play(1,1,'r');
 ok('已占格被拒', !t.play(1,1,'g'));
+
+// ---------- 难度系统 ----------
+{
+  eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
+}

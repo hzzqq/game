@@ -22,3 +22,11 @@ t.setCard(card);
 for(let c=0;c<4;c++) t.call(c+1);
 ok('仅 4 格未达成连线', t.isWin() === false);
 ok('(0,4) 未被标记', t.getMarked(0,4) === false);
+
+// --- Round 7: 胜利/完成特效（纯渲染层，Juice 桩无 confetti → 守卫式 no-op 不抛错）---
+t.setCard(card);
+for(let c=0;c<5;c++) t.call(c+1); // 第 0 行命中 → 宾果 → celebrate()
+ok('宾果胜利路径触发 over', t.isWin() === true);
+let bthrew=false;
+try { t.triggerWinEffect(); } catch(e){ bthrew=true; }
+ok('triggerWinEffect 在 Juice 无 confetti 时不抛错', bthrew === false);

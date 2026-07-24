@@ -153,7 +153,7 @@
     deck.push({id:id++, rank:17, suit:'', red:false, joker:'big'});
     return deck;
   }
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rand()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
   function sortHandDesc(h){ return h.slice().sort((a,b)=> b.rank-a.rank || suitVal(b.suit)-suitVal(a.suit)); }
   function cardsByRank(hand){ const m={}; for(const c of hand){ (m[c.rank]=m[c.rank]||[]).push(c); } return m; }
 
@@ -357,7 +357,7 @@
     const normal=beats.filter(p=>p.combo.type!=='bomb'&&p.combo.type!=='rocket');
     if(normal.length){ normal.sort((a,b)=>a.combo.rank-b.combo.rank); return normal[0].cards; }
     beats.sort((a,b)=>{ const ra=a.combo.type==='rocket'?1000:a.combo.rank; const rb=b.combo.type==='rocket'?1000:b.combo.rank; return ra-rb; });
-    if(hand.length<=10 || Math.random()<0.3) return beats[0].cards;
+    if(hand.length<=10 || _rand()<0.3) return beats[0].cards;
     return null;
   }
 
@@ -374,6 +374,20 @@
   let hintList=[], hintIdx=-1;
 
   const names=['你','AI 左','AI 右'];
+
+  /* ---------- 四档难度 ---------- */
+  const DIFFICULTY = {
+    easy:   { label:'简单', aiRandom:0.55 },
+    normal: { label:'普通', aiRandom:0.3 },
+    hard:   { label:'困难', aiRandom:0.1 },
+    hell:   { label:'地狱', aiRandom:0 },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  let _rand = Math.random;
+  function setRand(fn){ _rand = fn || Math.random; }
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
 
   /* ---------- DOM ---------- */
   const $=id=>document.getElementById(id);
@@ -554,19 +568,47 @@
 
   function aiTurn(idx){
     if(phase!=='playing'||currentTurn!==idx) return;
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    const all = enumerateCombos(hands[idx]);
+    const legal = lastPlay ? all.filter(p=>beatsCombo(p.combo, lastPlay.combo)) : all;
     let cards;
-    if(!lastPlay){ cards=chooseLead(hands[idx]); }
-    else {
-      const f=chooseFollow(hands[idx], lastPlay.combo);
+    if(!legal.length){ trickPlay[idx]='pass'; passes++; proceed(); return; }
+    if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
+      cards = legal[Math.floor(_rand()*legal.length)].cards;
+    } else if(!lastPlay){
+      cards = chooseLead(hands[idx]);
+    } else {
+      const f = chooseFollow(hands[idx], lastPlay.combo);
       if(f){ cards=f; }
       else { trickPlay[idx]='pass'; passes++; proceed(); return; }
     }
-    const combo=getCombo(cards);
+    const combo = getCombo(cards);
     if(!combo){ // 兜底：出最小单张
       const sorted=sortHandDesc(hands[idx]);
       cards=[sorted[sorted.length-1]];
     }
     doPlay(idx, cards, getCombo(cards));
+  }
+
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    let bar=document.getElementById('diffbar');
+    if(!bar){
+      bar=document.createElement('div'); bar.id='diffbar';
+      bar.style.cssText='display:flex;gap:6px;justify-content:center;margin:8px 0;flex-wrap:wrap';
+      const ctr=document.querySelector('.controls');
+      if(ctr&&ctr.parentNode) ctr.parentNode.insertBefore(bar, ctr);
+      else { const bd=document.getElementById('board'); if(bd&&bd.parentNode) bd.parentNode.insertBefore(bar, bd.nextSibling); else if(typeof document.body!=='undefined') document.body.appendChild(bar); }
+    }
+    if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{
+      const b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      b.style.cssText='background:'+(k===difficulty?'var(--gold)':'var(--panel)')+';color:'+(k===difficulty?'#0a0e14':'var(--text)')+';border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:inherit';
+      b.addEventListener('click',()=>{ setDifficulty(k); buildDiffBar(); render(); });
+      bar.appendChild(b);
+    });
   }
 
   function endGame(winnerIdx){
@@ -615,9 +657,11 @@
     getCombo, beatsCombo,
     findSingle, findPair,
     enumerateCombos,
-    handStrength, chooseLead, chooseFollow
+    handStrength, chooseLead, chooseFollow,
+    DIFFICULTY, setDifficulty, getDifficulty, setRand
   };
 
+  buildDiffBar();
   newGame();
 })();
 </script>

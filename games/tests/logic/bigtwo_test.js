@@ -42,3 +42,8 @@ t.setHands([
 ], 0);
 t.play(0, t.comboOf([{s:3,r:5}]));
 ok('跟更小牌被拒', !t.play(1, t.comboOf([{s:0,r:4}])));
+
+// ---------- 难度系统 ----------
+eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+eq('getDifficulty 为 hell', t.getDifficulty(), 'hell');
+eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);

@@ -30,6 +30,9 @@
   .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
   .msg.win{color:var(--gold);font-weight:700}
   .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  .diffbar{display:flex;gap:8px;margin:10px 0;justify-content:center;flex-wrap:wrap}
+  .diffbar button{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;cursor:pointer}
+  .diffbar button.active{outline:2px solid var(--gold);background:var(--red);color:#0a0e14}
 </style>
 </head>
 <body>
@@ -88,6 +91,52 @@
   function isOver(){ return over; }
   function getWinner(){ return winner; }
   function setBoard(b,t,n){ N=n||b.length; board=b.map(r=>r.slice()); turn=t||'r'; over=false; winner=null; cur=t||'r'; }
+
+  /* ===================== 难度系统 ===================== */
+  const DIFFICULTY = {
+    easy:   { label:'简单', depth:1, aiRandom:0.6 },
+    normal: { label:'普通', depth:2, aiRandom:0.25 },
+    hard:   { label:'困难', depth:3, aiRandom:0.05 },
+    hell:   { label:'地狱', depth:4, aiRandom:0 },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty='normal';
+  let _rand=Math.random;
+  function setRand(fn){ _rand=fn||Math.random; }
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+  function legalMoves(){
+    const out=[];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(board[r][c]===null) out.push([r,c]);
+    return out;
+  }
+  function aiMove(){
+    const cfg=DIFFICULTY[difficulty]||DIFFICULTY.normal;
+    const moves=legalMoves();
+    if(!moves.length) return null;
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) return moves[Math.floor(_rand()*moves.length)];
+    const col=turn, enemy=col==='r'?'g':'r';
+    let best=null, bestScore=-1e9;
+    for(const [r,c] of moves){
+      let own=0, nearGoal=0;
+      for(const [nr,nc] of neighbors(r,c)){ if(nr>=0&&nr<N&&nc>=0&&nc<N && board[nr][nc]===col) own++; }
+      if(col==='r') nearGoal=(r===0?1:0)+(r===N-1?1:0); else nearGoal=(c===0?1:0)+(c===N-1?1:0);
+      const center=Math.abs(r-(N-1)/2)+Math.abs(c-(N-1)/2);
+      const score=own*2 + nearGoal*3 - center + _rand()*0.01;
+      if(score>bestScore){ bestScore=score; best=[r,c]; }
+    }
+    return best;
+  }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    let bar=document.getElementById('diffbar');
+    if(!bar){ bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
+      const ref=document.querySelector('.controls')||document.querySelector('.wrap');
+      if(ref&&ref.parentNode) ref.parentNode.insertBefore(bar, ref); }
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{ const b=document.createElement('button'); b.textContent=DIFFICULTY[k].label; if(k===difficulty) b.className='active';
+      b.addEventListener('click',()=>{ setDifficulty(k); buildDiffBar(); }); bar.appendChild(b); });
+  }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   let cellEls=[];
   function build(){
@@ -116,11 +165,12 @@
   }
   newGame();
   if(typeof document!=='undefined'){
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ build(); bindUI(); render(); });
-    else { build(); bindUI(); render(); }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ build(); bindUI(); render(); buildDiffBar(); });
+    else { build(); bindUI(); render(); buildDiffBar(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ newGame, play, isWin, getBoard, getTurn, isOver, getWinner, neighbors, setBoard };
+    window.__t={ newGame, play, isWin, getBoard, getTurn, isOver, getWinner, neighbors, setBoard,
+      DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves };
   }
 })();
 </script>

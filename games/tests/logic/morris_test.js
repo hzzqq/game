@@ -31,3 +31,10 @@ t.setBoard([
   [null,null,'w'],
 ], 'b', 'move');
 ok('非相邻走子被拒', !t.move(0,0,0,2));
+
+// ---------- 难度系统 ----------
+{
+  eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
+}

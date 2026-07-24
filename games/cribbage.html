@@ -83,6 +83,18 @@
   let _rng = mk(0x9abcd123);
   function setRand(fn){ if(typeof fn==='function') _rng = fn; }
 
+  /* ---------- 四档难度 ---------- */
+  const DIFFICULTY = {
+    easy:   { label:'简单', aiRandom:0.55 },
+    normal: { label:'普通', aiRandom:0.3 },
+    hard:   { label:'困难', aiRandom:0.1 },
+    hell:   { label:'地狱', aiRandom:0 },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+
   const SUITS = ['♠','♥','♦','♣'];
   const RNAMES = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
   const HUMAN = 0;
@@ -187,6 +199,8 @@
   function aiChoosePlay(player){
     const lm=legalMoves(player);
     if(!lm.length) return null;
+    const cfg=DIFFICULTY[difficulty]||DIFFICULTY.normal;
+    if(cfg.aiRandom>0 && _rng()<cfg.aiRandom) return lm[Math.floor(_rng()*lm.length)];
     return lm.slice().sort((a,b)=> cardValue(a)-cardValue(b))[0]; // 出最小，留大牌
   }
 
@@ -353,6 +367,28 @@
     };
     if(nb) nb.onclick=()=>{ newGame(); render(); };
   }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    let bar=document.getElementById('diffbar');
+    if(!bar){
+      bar=document.createElement('div'); bar.id='diffbar';
+      bar.style.cssText='display:flex;gap:6px;justify-content:center;margin:8px 0;flex-wrap:wrap';
+      const ctr=document.querySelector('.controls');
+      if(ctr&&ctr.parentNode) ctr.parentNode.insertBefore(bar, ctr);
+      else { const bd=document.getElementById('board'); if(bd&&bd.parentNode) bd.parentNode.insertBefore(bar, bd.nextSibling); else if(typeof document.body!=='undefined') document.body.appendChild(bar); }
+    }
+    if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{
+      const b=document.createElement('button');
+      b.textContent=DIFFICULTY[k].label;
+      b.style.cssText='background:'+(k===difficulty?'#f0b90b':'#1f2a38')+';color:'+(k===difficulty?'#0a0e14':'#e6edf3')+';border:1px solid #1f2a38;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:inherit';
+      b.addEventListener('click',()=>{ setDifficulty(k); buildDiffBar(); render(); });
+      bar.appendChild(b);
+    });
+  }
+
+  buildDiffBar();
   newGame();
   if(typeof document!=='undefined'){
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ bindUI(); render(); });
@@ -362,7 +398,8 @@
     window.__t = {
       SUITS, RNAMES, suit, rank, cardName, cardValue,
       setRand, newGame, reset, getState, legalMoves, playCard, discard, go:doGo,
-      scorePeg, scoreHand, scoreCrib, scoreShow, step, getScores, getPegScore, isOver, setup
+      scorePeg, scoreHand, scoreCrib, scoreShow, step, getScores, getPegScore, isOver, setup,
+      DIFFICULTY, setDifficulty, getDifficulty
     };
   }
 })();

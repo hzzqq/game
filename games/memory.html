@@ -84,7 +84,7 @@
   (function () {
     var COL = { red:'#f6465d', green:'#02c076', gold:'#f0b90b', dim:'#6b7785' };
     var SYMS = ['◆','▲','●','■','★','✦','◐','◑','▼','◇','○','□','☆','✧','◍','◒','▼','◭'];
-    var size = 4, cards = [], openIdx = [], moves = 0, matched = 0, won = false, started = 0;
+    var size = 4, cards = [], openIdx = [], moves = 0, matched = 0, won = false, started = 0, celebrated = false;
 
     var boardEl = document.getElementById('board');
     var fx = document.getElementById('fx');
@@ -96,7 +96,7 @@
     function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var r = (Math.random() * (i + 1)) | 0; var t = a[i]; a[i] = a[r]; a[r] = t; } return a; }
 
     function newGame(n) {
-      size = n; cards = []; openIdx = []; moves = 0; matched = 0; won = false; started = Date.now();
+      size = n; cards = []; openIdx = []; moves = 0; matched = 0; won = false; celebrated = false; started = Date.now();
       var pairs = (n * n) / 2;
       var deck = [];
       for (var i = 0; i < pairs; i++) { deck.push(i); deck.push(i); }
@@ -126,6 +126,7 @@
           Juice.sfx('levelup'); Juice.burst(p.x, p.y, { color: COL.green, n: 12, speed: 190 });
           Juice.ring(p.x, p.y, { color: COL.green, r1: 50 });
           Juice.popup(p.x, p.y - 10, 'MATCH', COL.green, { size: 14 });
+          spawnParticle(p.x, p.y, COL.green);
         }
       } else {
         cards[a].flipped = false; cards[b].flipped = false;
@@ -141,6 +142,7 @@
           Juice.ring(W / 2, H / 2, { color: COL.gold, r1: 140 });
           Juice.achievement('✓ 全部配对！' + moves + ' 步');
         }
+        celebrate();
       }
       renderHUD();
     }
@@ -198,6 +200,16 @@
       newGame(n);
     }
 
+    function celebrate() {
+      celebrated = true;
+      if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth / 2, window.innerHeight * 0.3, { n: 120, life: 2.4 });
+    }
+    function spawnParticle(x, y, color) {
+      if (typeof Juice === 'undefined') return;
+      if (Juice.spawnParticle) Juice.spawnParticle(x, y, { color: color || COL.gold });
+      else if (Juice.addParticle) Juice.addParticle(x, y, { color: color || COL.gold });
+    }
+
     // 测试钩子
     window.__t = {
       newGame: newGame, flip: flip, resolvePair: resolvePair,
@@ -206,7 +218,10 @@
       getMatched: function () { return matched; },
       getOpen: function () { return openIdx.length; },
       getCards: function () { return cards.map(function (c) { return { sym: c.sym, key: c.key, flipped: c.flipped, matched: c.matched }; }); },
-      getSize: function () { return size; }
+      getSize: function () { return size; },
+      celebrate: celebrate, spawnParticle: spawnParticle,
+      triggerWinEffect: function () { celebrate(); },
+      wasCelebrated: function () { return celebrated; }
     };
 
     newGame(4);

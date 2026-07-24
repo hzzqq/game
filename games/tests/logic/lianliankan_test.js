@@ -128,4 +128,17 @@ eq('SYM_CHARS 9 种', t.SYM_CHARS.length, 9);
   eq('reshuffle 后非空格数不变', vals.length, vals2.length);
 }
 
+// ---------- 胜利特效：清盘 isWin 触发 celebrate（Juice 桩无 confetti → 不崩） ----------
+{
+  t.reset();
+  for(let r=0;r<8;r++) for(let c=0;c<9;c++) t.setCell(r,c,0);
+  ok('清盘后 isWin 真', t.isWin()===true);
+  let threw=false;
+  try { t.celebrateOnWin(); } catch(e){ threw=true; }
+  ok('celebrateOnWin 不抛错', threw===false);
+  ok('清盘触发 celebrate 标志', t.wasCelebrated()===true);
+  let threw2=false; try{ t.triggerWinEffect(); }catch(e){ threw2=true; }
+  ok('triggerWinEffect 不抛错', threw2===false);
+}
+
 console.log('lianliankan: 全部断言通过');

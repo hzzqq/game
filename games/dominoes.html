@@ -60,6 +60,9 @@
 (function(){
   "use strict";
   let hands, line, turn, over, winner, passed;
+  // 胜利/完成特效：仅渲染层，受 Juice 存在性守卫（confetti 在桩环境为 no-op）
+  function celebrate(){ if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+  function placeFx(a,b){ if(typeof Juice!=='undefined' && Juice.spawnParticle) Juice.spawnParticle(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:8}); }
   function newGame(){ hands=[[[1,2],[3,4],[0,0],[6,6],[5,5],[2,2],[4,4]],[[1,1],[3,3],[0,1],[5,6],[2,6],[0,6],[3,5]]]; line=[]; turn=0; over=false; winner=null; passed=0; }
   function leftEnd(){ return line.length?line[0][0]:null; }
   function rightEnd(){ return line.length?line[line.length-1][1]:null; }
@@ -90,7 +93,8 @@
     hands[turn].splice(hi,1);
     passed=0;
     if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(.2); Juice.popup(window.innerWidth/2, window.innerHeight*0.5, a+'-'+b, '#f0b90b', {size:14}); }
-    if(hands[turn].length===0){ over=true; winner=turn; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } return true; }
+    placeFx(a,b);
+    if(hands[turn].length===0){ over=true; winner=turn; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } celebrate(); return true; }
     turn = turn===0?1:0;
     return true;
   }
@@ -99,7 +103,7 @@
     if(canPlaceAny()) return false;
     if(typeof Juice!=='undefined') Juice.sfx('click');
     passed++; turn = turn===0?1:0;
-    if(passed>=2){ over=true; const p0=hands[0].reduce((s,t)=>s+t[0]+t[1],0), p1=hands[1].reduce((s,t)=>s+t[0]+t[1],0); winner = p0<p1?0:(p1<p0?1:'draw'); if(winner!=='draw' && typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } }
+    if(passed>=2){ over=true; const p0=hands[0].reduce((s,t)=>s+t[0]+t[1],0), p1=hands[1].reduce((s,t)=>s+t[0]+t[1],0); winner = p0<p1?0:(p1<p0?1:'draw'); if(winner!=='draw' && typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } if(winner!=='draw') celebrate(); }
     return true;
   }
   function pips(p){ return hands[p].reduce((s,t)=>s+t[0]+t[1],0); }
@@ -135,7 +139,7 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ newGame, place, pass, canPlace, canPlaceAny, getHands, getLine, getTurn, isOver, getWinner, pips, leftEnd, rightEnd, setHands };
+    window.__t={ newGame, place, pass, canPlace, canPlaceAny, getHands, getLine, getTurn, isOver, getWinner, pips, leftEnd, rightEnd, setHands, triggerWinEffect:celebrate };
   }
 })();
 </script>

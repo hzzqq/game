@@ -31,6 +31,10 @@
   .fleet .sh.sunk{color:var(--gold);text-decoration:line-through}
   .msg{text-align:center;min-height:20px;margin-top:10px;font-size:14px;color:var(--dim);width:100%}
   .msg.win{color:var(--gold);font-weight:700}
+  .diffbar{width:min(620px,98vw);display:flex;gap:8px;justify-content:center;margin-bottom:10px}
+  .diffbar button{flex:1;max-width:140px;background:#0e141d;border:1px solid var(--border);color:var(--dim);padding:8px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:1px;transition:.15s ease}
+  .diffbar button:hover{border-color:var(--green);color:var(--text)}
+  .diffbar button.active{border-color:var(--gold);color:var(--gold);font-weight:700;box-shadow:0 0 12px rgba(240,185,11,.25)}
   .foot{width:min(620px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
 </style>
 </head>
@@ -38,6 +42,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>战舰</b> BATTLESHIP</span></div>
   <div class="wrap">
+    <div class="diffbar" id="diffbar"></div>
     <div class="board" id="board"></div>
     <div class="side">
       <div class="hud">命中 <b id="hits">0</b> · 击沉 <b id="sunk">0</b>/5 · 射击 <b id="shots">0</b></div>
@@ -56,7 +61,18 @@
   const SHIP_LENS = [5,4,3,3,2];
 
   let _rand = Math.random;
-  function setRand(fn){ _rand = fn; }
+  function setRand(fn){ _rand = fn || Math.random; }
+
+  const DIFFICULTY = {
+    easy:   { label:'简单', depth:1, aiRandom:0.55 },
+    normal: { label:'普通', depth:2, aiRandom:0.30 },
+    hard:   { label:'困难', depth:3, aiRandom:0.10 },
+    hell:   { label:'地狱', depth:4, aiRandom:0    },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
 
   let board, ships, shots, hits, sunkCount, over, won;
   function reset(){
@@ -65,10 +81,19 @@
     placeShips();
   }
   function key(r,c){ return r+','+c; }
+  function adjacentToShip(r,c){
+    for(const d of [[-1,0],[1,0],[0,-1],[0,1]]){
+      const rr=r+d[0], cc=c+d[1];
+      if(rr>=0&&rr<SIZE&&cc>=0&&cc<SIZE&&board[rr][cc]===1) return true;
+    }
+    return false;
+  }
+  // 难度感知的布舰：简单档纯随机；越往上越倾向把舰分散布放（更难靠相邻推断找出）。
   function placeShips(){
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
     for(const len of SHIP_LENS){
       let placed=false, guard=0;
-      while(!placed && guard++<200){
+      while(!placed && guard++<400){
         const horiz = _rand()<0.5;
         const r = Math.floor(_rand()*SIZE), c = Math.floor(_rand()*SIZE);
         const cells=[]; let okk=true;
@@ -78,6 +103,14 @@
           cells.push({r:rr,c:cc});
         }
         if(!okk) continue;
+        // 随机分支：直接布放（含 cfg.aiRandom 概率）
+        const randomBranch = cfg.aiRandom>0 && _rand()<cfg.aiRandom;
+        if(!randomBranch){
+          // 智能分支：尽量不与已布舰相邻（让散布更开、更难找）
+          let adj=false;
+          for(const p of cells){ if(adjacentToShip(p.r,p.c)){ adj=true; break; } }
+          if(adj && guard<300) continue; // 再试更分散的位置
+        }
         cells.forEach(p=>board[p.r][p.c]=1);
         ships.push({len, cells, hits:0, sunk:false});
         placed=true;
@@ -111,6 +144,22 @@
 
   /* ===================== UI ===================== */
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
+  function buildDiffBar(){
+    if(typeof document==='undefined') return;
+    let bar=$('diffbar');
+    if(!bar){
+      bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
+      const wrap=$('wrap')||document.body; if(wrap) wrap.insertBefore(bar, wrap.firstChild);
+    }
+    if(!bar) return;
+    bar.innerHTML='';
+    DIFF_ORDER.forEach(k=>{
+      const b=document.createElement('button'); b.textContent=DIFFICULTY[k].label;
+      if(k===difficulty) b.className='active';
+      b.addEventListener('click',()=>{ if(setDifficulty(k)){ reset(); if(typeof document!=='undefined'){ buildBoard(); render(); } } });
+      bar.appendChild(b);
+    });
+  }
   let cellEls=[];
   function buildBoard(){
     if(typeof document==='undefined') return;
@@ -143,8 +192,8 @@
   }
   reset();
   if(typeof document!=='undefined'){
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); render(); });
-    else { buildBoard(); render(); }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildDiffBar(); buildBoard(); render(); });
+    else { buildDiffBar(); buildBoard(); render(); }
   }
 
   if(typeof window!=='undefined'){
@@ -154,6 +203,7 @@
       getBoard:()=>board, getShips:()=>ships, getShots:()=>shots,
       getHits:()=>hits, getSunk:()=>sunkCount,
       setBoard:(b)=>{ board=b; }, addShot:(r,c)=>shots.add(key(r,c)),
+      DIFFICULTY, setDifficulty, getDifficulty,
     };
   }
 })();

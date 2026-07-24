@@ -201,6 +201,29 @@ t.getCpu().health = 50;
 t.endRoundByTime();
 eq('endRoundByTime player 赢 pips.p=1', t.getPips().p, 1);
 
+// ===== 22. 拾取道具 + 手感（注入）=====
+var fl = t.makeFighter('p'); fl.health = 50;
+t.makePickup('meat', 100, C.GROUND);
+t.applyPickup(t.getItems()[t.getItems().length-1], fl);
+ok('makePickup+applyPickup meat +20 HP', fl.health === 70, 'hp='+fl.health);
+var fe2 = t.makeFighter('p'); fe2.energy = 30;
+t.makePickup('energy', 100, C.GROUND);
+t.applyPickup(t.getItems()[t.getItems().length-1], fe2);
+ok('makePickup+applyPickup energy +50', fe2.energy === 80, 'energy='+fe2.energy);
+
+// 胜利彩带不抛错（Juice 桩无 confetti）
+var threwF=false; try { t.forceWin(); } catch(e){ threwF=true; }
+ok('forceWin 不抛错', !threwF);
+
+// 手感 spawnParticle 不抛错 + 不消耗 Math.random
+var _o=Math.random, _c=0; Math.random=function(){_c++;return _o();};
+var threwP=false;
+try { t.setShake(0); t.spawnParticle(100, 100, '#f6465d', {n:5}); t.applyDamage(t.makeFighter('p'), t.makeFighter('c'), 10, {knock:100}); } catch(e){ threwP=true; }
+Math.random=_o;
+ok('手感 spawnParticle/applyDamage 不抛错', !threwP);
+ok('手感不消耗 Math.random', _c===0, 'calls='+_c);
+ok('命中产生粒子', t.getParticles() > 0);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

@@ -182,7 +182,7 @@
     Juice.sfx('click');
     const res = play();
     if (res === 'tie'){ Juice.flash('#f0b90b', .4); }
-    else if (res === bet.type){ Juice.sfx('win'); Juice.flash('#02c076', .5); }
+    else if (res === bet.type){ Juice.sfx('win'); Juice.flash('#02c076', .5); if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     else { Juice.sfx('lose'); Juice.flash('#f6465d', .5); }
     return getState();
   }

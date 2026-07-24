@@ -175,6 +175,7 @@
     lamps[r][c]=!!bool;
     won=isWin();
     if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
     return true;
   }
   function toggleLamp(r,c){ return setLamp(r,c, !lamps[r][c]); }

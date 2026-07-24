@@ -39,6 +39,10 @@
   .btn{background:#0e141d;border:1px solid var(--red);color:var(--text);padding:9px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:1px;transition:.15s ease}
   .btn:hover{background:rgba(246,70,93,.15);box-shadow:0 0 16px rgba(246,70,93,.35)}
   .btn.gold{border-color:var(--gold)} .btn.gold:hover{background:rgba(240,185,11,.15);box-shadow:0 0 16px rgba(240,185,11,.35)}
+  .diffbar{display:flex;gap:8px;justify-content:center;width:100%}
+  .diffbar button{flex:1;max-width:160px;background:#0e141d;border:1px solid var(--border);color:var(--dim);padding:8px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:1px;transition:.15s ease}
+  .diffbar button:hover{border-color:var(--green);color:var(--text)}
+  .diffbar button.active{border-color:var(--gold);color:var(--gold);font-weight:700;box-shadow:0 0 12px rgba(240,185,11,.25)}
   .keys{font-size:11px;color:var(--dim);line-height:1.9;text-align:center}
   .keys b{color:var(--green)}
   .foot{margin-top:4px;color:var(--dim);font-size:11px;text-align:center;border-top:1px dashed var(--border);padding-top:10px;width:100%}
@@ -51,6 +55,7 @@
       <span class="t">TERMINAL // <b>BACKGAMMON</b> · 西洋双陆</span>
     </div>
     <div class="body">
+      <div class="diffbar" id="diffbar"></div>
       <canvas id="cv" width="800" height="480"></canvas>
       <div class="hud">
         <span>回合: <b id="turn">红(你)</b></span>
@@ -82,6 +87,17 @@ let winner = null;
 let canvas=null, ctx=null, rafId=null;
 let _rand = Math.random;
 function rnd(){ return _rand(); }
+
+const DIFFICULTY = {
+  easy:   { label:'简单', depth:1, aiRandom:0.55 },
+  normal: { label:'普通', depth:2, aiRandom:0.30 },
+  hard:   { label:'困难', depth:3, aiRandom:0.10 },
+  hell:   { label:'地狱', depth:4, aiRandom:0    },
+};
+const DIFF_ORDER = ['easy','normal','hard','hell'];
+let difficulty = 'normal';
+function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+function getDifficulty(){ return difficulty; }
 
 // ============ 初始化 ============
 function emptyPoints(){ const a=[]; for(let i=0;i<24;i++) a.push({red:0, white:0}); return a; }
@@ -194,12 +210,20 @@ function endTurn(skipAI){
 function aiTurn(){
   let guard = 0;
   rollDice();
+  const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
   while(turnDice.length>0 && guard++<40){
     const moves = legalMoves();
     if(moves.length===0) break;
-    let pick = moves.find(m => m.to!=='off' && points[m.to][opp('white')]===1);
-    if(!pick) pick = moves.find(m => m.to!=='off' && points[m.to].red===0);
-    if(!pick) pick = moves[0];
+    let pick;
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom){
+      // 简单档：随机合法步
+      pick = moves[Math.floor(_rand()*moves.length)];
+    } else {
+      // 困难/地狱：启发式（优先吃子，其次安全落点）
+      pick = moves.find(m => m.to!=='off' && points[m.to][opp('white')]===1);
+      if(!pick) pick = moves.find(m => m.to!=='off' && points[m.to].red===0);
+      if(!pick) pick = moves[0];
+    }
     const wasHit = (pick.to!=='off') && points[pick.to][opp('white')]===1;
     applyMove(pick);
     if(typeof Juice!=='undefined'){ Juice.sfx('hit'); if(wasHit){ Juice.sfx('boom'); Juice.addTrauma(.3); } }
@@ -258,6 +282,7 @@ const __bg = {
   get points(){return points.map(p=>({r:p.red, w:p.white}));},
   reset, rollDice, setRand, move, bearOff, endTurn, legalMoves,
   countAll, allHome,
+  DIFFICULTY, setDifficulty, getDifficulty,
   debugClear(){ points = emptyPoints(); bar={red:0,white:0}; off={red:0,white:0}; winner=null; },
   debugSet(idx, r, w){ if(idx>=0&&idx<24){ points[idx].red=r||0; points[idx].white=w||0; } },
   debugBar(side, n){ bar[side]=n||0; },
@@ -272,10 +297,26 @@ function bindUI(){
   const eb=document.getElementById('end'); if(eb) eb.addEventListener('click',()=>{ if(turn==='red'){ endTurn(false); if(winner&&typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5);} } });
   if(typeof requestAnimationFrame!=='undefined') rafId=requestAnimationFrame(loop);
 }
+function buildDiffBar(){
+  if(typeof document==='undefined') return;
+  let bar=document.getElementById('diffbar');
+  if(!bar){
+    bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
+    const body=document.querySelector('.body'); if(body) body.insertBefore(bar, body.firstChild);
+  }
+  if(!bar) return;
+  bar.innerHTML='';
+  DIFF_ORDER.forEach(k=>{
+    const b=document.createElement('button'); b.textContent=DIFFICULTY[k].label;
+    if(k===difficulty) b.className='active';
+    b.addEventListener('click',()=>{ if(setDifficulty(k)){ reset(); } });
+    bar.appendChild(b);
+  });
+}
 reset();
 if(typeof document!=='undefined' && document.getElementById){
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindUI);
-  else bindUI();
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',bindUI); document.addEventListener('DOMContentLoaded',buildDiffBar); }
+  else { bindUI(); buildDiffBar(); }
 }
 })();
 </script>

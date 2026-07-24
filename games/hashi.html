@@ -183,6 +183,7 @@
     if(count===0) pbridges.delete(k); else pbridges.set(k,count);
     won=isWin();
     if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
     return true;
   }
   function addBridge(i,j){
@@ -193,6 +194,7 @@
     if(next===0) pbridges.delete(ekey(i,j)); else pbridges.set(ekey(i,j),next);
     won=isWin();
     if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
+    if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
     return true;
   }
   function reset(){ pbridges=new Map(); won=false; return getState(); }

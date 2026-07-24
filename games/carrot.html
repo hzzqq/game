@@ -377,6 +377,7 @@
       state.score += e.reward;
       beep(300, 0.05, 'square', 0.03);
       if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.burst(e.x, e.y, {color:e.color, n:10, speed:180}); Juice.popup(e.x, e.y-10, '+'+e.reward, '#f0b90b', {size:13}); }
+      spawnParticle(e.x, e.y, e.color, {n:10, speed:180}); addShake(0.3);
       // 击杀掉落道具
       if(Math.random() < 0.32){
         const r = Math.random();
@@ -399,6 +400,44 @@
         if(p.ptype === 'frost') p.target.slowTimer = p.slowDur;
       }
       state.effects.push({ x, y, age:0, life:0.18, type:'hit', r:8 });
+    }
+  }
+
+  // ===== 注入：手感(震动/粒子) + 确定性拾取道具（纯附加，不改核心逻辑）=====
+  var particles = [];
+  var shake = 0;
+  var _rand = Math.random;
+  function setRand(fn){ _rand = fn || Math.random; }
+  function spawnParticle(x, y, color, opts){
+    opts = opts || {};
+    var n = opts.n || 8, speed = opts.speed || 180, life = opts.life || 0.4, i;
+    for (i=0;i<n;i++){
+      var ang = (Math.PI*2)*(i/n);
+      var sp = speed*(0.6 + 0.4*((i%3)/2));
+      particles.push({ x:x, y:y, vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp, age:0, life:life, color:color });
+    }
+  }
+  function addParticle(p){ particles.push(p); }
+  function addShake(v){ if (v>shake) shake=v; }
+  function updateParticles(dt){
+    for (var i=particles.length-1;i>=0;i--){
+      var p=particles[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=400*dt; p.age+=dt;
+      if (p.age>=p.life) particles.splice(i,1);
+    }
+  }
+  function makePickup(type, x, y){
+    state.pickups.push({ type: type||'coin', x:(x!=null?x:300), y:(y!=null?y:220), age:0, done:false });
+    return state.pickups[state.pickups.length-1];
+  }
+  function applyPickup(p){
+    if (!p) return;
+    if (p.type === 'coin') state.coins += 20;
+    else if (p.type === 'energy') state.energyTimer = 5;
+    else state.lives += 1;
+  }
+  function winConfetti(){
+    if (typeof Juice !== 'undefined' && Juice.confetti){
+      Juice.confetti(W/2, H/2, { n: 80, colors:['#f6465d','#02c076','#f0b90b'], spread:0.9, life:1.2, up:true });
     }
   }
 
@@ -489,6 +528,7 @@
     state.enemies = state.enemies.filter(e => !e.dead && !e.reached);
     state.projectiles = state.projectiles.filter(p => !p.done);
     state.effects = state.effects.filter(ef => ef.age < ef.life);
+    updateParticles(dt);
   }
 
   // ---------- 渲染 ----------
@@ -496,6 +536,8 @@
   function render(){
     ctx.clearRect(0, 0, W, H);
     if(typeof Juice!=='undefined') Juice.begin(ctx);
+    ctx.save();
+    if (shake > 0) ctx.translate(Math.sin(shake*37.7)*shake*6, Math.cos(shake*21.3)*shake*6);
     // 背景网格
     ctx.strokeStyle = '#111824';
     ctx.lineWidth = 1;
@@ -572,6 +614,8 @@
       }
       ctx.globalAlpha = 1;
     }
+    for (const pp of particles) { const pk = 1 - pp.age/pp.life; ctx.save(); ctx.globalAlpha = Math.max(0, pk); ctx.fillStyle = pp.color; ctx.beginPath(); ctx.arc(pp.x, pp.y, 2.5*pk+0.5, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+    ctx.restore();
     if(typeof Juice!=='undefined'){ Juice.mid(ctx); Juice.end(ctx); }
   }
 
@@ -693,6 +737,7 @@
     else { b.disabled = false; b.textContent = '开始第 ' + (state.waveIndex + 1) + ' 波'; }
   }
   function showOverlay(kind){
+    winConfetti();
     const ov = document.getElementById('overlay');
     const title = document.getElementById('ovTitle');
     const msg = document.getElementById('ovMsg');
@@ -790,6 +835,7 @@
     if(typeof Juice!=='undefined') Juice.update(dt);
     if(state.running && !state.gameOver && !state.won) update(dt);
     render();
+    if (shake>0) shake=Math.max(0, shake - dt*1.5);
     refreshTowerInfoBtn();
     requestAnimationFrame(loop);
   }
@@ -817,7 +863,19 @@
     getPickups(){ return state.pickups.length; },
     getEnergy(){ return state.energyTimer; },
     getLives(){ return state.lives; },
-    getCoins(){ return state.coins; }
+    getCoins(){ return state.coins; },
+    // ---- 注入：手感 / 拾取道具 钩子 ----
+    setRand: setRand,
+    makePickup: makePickup,
+    applyPickup: applyPickup,
+    spawnPickupAt: function(type,x,y){ return makePickup(type,x,y); },
+    getPickups: function(){ return state.pickups.length; },
+    getParticles: function(){ return particles.length; },
+    spawnParticle: spawnParticle,
+    addParticle: addParticle,
+    getShake: function(){ return shake; },
+    setShake: function(v){ shake=v; },
+    forceWin: winConfetti
   };
 })();
 </script>

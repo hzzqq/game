@@ -103,7 +103,7 @@
     if(Math.abs(pyramid[r][c].r - base.r) !== 1) return false;
     pyramid[r][c].removed=true; removed++;
     base = { s:pyramid[r][c].s, r:pyramid[r][c].r };
-    if(removed===pyramidTotal()){ over=true; won=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('金字塔通关'); } render(); return true; }
+    if(removed===pyramidTotal()){ over=true; won=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('金字塔通关'); } if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); render(); return true; }
     if(typeof Juice!=='undefined') Juice.sfx('pickup');
     render(); return true;
   }

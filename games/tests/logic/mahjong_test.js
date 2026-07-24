@@ -100,6 +100,14 @@ eq('mostIsolated 单张', t.mostIsolated([5]), 5);
 // 全相同 → 第一张（score=(4-1)*3=9，所有相同，并列取第一）
 eq('mostIsolated 全相同', t.mostIsolated([3,3,3,3]), 3);
 
+// 10. 胜利/完成特效（纯渲染层，Juice 桩无 confetti → 守卫式 no-op 不抛错）
+let mthrew=false;
+try { t.triggerWinEffect(); } catch(e){ mthrew=true; }
+ok('mahjong triggerWinEffect 不抛错', mthrew === false);
+let mthrew2=false;
+try { t.winGame(0,'自摸'); } catch(e){ mthrew2=true; }
+ok('mahjong winGame 胜利路径不抛错', mthrew2 === false);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;
