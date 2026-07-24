@@ -1,11 +1,11 @@
 # 🎮 HTML5 游戏大厅 · Game Hub
 
 > 一个纯前端、零构建、暗色「金融终端」风格的 HTML5 游戏合集。
-> 155 款游戏 + 大厅 + 自动化测试套件，全部用原生 HTML/CSS/JS 写成，双击即玩。
+> 165 款游戏 + 大厅 + 自动化测试套件，全部用原生 HTML/CSS/JS 写成，双击即玩。
 
 ## ✨ 特性
 
-- **155 款游戏**，覆盖经典类型：益智 / 棋牌 / 动作 / 射击 / 竞速 / 解谜 / 文字 / 多人竞技 / 社交推理 / 策略桌游 / 枪战
+- **165 款游戏**，覆盖经典类型：益智 / 棋牌 / 动作 / 射击 / 竞速 / 解谜 / 文字 / 多人竞技 / 社交推理 / 策略桌游 / 枪战
 - **零依赖离线运行**：绝大多数游戏为单文件内联脚本，断网也能玩
 - **统一暗色终端风**：`#0a0e14` 背景、红涨绿跌配色（`#f6465d` / `#02c076` / `#f0b90b`）、等宽字体、三圆点标题栏
 - **可复用手感引擎 `juice.js`**：屏幕震动 / 粒子爆发 / 浮动文字 / 屏幕闪光 / 庆祝纸屑 / WebAudio 合成音效 / 最佳分 / 成就 toast / 段位——一套引擎驱动全厅「打击感」
@@ -13,7 +13,7 @@
 - **大厅体验**：分类筛选 / 名称·标签排序 / ★收藏 / 🎲随机一局 / 🔊全局静音 / ↑回到顶部，移动端 sticky 搜索栏
 - **留存设计**：连击倍率、黄金可变奖励、段位晋升（青铜→宗师）、每日挑战、错题本，套用成熟「即时反馈 + 可变奖励 + 心流」留存框架（合规版，不含诱导沉迷的幼年暗模式）
 - **移动端适配**：viewport + 触控事件 + 虚拟按键，手机可玩
-- **自动化测试**：CLI 静态检测（952 项）+ node 逻辑单测（3756 项），全套全绿
+- **自动化测试**：CLI 静态检测（953 项）+ node 逻辑单测（4947 项），全套全绿
 
 ## 🚀 快速开始
 
@@ -33,7 +33,7 @@
 cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
 ```
 
-## 🎯 游戏清单（155 款）
+## 🎯 游戏清单（165 款）
 
 > 完整清单以大厅 `games/index.html` 为准（含 NEW 标签与实时筛选）。下表为初始 31 款代表：
 
@@ -75,6 +75,8 @@ cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
 
 > **第四轮（2026-07-22）新增 16 款**：Binairo / Hitori / Yajilin / Star Battle / Tents / Killer Sudoku（Nikoli 逻辑谜题）、中国象棋 / Boggle / 红心 / 黑桃 / 金拉米（棋牌）、Galaga / Columns / Crossy Road / Centipede / 生命游戏（街机·仿真）。另修复俄罗斯方块消行计分、为 5 款动作游戏注入掉落道具、为 7 款胜利游戏补庆祝纸屑。
 
+> **迭代20次（2026-07-23）**：为 100 款游戏（轮1–20，每轮 5 款，共 20 批）注入胜利/通关/里程碑庆祝纸屑（confetti）+ 屏震/粒子反馈，并为缺难度系统的棋牌/桌游补齐四档 AI 难度（难度按 `aiRandom` 概率随机化、整函数 `document` 守卫）。统一范式：局部 PRNG、所有 `Juice.confetti` 加 `typeof Juice!=='undefined'` 守卫、独立 `confettiFired` 只读钩子，全程未改动任何玩法/胜负/布局。逻辑单测 4733 → 4947 全绿，静态检测 953/953。
+
 ## 🧪 测试
 
 - **CLI 静态检测**（Node，无需浏览器）：
@@ -85,7 +87,7 @@ cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
   ```
   node games/tests/logic/run.js
   ```
-- **电池缺陷扫描**（无输入空转 + NaN/异常扫描，155 款 0 缺陷）：
+- **电池缺陷扫描**（无输入空转 + NaN/异常扫描，165 款 0 缺陷）：
   ```
   node games/tests/logic/battery.js
   ```
@@ -106,7 +108,7 @@ cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
 ├── games/
 │   ├── index.html            # 游戏大厅入口
 │   ├── 启动游戏大厅.bat        # 一键启动（双击）
-│   ├── 2048.html … gun.html   # 155 款游戏
+│   ├── 2048.html … gun.html   # 165 款游戏
 │   ├── juice.js                # 可复用手感/留存引擎（sfx/trauma/burst/flash/confetti/achievement…）
 │   ├── input.js                # 统一输入层（修复断触，fight/sgs/werewolf/airchess/monopoly 等引用）
 │   └── tests/                # 自动化测试套件
