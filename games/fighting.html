@@ -109,6 +109,7 @@ var player=makeFighter(true);
 var ai=makeFighter(false);
 var pWins=0,aWins=0,round=1,phase='fight';
 var roundEndTimer=0,roundWinnerText='';
+var _confettiFired=false;   // 注入：胜利彩带只读锁（独立于 Juice，仅视觉状态）
 
 var held={left:false,right:false,block:false};
 var pickups=[];            // 注入：浮动掉落（🔥怒气狂暴 / 🛡格挡）
@@ -443,11 +444,18 @@ function showOverlay(){
     var b=Juice.best('fighting', pWins); var rk=Juice.rank(pWins);
     if(win) Juice.achievement('🏆 你赢了！段位 '+rk);
   }
+  // 注入：玩家获胜 → 庆祝彩带 + 屏震（只读锁，不依赖 Juice）
+  if(win && !_confettiFired){
+    _confettiFired=true;
+    if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
+  }
 }
 function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
 function restart(){
   pWins=0; aWins=0; round=1; phase='fight';
   resetFighter(player,200); resetFighter(ai,600);
+  _confettiFired=false;   // 注入：重置胜利彩带锁
   hideOverlay();
 }
 
@@ -520,7 +528,10 @@ document.getElementById('restart').addEventListener('click',restart);
     setShield: function(v){ player.shield=v; },
     getBoost: function(){ return boostTimer; },
     setBoost: function(v){ boostTimer=v; player.berserkTimer=v*1000; },
-    takeHit: function(dmg){ takeHit(dmg); }
+    takeHit: function(dmg){ takeHit(dmg); },
+    // ---- 注入：胜利彩带只读/驱动钩子 ----
+    confettiFired: function(){ return _confettiFired; },
+    win: function(){ pWins=2; phase='matchend'; showOverlay(); }
   };
 
 resetFighter(player,200); resetFighter(ai,600);

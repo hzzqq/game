@@ -110,3 +110,14 @@ function buildNoWin(){
 }
 
 console.log('qubic: 全部断言通过');
+
+// ---------- 胜利彩带 / 完成反馈（confettiFired 标记） ----------
+{
+  t.newGame();
+  const b=new Array(64).fill(0);
+  b[idx(0,0,0)]=1; b[idx(1,0,0)]=1; b[idx(2,0,0)]=1; // x 轴前三格 HUMAN
+  t.setBoard({ board:b, turn:1, winner:0 });
+  t.applyMove(3,0,0);
+  eq('玩家(HUMAN)获胜', t.getState().winner, 1);
+  ok('玩家获胜触发 confettiFired', t.confettiFired() >= 1);
+}

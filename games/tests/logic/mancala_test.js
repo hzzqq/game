@@ -73,3 +73,12 @@ function OWNsum(b,p){ return (p===0?[0,1,2,3,4,5]:[7,8,9,10,11,12]).reduce((s,i)
   eq('getDifficulty 返回 hell', t.getDifficulty(), 'hell');
   eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
 }
+
+// ---------- 胜利 confetti ----------
+{
+  t.newGame();
+  t.setBoard([0,0,0,0,0,0, 10, 0,0,0,0,0,0, 5], 0); // 你大库 10 > 对手 5
+  t.checkEnd();
+  eq('玩家(绿)获胜', t.getWinner(), 0);
+  eq('胜利 confetti 触发', t.confettiFired(), true);
+}

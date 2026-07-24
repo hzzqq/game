@@ -60,7 +60,7 @@
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
 
-  let DICT, used, lastLetter, round, over, winner;
+  let DICT, used, lastLetter, round, over, winner, winFx = 0;
   function setDict(d){ DICT = d.map(w=>String(w).toLowerCase()); }
   function reset(){
     if(!DICT || !DICT.length) DICT = DEFAULT_DICT.slice();
@@ -92,6 +92,7 @@
     if(cands.length===0){
       over = true; winner = 'player';
       if(typeof Juice!=='undefined') Juice.sfx('levelup');
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); winFx++;
       return {valid:true, aiWord:null, over:true, winner:'player'};
     }
     const aiWord = cands[Math.min(cands.length-1, Math.floor(_rand()*cands.length))];
@@ -148,6 +149,7 @@
     window.__t = {
       setDict, setRand, reset, play, validWord, getState,
       getDefaultDict:()=>DEFAULT_DICT.slice(),
+      confettiFired: function(){ return winFx; },
     };
   }
 })();

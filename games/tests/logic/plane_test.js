@@ -406,6 +406,17 @@ const hpBf = t.getPlayer().hp;
 t.updateBoss(0.016);
 ok('接触玩家伤害 hp 下降', t.getPlayer().hp < hpBf);
 
+// 16) BOSS 击败彩带：击败 → confettiFired 置真（只读锁，独立于 Juice）
+t.start();
+ok('plane: 击败前 confettiFired 为 false', t.confettiFired() === false);
+t.win();
+ok('plane: BOSS 击败 → confettiFired 为真', t.confettiFired() === true);
+ok('plane: 击败后 boss=null', t.getBoss() === null);
+
+// 17) 重置后锁复位
+t.start();
+ok('plane: 重置后 confettiFired 复位', t.confettiFired() === false);
+
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;

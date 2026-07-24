@@ -114,6 +114,20 @@ ok('reset pos=0', t.players.every(p => p.pos === 0));
 ok('reset alive=true', t.players.every(p => p.alive === true));
 ok('reset board owner=null', t.board.every(tt => tt.owner === null));
 
+// ---------- 四档难度 ----------
+eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
+eq('setDifficulty(easy)', t.setDifficulty('easy'), true);
+eq('getDifficulty()==easy', t.getDifficulty(), 'easy');
+eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
+
+// ---------- 胜利 confetti ----------
+t.reset();
+ok('胜利前 confettiFired 为 false', t.confettiFired() === false);
+t.players[1].alive=false; t.players[2].alive=false; t.players[3].alive=false;
+t.endGame();
+ok('游戏结束胜利 → confettiFired 为真', t.confettiFired() === true);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

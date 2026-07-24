@@ -97,3 +97,13 @@ function boardWith(pieces, turn, winner){
 }
 
 console.log('breakthrough: 全部断言通过');
+
+// ---------- 胜利彩带 / 完成反馈（confettiFired 标记） ----------
+{
+  t.newGame();
+  boardWith([[6,0,RED]], RED);
+  const r=t.applyMove({from:[6,0],to:[7,0]});
+  ok('落子成功', r.ok===true);
+  eq('红子抵达底线 → 红胜', t.winnerOf(), RED);
+  ok('玩家(红)获胜触发 confettiFired', t.confettiFired() >= 1);
+}

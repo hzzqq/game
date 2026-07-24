@@ -331,6 +331,14 @@ const hBoss = bossHp('hell');
 ok('bossHpMult 地狱 Boss 血量 > 简单', hBoss > eBoss);
 t.setDifficulty('normal');
 
+// 42. 击败 Boss 触发胜利/里程碑 confetti（_confettiFired 只读锁，独立于 Juice）
+t.reset(); t.setWave(3); t.spawnBoss(); t.setBossHp(0);
+ok('击败 Boss 前 confettiFired 为 false', t.confettiFired() === false);
+t.updateBoss(0.016);
+ok('击败 Boss → confettiFired 为 true', t.confettiFired() === true);
+t.reset();
+ok('重开后 confettiFired 复位为 false', t.confettiFired() === false);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

@@ -47,3 +47,16 @@ ok('跟更小牌被拒', !t.play(1, t.comboOf([{s:0,r:4}])));
 eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
 eq('getDifficulty 为 hell', t.getDifficulty(), 'hell');
 eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
+
+// ---------- 玩家0(人类)获胜触发 confetti 钩子 ----------
+t.setHands([
+  [{s:3,r:5}],
+  [{s:0,r:6}],
+  [{s:1,r:2}],
+  [{s:2,r:14}],
+], 0);
+ok('玩家1(人类)领出单5♠', t.play(0, t.comboOf([{s:3,r:5}])));
+ok('人类出完获胜', t.isWin());
+eq('获胜者是人类玩家0', t.getWinner(), 0);
+ok('人类获胜触发 confettiFired', t.confettiFired());
+

@@ -52,8 +52,8 @@
 (function(){
   "use strict";
   const N=9;
-  let board,turn,captures,ko,over,winner,passes;
-  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn='b'; captures={b:0,w:0}; ko=null; over=false; winner=null; passes=0; }
+  let board,turn,captures,ko,over,winner,passes,_wonPrev=false;
+  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn='b'; captures={b:0,w:0}; ko=null; over=false; winner=null; passes=0; _wonPrev=false; }
   function inb(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
   function opp(x){ return x==='b'?'w':'b'; }
   function group(r,c){
@@ -92,8 +92,8 @@
     if(passes>=2){ finish(); }
     return true;
   }
-  function resign(color){ if(over) return; over=true; winner=opp(color); Juice.sfx('win'); Juice.flash('#02c076',.5); }
-  function finish(){ over=true; const s=score(); winner = s.b===s.w?null:(s.b>s.w?'b':'w'); if(winner){ Juice.sfx('win'); Juice.flash('#02c076',.5); } else { Juice.flash('#f0b90b',.4); } }
+  function resign(color){ if(over) return; over=true; winner=opp(color); if(winner && !_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } Juice.sfx('win'); Juice.flash('#02c076',.5); }
+  function finish(){ over=true; const s=score(); winner = s.b===s.w?null:(s.b>s.w?'b':'w'); if(winner && !_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } if(winner){ Juice.sfx('win'); Juice.flash('#02c076',.5); } else { Juice.flash('#f0b90b',.4); } }
   function score(){
     let bs=0, ws=0; const seen=new Set();
     for(let r=0;r<N;r++) for(let c=0;c<N;c++){
@@ -214,7 +214,8 @@
   }
   if(typeof window!=='undefined'){
     window.__t={ N, newGame, place, pass, resign, score, getBoard, getTurn, getCaptures, isOver, getWinner, getScore, group, setBoard,
-      DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves };
+      DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves,
+      confettiFired(){ return _wonPrev; } };
   }
 })();
 </script>

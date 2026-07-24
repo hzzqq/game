@@ -106,6 +106,15 @@ t.update(1);
 const spdNorm = t.getState().speed;
 ok('geometrydash: normal 速度≈基线4.5', Math.abs(spdNorm - 4.5) < 0.05, 'spd=' + spdNorm.toFixed(3));
 
+// ===== 破纪录正反馈：confetti + confettiFired 只读钩子 =====
+t.reset();
+for (let i = 0; i < 150; i++){ t.setObstacles([]); t.update(1); }   // 累积距离，清空障碍避免提前死亡
+const st = t.getState();
+t.setObstacles([{ type:'block', x: st.player.x, w: st.player.w, h: 80, y: 510 - 80 }]);
+t.update(1);   // 撞击 → gameOver，距离>0 破纪录 → confetti
+ok('geometrydash: 破纪录触发 confetti', t.confettiFired() > 0, 'confettiFx=' + t.confettiFired());
+ok('geometrydash: 确实结束', t.isGameOver() === true);
+
 // ===== 结果汇总 =====
 const passed = require('./harness').results.filter(r => r.pass).length;
 const total = require('./harness').results.length;

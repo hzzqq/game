@@ -119,3 +119,18 @@ function findMove(moves, fr, fc, tr, tc, type){
 }
 
 console.log('ataxx: 全部断言通过');
+
+// ---------- 胜利彩带 / 完成反馈（confettiFired 标记） ----------
+{
+  t.newGame();
+  const pieces=[];
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) pieces.push([r,c,RED]);
+  pieces.push([0,1,0]);     // 留一个空格
+  pieces.push([6,6,BLACK]); // 黑 1 子
+  boardWith(pieces, RED);
+  const mv=findMove(t.legalMoves(),0,0,0,1,'clone');
+  ok('找到克隆着法填满棋盘并获胜', !!mv);
+  t.applyMove(mv);
+  eq('获胜方为红', t.winnerOf(), RED);
+  ok('玩家(红)获胜触发 confettiFired', t.confettiFired() >= 1);
+}

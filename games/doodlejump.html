@@ -105,6 +105,8 @@
 
   // 核心状态（普通 JS 变量，逻辑脱离 DOM）
   let player, platforms, cam, score, maxClimbY, gameOver, pickups, spawnTimer;
+  let confettiFx = 0;       // 成就命中次数（只读钩子 confettiFired）
+  function milestoneFire(){ confettiFx++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
   let boss = null;                      // 生存型 Boss：{x,y,w,h,hp,maxHp,phase,dir,vx,fireT,climbRef}
   let wave = 0;                         // 当前高度里程碑（=Boss 波计数）
   let bossWaveMark = -1;                // 已为哪个里程碑生成过 Boss（避免重复触发）
@@ -196,6 +198,7 @@
     if(boss.hp <= 0){
       score += BOSS_REWARD * wave;
       pickups.push(makePickup('rocket', boss.x, cam + boss.y));   // 掉落 🚀 助力继续上升
+      milestoneFire();   // 击败 Boss 也是正反馈成就
       if(J) J.flash && J.flash('#02c076', .3);
       if(J) J.sfx && J.sfx('win');
       boss = null; bossRocks = [];
@@ -245,6 +248,7 @@
     pickups = [];
     spawnTimer = 0;
     score = 0; maxClimbY = START_Y; gameOver = false;
+    confettiFx = 0;
     boss = null; bossRocks = []; wave = 0; bossWaveMark = -1;   // Boss 状态复位
     player = { x: W/2, y: START_Y, vy: JUMP_V, r: R, shield: 0, rocketTimer: 0 };
     cam = player.y - H*0.7;
@@ -333,7 +337,7 @@
     } else {
       // 以分数（高度代理）计里程碑；每 BOSS_EVERY 个里程碑出一次 Boss
       const ms = Math.floor(score / SCORE_PER_MILESTONE);
-      if(ms > wave) wave = ms;
+      if(ms > wave){ wave = ms; milestoneFire(); }
       if(wave > 0 && isBossWave(wave) && wave !== bossWaveMark) spawnBoss();
     }
 
@@ -531,6 +535,7 @@
       getBossWaveMark:()=>bossWaveMark,
       getRocks:()=>bossRocks.length,
       takeBossHit,
+      confettiFired:()=>confettiFx,
     };
   }
 })();

@@ -95,7 +95,7 @@
         '########' ]
     ];
 
-    var levelIdx = 0, walls = {}, targets = {}, boxes = [], player = { x: 0, y: 0 }, rows = [], cols = 0, moves = 0, won = false, history = [];
+    var levelIdx = 0, walls = {}, targets = {}, boxes = [], player = { x: 0, y: 0 }, rows = [], cols = 0, moves = 0, won = false, history = [], confettiFired = false;
 
     function key(x, y) { return x + ',' + y; }
     function isWall(x, y) { return !!walls[key(x, y)]; }
@@ -103,7 +103,7 @@
     function boxAt(x, y) { for (var i = 0; i < boxes.length; i++) if (boxes[i].x === x && boxes[i].y === y) return i; return -1; }
 
     function setLevel(grid) {
-      walls = {}; targets = {}; boxes = []; history = []; moves = 0; won = false;
+      walls = {}; targets = {}; boxes = []; history = []; moves = 0; won = false; confettiFired = false;
       rows = grid.slice(); cols = 0;
       for (var y = 0; y < rows.length; y++) {
         var line = rows[y];
@@ -130,12 +130,14 @@
       var allOn = boxes.length > 0 && boxes.every(function (b) { return isTarget(b.x, b.y); });
       if (allOn && !won) {
         won = true;
+        confettiFired = true;
         if (typeof Juice !== 'undefined') {
           Juice.sfx('win'); Juice.addTrauma(0.25);
           var p = cellPx(player.x, player.y);
           Juice.burst(p.x, p.y, { color: COL.gold, n: 20, speed: 230 });
           Juice.ring(p.x, p.y, { color: COL.gold, r1: 90 });
           Juice.achievement('✓ 第 ' + (levelIdx + 1) + ' 关通关！');
+          if (Juice.confetti) Juice.confetti(window.innerWidth / 2, window.innerHeight * 0.3, { n: 120, life: 2.4 });
         }
       }
       renderHUD();
@@ -256,6 +258,7 @@
     window.__t = {
       setLevel: setLevel, loadLevel: loadLevel, reset: reset, move: move, undo: undo,
       isWon: isWon,
+      get confettiFired() { return confettiFired; },
       countLevels: function () { return LEVELS.length; },
       getLevel: function () { return levelIdx; },
       getMoves: function () { return moves; },

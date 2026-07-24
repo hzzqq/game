@@ -74,3 +74,18 @@ console.log('✓ backgammon_test 完成 · 共 21 条断言');
   eq('getDifficulty 返回 hell', t.getDifficulty(), 'hell');
   eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
 }
+
+// ---------- 胜利 confetti ----------
+{
+  t.reset();
+  t.debugClear();
+  t.debugOff('red', 14);
+  t.debugSet(5, 1, 0);    // 最后一枚在 idx5(点6)
+  t.debugBar('red', 0);
+  t.turn = 'red';
+  let seq = [0.9, 0.0]; let si = 0; t.setRand(() => seq[si++ % seq.length]);
+  t.rollDice();           // 期望 [6,1]
+  ok(t.bearOff(5, 6), '最后一枚移出');
+  eq('红方获胜', t.winner, 'red');
+  eq('胜利 confetti 触发', t.confettiFired(), true);
+}

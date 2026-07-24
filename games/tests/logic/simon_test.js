@@ -63,3 +63,21 @@ function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let tt=Math.i
   t.input(s0); // 完成第 1 关
   ok('完成态下再输入被拒', t.input(s0)===false);
 }
+
+// ===== 轮5：完成彩带特效（完成序列触发，只读标记）=====
+{
+  t.setRand(mulberry32(11));
+  t.newGame();
+  const sf0 = t.confettiFired;
+  t.startRound();
+  const s0 = t.getSequence()[0];
+  t.input(s0);
+  ok('完成序列→本关完成', t.isRoundComplete()===true);
+  eq('记忆灯完成序列触发彩带', t.confettiFired, sf0+1);
+  // 点错不触发彩带
+  t.startRound();
+  const seq = t.getSequence();
+  const wrong = (seq[0]===0)?1:0;
+  t.input(wrong);
+  eq('点错不触发彩带', t.confettiFired, sf0+1);
+}

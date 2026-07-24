@@ -60,7 +60,7 @@
 
   const N=6;
   const U=1,R=2,D=4,L=8;
-  let board, over, won;
+  let board, over, won, confettiFired;
 
   function rotMask(m){ return ((m<<1)|(m>>3))&15; }
   function randInt(n){ return Math.floor(_rng()*n); }
@@ -89,14 +89,14 @@
     // 3) 打乱所有旋转（起点/终点也打乱，玩家可自行转回）
     for(let i=0;i<N*N;i++){ const k=randInt(4); for(let q=0;q<k;q++) mask[i]=rotMask(mask[i]); }
     board = mask.map(m=>({m}));
-    over=false; won=false;
+    over=false; won=false; confettiFired=false;
   }
 
   function rotate(r,c){
     if(over) return;
     board[r*N+c].m = rotMask(board[r*N+c].m);
     if(typeof Juice!=='undefined') Juice.sfx('click');
-    if(isSolved() && !over){ over=true; won=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.achievement('管道连通'); } }
+    if(isSolved() && !over){ over=true; won=true; confettiFired=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.achievement('管道连通'); if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
     render();
   }
 
@@ -118,7 +118,7 @@
     return seen.has(String(N*N-1));
   }
 
-  function setBoard(m){ board=m.map(x=>({m:x})); over=false; won=false; }
+  function setBoard(m){ board=m.map(x=>({m:x})); over=false; won=false; confettiFired=false; }
 
   function getState(){ return { board: getBoard(), over, won, solved: isSolved() }; }
 
@@ -148,7 +148,7 @@
   newGame();
   if(typeof document!=='undefined'){ build(); bindUI(); render(); }
   if(typeof window!=='undefined'){
-    window.__t={ N, U, R, D, L, setSeed, newGame, rotate, getMask, getBoard, isSolved, setBoard, rotMask, getState };
+    window.__t={ N, U, R, D, L, setSeed, newGame, rotate, getMask, getBoard, isSolved, setBoard, rotMask, getState, get confettiFired(){ return confettiFired; } };
   }
 })();
 </script>

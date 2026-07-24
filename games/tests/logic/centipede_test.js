@@ -178,3 +178,17 @@ ok('centipede: 击败 Boss 返回 true 且进入第 4 波普通蜈蚣',
    t.getBoss() === null && t.getWave() === 4 && t.getState().centipede.length === 10,
    'wave=' + t.getWave() + ' centi=' + t.getState().centipede.length);
 
+// ===== 过关 confetti 钩子（独立于 Juice，只读） =====
+t.reset(31);
+t.setCentipede([]);
+t.setBullets([]);
+t.step();   // 清空整条蜈蚣 → 过关
+ok('centipede: 过关 confettiFired 置真', t.confettiFired() === true);
+// 二次 step 不重复触发（跳变防重复），钩子仍为真
+t.setMushrooms([]); t.setPlayer(10, 5); t.setCentipede([{ row:10, col:4, dir:1 }]); t.step();
+ok('centipede: confettiFired 不被重复置位（保持真）', t.confettiFired() === true);
+
+const H = require('./harness');
+if (H.results.some(r => !r.pass)) process.exit(1);
+process.exit(0);
+

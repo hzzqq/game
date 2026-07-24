@@ -192,3 +192,14 @@ H.ok('击败后重建普通编队', t.getState().enemyCount > 0);
 // 不破坏原有「清空编队→胜利」断言（测试 5）。
 
 console.log('  ✓ galaga_test.js 全部通过');
+
+// ===== 击败 Boss 即胜利 → confetti 钩子（独立于 Juice） =====
+t.newGame(31);
+t.setWave(3);
+t.spawnBoss();
+t.setBossHp(0);
+t.step();   // step 内 updateBoss 击败 boss
+H.ok('galaga: 击败 Boss 触发 confettiFired', t.confettiFired() === true, 'wave='+t.getWave());
+
+if (H.results.some(r => !r.pass)) process.exit(1);
+process.exit(0);

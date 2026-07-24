@@ -124,3 +124,11 @@ t.step(0.016);
 H.ok('回归: 无盾坠落仍 gameOver', t.isGameOver() === true);
 
 console.log('  ✓ jumpjump_test.js 全部通过');
+
+// ===== 里程碑正反馈：confetti + confettiFired 只读钩子 =====
+t.newGame(51);
+t.applyPickup('coin');   // +50 → score=50 ≥ 里程碑 50 → 触发
+H.ok('jumpjump: 里程碑达成触发 confetti', t.confettiFired() > 0, 'confettiFx=' + t.confettiFired());
+t.newGame(52);
+H.ok('jumpjump: 新局未达里程碑 confettiFx=0', t.confettiFired() === 0);
+

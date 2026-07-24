@@ -157,6 +157,7 @@
 
     const GOLD = 0.12; // 黄金成语概率（可变奖励）
     let S = null;
+    let chainFx = 0;
 
     function newState(daily) {
       const today = new Date();
@@ -198,10 +199,10 @@
       }
     }
 
-    function submit() {
+    function submit(forceVal) {
       if (!S || !S.running || S.over) return;
-      const v = $('guess').value.trim().replace(/\s/g, '');
-      $('guess').value = '';
+      const v = (typeof forceVal === 'string' ? forceVal : $('guess').value).trim().replace(/\s/g, '');
+      if (typeof forceVal !== 'string') $('guess').value = '';
       if (v.length !== 4) { fail('请输入四字成语'); return; }
       if (!SET.has(v)) {
         addWrong(v); fail('「' + v + '」不在词库中'); return;
@@ -232,6 +233,8 @@
         S.required = v[3]; S.challenge = false;
       }
       Juice.save('idiom', S.score > S.best ? S.score : S.best);
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      chainFx++;
       rankCheck();
       syncHUD();
     }
@@ -338,7 +341,9 @@
       getIDIOMS: function(){ return IDIOMS.slice(); },
       hasIdiom: function(w){ return SET.has(w); },
       getS: function(){ return S ? JSON.parse(JSON.stringify(S)) : null; },
-      setS: function(v){ S = v; }
+      setS: function(v){ S = v; },
+      submitWord: function(w){ submit(w); },
+      chainFx: function(){ return chainFx; }
     };
   })();
   </script>

@@ -64,6 +64,7 @@
 
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
+  let _wonPrev=false, winFx=0; // 胜利特效跳变防重 + 计数
   /* ===================== 难度系统 =====================
      minimax 游戏：难度通过 alpha-beta 搜索深度 + 随机弱化概率分级。
      地狱档最深、无随机；简单档最浅且高概率走随机步。 */
@@ -83,6 +84,16 @@
   function newGame(){
     S={ micro:[], macro:new Array(9).fill(0), turn:HUMAN, active:-1, winner:0 };
     for(let i=0;i<9;i++) S.micro.push(new Array(9).fill(0));
+    _wonPrev=false; winFx=0;
+  }
+  function fireWinFx(){ // 仅玩家(HUMAN)获胜时触发彩带 + 粒子，_wonPrev 跳变防重复
+    if(S.winner===HUMAN && !_wonPrev){
+      _wonPrev=true; winFx++;
+      if(typeof Juice!=='undefined'){
+        if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+        if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:40, speed:160});
+      }
+    }
   }
 
   // 标准 3x3 胜负：返回 1/2（仅）/ 0
@@ -222,6 +233,7 @@
     if(!mv.some(m=>m[0]===b&&m[1]===c)) return {ok:false,reason:'illegal'};
     applyMoveState(S,b,c);
     if(typeof Juice!=='undefined') Juice.sfx('click');
+    fireWinFx();
     return {ok:true};
   }
   function aiTurn(){
@@ -318,6 +330,7 @@
     setRand, DIFFICULTY, setDifficulty, getDifficulty,
     getMacro(){ return S.macro.slice(); },
     getMicro(){ return S.micro.map(x=>x.slice()); },
+    confettiFired(){ return winFx; },
   };
 })();
 </script>

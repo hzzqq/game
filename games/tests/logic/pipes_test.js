@@ -41,3 +41,13 @@ eq('旋转4次复原', m, m0);
   ok('新局掩码均在 0..15', st.board.every(v=>v>=0 && v<=15));
   ok('新局 solved 为布尔', typeof st.solved==='boolean');
 })();
+
+// 通关触发完成特效标记：打破终点后旋转复原连通
+(() => {
+  const g2 = g.map(row=>row.slice());
+  g2[0][N-1] = R|D;              // 终点原为 L|D，改为 R|D 打破
+  t.setBoard(flatten(g2));
+  eq('通关前未标记完成特效', t.confettiFired, false);
+  t.rotate(0, N-1);             // 旋转一次→L|D，恢复连通
+  ok('通关后标记完成特效', t.confettiFired === true);
+})();

@@ -112,3 +112,15 @@ function setState(o){ t.setBoard(Object.assign({ micro:emptyMicro(), macro:new A
 }
 
 console.log('ultimatettoe: 全部断言通过');
+
+// ---------- 胜利彩带 / 完成反馈（confettiFired 标记） ----------
+{
+  t.newGame();
+  const micro=emptyMicro();
+  micro[2]=[1,1,0, 0,0,0, 0,0,0]; // HUMAN 在 board2 行0 两子，待补位2
+  setState({ micro, macro:[1,1,0, 0,0,0, 0,0,0], active:2, turn:1 });
+  const r=t.applyMove(2,2);
+  ok('落子成功', r.ok===true);
+  eq('玩家(HUMAN)全局获胜', t.getState().winner, 1);
+  ok('玩家获胜触发 confettiFired', t.confettiFired() >= 1);
+}

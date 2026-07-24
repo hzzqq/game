@@ -79,10 +79,10 @@
     return {black, white};
   }
 
-  let secret, history, step, won, over;
+  let secret, history, step, won, over, confettiFired;
   function reset(){
     secret = generateSecret();
-    history = []; step = 0; won = false; over = false;
+    history = []; step = 0; won = false; over = false; confettiFired = false;
   }
   // 提交一次猜测（guess: number[] 长度 LEN，每位 0..DOMAIN-1）
   function submitGuess(guess){
@@ -92,7 +92,7 @@
     const fb = evaluate(secret, guess);
     history.push({guess:guess.slice(), black:fb.black, white:fb.white});
     step++;
-    if(fb.black===LEN){ won=true; over=true; }
+    if(fb.black===LEN){ won=true; over=true; confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     else if(step>=MAX_STEP){ over=true; }
     if(typeof Juice!=='undefined'){
       if(won){ Juice.sfx('levelup'); Juice.best('mastermind', MAX_STEP-step+1); }
@@ -149,7 +149,7 @@
       LEN, DOMAIN, MAX_STEP, COLORS,
       setRand, generateSecret, evaluate, reset, submitGuess, isWin, isOver,
       getSecret:()=>secret, getHistory:()=>history, getStep:()=>step,
-      setSecret:(s)=>{ secret=s; },
+      setSecret:(s)=>{ secret=s; }, getConfettiFired:()=>confettiFired,
     };
   }
 })();

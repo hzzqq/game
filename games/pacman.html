@@ -220,6 +220,7 @@
   }
 
   var pac, ghosts, score, lives, dotsLeft, running, paused, gameOver, win, frightTimer;
+  var _confettiFired = false; // 过关/胜利 confetti 钩子（独立于 Juice，只读暴露）
   var SPEED = 3; // divides TILE (24) exactly -> no drift
 
   // ---- 难度选择系统（简单/普通/困难/地狱）----
@@ -501,6 +502,7 @@
   // ---------- game state ----------
   function winGame(){
     gameOver = true; running = false; win = true;
+    if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     showOverlay(true);
   }
   function loseGame(){
@@ -779,6 +781,7 @@
       getLives: () => lives,
       getGameOver: () => gameOver,
       getWin: () => win,
+      confettiFired: () => _confettiFired,
       // —— 标准掉落钩子 ——
       start: startGame,
       spawnPickup: (type, c, r) => { pickups.push(makePickup(type, c, r)); },

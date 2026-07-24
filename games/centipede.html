@@ -59,6 +59,7 @@
   function isBossWave(w){ return w>0 && w % BOSS_EVERY === 0; }
   let wave = 1;        // 波次：每清完一整条普通蜈蚣 +1
   let boss = null;     // Boss 态：{col,row,w,h,hp,maxHp,phase,dir,fireT,down}
+  let _confettiFired = false; // 过关 confetti 钩子（独立于 Juice，只读暴露）
 
   function inMush(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS && mush[r][c]; }
   function mushroomList(){ const out=[]; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(mush[r][c]) out.push([r,c]); return out; }
@@ -91,6 +92,7 @@
 
   function reset(seed){
     if(typeof seed==='number') _rng = mk(seed>>>0);
+    _confettiFired = false;
     genField();
     return getState();
   }
@@ -119,7 +121,9 @@
     score += 10; killStreak++;
     if(killStreak % 3 === 0) pickups.push({ type: 'rapid', row: seg.row, col: seg.col }); // 每 3 杀掉道具
     if(J) J.sfx('pop'); if(J) J.addTrauma(0.15);
-    // 分裂：原“之后”的那一节反向，作为新的头部
+    if(J && J.burst) J.burst(seg.col*30+15, seg.row*30+15, { color:'#f6465d', n:8, speed:120 });
+    if(J && J.shake) J.shake(0.2);
+    // 分裂：原"之后"的那一节反向，作为新的头部
     if(segIndex < centi.length){
       centi[segIndex].dir *= -1;
     }
@@ -170,6 +174,7 @@
     if(!gameOver && centi.length === 0){
       wave++;
       if(isBossWave(wave)) spawnBoss(); else buildCentipede();
+      if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     }
   }
   // 死亡：有护盾则消耗护盾免死，否则结束（注入式分支，shield=0 时行为不变）
@@ -246,6 +251,7 @@
       pickups.push({ type: 'rapid', row: boss.row, col: boss.col + Math.floor(boss.w/2) });
       if(J && J.sfx) J.sfx('win');
       boss = null;
+      if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       return true;
     }
     return false;
@@ -374,6 +380,7 @@
       setBossHp:(v)=>{ if(boss) boss.hp = v; },
       setWave:(v)=>{ wave = v; },
       getWave:()=>wave,
+      confettiFired:()=>_confettiFired,
       addBullet:(row,col)=>{ bullets.push({ row:row, col:col }); } };
   }
 })();

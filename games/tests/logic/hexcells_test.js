@@ -74,3 +74,14 @@ const { t } = H.loadGame('../hexcells.html');
   t.openCell(-1); t.openCell(99);
   H.eq('六边形 越界点击无翻格', t.getState().revealed, 0);
 })();
+
+// 8) 完成特效：翻开所有非雷格 → confettiFired 增加
+(() => {
+  t.setDim(3, 3);
+  const mines = [1,0,0, 0,0,0, 0,0,0];
+  t.setGrid(mines);
+  const before = t.confettiFired;
+  for (let i = 1; i < 9; i++) t.openCell(i);
+  t.checkWin();
+  H.ok('六边形 通关后 confettiFired 增加', t.confettiFired > before);
+})();

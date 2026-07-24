@@ -97,6 +97,15 @@ t.setDir(1,'up');
 t.step();
 ok('2p 模式切换无异常', t.getMode()==='2p');
 
+// ---------- 成就/胜利正反馈：对手撞墙玩家(p0)胜触发 confettiFired ----------
+t.reset();
+t.setup(20,20,{x:1,y:1,dir:'down'},{x:18,y:18,dir:'left'});
+t.setDir(1,'right');           // 对手向右冲出右墙
+var wk = 0;
+for (; wk < 6 && t.getWinner() === -1; wk++) t.step();
+eq('tron: 对手撞墙 玩家(p0)胜', t.getWinner(), 0);
+ok('tron: 玩家胜利触发 confettiFired', t.confettiFired() === true);
+
 // ===== 汇总 =====
 const passed=results.filter(r=>r.pass).length;
 const total=results.length;

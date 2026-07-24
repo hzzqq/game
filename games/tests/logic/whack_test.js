@@ -38,4 +38,19 @@ T.stepPickups(0.05);
 H.eq('whack: 仅下落未拾取，分数不变', T.getScore(), 0);
 H.eq('whack: 仅下落掉落仍在', T.getPickups().length, 1);
 
+// ===== 破纪录里程碑 confetti 测试（仅视觉反馈钩子，不改玩法）=====
+T.reset(); T.setScore(1000);
+H.ok(T.confettiFired() === false, 'whack: 破纪录前 confettiFired 为 false');
+T.endGame(); // 1000 > best(0) → 新纪录
+H.ok(T.confettiFired() === true, 'whack: 破纪录 → confettiFired 为真');
+// 同一局只触发一次（锁）
+T.setScore(2000); T.endGame();
+H.ok(T.confettiFired() === true, 'whack: 二次破纪录仍受锁保护（只触发一次）');
+
+const results = H.results;
+const total = results.length;
+const pass = results.filter(r => r.pass).length;
+console.log(`\nwhack: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);
+
 module.exports = {};

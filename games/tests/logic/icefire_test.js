@@ -102,5 +102,21 @@ for (var b = 0; b < 120; b++) T.update();
 var fx2 = Math.round(T.fire.x);
 H.ok(fx1 === fx2, 'icefire: 同种子 CPU 决策确定性 (fx1=' + fx1 + ' fx2=' + fx2 + ')');
 
+// 15) 通关彩带：全部通关 → confettiFired 置真（只读锁，独立于 Juice）
+T.reset();
+H.ok(T.confettiFired() === false, 'icefire: 通关前 confettiFired 为 false');
+T.win();
+H.ok(T.confettiFired() === true, 'icefire: 全部通关 → confettiFired 为真');
+H.ok(T.getState() === 'win', 'icefire: win() 进入通关态');
+
+// 16) 重置后锁复位
+T.reset();
+H.ok(T.confettiFired() === false, 'icefire: 重置后 confettiFired 复位');
+
+const total = H.results.length;
+const pass = H.results.filter(r => r.pass).length;
+console.log(`\nicefire: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);
+
 module.exports = {};
 

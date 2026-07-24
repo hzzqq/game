@@ -138,6 +138,14 @@ H.ok(T.getPickups().length === 0, 'runner: stepPickups 拾取后移除');
   T.setDifficulty('hell');   T.reset(); T.startGame(); T.setState('play'); T.spawnBoss(3);
   var mB = T.getBoss().maxHp;
   H.ok(mB > mA, 'runner: 地狱档 Boss maxHp > 简单档 (' + mB + ' > ' + mA + ')');
+
+  // ---------- 成就/胜利正反馈：到达距离里程碑触发 confettiFired ----------
+  fresh();
+  T.setWave(1);            // distance = 100，与初始 milestone(100) 对齐
+  T.update(1);
+  H.ok(T.confettiFired() === true, 'runner: 到达里程碑触发 confettiFired');
+  T.update(1);            // 跳变防重复：再次 update 不应重复清零
+  H.ok(T.confettiFired() === true, 'runner: confettiFired 持续为真（跳变防重复）');
 })();
 
 module.exports = {};

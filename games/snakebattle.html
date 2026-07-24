@@ -103,6 +103,7 @@
 
   let cssW = 0, CELL = 0, MARGIN = 0;
   let snakes, food, running, gameOver, acc, pulse;
+  let _confettiFired=false;   // 注入：胜利彩带只读锁（独立于 Juice，仅视觉状态）
   let pickups = [];        // 掉落道具：{x,y,type}
   let pickupTimer = 0;     // 自动掉落计时（仅真实循环 fxLoop 驱动）
   const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints>0) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
@@ -120,6 +121,7 @@
     syncAI();
     running = false; gameOver = false; acc = 0; pulse = 0;
     pickups = []; pickupTimer = 0;
+    _confettiFired=false;   // 注入：重置胜利彩带锁
     reseed(0x5BADF00D ^ (GRID*2654435761));
     spawnFood();
     hideOverlay();
@@ -359,6 +361,12 @@
       else if(a2&&!a1){ Juice.sfx('win'); Juice.flash(GREEN,0.3); Juice.addTrauma(0.6); const b=Juice.best('snakebattle',snakes[1].len); Juice.rank(snakes[1].len); if(b.isNew) Juice.achievement('绿方最长 '+snakes[1].len); }
       else { Juice.sfx('boom'); Juice.flash('#f0b90b',0.25); Juice.addTrauma(0.6); }
     }
+    // 注入：分出胜负（非平局）→ 庆祝彩带 + 屏震（只读锁，不依赖 Juice）
+    if((a1&&!a2 || a2&&!a1) && !_confettiFired){
+      _confettiFired=true;
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:140, life:2.6});
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.6);
+    }
     ov.style.display='flex';
   }
   function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
@@ -441,7 +449,10 @@
       food:{x:food.x,y:food.y},
       pickups:pickups.map(p=>({x:p.x,y:p.y,type:p.type}))
     }; },
-    get running(){ return running; }
+    get running(){ return running; },
+    // ---- 注入：胜利彩带只读/驱动钩子 ----
+    confettiFired: function(){ return _confettiFired; },
+    win: function(){ snakes[1].alive=false; gameOver=false; running=false; endGame(); }
   };
 })();
 </script>

@@ -124,6 +124,7 @@
   let now = (typeof performance!=='undefined') ? performance.now() : Date.now();
   let levelClearTime=0;
   let shakeTime=0;
+  let _confettiFired=false; // 通关 confetti 已触发（独立于 Juice 的只读测试锁）
   const baseSpeed = 4.2;
 
   // ---------- 难度系统（简单/普通/困难/地狱）----------
@@ -210,6 +211,7 @@
     // ===== 道具系统初始化 =====
     pickups=[]; wideUntil=0; slowUntil=0;
     paddle.w=paddle.baseW;
+    _confettiFired=false; // 新游戏重置通关反馈锁（仅视觉状态）
     buildLevel(); resetBall();
     setState('ready');
   }
@@ -421,6 +423,11 @@
         setState('levelcomplete');
         levelClearTime = now + 1600;
         if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076',0.2); Juice.achievement('第 '+level+' 关 通过 ✓'); }
+        if(!_confettiFired){
+          _confettiFired=true;
+          if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+          if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.4);
+        }
       }
     } else if(state==='levelcomplete'){
       updateParticles();
@@ -656,6 +663,9 @@
     setLevel: function(v){ level=v; }, setNow: function(v){ now=v; },
     setLives: function(v){ lives=v; }, setScore: function(v){ score=v; },
     setBalls: function(arr){ balls = arr.map(function(b){ return {x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r||7,stuck:!!b.stuck}; }); },
+    update: update,
+    setBricks: function(arr){ bricks = arr.map(function(b){ return {x:b.x,y:b.y,w:b.w,h:b.h,color:b.color,points:b.points,alive:(b.alive!==false)}; }); },
+    confettiFired: function(){ return _confettiFired; },
     getWideUntil: function(){ return wideUntil; }, getSlowUntil: function(){ return slowUntil; },
     // ===== 道具系统钩子 =====
     reset: startGame,

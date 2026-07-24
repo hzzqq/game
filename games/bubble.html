@@ -156,6 +156,7 @@
   var flying;        // {x,y,vx,vy,color} or null
   var aimAngle;      // radians, pointing up (negative)
   var score, best, shots, state;
+  var _confettiFired=false; // 通关（盘面清空）confetti 已触发（独立于 Juice 的只读测试锁）
   var popFx;         // particle effects
   var clears;        // 成功消除计数（用于蓄力特殊泡）
 
@@ -215,6 +216,7 @@
       }
     }
     score = 0; shots = 0; clears = 0;
+    _confettiFired=false; // 新游戏重置通关反馈锁（仅视觉状态）
     flying = null; popFx = [];
     pickups=[]; boostTimer=0; shield=false; spawnTimer=12; plives=3; pdead=false;
     aimAngle = -Math.PI / 2;
@@ -498,6 +500,11 @@
       if (win) { Juice.flash('#02c076', 0.3); } else { Juice.addTrauma(0.5); Juice.flash('#f6465d', 0.4); }
       var b = Juice.best('bubble', score); var rk = Juice.rank(score);
       if (score > 0 && b.isNew) Juice.achievement('🏆 新纪录 ' + score + '！段位 ' + rk);
+    }
+    if (win && !_confettiFired) {
+      _confettiFired=true;
+      if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.4);
     }
   }
 
@@ -846,7 +853,9 @@
     getBoost: function(){ return boostTimer; }, setBoost: function(v){ boostTimer=v; },
     takeHit: takeHit,
     getPLives: function(){ return plives; }, setPLives: function(v){ plives=v; }, getDead: function(){ return pdead; },
-    getSpawnTimer: function(){ return spawnTimer; }
+    getSpawnTimer: function(){ return spawnTimer; },
+    checkEnd: checkEnd,
+    confettiFired: function(){ return _confettiFired; }
   };
 
   newGame();

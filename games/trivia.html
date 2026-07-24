@@ -45,15 +45,15 @@
 <script>
 (function(){
   "use strict";
-  let questions, idx, score;
+  let questions, idx, score, confettiFired;
   const DEFAULT=[
     { q:'光在真空中的速度约为？', options:['3×10⁵ km/s','3×10⁸ m/s','3×10⁶ m/s','3×10⁴ km/s'], answer:1 },
     { q:'下列哪个是质数？', options:['9','15','17','21'], answer:2 },
     { q:'水的化学式是？', options:['CO₂','H₂O','O₂','NaCl'], answer:1 },
     { q:'一年有多少天（平年）？', options:['365','366','360','364'], answer:0 },
   ];
-  function reset(){ questions=DEFAULT.map(q=>({...q})); idx=0; score=0; }
-  function setQuestions(arr){ questions=arr.map(q=>({...q})); idx=0; score=0; }
+  function reset(){ questions=DEFAULT.map(q=>({...q})); idx=0; score=0; confettiFired=false; }
+  function setQuestions(arr){ questions=arr.map(q=>({...q})); idx=0; score=0; confettiFired=false; }
   function getCurrent(){ return idx<questions.length ? { q:questions[idx].q, options:questions[idx].options } : null; }
   function answer(i){
     if(idx>=questions.length) return false;
@@ -62,7 +62,7 @@
     idx++;
     if(correct){ Juice.sfx('hit'); Juice.addTrauma(.25); }
     else { Juice.sfx('error'); }
-    if(isFinished()){ Juice.sfx('win'); Juice.flash('#02c076', .5); }
+    if(isFinished()){ Juice.sfx('win'); Juice.flash('#02c076', .5); confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     return correct;
   }
   function getScore(){ return score; }
@@ -93,7 +93,7 @@
   }
   reset();
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
-  if(typeof window!=='undefined'){ window.__t={ reset, setQuestions, getCurrent, answer, getScore, isFinished }; }
+  if(typeof window!=='undefined'){ window.__t={ reset, setQuestions, getCurrent, answer, getScore, isFinished, getConfettiFired:()=>confettiFired }; }
 })();
 </script>
 </body>

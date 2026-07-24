@@ -62,4 +62,19 @@ H.ok(T.getState() === 'roundend', 'fighting: 无盾致命 → roundend');
 T.setBoost(5);
 H.ok(T.getBoost() === 5, 'fighting: getBoost=5 (boost=' + T.getBoost() + ')');
 
+// 11) 胜利彩带：玩家获胜 → confettiFired 置真（只读锁，独立于 Juice）
+T.reset();
+H.ok(T.confettiFired() === false, 'fighting: 胜利前 confettiFired 为 false');
+T.win();
+H.ok(T.confettiFired() === true, 'fighting: 玩家获胜 → confettiFired 为真');
+
+// 12) 重置后锁复位
+T.reset();
+H.ok(T.confettiFired() === false, 'fighting: 重置后 confettiFired 复位');
+
+const total = H.results.length;
+const pass = H.results.filter(r => r.pass).length;
+console.log(`\nfighting: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);
+
 module.exports = {};

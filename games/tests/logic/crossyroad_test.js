@@ -183,4 +183,14 @@ t.setWave(6);
 ok('crossyroad: setWave 生效', t.getWave() === 6, 'wave=' + t.getWave());
 ok('crossyroad: isBossWave(setWave=6) 为真', t.isBossWave(t.getWave()) === true);
 
+// ===== 里程碑正反馈：confetti + confettiFired 只读钩子（E3 胜利彩带覆盖）=====
+t.reset(5);
+t.applyPickup('coin');   // bonus+20 → score=20 ≥ 里程碑 10 → 触发
+ok('crossyroad: 里程碑达成触发 confetti', t.confettiFired() > 0, 'confettiFx=' + t.confettiFired());
+t.applyPickup('coin');   // bonus 累计 40 → score=40 ≥ 下一里程碑 20 → 再次触发
+ok('crossyroad: 跨越下一里程碑再次触发', t.confettiFired() >= 2, 'confettiFx=' + t.confettiFired());
+t.reset(1);
+ok('crossyroad: 新局未达里程碑 confettiFx=0', t.confettiFired() === 0);
+
+
 

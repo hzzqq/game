@@ -112,6 +112,8 @@
 
     // ===== 核心状态 =====
     var state, bird, pipes, score, best, spawnX, flashMsg, groundHit;
+    var confettiFx = 0;       // 成就命中次数（只读钩子 confettiFired）
+    function milestoneFire(){ confettiFx++; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, { n:120, life:2.4 }); }
     var pickups;        // 掉落物数组
     var shield;         // 护盾计数（免一次撞击/个）
     var boostTimer;     // 🚀 加速剩余秒数
@@ -127,6 +129,7 @@
       spawnX = W + 80;
       flashMsg = '';
       groundHit = false;
+      confettiFx = 0;
       // 道具系统状态初始化
       pickups = [];
       shield = 0;
@@ -253,6 +256,7 @@
             var b = J.best('best_jetpack', score);
             if (b.isNew) J.achievement('🏆 新纪录 ' + score + '！');
           }
+          if (score > best) milestoneFire();   // 打破最高分 → 正反馈彩带（只读钩子记录）
           best = Math.max(best, score);
         }
       }
@@ -386,6 +390,7 @@
       setScore: function (v) { score = v; },
       getBest: function () { return best; },
       getGap: function () { return GAP; },
+      confettiFired: function () { return confettiFx; },
       scrollSpd: function () { return scrollSpd(); },
       GROUND: GROUND, GAP: GAP, PIPE_W: PIPE_W, GRAV: GRAV, FLAP: FLAP,
       // —— 标准掉落钩子（spec §4）——

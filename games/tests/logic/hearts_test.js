@@ -111,3 +111,13 @@ t.setRand(Math.random);
 eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
 eq('getDifficulty 为 hell', t.getDifficulty(), 'hell');
 eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
+
+// ---------- 人类(P1)分数最低获胜触发 confetti 钩子 ----------
+{
+  t.setScores([0,100,100,100]);
+  t.gameOver();
+  ok('游戏结束', t.isOver());
+  eq('人类分数最低', t.getScores()[0] < Math.min(t.getScores()[1], t.getScores()[2], t.getScores()[3]), true);
+  ok('人类获胜触发 confettiFired', t.confettiFired());
+}
+

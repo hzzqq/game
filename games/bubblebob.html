@@ -140,6 +140,7 @@ let powerups=[];        // {gx,gy,type}
 let state='menu';       // menu | playing | roundover
 let aliveCount=0;
 let lastWinner=null;
+let _confettiFired=false; // 玩家(P0)获胜 confetti 已触发（独立于 Juice 的只读测试锁）
 let keys=new Set();
 let mode='1v3';
 let roundNo=1;
@@ -243,6 +244,7 @@ function startGame(m){
   // 重置炸弹通行标记
   for(const p of players) p.bombsActive=0;
   aliveCount=players.length;
+  _confettiFired=false; // 新对局重置获胜反馈锁（仅视觉状态）
   hideOverlay('menu'); hideOverlay('roundover');
   updateHud();
 }
@@ -255,6 +257,7 @@ function nextRound(){
   bombs=[]; explosions=[]; powerups=[];
   capPickups=[]; capBoost=0; capShield=false; capLives=3; capDead=false; capSpawn=12; capBombCleared=0;
   state='playing'; aliveCount=players.length;
+  _confettiFired=false; // 新回合重置获胜反馈锁（仅视觉状态）
   roundNo++;
   hideOverlay('roundover');
   updateHud();
@@ -703,6 +706,11 @@ function showRoundOver(){
       const b=Juice.best('bubblebob', p1score);
       const rk=Juice.rank(p1score);
       Juice.achievement('🏆 '+lastWinner.name+' 获胜！分数 '+p1score+' · 段位 '+rk);
+      if(!_confettiFired){
+        _confettiFired=true;
+        if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+        if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.4);
+      }
     } else {
       Juice.addTrauma(0.5); Juice.flash('#f6465d',0.4);
       Juice.achievement(lastWinner.name+' 获胜，再来一局！');
@@ -757,6 +765,7 @@ const __bb={
   getBoost:()=>capBoost,
   setBoost:(v)=>{ capBoost=v; },
   takeHit:(i)=>takeHit(i),
+  get confettiFired(){ return _confettiFired; },
 };
 if(typeof window!=='undefined') window.__bb=__bb;
 

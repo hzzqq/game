@@ -74,13 +74,13 @@
   function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
   function getDifficulty(){ return difficulty; }
 
-  let R, C, h, v, owner, current, scores, over, winner;
+  let R, C, h, v, owner, current, scores, over, winner, _wonPrev=false;
   function newGame(r,c){
     R = (r&&r>=2)?r:DEF_R; C = (c&&c>=2)?c:DEF_C;
     h = Array.from({length:R}, ()=>new Array(C-1).fill(false));   // 横线
     v = Array.from({length:R-1}, ()=>new Array(C).fill(false));   // 竖线
     owner = Array.from({length:R-1}, ()=>new Array(C-1).fill(-1));
-    current=0; scores=[0,0]; over=false; winner=null;
+    current=0; scores=[0,0]; over=false; winner=null; _wonPrev=false;
   }
   function reset(){ newGame(R,C); }
   // 检查某条线是否使相邻方格完成，完成则归 current
@@ -99,7 +99,7 @@
     h[r][c]=true;
     const claimed=completeCheck();
     if(!claimed) current=1-current;
-    else if(owner.flat().every(x=>x>=0)){ over=true; winner=scores[0]>scores[1]?0:(scores[1]>scores[0]?1:-1); }
+    else if(owner.flat().every(x=>x>=0)){ over=true; winner=scores[0]>scores[1]?0:(scores[1]>scores[0]?1:-1); if(winner===0 && !_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
     if(typeof Juice!=='undefined'){
       if(claimed){ Juice.sfx('levelup'); }
       else Juice.sfx('click');
@@ -111,7 +111,7 @@
     v[r][c]=true;
     const claimed=completeCheck();
     if(!claimed) current=1-current;
-    else if(owner.flat().every(x=>x>=0)){ over=true; winner=scores[0]>scores[1]?0:(scores[1]>scores[0]?1:-1); }
+    else if(owner.flat().every(x=>x>=0)){ over=true; winner=scores[0]>scores[1]?0:(scores[1]>scores[0]?1:-1); if(winner===0 && !_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
     if(typeof Juice!=='undefined'){
       if(claimed){ Juice.sfx('levelup'); }
       else Juice.sfx('click');
@@ -256,6 +256,7 @@
       newGame, reset, playH, playV, getCurrent, getScores, isOver, getWinner,
       getOwner, getH, getV, getRC, setRaw,
       setRand, DIFFICULTY, setDifficulty, getDifficulty, aiChooseLine,
+      confettiFired(){ return _wonPrev; },
     };
   }
 })();

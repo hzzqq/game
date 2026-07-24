@@ -174,6 +174,7 @@
   var TOKEN = 0;
 
   var G = null;
+  var _confettiFired = false;
 
   // ---------- 工具 ----------
   function $(id){ return document.getElementById(id); }
@@ -211,6 +212,7 @@
   // ---------- 新游戏 ----------
   function newGame(){
     TOKEN++;
+    _confettiFired = false;
     G = {
       token: TOKEN,
       players: [],
@@ -373,6 +375,11 @@
     var me = G.players[G.humanId];
     var humanFaction = (me.role==='wolf') ? 'wolf' : 'good';
     var win = (faction===humanFaction);
+    if(win && !_confettiFired){
+      _confettiFired = true;
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.4);
+    }
     renderTop(); renderSeats(); renderAction();
     var listHtml = G.players.map(function(p){
       var isW = p.role==='wolf';
@@ -683,7 +690,8 @@
     setPending: function(v){ if(G) G.pending = v; },
     getVotes: function(){ return G ? G.votes : null; },
     setVotes: function(v){ if(G) G.votes = v; },
-    getHumanId: function(){ return G ? G.humanId : 0; }
+    getHumanId: function(){ return G ? G.humanId : 0; },
+    confettiFired: function(){ return _confettiFired; }
   };
 
   newGame();

@@ -62,10 +62,21 @@
   const sideOf=v=> v===RED?1 : v===BLACK?2 : 0;
 
   let S; // {board:[49], turn, winner}
+  let _wonPrev=false, winFx=0; // 胜利特效跳变防重 + 计数
   function newGame(){
     S={ board:new Array(SIZE*SIZE).fill(0), turn:RED, winner:0 };
     const corners=[[0,0],[0,1],[1,0],[1,1],[SIZE-1,SIZE-1],[SIZE-1,SIZE-2],[SIZE-2,SIZE-1],[SIZE-2,SIZE-2]];
     corners.forEach((p,i)=> S.board[idx(p[0],p[1])] = (i<4)?RED:BLACK);
+    _wonPrev=false; winFx=0;
+  }
+  function fireWinFx(){ // 仅玩家(红)获胜时触发彩带 + 粒子，_wonPrev 跳变防重复
+    if(S.winner===RED && !_wonPrev){
+      _wonPrev=true; winFx++;
+      if(typeof Juice!=='undefined'){
+        if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+        if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:40, speed:160});
+      }
+    }
   }
 
   function movesFrom(s,r,c){
@@ -123,15 +134,14 @@
     }
     return v;
   }
+  // 轻量着法排序（仅按直接吃子数估计），避免在每个节点对所有着法做完整克隆+评估，
+  // 大幅降低搜索的内存分配量；不改变胜负判定，仅影响 alpha-beta 剪枝效率与平手时的优先级。
   function orderMoves(s,moves){
-    return moves.slice().sort((a,b)=>{
-      const na=simGain(s,a,RED), nb=simGain(s,b,RED);
-      return nb-na;
-    });
-  }
-  function simGain(s,mv,me){
-    const ns=cloneState(s); applyMoveState(ns,mv);
-    return evalState(ns)*(s.turn===me?1:-1);
+    const me=s.turn, foe=(me===RED)?BLACK:RED;
+    const cap=mv=>{ const [tr,tc]=mv.to; let g=0;
+      for(const [dr,dc] of D8){ const r=tr+dr,c=tc+dc; if(inB(r,c)&&s.board[idx(r,c)]===foe) g++; }
+      if(mv.type==='clone') g+=0.1; return g; };
+    return moves.slice().sort((a,b)=> cap(b)-cap(a));
   }
   function search(s,depth,alpha,beta){
     if(s.winner!==0){ if(s.winner===RED) return 100000+depth; if(s.winner===BLACK) return -100000-depth; return 0; }
@@ -174,6 +184,7 @@
     if(!ok) return {ok:false,reason:'illegal'};
     applyMoveState(S,mv);
     if(typeof Juice!=='undefined') Juice.sfx('click');
+    fireWinFx();
     return {ok:true};
   }
   /* ===================== 难度系统 ===================== */
@@ -266,6 +277,7 @@
     countPieces, finalWinner, winnerOf(){ return S.winner; },
     getBoard(){ return S.board.slice(); },
     DIFFICULTY, setDifficulty, getDifficulty, setRand,
+    confettiFired(){ return winFx; },
   };
 })();
 </script>

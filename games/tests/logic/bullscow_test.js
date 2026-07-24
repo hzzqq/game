@@ -73,3 +73,15 @@ eq('MAX_TRIES=10', t.MAX_TRIES, 10);
 }
 
 console.log('bullscow: 全部断言通过');
+
+// ---------- 轮2：胜利 confetti 标记 ----------
+{
+  t.reset(); t.setSecret([1,2,3,4]);
+  t.guess([1,2,3,4]);
+  ok('猜中后 confettiFired 置位', t.getConfettiFired()===true);
+}
+{
+  t.reset(); t.setSecret([1,2,3,4]);
+  t.guess([5,6,7,8]); // 未中
+  ok('未中不置位', t.getConfettiFired()===false);
+}

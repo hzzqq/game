@@ -134,6 +134,7 @@
   var state = 'menu';        // menu | play | over
   var best = 0;
   var milestone = 0;
+  var confettiFiredFlag = false;   // 成就反馈：破最高分置真（跳变防重复）
   try { best = parseInt(localStorage.getItem('subwaysuroffers_best')||'0',10) || 0; } catch(e){ best = 0; }
   bestEl.textContent = best;
 
@@ -160,6 +161,7 @@
     bgScroll = 0;
     farScroll = 0;
     milestone = 100;
+    confettiFiredFlag = false;
   }
 
   var GRAV = 0.62;
@@ -568,6 +570,12 @@
       best = d; nb = true;
       try { localStorage.setItem('subwaysuroffers_best', String(best)); } catch(e){}
     }
+    // 成就正反馈：破最高分 → confetti + 粒子（纯注入，不改计分/死亡判定）
+    if (nb && !confettiFiredFlag){
+      confettiFiredFlag = true;
+      if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      if (typeof Juice !== 'undefined' && Juice.burst) Juice.burst(runner.x, runner.y - runner.h/2, { color:'#ffb020', n:18, speed:220 });
+    }
     bestEl.textContent = best;
     ovTitle.textContent = 'GAME OVER // 撞毁';
     ovTitle.style.color = '#ff5a3c';
@@ -622,7 +630,9 @@
     setRunner: function(o){ for (var k in o) runner[k] = o[k]; },
     getRunner: function(){ return { x:runner.x, y:runner.y, h:runner.h, w:runner.w, shield:runner.shield, invuln:runner.invuln }; },
     setObstacles: function(arr){ obstacles = arr; },
-    spawnObstacle: spawnObstacle
+    spawnObstacle: spawnObstacle,
+    // —— 成就反馈只读钩子（破最高分置真，跳变防重复）——
+    confettiFired: function(){ return confettiFiredFlag; }
   };
 
   reset();

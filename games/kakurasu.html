@@ -62,6 +62,14 @@
   let colTarget;  // 长度 N
   let sol;        // N×N boolean 规范解
   let won = false;
+  let _wonPrev = false;
+  let _confettiCount = 0;
+  function _fireConfetti(){
+    _confettiCount++;
+    if(typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(typeof Juice !== 'undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.4, {color:'#f0b90b', n:40});
+  }
+  function _checkWinFx(){ if(won && !_wonPrev) _fireConfetti(); _wonPrev = won; }
 
   function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
 
@@ -73,8 +81,8 @@
     sol = s;
     rowTarget = s.map((row,r)=>row.reduce((a,v,c)=>a+(v?colW[c]:0),0));
     colTarget = new Array(N).fill(0);
-    for(let c=0;c<N;c++) for(let r=0;r<N;r++) if(s[r][c]) colTarget[c]+=rowW[r];
-    won = false;
+    for(let c=0;c<N;c++) for(let r=0;r<N;r++) if(s[r][c])     colTarget[c]+=rowW[r];
+    won = false; _wonPrev = false;
     return getState();
   }
 
@@ -88,6 +96,7 @@
     if(!inb(r,c)) return false;
     sel[r][c]=!!v;
     won = isWin();
+    _checkWinFx();
     if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
     return true;
   }
@@ -95,10 +104,10 @@
 
   function reset(){
     sel = Array.from({length:N},()=>new Array(N).fill(false));
-    won=false;
+    won=false; _wonPrev=false;
     return getState();
   }
-  function applySolution(){ for(let r=0;r<N;r++) for(let c=0;c<N;c++) sel[r][c]=!!sol[r][c]; won=isWin(); return won; }
+  function applySolution(){ for(let r=0;r<N;r++) for(let c=0;c<N;c++) sel[r][c]=!!sol[r][c]; won=isWin(); _checkWinFx(); return won; }
   function getSolution(){ return sol.map(row=>row.slice()); }
   function getState(){
     return { N, sel:sel.map(r=>r.slice()), rowTarget:rowTarget.slice(), colTarget:colTarget.slice(), won,
@@ -162,7 +171,8 @@
     else { buildBoard(); bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setCell, toggle, applySolution, getSolution, getState, colW, rowW };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setCell, toggle, applySolution, getSolution, getState, colW, rowW,
+      get confettiFired(){ return _confettiCount; } };
   }
 })();
 </script>

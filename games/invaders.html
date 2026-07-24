@@ -75,6 +75,7 @@
   function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
 
   let player, aliens, bullets, ox, oy, dir, speed, score, lives, wave, over, cooldown;
+  let _confettiFired = false; // 过关/胜利 confetti 钩子（独立于 Juice，只读暴露）
   let boss = null;       // Boss 波：{x,y,w,h,hp,maxHp,dir,vx,phase} 非 boss 波为 null
   const BOSS_EVERY = 3;  // 每 3 波出现一次 Boss
   let pickups = [];      // 掉落道具：{x,y,vy,type}
@@ -132,6 +133,7 @@
       pickups.push(makePickup('rocket', boss.x + boss.w/2, boss.y + boss.h)); // 掉落 🚀
       if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076'); Juice.addTrauma&&Juice.addTrauma(0.5); }
       boss = null;
+      if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       return true;
     }
     return false;
@@ -177,6 +179,7 @@
     player={x:W/2};
     bullets=[];
     score=0; lives=3; wave=1; over=false; cooldown=0;
+    _confettiFired = false;
     boss=null;
     pickups=[]; rocketLeft=0; shieldUntil=0; pickupTimer=0;
     reseed(0x1A2B3C4D & 0xFFFFFFFF);
@@ -227,6 +230,8 @@
         const ax=alienX(a), ay=alienY(a);
         if(b.x>ax && b.x<ax+AW && b.y>ay && b.y<ay+AH){
           a.alive=false; score+=10;
+          if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(ax+AW/2, ay+AH/2, {color:'#f6465d', n:8, speed:150});
+          if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.2);
           if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); }
           if(b.strong && rocketLeft>0){ b.dead=false; rocketLeft--; if(rocketLeft<=0) b.strong=false; }
           else { b.dead=true; }
@@ -248,6 +253,7 @@
       if(typeof Juice!=='undefined') Juice.sfx('levelup');
       if(isBossWave(wave)) spawnBoss();
       else buildAliens();
+      if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     }
   }
 
@@ -346,6 +352,7 @@
       getScore:()=>score, setScore:(v)=>{score=v;},
       getLives:()=>lives, setLives:(v)=>{lives=v;},
       getWave:()=>wave, getOver:()=>over, setOver:(v)=>{over=v;},
+      confettiFired:()=>_confettiFired,
       // —— Boss 系统钩子 ——
       BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
       getBoss:()=>boss ? {x:boss.x,y:boss.y,w:boss.w,h:boss.h,hp:boss.hp,maxHp:boss.maxHp,phase:boss.phase,dir:boss.dir} : null,

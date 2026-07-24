@@ -195,6 +195,18 @@ t.startHand();
   ok('全下摊牌后有赢家分到 pot', t.getPlayers().some(p => p.chips > 200));
 }
 
+// ---------- 人类(p0)在 showdown 获胜触发 confetti 钩子 ----------
+{
+  t.startHand();
+  t.setCommunity([C(2,1),C(3,1),C(6,1),C(8,1),C(10,1)]);
+  t.setHole(0, [C(13,1),C(12,1)]);   // p0 同花
+  t.setHole(1, [C(14,0),C(13,0)]);   // p1 一对 K
+  t.setFolded(2, true); t.setFolded(3, true);
+  t.setPot(100);
+  t.showdown();
+  ok('showdown p0 获胜触发 confettiFired', t.confettiFired());
+}
+
 // 失败则非零退出
 let failed = 0;
 for (const r of require('./harness').results) if (!r.pass) failed++;

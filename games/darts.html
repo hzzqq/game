@@ -52,13 +52,20 @@
 (function(){
   "use strict";
   let scores, turn, over, winner, bonus, pickups;
-  function reset(){ scores=[501,501]; turn=0; over=false; winner=-1; bonus=0; pickups=[]; }
+  let _confettiFired=false; // 胜利 confetti 已触发（独立于 Juice 的只读测试锁）
+  function reset(){ scores=[501,501]; turn=0; over=false; winner=-1; bonus=0; pickups=[]; _confettiFired=false; }
   function setScores(arr){ scores=arr.slice(); turn=0; over=false; winner=-1; }
   function throwDart(pts){
     if(over) return;
     const p=turn;
     const ns=scores[p]-pts;
-    if(ns===0){ scores[p]=0; over=true; winner=p; Juice.sfx('win'); Juice.flash('#02c076',.5); }
+    if(ns===0){ scores[p]=0; over=true; winner=p; Juice.sfx('win'); Juice.flash('#02c076',.5);
+      if(!_confettiFired){
+        _confettiFired=true;
+        if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+        if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
+      }
+    }
     else if(ns<0){ /* 爆镖：本镖作废，分数不变 */ Juice.sfx('error'); Juice.addTrauma(.25); }
     else { scores[p]=ns; Juice.sfx('hit'); Juice.addTrauma(.25); }
     if(pts===50){ const p=makePickup('bull',0,0); pickups.push(p); applyPickup(p); } // 命中靶心掉落 🎯 奖励
@@ -98,7 +105,8 @@
     applyPickup(p){ applyPickup(p); },
     getPickups(){ return pickups.length; },
     getPickup(i){ return pickups[i]; },
-    getBonus(){ return bonus; }
+    getBonus(){ return bonus; },
+    confettiFired(){ return _confettiFired; }
   }; }
 })();
 </script>

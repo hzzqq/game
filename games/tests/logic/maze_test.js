@@ -81,3 +81,13 @@ t.reset();
 const lives1 = t.getLives();
 t.takeHit();
 ok('迷宫: 无护盾受击扣血', t.getLives() === lives1 - 1);
+
+// ===== 轮5：完成彩带特效（到达终点触发，只读标记）=====
+t.setMaze([
+  [{ N:true, E:false, S:true, W:true }, { N:true, E:true, S:true, W:false }],
+]);
+const mf0 = t.confettiFired;
+// 玩家随 newGame 在 (0,0)；从 (0,0) 向东一步即到 (0,1) 终点
+t.movePlayer('E');
+ok('迷宫: 到达终点', t.getPlayer() && t.getPlayer().r === 0 && t.getPlayer().c === 1);
+eq('迷宫: 到达终点触发彩带', t.confettiFired, mf0+1);

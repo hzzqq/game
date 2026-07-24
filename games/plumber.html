@@ -53,6 +53,7 @@
   const N=6;
   const U=1,R=2,D=4,L=8;
   let board, over;
+  let _confettiCount=0;   // 完成彩带触发计数（只读标记）
   // ---- 注入：掉落道具/增益系统（纯附加，不改核心旋转/连通逻辑）----
   let coins=0, shield=false, boostTimer=0, pickups=[], pkid=0, spawnTimer=0;
   const SPAWN_INTERVAL = 6;   // 场景计时掉落间隔（秒）
@@ -143,7 +144,7 @@
       } }
       // 护盾>0 画护盾环（绘制层，仅视觉）：在水源格叠加蓝色辉环
       if(shield && r===0 && c===0){ el.style.boxShadow='inset 0 0 0 3px #5ab4ff, 0 0 14px #5ab4ff'; }
-      if(isSolved()&&!over){ over=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} }
+      if(isSolved()&&!over){ over=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} if(typeof Juice!=='undefined' && Juice.confetti){ Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } _confettiCount++; }
     });
     const st=$('st'),msg=$('msg');
     if(st) st.textContent=(over?'已连通':'连通中')+(coins>0?(' · 💰'+coins):'')+(shield?' · 🛡':'');
@@ -156,7 +157,7 @@
     else { build(); bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ N, U, R, D, L, newGame, rotate, getMask, getBoard, isSolved, setBoard, rotMask,
+    window.__t={ N, U, R, D, L, newGame, rotate, getMask, getBoard, isSolved, setBoard, rotMask, render,
       // 注入钩子
       PICK, spawnPickup, spawnPickupAtRandom, applyPickup, collectAt, updatePickups, takeHit,
       getPickups, getCoins, getShield, setShield, getBoost, setBoost,
@@ -166,6 +167,7 @@
       update, SPAWN_INTERVAL, getSpawnTimer(){ return spawnTimer; },
       reset(){ newGame(); coins=0; shield=false; boostTimer=0; pickups=[]; spawnTimer=0; }
     };
+    Object.defineProperty(window.__t, 'confettiFired', { get: ()=>_confettiCount, enumerable:true });
   }
 })();
 </script>

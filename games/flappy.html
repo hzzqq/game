@@ -97,6 +97,7 @@
     function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
 
     var state, bird, pipes, score, best, spawnX, flashMsg, groundHit;
+    var confettiFiredFlag = false;   // 成就反馈：破最高分时置真（跳变防重复）
     best = (typeof Juice !== 'undefined') ? (Juice.load('best_flappy', 0) || 0) : 0;
 
     // 局部种子 PRNG（mulberry32）：注入掉落随机必须走它，禁止 Math.random
@@ -121,6 +122,7 @@
       flashMsg = '';
       groundHit = false;
       lives = 1; boostUntil = 0; shieldUntil = 0; pickups = []; pickupTimer = 0;
+      confettiFiredFlag = false;
       GAP = Math.round(BASE_GAP * diffCfg().gapMult);
       PIPE_SPD = BASE_PIPE_SPD * diffCfg().spdMult;
       reseed(0xF1A9B0B & 0xFFFFFFFF);
@@ -227,6 +229,7 @@
       if (hits()) {
         if (!birdHit()) {  // 有额外命则 revive 存活，否则 dead
           state = 'dead';
+          var isNewRecord = score > best;   // 成就：本次得分破历史最高分
           if (typeof Juice !== 'undefined') {
             Juice.sfx('lose'); Juice.addTrauma(0.6); Juice.flash('#f6465d', 0.35);
             Juice.burst(bird.x, bird.y, { color: '#f6465d', n: 18, speed: 240 });
@@ -235,6 +238,12 @@
             if (b.isNew) Juice.achievement('🏆 新纪录 ' + score + '！');
           }
           best = Math.max(best, score);
+          // 成就正反馈：破最高分 → confetti + 粒子（纯注入，不改死亡/计分判定）
+          if (isNewRecord && !confettiFiredFlag) {
+            confettiFiredFlag = true;
+            if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+            if (typeof Juice !== 'undefined') Juice.burst(bird.x, bird.y, { color: '#f0b90b', n: 14, speed: 200 });
+          }
         }
       }
     }
@@ -372,9 +381,12 @@
       setLives: function (v) { lives = v; },
       getState: function () { return { status: state, score: score, best: best,
         boost: nowMs() < boostUntil, shield: nowMs() < shieldUntil, lives: lives,
+        boost: nowMs() < boostUntil, shield: nowMs() < shieldUntil, lives: lives,
         bird: { x: bird.x, y: bird.y, vy: bird.vy, r: bird.r },
         pipes: pipes.map(function (p) { return { x: p.x, gapY: p.gapY, scored: p.scored }; }),
-        pickups: pickups.map(function (p) { return { x: p.x, y: p.y, type: p.type }; }) }; }
+        pickups: pickups.map(function (p) { return { x: p.x, y: p.y, type: p.type }; }) }; },
+      // —— 成就反馈只读钩子（破最高分置真，跳变防重复）——
+      confettiFired: function () { return confettiFiredFlag; }
     };
 
     reset();

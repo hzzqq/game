@@ -174,6 +174,14 @@ H.ok('吃豆人 边界(0,0)是墙', t.isWall(0,0) === true);
   H.ok('建模 渲染后 lives 不变', t.getLives() === before.lives);
   H.ok('建模 渲染后 dotsLeft 不变', t.getDotsLeft() === before.dots);
   H.ok('建模 渲染后 pac 位置不变', JSON.stringify(t.getPac()) === before.pac);
-  H.ok('建模 渲染后 ghost 数不变', t.getGhosts().length === before.ghosts);
+	H.ok('建模 渲染后 ghost 数不变', t.getGhosts().length === before.ghosts);
 })();
+
+// ===== 吃完所有豆子过关 → confetti 钩子（独立于 Juice） =====
+t.startGame();
+for (const d of t.getDots()) { if (!d.eaten) t.eatAt(d.c, d.r); }
+H.ok('吃豆人: 吃完所有豆子过关 confettiFired 置真', t.confettiFired() === true, 'win='+t.getWin());
+
+if (H.results.some(r => !r.pass)) process.exit(1);
+process.exit(0);
 

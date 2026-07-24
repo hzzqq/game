@@ -137,7 +137,7 @@
   function setRand(fn){ _rand = fn; }
   function pickWord(){ return WORDS[Math.floor(_rand()*WORDS.length)]; }
 
-  let secret, guessed, wrong, status;
+  let secret, guessed, wrong, status, winFx = 0;
   function reset(wordObj){
     secret = wordObj || pickWord();
     guessed = new Set();
@@ -152,7 +152,7 @@
     if(guessed.has(letter)) return 'repeat';
     guessed.add(letter);
     if(secret.w.indexOf(letter) >= 0){
-      if(isWin()) status = 'won';
+      if(isWin()){ status = 'won'; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); winFx++; }
     } else {
       wrong++;
       if(wrong >= MAX_WRONG) status = 'lost';
@@ -234,6 +234,7 @@
       setRand, pickWord, reset, guess,
       masked, isWin, getWrong, getMaxWrong, getRemaining, getGuessed,
       getStatus, getSecret, getHint, hasWon, hasLost, getGallows,
+      confettiFired: function(){ return winFx; },
     };
   }
 })();

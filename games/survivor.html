@@ -105,6 +105,7 @@
 
   // ---------- state ----------
   let S = null;
+  var _confettiFired = false; // 升级里程碑 confetti 锁（独立于 Juice 的只读测试钩子）
   function reset(opts){
     opts = opts||{};
     S = {
@@ -118,6 +119,7 @@
       trauma:0, flash:0,
     };
     addWeapon('whip');
+    _confettiFired = false;
     if(opts.seed!==undefined){ /* deterministic hook reserved */ }
     return S;
   }
@@ -277,7 +279,7 @@
       triggerLevelUp();
     }
   }
-  function triggerLevelUp(){ S.state='levelup'; S.choices=genChoices(); if(J){ J.sfx('levelup'); J.burst(S.player.x,S.player.y,{color:'#f0b90b',n:14}); } }
+  function triggerLevelUp(){ S.state='levelup'; S.choices=genChoices(); if(J){ J.sfx('levelup'); J.burst(S.player.x,S.player.y,{color:'#f0b90b',n:14}); } if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(W/2, H*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.4); } }
   function genChoices(){
     const pool=[];
     for(const k in WEAPONS){
@@ -474,6 +476,7 @@
       setInput:(x,y)=>{ S.input.x=x; S.input.y=y; },
       setTime:(t)=>{ S.time=t; },
       forceBoss:()=>{ S.bossT=S.time; },
+      confettiFired: function(){ return _confettiFired; },
     };
   }
 })();

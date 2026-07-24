@@ -64,3 +64,13 @@ H.ok('直线 非直线被拒', t.lineCells(0,0,2,3) === null);
   }
   H.ok('新局 所有词正确落在棋盘', placedOK);
 })();
+
+// 7) 通关胜利彩带（confettiFired 标记）
+(() => {
+  t.setGame(grid, words);
+  t.select(0,0,0,3);
+  t.select(8,5,5,5);
+  H.ok('通关 won', t.getState().won === true);
+  H.ok('通关 confettiFired 触发', t.confettiFired() >= 1);
+})();
+if (H.results.some(r => !r.pass)) process.exit(1);

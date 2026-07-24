@@ -59,6 +59,7 @@
   function setRand(fn){ _rand = fn; }
 
   let seq, inp, round, over, complete, score, best;
+  let _confettiCount=0;   // 完成彩带触发计数（只读标记）
   function newGame(){
     seq=[]; inp=[]; round=0; over=false; complete=false; score=0;
   }
@@ -82,6 +83,8 @@
         score=round;
         if(score>best) best=score;
         if(typeof Juice!=='undefined') Juice.sfx('levelup');
+        if(typeof Juice!=='undefined' && Juice.confetti){ Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+        _confettiCount++;
       } else if(typeof Juice!=='undefined') Juice.sfx('click');
       return true;
     }
@@ -151,6 +154,7 @@
       setRand, newGame, reset, startRound, input,
       getSequence, getInput, getRound, getScore, getBest, isOver, isRoundComplete, setBest,
     };
+    Object.defineProperty(window.__t, 'confettiFired', { get: ()=>_confettiCount, enumerable:true });
   }
 })();
 </script>

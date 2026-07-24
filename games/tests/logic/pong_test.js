@@ -81,3 +81,9 @@ eq('生成掉落但金币仍0', t.getCoins(), 0);
 t.stepPickups(0.001); // 球在(200,150)，远离(50,30)，不拾取
 eq('远离则未拾取', t.getCoins(), 0);
 eq('掉落仍保留', t.getPickups().length, 1);
+
+// ===== 胜利 confetti：玩家先到胜局分(WIN=11) =====
+t.reset();
+eq('胜利前 confettiFired 为 false', t.confettiFired(), false);
+for(let i=0;i<11;i++){ t.setBall(399,150,5,0); t.step(2); }
+eq('先到胜局分触发 confettiFired', t.confettiFired(), true);

@@ -56,6 +56,14 @@
   let h, v;    // 玩家边
   let sol;     // {h,v}
   let won = false;
+  let _wonPrev = false;
+  let _confettiCount = 0;
+  function _fireConfetti(){
+    _confettiCount++;
+    if(typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(typeof Juice !== 'undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.4, {color:'#02c076', n:40});
+  }
+  function _checkWinFx(){ if(won && !_wonPrev) _fireConfetti(); _wonPrev = won; }
 
   function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
 
@@ -123,7 +131,7 @@
     }
     h = Array.from({length:H},()=>new Array(W-1).fill(false));
     v = Array.from({length:H-1},()=>new Array(W).fill(false));
-    won=false;
+    won=false; _wonPrev=false;
     return getState();
   }
 
@@ -164,12 +172,13 @@
     if(type==='h'){ if(r<0||r>=H||c<0||c>=W-1) return false; h[r][c]=!!val; }
     else { if(r<0||r>=H-1||c<0||c>=W) return false; v[r][c]=!!val; }
     won=isWin();
+    _checkWinFx();
     if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
     return true;
   }
   function toggleEdge(type,r,c){ const cur=(type==='h')?h[r][c]:v[r][c]; return setEdge(type,r,c,!cur); }
   function reset(){ h=Array.from({length:H},()=>new Array(W-1).fill(false)); v=Array.from({length:H-1},()=>new Array(W).fill(false)); won=false; return getState(); }
-  function applySolution(){ h=sol.h.map(row=>row.slice()); v=sol.v.map(row=>row.slice()); won=isWin(); return won; }
+  function applySolution(){ h=sol.h.map(row=>row.slice()); v=sol.v.map(row=>row.slice()); won=isWin(); _checkWinFx(); return won; }
   function getSolution(){ return {h:sol.h.map(r=>r.slice()), v:sol.v.map(r=>r.slice())}; }
   function getState(){ return { N, clues:clues.map(r=>r.slice()), h:h.map(r=>r.slice()), v:v.map(r=>r.slice()), won }; }
 
@@ -231,7 +240,8 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setEdge, toggleEdge, applySolution, getSolution, getState, analyze };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setEdge, toggleEdge, applySolution, getSolution, getState, analyze,
+      get confettiFired(){ return _confettiCount; } };
   }
 })();
 </script>

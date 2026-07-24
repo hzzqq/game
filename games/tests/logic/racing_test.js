@@ -45,4 +45,20 @@ T.spawnEnemyOnPlayer();
 T.update(0.016);
 H.ok(T.getLives() === lives1 - 1, 'racing: 无护盾撞车丢命 (lives=' + T.getLives() + ')');
 
+// 7) 里程碑冲线彩带：里程达标 → confettiFired 置真（只读锁，独立于 Juice）
+T.reset();
+H.ok(T.confettiFired() === false, 'racing: 冲线前 confettiFired 为 false');
+T.win();
+H.ok(T.confettiFired() === true, 'racing: 里程达标(' + T.getWinDist() + 'M) → confettiFired 为真');
+H.ok(T.getState() === 'playing', 'racing: 冲线不结束游戏(仍为 playing)');
+
+// 8) 重置后锁复位
+T.reset();
+H.ok(T.confettiFired() === false, 'racing: 重置后 confettiFired 复位');
+
+const total = H.results.length;
+const pass = H.results.filter(r => r.pass).length;
+console.log(`\nracing: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);
+
 module.exports = {};

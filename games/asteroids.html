@@ -48,7 +48,8 @@
   let ship, asteroids, bullets, score;
   let pickups, boostTimer, shield, rapid, spread, lives, over, spawnTimer;
   let wave=1, boss=null, ebullets=[];
-  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; rapid=0; spread=0; lives=3; over=false; spawnTimer=4; fireCd=0; wave=1; boss=null; ebullets=[]; spawnWave(); }
+  let _confettiFired=false; // Boss 击败 confetti 已触发（独立于 Juice 的只读测试锁）
+  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; rapid=0; spread=0; lives=3; over=false; spawnTimer=4; fireCd=0; wave=1; boss=null; ebullets=[]; _confettiFired=false; spawnWave(); }
   function spawnWave(){ asteroids=[]; for(let i=0;i<4;i++) asteroids.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()*2-1)*30,vy:(Math.random()*2-1)*30,r:30}); }
   // ---------- Boss 系统（每 BOSS_EVERY 波出现：巨大多边形母体，多阶段 + 击败奖励）----------
   const BOSS_EVERY = 3;
@@ -58,6 +59,7 @@
     const mult = (typeof diffCfg==='function') ? (diffCfg().bossHpMult||1) : 1;
     const maxHp = Math.round((28 + wave*6) * mult);
     boss = { x: W/2, y: 60, r: 38, hp: maxHp, maxHp: maxHp, phase: 1, vx: 40 + wave*6, dir: 1, downY: 0, fireT: 0.6, splitDone: false };
+    _confettiFired=false; // 新 Boss 重置击败反馈锁（仅视觉状态）
     asteroids = []; // 清空普通小行星
     if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#9b6bff'); }
   }
@@ -105,6 +107,11 @@
       score += 100*wave;
       pickups.push(makePickup('coin', boss.x, boss.y));
       if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076'); if(Juice.addTrauma) Juice.addTrauma(0.5); }
+      if(!_confettiFired){
+        _confettiFired=true;
+        if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+        if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.4);
+      }
       boss=null;
       return true;
     }
@@ -237,7 +244,8 @@
     addBullet:(x,y,vx,vy)=>{ bullets.push({x:x,y:y,vx:vx||0,vy:vy||0}); },
     getEBullets:()=> ebullets.length,
     setShip:(x,y)=>{ ship.x=x; ship.y=y; },
-    getWave:()=>wave
+    getWave:()=>wave,
+    confettiFired:()=> _confettiFired
   }; }
 })();
 </script>

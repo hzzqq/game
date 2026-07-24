@@ -66,6 +66,7 @@
 
   // 核心状态（普通 JS 变量，逻辑脱离 DOM）
   let board, current, score, over;
+  let _confettiFired = false; // 成就/过关 confetti 钩子（独立于 Juice，只读暴露）
 
   function emptyBoard(){
     return Array.from({length:ROWS}, () => new Array(COLS).fill(null));
@@ -86,6 +87,7 @@
   function reset(){
     board = emptyBoard();
     score = 0; over = false; current = null;
+    _confettiFired = false;
     spawn();
   }
   function newGame(seed){ if(typeof seed==='number' && !isNaN(seed)) reseed(seed); reset(); }
@@ -158,14 +160,21 @@
     let removed = 0;
     while(true){
       const mark = findMatches();
-      let cnt = 0;
-      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(mark[r][c]){ board[r][c]=null; cnt++; }
+      let cnt = 0, fx = null;
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(mark[r][c]){ board[r][c]=null; cnt++; if(!fx) fx = { r, c }; }
       if(cnt === 0) break;
       removed += cnt;
+      const prevScore = score;
       score += cnt * SCORE_PER;
+      if(fx && J && J.burst) J.burst(fx.c*CELL+CELL/2, fx.r*CELL+CELL/2, { color:'#02c076', n:8, speed:140 });
+      // 跨越 1000 分里程碑 = 成就事件 → 彩带（独立于 Juice，跳变防重复）
+      if(Math.floor(prevScore/1000) !== Math.floor(score/1000)){
+        if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      }
       applyGravity();
       if(J && cnt>0) J.sfx('pickup');
     }
+    if(removed>0 && J && J.shake) J.shake(0.2);
     return removed;
   }
 
@@ -270,6 +279,7 @@
       setCurrent:(p)=>{ current = { x:p.x, cells:p.cells.slice(), y:p.y }; },
       setScore:(v)=>{ score=v; },
       setOver:(v)=>{ over=!!v; },
+      confettiFired:()=>_confettiFired,
     };
   }
 })();

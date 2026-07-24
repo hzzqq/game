@@ -121,6 +121,7 @@
 
   let N=4;
   let deck, hands, discard, currentColor, currentValue, current, dir, gameOver, waitingColor, pending;
+  let _wonPrev=false, _confettiFired=0;
 
   function buildDeck(){
     const d=[]; const cols=['r','g','b','y'];
@@ -140,6 +141,7 @@
     if(first.color==='w'){ first.color='r'; } // 首张变色简化为红
     discard=[first]; currentColor=first.color; currentValue=(first.value==='wild'||first.value==='wild4')?null:first.value;
     current=0; dir=1; gameOver=false; waitingColor=false; pending=null;
+    _wonPrev=false; _confettiFired=0;
     hideOverlay(); document.getElementById('colorPick').style.display='none';
     render();
     if(typeof Juice!=='undefined') Juice.sfx('click');
@@ -233,7 +235,12 @@
     document.getElementById('ovTitle').style.color = youWin?GREEN:RED;
     document.getElementById('ovText').textContent = youWin?'你率先出完所有手牌。':('P'+(winner+1)+' 先出完，下局加油。');
     if(typeof Juice!=='undefined'){
-      if(youWin){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma&&Juice.addTrauma(0.4); const b=Juice.best('uno',1); Juice.rank(1); if(b.isNew) Juice.achievement('UNO 冠军！'); }
+      if(youWin){
+        if(!_wonPrev){ _wonPrev=true; _confettiFired++;
+          if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+          if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:GREEN, n:30});
+        }
+        Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma&&Juice.addTrauma(0.4); const b=Juice.best('uno',1); Juice.rank(1); if(b.isNew) Juice.achievement('UNO 冠军！'); }
       else { Juice.sfx('lose'); Juice.flash(RED,0.3); Juice.addTrauma&&Juice.addTrauma(0.4); }
     }
     ov.style.display='flex';
@@ -310,7 +317,9 @@
     getState(){ return { N:N, current:current, dir:dir, currentColor:currentColor, gameOver:gameOver,
       hands:hands.map(function(h){ return h.length; }), deck:deck.length }; },
     hand(p){ return hands[p].map(function(c){ return {color:c.color, value:c.value}; }); },
-    get gameOver(){ return gameOver; }
+    get gameOver(){ return gameOver; },
+    forceWin: function(){ endGame(0); },
+    confettiFired: function(){ return _confettiFired; }
   };
 })();
 </script>

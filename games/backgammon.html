@@ -84,7 +84,8 @@ let turn = 'red';
 let dice = [0,0];
 let turnDice = [];
 let winner = null;
-let canvas=null, ctx=null, rafId=null;
+  let _wonPrev = false;
+  let canvas=null, ctx=null, rafId=null;
 let _rand = Math.random;
 function rnd(){ return _rand(); }
 
@@ -108,7 +109,7 @@ function reset(){
   // 白(AI)：点1:2, 点12:5, 点17:3, 点19:5
   points[0].white = 2; points[11].white = 5; points[16].white = 3; points[18].white = 5;
   bar = {red:0, white:0}; off = {red:0, white:0};
-  turn = 'red'; dice = [0,0]; turnDice = []; winner = null;
+  turn = 'red'; dice = [0,0]; turnDice = []; winner = null; _wonPrev = false;
 }
 function countAll(side){ let n=0; for(const p of points) n+=p[side]; return n + bar[side] + off[side]; }
 
@@ -184,7 +185,7 @@ function applyMove(mv){
   }
   const i = turnDice.indexOf(mv.die);
   if(i>=0) turnDice.splice(i,1);
-  if(off[mover] === 15){ winner = mover; }
+  if(off[mover] === 15){ winner = mover; if(mover==='red' && !_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
   return true;
 }
 function move(from, die){
@@ -279,6 +280,7 @@ const __bg = {
   get bar(){return {r:bar.red, w:bar.white};},
   get off(){return {r:off.red, w:off.white};},
   get winner(){return winner;},
+  confettiFired(){ return _wonPrev; },
   get points(){return points.map(p=>({r:p.red, w:p.white}));},
   reset, rollDice, setRand, move, bearOff, endTurn, legalMoves,
   countAll, allHome,

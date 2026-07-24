@@ -93,6 +93,21 @@
   var N=52, HOMELEN=6, WIN=50+HOMELEN;    // 主轨道0..50 + 进港51..56(56=终点)
   var players=[], cur=0, dice=0, extra=0, phase='menu', winner=-1, anim=0, toastT=0;
 
+  /* ===================== 难度系统（人机会战：按 aiRandom 概率走随机合法步） ===================== */
+  var _rand = Math.random;
+  function setRand(fn){ _rand = fn || Math.random; }
+  var DIFFICULTY = {
+    easy:   { label:'简单', aiRandom:0.55 },
+    normal: { label:'普通', aiRandom:0.15 },
+    hard:   { label:'困难', aiRandom:0    },
+    hell:   { label:'地狱', aiRandom:0    },
+  };
+  var DIFF_ORDER = ['easy','normal','hard','hell'];
+  var difficulty = 'normal';
+  function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
+  function getDifficulty(){ return difficulty; }
+  var _wonPrev=false, winFx=0; // 胜利彩带跳变防重 + 计数
+
   function angleOf(i){ return -Math.PI/2 + i*(2*Math.PI/N); }
   function cellPos(i){ var a=angleOf(i), rx=W/2-46, ry=H/2-46; return [cx+rx*Math.cos(a), cy+ry*Math.sin(a)]; }
   function homePos(c,k){ var a=angleOf(START[c]), rx=(W/2-46)*(0.70-k*0.115), ry=(H/2-46)*(0.70-k*0.115); return [cx+rx*Math.cos(a), cy+ry*Math.sin(a)]; }
@@ -118,6 +133,7 @@
       players.push({color:c,planes:planes,shield:false,done:0});
     }
     cur=0; dice=0; extra=0; winner=-1; phase='idle';
+    _wonPrev=false; winFx=0;
     log('新对局开始，红方先手。','d');
     hideOverlay(); refresh();
   }
@@ -178,11 +194,11 @@
   function setProg(c,i,v){ var pl=players[c].planes[i]; pl.prog=v; if(v<0)pl.state='base'; else if(v<=50)pl.state='track'; else if(v<WIN)pl.state='home'; else {pl.state='done';players[c].done++;} }
   function doMoveRaw(c,i,d){ var pl=players[c].planes[i]; if(pl.state==='base')return; var np=pl.prog+d; if(np>WIN)np=WIN-(np-WIN); pl.prog=np; if(np>50)pl.state='home'; if(np===WIN){pl.state='done';players[c].done++;} }
   function findRivalOnTrack(c){ for(var o=0;o<4;o++){ if(o===c)continue; for(var j=0;j<4;j++){ if(players[o].planes[j].state==='track') return {c:o,i:j}; } } return null; }
-  function drawItem(c,i){ var it=ITEMS[Math.floor(Math.random()*ITEMS.length)]; toast(it.e); log(NAME[c]+' 触发道具：'+it.e,'i'); if(typeof Juice!=='undefined'){ var pp=planeXY(c, players[c].planes[i].prog); Juice.sfx('pickup'); Juice.popup(pp[0],pp[1],it.e,COL[c],{size:14}); } it.fn(c,i); }
+  function drawItem(c,i){ var it=ITEMS[Math.floor(_rand()*ITEMS.length)]; toast(it.e); log(NAME[c]+' 触发道具：'+it.e,'i'); if(typeof Juice!=='undefined'){ var pp=planeXY(c, players[c].planes[i].prog); Juice.sfx('pickup'); Juice.popup(pp[0],pp[1],it.e,COL[c],{size:14}); } it.fn(c,i); }
 
   function rollDice(){
     if(phase!=='idle') return;
-    dice=1+Math.floor(Math.random()*6);
+    dice=1+Math.floor(_rand()*6);
     if(typeof Juice!=='undefined') Juice.sfx('click');
     document.getElementById('diceTxt').textContent=dice;
     phase='act';
@@ -213,22 +229,31 @@
   }
 
   function aiPickAndMove(c,d,mv){
-    var best=-1, score=-1;
-    for(var x=0;x<mv.length;x++){
-      var i=mv[x], pl=players[c].planes[i];
-      var np = pl.state==='base'?0 : (function(){var t=pl.prog+d; if(t>WIN)t=WIN-(t-WIN); return t;})();
-      var s=0;
-      if(np===WIN) s=1000;
-      else if(pl.state==='base') s=500;
-      else {
-        s=np;
-        if(np<=50){ var m=((START[c]+np)%N+N)%N; if(!SAFE.has(m)){ for(var o=0;o<4;o++){ if(o===c)continue; for(var j=0;j<4;j++){ if(players[o].planes[j].state==='track' && ((START[o]+players[o].planes[j].prog)%N+N)%N===m){ s+=300; } } } } }
-        if(ITEMCELL.has(((START[c]+np)%N+N)%N)) s+=80;
+    var cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    var chosen;
+    if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
+      // 难度弱化：走随机合法着法
+      chosen = mv[Math.floor(_rand()*mv.length)];
+    } else {
+      // 现有最优策略（启发式贪心）
+      var best=-1, score=-1;
+      for(var x=0;x<mv.length;x++){
+        var i=mv[x], pl=players[c].planes[i];
+        var np = pl.state==='base'?0 : (function(){var t=pl.prog+d; if(t>WIN)t=WIN-(t-WIN); return t;})();
+        var s=0;
+        if(np===WIN) s=1000;
+        else if(pl.state==='base') s=500;
+        else {
+          s=np;
+          if(np<=50){ var m=((START[c]+np)%N+N)%N; if(!SAFE.has(m)){ for(var o=0;o<4;o++){ if(o===c)continue; for(var j=0;j<4;j++){ if(players[o].planes[j].state==='track' && ((START[o]+players[o].planes[j].prog)%N+N)%N===m){ s+=300; } } } } }
+          if(ITEMCELL.has(((START[c]+np)%N+N)%N)) s+=80;
+        }
+        if(s>score){score=s;best=i;}
       }
-      if(s>score){score=s;best=i;}
+      chosen=best;
     }
     log(NAME[c]+' 投掷 '+d,'d');
-    doMove(c,best,d);
+    doMove(c,chosen,d);
     setTimeout(function(){ postMove(c); }, 380);
   }
 
@@ -250,7 +275,9 @@
     ov.querySelector('p').textContent='红 归港 '+players[0].done+'/4 · 绿 '+players[1].done+'/4 · 蓝 '+players[2].done+'/4 · 金 '+players[3].done+'/4';
     document.getElementById('startBtn').textContent='再来一局';
     if(typeof Juice!=='undefined'){
-      if(winner===0){ Juice.sfx('win'); Juice.flash('#02c076',0.28); Juice.addTrauma(0.6); var b=Juice.best('airchess',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
+      if(winner===0){
+        if(!_wonPrev){ winFx++; if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:40, speed:160}); _wonPrev=true; }
+        Juice.sfx('win'); Juice.flash('#02c076',0.28); Juice.addTrauma(0.6); var b=Juice.best('airchess',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
       else { Juice.sfx('lose'); Juice.flash('#f6465d',0.3); Juice.addTrauma(0.6); }
     }
   }
@@ -328,7 +355,12 @@
     getPhase: function(){ return phase; }, setPhase: function(v){ phase = v; },
     getExtra: function(){ return extra; }, setExtra: function(v){ extra = v; },
     getWIN: function(){ return WIN; }, getN: function(){ return N; },
-    getStart: function(){ return START; }, getSafe: function(){ return SAFE; }, getItemcell: function(){ return ITEMCELL; }
+    getStart: function(){ return START; }, getSafe: function(){ return SAFE; }, getItemcell: function(){ return ITEMCELL; },
+    postMove: postMove,
+    aiPickAndMove: aiPickAndMove,
+    confettiFired: function(){ return winFx; },
+    DIFFICULTY, DIFF_ORDER, setDifficulty, getDifficulty, setRand,
+    getDifficultyName: function(){ return difficulty; },
   };
 
   loop();

@@ -50,6 +50,7 @@
   "use strict";
   const SUITS=['♠','♥'];
   let tableau, stock, foundations, over, won, _rand;
+  let _wonPrev=false, _confettiFired=0;
   function setRand(fn){ _rand=fn; }
   function color(s){ return s===1?'red':'black'; }
   function newDeck(){ const d=[]; for(let copy=0;copy<2;copy++) for(let s=0;s<2;s++) for(let r=1;r<=13;r++) d.push({s,r}); return d; }
@@ -58,20 +59,20 @@
     const deck=shuffle(newDeck());
     tableau=[[],[],[],[],[],[],[],[],[],[]];
     for(let c=0;c<10;c++){ const n=(c<4)?6:5; for(let k=0;k<n;k++) tableau[c].push(deck.pop()); }
-    stock=deck; foundations=0; over=false; won=false;
+    stock=deck; foundations=0; over=false; won=false; _wonPrev=false; _confettiFired=0;
   }
   function canStack(card, col){ const t=tableau[col]; if(t.length===0) return true; return t[t.length-1].r === card.r+1; }
   function moveToColumn(from,to){ if(from===to) return false; if(!tableau[from].length) return false; const c=tableau[from][tableau[from].length-1]; if(!canStack(c,to)) return false; tableau[to].push(c); tableau[from].pop(); settle(); return true; }
   function settle(){
     for(let c=0;c<10;c++){ const t=tableau[c]; if(t.length<13) continue; let ok=true; const suit=t[t.length-1].s;
       for(let k=0;k<13;k++){ const card=t[t.length-1-k]; if(card.r!==(1+k) || card.s!==suit){ ok=false; break; } }
-      if(ok){ t.splice(t.length-13,13); foundations++; if(foundations>=8){ over=true; won=true; Juice.sfx('win'); Juice.flash('#02c076',.5); } else { Juice.sfx('pickup'); } }
+      if(ok){ t.splice(t.length-13,13); foundations++; if(foundations>=8){ over=true; won=true; if(!_wonPrev){ _wonPrev=true; _confettiFired++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30}); } Juice.sfx('win'); Juice.flash('#02c076',.5); } else { Juice.sfx('pickup'); } }
     }
   }
   function dealOne(){ if(over||!stock.length) return false; for(let c=0;c<10;c++){ if(!stock.length) break; if(tableau[c].length) tableau[c].push(stock.pop()); } return true; }
   function isWin(){ return won || foundations>=8; }
   function getState(){ return { tableau:tableau.map(t=>t.map(c=>({...c}))), stock:stock.length, foundations, over, won }; }
-  function setTableau(t,f,s){ const COLS=10; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f||0; stock=(s||[]).map(c=>({...c})); over=false; won=false; }
+  function setTableau(t,f,s){ const COLS=10; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f||0; stock=(s||[]).map(c=>({...c})); over=false; won=false; _wonPrev=false; _confettiFired=0; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function cardHTML(c){ if(!c) return '<div class="slot empty">·</div>'; const nm=c.r===1?'A':c.r===11?'J':c.r===12?'Q':c.r===13?'K':c.r; return '<div class="slot '+(color(c.s))+'">'+nm+SUITS[c.s]+'</div>'; }
   function build(){
@@ -99,7 +100,8 @@
     else { build(); bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ SUITS, color, newGame, newDeck, canStack, moveToColumn, settle, dealOne, isWin, getState, setTableau, setRand };
+    window.__t={ SUITS, color, newGame, newDeck, canStack, moveToColumn, settle, dealOne, isWin, getState, setTableau, setRand,
+      confettiFired: function(){ return _confettiFired; } };
   }
 })();
 </script>

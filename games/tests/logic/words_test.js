@@ -54,6 +54,15 @@ t.setS({ score: 999, rank: '黄金' });
 eq('setS/getS score', t.getS().score, 999);
 eq('setS/getS rank', t.getS().rank, '黄金');
 
+// 8. 完成反馈（接龙成功 confetti / chainFx 标记）
+{
+  t.setS({ running:true, over:false, daily:false, dateKey:1, score:0, combo:0, lives:3, hints:3, skips:2, anchor:'一鸣惊人', required:'人', challenge:false, rank:'青铜', best:0, wrong:[] });
+  t.submitWord('人山人海');
+  const st = t.getS();
+  ok('接龙成功 score 增加', st.score > 0);
+  ok('接龙成功 chainFx 触发', t.chainFx() >= 1);
+}
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

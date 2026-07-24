@@ -243,3 +243,12 @@ eq('高随机值不掉落道具', t.getPickups(), dp1);
 
 t.setRand(()=>0.5); // 复位 PRNG，避免影响后续
 
+// 10. Boss 击败触发 confetti：spawnBoss → setBossHp(0) → updateBoss 进入击败，confettiFired 为真
+t.reset();
+t.spawnBoss();
+ok('击败前 confettiFired 为 false', t.confettiFired() === false);
+t.setBossHp(0);
+const defeated = t.updateBoss(0.016);
+ok('Boss 击败返回 true', defeated === true);
+ok('Boss 击败 → confettiFired 为真', t.confettiFired() === true);
+

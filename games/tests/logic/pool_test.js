@@ -48,3 +48,12 @@ t.applyPickup('aim');
 ok('瞄准计时>0', t.getBoost() > 0);
 t.stepPickups(6);
 eq('瞄准计时归零', t.getBoost(), 0);
+
+// ===== 胜利 confetti：清台（目标球全部入袋） =====
+t.reset();
+eq('胜利前 confettiFired 为 false', t.confettiFired(), false);
+t.setCue(200,60);
+t.setBalls([{id:1,x:200,y:10}]);
+t.shoot(-90,100);
+ok('清台：目标球入袋', t.getPocketed().indexOf(1)!==-1);
+eq('清台触发 confettiFired', t.confettiFired(), true);

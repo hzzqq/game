@@ -196,6 +196,7 @@
 
   let grid=[], W=24, H=14;
   let doorOpen=false, score=0, currentLevel=0, state='play', flash=0;
+  let _confettiFired=false;   // 注入：通关彩带只读锁（独立于 Juice，仅视觉状态）
   let iceStart=null, fireStart=null;
   let powerups = [];
   let pickups = [];            // 注入：浮动掉落（❤回血 / ⚡加速）
@@ -249,6 +250,7 @@
     fire.shield=0; fire.starTimer=0; fire.shieldGrace=0;
     powerups = [];
     pickups = []; boostTimer = 0; spawnTimer = 6;
+    _confettiFired=false;   // 注入：重置通关彩带锁
     if(L.powerups){
       for(const p of L.powerups){ powerups.push({ type:p.type, x:p.x*T+T/2, y:p.y*T+T/2, dead:false }); }
     }
@@ -504,6 +506,12 @@
       state='win';
       if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',0.4); const b=Juice.best('icefire',score); const rk=Juice.rank(score); Juice.achievement('🏆 全部通关！积分 '+score+' · 段位 '+rk); }
       showOverlay('全部通关', 'YOU WIN · 总积分 '+score, '再玩一次');
+      // 注入：全部通关（state='win'）→ 庆祝彩带 + 屏震（只读锁，不依赖 Juice）
+      if(!_confettiFired){
+        _confettiFired=true;
+        if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:140, life:2.6});
+        if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.6);
+      }
     }
   }
 
@@ -718,7 +726,10 @@
     getMode: function(){ return mode; },
     setRand: function(seed){ cpuRng = mk(seed>>>0); },   // 重置 CPU 局部 PRNG 种子（确定性）
     cpuThinkFor: function(who){ cpuThinkFor(who); },     // 直接驱动某角色（测试可同时驱动 P1）
-    next: function(){ if(state==='clear'){ currentLevel++; loadLevel(currentLevel,false); } }
+    next: function(){ if(state==='clear'){ currentLevel++; loadLevel(currentLevel,false); } },
+    // ---- 注入：通关彩带只读/驱动钩子 ----
+    confettiFired: function(){ return _confettiFired; },
+    win: function(){ currentLevel = LEVELS.length-1; completeLevel(); }
   };
 })();
 </script>

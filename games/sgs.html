@@ -149,6 +149,7 @@
   var pendingResponse = null;
   var logLines = [];
   var gameOver = false, result = '', endReason = '';
+  var _confettiFired = false;
   var shaPlayedThisTurn = 0;
   var discardMode = false;
   var instruction = '';
@@ -208,7 +209,7 @@
     }
     deck = buildDeck(); discard = [];
     players.forEach(function(p){ drawCards(p,4); });
-    logLines = []; gameOver=false; result=''; endReason='';
+    logLines = []; gameOver=false; result=''; endReason=''; _confettiFired=false;
     pendingResponse=null; selCard=-1; selTarget=-1; discardMode=false; phase='play';
     log('======== 新对局开始 ========');
     log('你的身份：主公（4血）。消灭所有反贼与内奸即获胜。');
@@ -302,6 +303,11 @@
   function win(side, reason){
     gameOver = true; result = side; endReason = reason || '';
     log('🏆 胜利方：' + side);
+    if(!_confettiFired){
+      _confettiFired = true;
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.4);
+    }
     if(typeof Juice!=='undefined'){
       const humanWin = (result==='主公 + 忠臣');
       if(humanWin){ Juice.sfx('win'); Juice.best('sgs',1); Juice.rank(1); Juice.achievement('主公获胜！'); }
@@ -701,6 +707,7 @@
     getGameOver: function(){ return gameOver; },
     setGameOver: function(v){ gameOver = v; },
     getResult: function(){ return result; },
+    confettiFired: function(){ return _confettiFired; },
     getShaPlayedThisTurn: function(){ return shaPlayedThisTurn; },
     setShaPlayedThisTurn: function(v){ shaPlayedThisTurn = v; },
     getDiscardMode: function(){ return discardMode; },

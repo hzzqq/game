@@ -94,11 +94,12 @@
   function highest(arr){ return arr.slice().sort((a,b)=> rankNum(b)-rankNum(a) || suit(b)-suit(a))[0]; }
 
   let hands, phase, current, trick, leadSuit, spadesBroken, tricksPlayed, won, bids, scores, bags, sel, lastSeed, lastRoundCards;
+  let _won=false, _confettiFired=0;
 
   function freshState(){
     hands=[[],[],[],[]]; phase='bid'; current=0; trick=[]; leadSuit=null;
     spadesBroken=false; tricksPlayed=0; won=[0,0,0,0]; bids=[null,null,null,null];
-    scores=[0,0,0,0]; bags=[0,0,0,0]; sel=[]; lastRoundCards=0;
+    scores=[0,0,0,0]; bags=[0,0,0,0]; sel=[]; lastRoundCards=0; _won=false; _confettiFired=0;
   }
   function deal(){
     const d=[]; for(let c=0;c<52;c++) d.push(c);
@@ -234,6 +235,12 @@
     lastRoundCards = 52;
     if(scores.some(s=>s>=500)){
       phase='over';
+      if(scores[0] >= 500 && scores[0] >= Math.max.apply(null, scores)){
+        if(!_won){ _won=true; _confettiFired++;
+          if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+          if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30});
+        }
+      }
       if(J) J.sfx('levelup');
     } else {
       deal();
@@ -344,7 +351,9 @@
     window.__t = {
       SUITS, RNAMES, suit, rank, rankNum, cardName,
       setRand, newGame, reset, getState, legalMoves, playCard, bid, aiBid,
-      winnerOfTrick, roundScore, step, getScores, getBags, isOver, setHands
+      winnerOfTrick, roundScore, step, getScores, getBags, isOver, setHands,
+      forceWin: function(){ scores[0]=500; endRound(); },
+      confettiFired: function(){ return _confettiFired; }
     };
   }
 })();

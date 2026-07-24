@@ -53,10 +53,16 @@
 <script>
 (function(){
   "use strict";
-  let piles, turn, over, winner;
+  let piles, turn, over, winner, _confettiFired=false;
+  function fireConfetti(){
+    if(_confettiFired) return;
+    _confettiFired = true;
+    if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+  }
+  function confettiFired(){ return _confettiFired; }
   function newGame(init){
     const p = init ? init.slice() : [3,4,5];
-    piles = p.map(x=>x); turn=0; over=false; winner=null;
+    piles = p.map(x=>x); turn=0; over=false; winner=null; _confettiFired=false;
   }
   function nimSum(){ return piles.reduce((a,b)=>a^b,0); }
   function remove(pileIdx, n){
@@ -64,7 +70,7 @@
     if(pileIdx<0||pileIdx>=piles.length) return false;
     if(n<1||n>piles[pileIdx]) return false;
     piles[pileIdx]-=n;
-    if(piles.every(x=>x===0)){ over=true; winner=turn; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} return true; }
+    if(piles.every(x=>x===0)){ over=true; winner=turn; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} fireConfetti(); return true; }
     turn = turn===0?1:0;
     if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.2); }
     return true;
@@ -74,7 +80,7 @@
   function isOver(){ return over; }
   function getWinner(){ return winner; }
   function getNimSum(){ return nimSum(); }
-  function setPiles(arr,t){ piles=arr.slice(); turn=(t===0||t===1)?t:0; over=false; winner=null; }
+  function setPiles(arr,t){ piles=arr.slice(); turn=(t===0||t===1)?t:0; over=false; winner=null; _confettiFired=false; }
 
   /* ===================== 难度系统 ===================== */
   const DIFFICULTY = {
@@ -147,7 +153,7 @@
     else { build(); bindUI(); render(); buildDiffBar(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ newGame, remove, getPiles, getTurn, isOver, getWinner, getNimSum, nimSum, setPiles,
+    window.__t={ newGame, remove, getPiles, getTurn, isOver, getWinner, getNimSum, nimSum, setPiles, confettiFired,
       DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves };
   }
 })();

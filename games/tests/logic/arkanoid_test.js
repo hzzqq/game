@@ -128,6 +128,15 @@ const hellSpd = t.targetSpeed();
 ok('地狱档球速 > 简单档', hellSpd > easySpd);
 t.setDifficulty('normal');
 
+// 18. 通关（清屏）触发 confetti：setBricks([]) + launch + update 进入 levelcomplete，confettiFired 为真
+t.startGame();
+t.setBricks([]);                 // 直接清空所有砖块（仅用于驱动视觉反馈判定）
+ok('通关前 confettiFired 为 false', t.confettiFired() === false);
+t.launch();
+t.update(0.016);
+eq('通关 → state=levelcomplete', t.getState(), 'levelcomplete');
+ok('通关 → confettiFired 为真', t.confettiFired() === true);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

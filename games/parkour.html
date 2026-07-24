@@ -117,6 +117,7 @@
   var state = 'menu';        // menu | play | over
   var best = 0;
   var milestone = 0;
+  var confettiFired = false; // 成就/胜利正反馈：到达里程碑达成后置真（跳变防重复）
   try { best = parseInt(localStorage.getItem('parkour_best')||'0',10) || 0; } catch(e){ best = 0; }
   bestEl.textContent = best;
 
@@ -144,6 +145,7 @@
     acc = 0;
     lastTime = 0;
     milestone = 100;
+    confettiFired = false;   // 重置成就标记
   }
 
   var GRAV = 0.62;
@@ -268,6 +270,13 @@
     if (typeof Juice !== 'undefined' && distance >= milestone){
       Juice.popup(runner.x, runner.y - runner.h - 22, milestone + 'm', '#f0b90b', { size:15 });
       milestone += 100;
+      if (!confettiFired){
+        confettiFired = true;
+        if (typeof Juice !== 'undefined'){
+          if (Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+          if (Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#f0b90b', n:30, speed:260});
+        }
+      }
     }
 
     // runner physics
@@ -591,7 +600,8 @@
     getState: function(){ return state; },
     setState: function(s){ state = s; },
     setObstacles: function(arr){ obstacles = arr; },
-    spawnObstacle: spawnObstacle
+    spawnObstacle: spawnObstacle,
+    confettiFired: function(){ return confettiFired; }
   };
 
   // 初始并常驻主循环（菜单/结算态也轮询输入以支持键盘开始/重开）

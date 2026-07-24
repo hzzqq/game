@@ -59,3 +59,15 @@ const { t } = loadGame('../dotsboxes.html');
   eq('getDifficulty 返回 hell', t.getDifficulty(), 'hell');
   eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
 }
+
+// ---------- 胜利 confetti ----------
+{
+  t.newGame(2,2); // 1 个方格
+  const h=[[true],[true]];
+  const v=[[true,false]];
+  const own=[[-1]];
+  t.setRaw(h,v,own,0,[0,0]);
+  t.playV(0,1); // 补右边成格 → 绿方得格且全盘终局
+  eq('玩家(绿)获胜', t.getWinner(), 0);
+  eq('胜利 confetti 触发', t.confettiFired(), true);
+}

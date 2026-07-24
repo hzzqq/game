@@ -97,4 +97,20 @@ const { t } = H.loadGame('../missilecommand.html');
   H.ok('地狱档每波导弹数 > 简单档', hellN > easyN);
   H.ok('简单档每波导弹数 > 0', easyN > 0);
   t.setDifficulty('normal');
+
+// 11) 通关（清完所有波次）触发胜利 confetti
+t.reset();
+H.ok('通关前 confettiFired 为 false', t.confettiFired() === false);
+t.setClearedWaves(t.TARGET_WAVES);
+t.checkEnd(); // clearedWaves>=TARGET_WAVES 且无来袭/拦截弹 → won=true
+H.eq('通关 status=win', t.getState().status, 'win');
+H.ok('通关 → confettiFired 为 true', t.confettiFired() === true);
+t.reset();
+H.ok('重开后 confettiFired 复位为 false', t.confettiFired() === false);
+
+// 汇总
+const total = H.results.length;
+const pass = H.results.filter(r => r.pass).length;
+console.log(`\nmissilecommand: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);
 })();

@@ -118,3 +118,15 @@ t.update(1.0);
 H.ok('回归: 距离累计 ≈100m', t.getState().distance > 95 && t.getState().distance < 110);
 // 还原掉落 PRNG 为默认随机流（确定性块结束）
 t.setRand(Math.random);
+
+// ===== 成就正反馈：距离里程碑触发 confetti（纯视觉层，不改计分）=====
+(() => {
+  t.reset(); t.start(); t.setSpawnEnabled(false); t.clearObstacles(); t.setLives(3);
+  t.setSpeed(3000);
+  t.update(1.0); // 距离 ~3000 > 1000 里程碑
+  H.eq('lanesprint 里程碑触发 confettiFired', t.confettiFired(), true);
+  // 边界：未达里程碑不触发
+  t.reset(); t.start(); t.setSpawnEnabled(false); t.clearObstacles(); t.setLives(3);
+  t.setSpeed(100); t.update(1.0);
+  H.eq('lanesprint 未达里程碑不触发 confettiFired', t.confettiFired(), false);
+})();

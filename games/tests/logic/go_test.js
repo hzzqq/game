@@ -65,3 +65,13 @@ eq('黑胜', t.getWinner(), 'b');
   eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
   eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
 }
+
+// ---------- 胜利 confetti ----------
+{
+  t.newGame();
+  const bb=Array.from({length:9},()=>new Array(9).fill('b')); // 全盘黑 → 黑多一目
+  t.setBoard(bb,'b');
+  t.resign('w');
+  eq('黑胜', t.getWinner(), 'b');
+  eq('胜利 confetti 触发', t.confettiFired(), true);
+}

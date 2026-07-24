@@ -171,3 +171,13 @@ eq('START_SPEED=10', t.START_SPEED, 10);
 }
 
 console.log('invaders: 全部断言通过');
+
+// ===== 全清过关 → confetti 钩子（独立于 Juice） =====
+t.reset();
+t.getAliens().forEach(a => a.alive = false);
+t.update();  // 全清 → 下一波（过关）
+ok('invaders: 全清过关 confettiFired 置真', t.confettiFired() === true);
+
+const H = require('./harness');
+if (H.results.some(r => !r.pass)) process.exit(1);
+process.exit(0);

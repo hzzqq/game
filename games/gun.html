@@ -140,6 +140,7 @@
   var player, enemies, bullets, items, particles, state, score, best, wave, waveT, spawnQ, spawnTimer, mouse, useMouse, mouseDown, last, combo;
   // ---------- Boss 系统：每 BOSS_EVERY 波出现一次 Boss ----------
   var boss = null;
+  var _confettiFired = false; // 击败 Boss 里程碑 confetti 锁（独立于 Juice 的只读测试钩子）
   var BOSS_EVERY = 3;
   function isBossWave(w){ return w > 0 && (w % BOSS_EVERY) === 0; }
 
@@ -147,7 +148,7 @@
     player={x:W/2,y:H/2,r:13,hp:100,maxhp:100,shield:0,speed:185,aim:0,
       weapon:'pistol',ammo:WEAPONS.pistol.ammo,lastShot:0,reload:0,
       invuln:0,dashT:0,dashCd:0,speedT:0};
-    enemies=[]; bullets=[]; items=[]; particles=[]; boss=null;
+    enemies=[]; bullets=[]; items=[]; particles=[]; boss=null; _confettiFired=false;
     score=0; wave=0; waveT=0; spawnQ=0; spawnTimer=6; mouseDown=false; useMouse=false;
     combo=0;
     best=Juice.load('best_gun',0);
@@ -224,6 +225,7 @@
       Juice.burst(boss.x,boss.y,{color:'#f6465d',n:40,speed:320,life:.9});
       Juice.popup(boss.x,boss.y,'BOSS 击败 +'+pts,'#f6465d',{big:true,life:1.4});
       Juice.addTrauma(0.8); Juice.flash('#ffcf5a',0.6); Juice.sfx('win');
+      if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(W/2, H*0.3, {n:140, life:2.6}); if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.7); }
       dropItem(boss.x,boss.y); dropItem(boss.x+30,boss.y);
       if(document.getElementById('scoretxt')){ document.getElementById('scoretxt').textContent=score;
         document.getElementById('rankTxt').textContent=Juice.rank(score); }
@@ -604,6 +606,7 @@
     getBoss: function(){ return boss; }, setBoss: function(v){ boss = v; },
     setBossHp: function(v){ if(boss) boss.hp = v; },
     addBullet: function(b){ bullets.push(b); },
+    confettiFired: function(){ return _confettiFired; },
     // ---- 注入：标准化掉落/增益系统钩子 ----
     spawnPickup: function(type,x,y){ if(type===undefined) return spawnPickupAtRandom(); return makePickup(type, x!==undefined?x:player.x, y!==undefined?y:player.y); },
     stepPickups: function(dt){ updatePickups(dt); },

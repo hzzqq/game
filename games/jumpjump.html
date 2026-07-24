@@ -74,6 +74,12 @@
 
   // 核心状态（普通 JS 变量，逻辑脱离 DOM）
   let player, platforms, cam, score, maxClimbY, gameOver, pickups, spawnTimer;
+  // ---- 里程碑正反馈：分数每跨越一个 MILESTONE_STEP 触发一次 confetti（只读钩子 confettiFired）----
+  const MILESTONE_STEP = 50;
+  let confettiFx = 0;
+  let nextMilestone = MILESTONE_STEP;
+  function milestoneFire(){ confettiFx++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+  function checkMilestone(){ if(score >= nextMilestone){ nextMilestone += MILESTONE_STEP; milestoneFire(); } }
 
   // ---------- 拾取增益道具系统（注入式，不改弹跳物理/计分公式本身）----------
   const PICKUP_TYPES = ['coin','shield','boost'];
@@ -93,6 +99,7 @@
     if(type==='coin'){ score += COIN_VALUE; if(J) J.sfx&&J.sfx('pickup'); }
     else if(type==='shield'){ player.shield = (player.shield||0)+1; if(J) J.sfx&&J.sfx('pickup'); }
     else if(type==='boost'){ player.boost = BOOST_DUR; if(J) J.sfx&&J.sfx('pickup'); }
+    checkMilestone();
   }
   function stepPickups(dt){
     for(let i=pickups.length-1;i>=0;i--){
@@ -131,6 +138,7 @@
     pickups = [];
     spawnTimer = 0;
     score = 0; maxClimbY = START_Y; gameOver = false;
+    confettiFx = 0; nextMilestone = MILESTONE_STEP;
     player = { x: W/2, y: START_Y, vx:0, vy: JUMP_V, r: R, shield: 0, boost: 0, onGround:false };
     cam = player.y - H*0.7;
     platforms.push({ x: W/2 - PLAT_W/2, y: START_Y + 18, w: PLAT_W }); // 起始平台
@@ -148,7 +156,7 @@
   function updateScore(){
     if(player.y < maxClimbY){
       const gain = Math.floor((maxClimbY - player.y)/10);
-      if(gain > 0){ score += gain; maxClimbY = player.y; }
+      if(gain > 0){ score += gain; maxClimbY = player.y; checkMilestone(); }
     }
   }
 
@@ -327,6 +335,7 @@
       getShield:()=>player.shield, setShield:(v)=>{ player.shield=v; },
       getBoost:()=>player.boost, setBoost:(v)=>{ player.boost=v; },
       applyPickup, stepPickups,
+      confettiFired:()=>confettiFx,
     };
   }
 })();

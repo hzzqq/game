@@ -63,3 +63,10 @@ const a = JSON.stringify(t.getState().cages);
 t.newPuzzle(777);
 const b = JSON.stringify(t.getState().cages);
 eq('seed 777 两次布局一致', a, b);
+
+// ---- 完成特效：解出后 confettiFired 标记 ----
+t.newPuzzle(2024);
+const sol2 = t.solution();
+const before = t.confettiFired;
+for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) t.setValue(r, c, sol2[r][c]);
+ok('解出后 confettiFired 增加', t.confettiFired > before);

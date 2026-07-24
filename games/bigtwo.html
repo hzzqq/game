@@ -55,6 +55,7 @@
   "use strict";
   const SUITS=['♣','♦','♥','♠']; // ♣<♦<♥<♠（黑桃最大）
   let hands, turn, lead, lastWinner, passes, over, winner, sel;
+  let _confettiFired=false;
   function setRand(fn){ _rand=fn||Math.random; } let _rand=Math.random;
   function rankVal(r){ return r===2?15 : r===1?14 : r; }
   function suitVal(s){ return s; }
@@ -80,7 +81,7 @@
     const d=[]; for(let s=0;s<4;s++) for(let r=1;r<=13;r++) d.push({s,r});
     for(let i=d.length-1;i>0;i--){ const j=Math.floor((_rand||Math.random)()*(i+1)); const t=d[i];d[i]=d[j];d[j]=t; }
     hands=[[],[],[],[]]; for(let i=0;i<52;i++) hands[i%4].push(d[i]);
-    turn=0; lead=null; lastWinner=0; passes=0; over=false; winner=null; sel=[];
+    turn=0; lead=null; lastWinner=0; passes=0; over=false; winner=null; sel=[]; _confettiFired=false;
   }
   function play(player, combo){
     if(over) return false;
@@ -96,7 +97,9 @@
     else { if(combo.type!==lead.type) return false; if(!higher(combo,lead)) return false; lead=combo; lastWinner=player; passes=0; }
     for(const c of combo.cards){ const i=hands[player].findIndex(x=>x.s===c.s&&x.r===c.r); if(i>=0) hands[player].splice(i,1); }
     Juice.sfx('click'); Juice.addTrauma(.2);
-    if(hands[player].length===0){ over=true; winner=player; Juice.sfx('win'); Juice.flash('#02c076', .5); return true; }
+    if(hands[player].length===0){ over=true; winner=player; Juice.sfx('win'); Juice.flash('#02c076', .5);
+      if(player===0 && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      return true; }
     turn=(turn+1)%4; return true;
   }
   function isWin(){ return over; }
@@ -187,7 +190,7 @@
   }
   if(typeof window!=='undefined'){
     window.__t={ SUITS, rankVal, suitVal, comboOf, higher, newGame, play, isWin, getWinner, getTurn, getHands, setHands, setRand,
-      DIFFICULTY, setDifficulty, getDifficulty, legalCombos, aiChoose, aiTurn, stepBots };
+      DIFFICULTY, setDifficulty, getDifficulty, legalCombos, aiChoose, aiTurn, stepBots, confettiFired: ()=>_confettiFired };
   }
 })();
 </script>

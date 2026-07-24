@@ -81,6 +81,17 @@ H.ok(T.getPickups().length === 3, 'tempprun: 三种道具均可生成 (得到 ' 
 H.ok(T.getPickups().some(p=>p.type==='coin') && T.getPickups().some(p=>p.type==='boost') && T.getPickups().some(p=>p.type==='shield'),
      'tempprun: 场上含 coin/boost/shield 三种类型');
 
+// ===== 成就正反馈：破最高分触发 confetti（纯视觉层，不改计分/死亡判定）=====
+(() => {
+  T.reset(); T.startGame(); T.setObstacles([]); T.setState('play');
+  T.setRunner({ y: T.GROUND_Y(), onGround: true, vy: 0, jumps: 0, shield: 0, invuln: 0 });
+  T.update(1); T.update(1); T.update(1); // 累计距离 > 0
+  T.setRunner({ shield: 0, invuln: 0 });
+  T.setObstacles([{ type: 0, x: 90, y: T.GROUND_Y() - 26, w: 22, h: 26 }]);
+  T.update(1); // 撞障碍 → gameOver，距离破纪录
+  H.eq('tempprun 破最高分触发 confettiFired', T.confettiFired(), true);
+})();
+
 // ============ 自校验退出码（兼容 `node tempprun_test.js`）============
 const fail = H.results.filter(r=>!r.pass);
 if (fail.length){

@@ -135,4 +135,17 @@ H.ok(T.getStatus() === 'menu', 'flappy: 重置回菜单');
   T.setDifficulty('normal'); T.reset();
 })();
 
+// ===== 成就正反馈：破最高分触发 confetti（纯视觉层，不改死亡/计分）=====
+(() => {
+  T.reset(); T.setStatus('play'); T.setScore(5);
+  T.setBird(T.GROUND + 5, 0);
+  T.step(0.016); // 撞地 → dead，score=5 > best(0) 破纪录
+  H.eq('flappy 破最高分触发 confettiFired', T.confettiFired(), true);
+  // 边界：平纪录(0)不触发
+  T.reset(); T.setStatus('play'); T.setScore(0);
+  T.setBird(T.GROUND + 5, 0);
+  T.step(0.016);
+  H.eq('flappy 平纪录(0)不触发 confettiFired', T.confettiFired(), false);
+})();
+
 module.exports = {};

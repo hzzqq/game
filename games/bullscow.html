@@ -77,10 +77,10 @@
     return {A,B};
   }
 
-  let secret, history, tries, won, over;
+  let secret, history, tries, won, over, confettiFired;
   function reset(){
     secret = generateSecret();
-    history = []; tries = 0; won = false; over = false;
+    history = []; tries = 0; won = false; over = false; confettiFired = false;
   }
   // 提交一次猜测（guess: number[] 长度 4，每位 0..9，互不重复）
   function guess(g){
@@ -92,7 +92,7 @@
     const fb = feedback(secret, g);
     history.push({guess:g.slice(), A:fb.A, B:fb.B});
     tries++;
-    if(fb.A===LEN){ won=true; over=true; }
+    if(fb.A===LEN){ won=true; over=true; confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     else if(tries>=MAX_TRIES){ over=true; }
     if(typeof Juice!=='undefined'){
       if(won){ Juice.sfx('levelup'); Juice.best('bullscow', MAX_TRIES-tries+1); }
@@ -151,6 +151,7 @@
       LEN, DOMAIN, MAX_TRIES,
       setRand, generateSecret, feedback, reset, guess, isWin, isOver, getState,
       setSecret:(s)=>{ secret=s; }, getSecret:()=>secret,
+      getConfettiFired:()=>confettiFired,
     };
   }
 })();

@@ -112,3 +112,13 @@ t.setRand(Math.random);
 eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
 eq('getDifficulty 为 hell', t.getDifficulty(), 'hell');
 eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
+
+// ---------- 人类(P1)获胜触发 confetti 钩子 ----------
+{
+  t.setup({ hands:[[],[]], crib:[], starter:12, dealer:0, phase:'show', peg:[50,30] });
+  t.scoreShow();
+  ok('亮牌后游戏结束', t.isOver());
+  eq('人类总分更高', t.getScores()[0] > t.getScores()[1], true);
+  ok('人类获胜触发 confettiFired', t.confettiFired());
+}
+

@@ -1,4 +1,4 @@
-const { loadGame, ok, eq } = require('./harness');
+const { loadGame, results, ok, eq } = require('./harness');
 const { t } = loadGame('../quarto.html');
 
 // 落子 + 受控棋子机制
@@ -34,3 +34,17 @@ ok('已用棋子不可再选', !t.give(0));
   eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
   eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
 }
+
+// ---------- 胜利 confetti ----------
+t.newGame();
+ok('胜利前 confettiFired 为 false', t.confettiFired() === false);
+t.give(1); t.place(0,0);
+t.give(3); t.place(0,1);
+t.give(5); t.place(0,2);
+t.give(7); t.place(0,3);
+ok('游戏结束胜利 → confettiFired 为真', t.confettiFired() === true);
+
+const total = results.length;
+const pass = results.filter(r => r.pass).length;
+console.log(`\nquarto: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);

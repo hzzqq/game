@@ -1,4 +1,4 @@
-const { loadGame, ok, eq } = require('./harness');
+const { loadGame, ok, eq, results } = require('./harness');
 const { t } = loadGame('../yahtzee.html');
 
 // ===== 1. 投掷与保留 =====
@@ -82,3 +82,15 @@ const { t } = loadGame('../yahtzee.html');
   t.assign('chance'); // 触发得分 Juice 路径（沙箱为 no-op）
   ok('默认投掷后可记分且总分 > 0', t.getTotal() > 0);
 }
+
+// ===== 终局 confetti 测试（仅视觉反馈钩子，不改玩法）=====
+t.newGame();
+ok('yahtzee: 终局前 confettiFired 为 false', t.confettiFired() === false);
+for(const cat of t.getCats()){ t.setDice([1,2,3,4,5]); t.assign(cat); }
+ok('yahtzee: 全部分配 → 终局', t.isOver() === true);
+ok('yahtzee: 终局 → confettiFired 为真', t.confettiFired() === true);
+
+const total = results.length;
+const pass = results.filter(r => r.pass).length;
+console.log(`\nyahtzee: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);

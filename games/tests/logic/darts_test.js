@@ -1,4 +1,4 @@
-const { loadGame, ok, eq } = require('./harness');
+const { loadGame, ok, eq, results } = require('./harness');
 const { t } = loadGame('../darts.html');
 
 t.setScores([10,20]);
@@ -57,3 +57,19 @@ eq('自动掉落已生效并移除', t.getPickups(), 0);
 t.setScores([10,20]);
 t.throwDart(10);
 eq('核心计分减到 0 仍获胜', t.getWinner(), 0);
+
+// ===== 胜利彩带 confetti 测试（仅视觉反馈钩子，不改玩法）=====
+t.reset();
+t.setScores([10,20]);
+ok('darts: 胜利前 confettiFired 为 false', t.confettiFired() === false);
+t.throwDart(10); // 玩家0: 10-10=0 → 胜
+ok('darts: 胜利 → confettiFired 为真', t.confettiFired() === true);
+ok('darts: 胜利后 isOver 为真', t.isOver() === true);
+// 同一局只触发一次（锁）
+t.throwDart(0);
+ok('darts: 同一局重复触发不会再次置位（仍为真，已过锁）', t.confettiFired() === true);
+
+const total = results.length;
+const pass = results.filter(r => r.pass).length;
+console.log(`\ndarts: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);

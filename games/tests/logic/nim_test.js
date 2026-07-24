@@ -1,4 +1,4 @@
-const { loadGame, ok, eq } = require('./harness');
+const { loadGame, results, ok, eq } = require('./harness');
 const { t } = loadGame('../nim.html');
 
 // 正常规则：取走最后一颗者胜
@@ -33,3 +33,15 @@ eq('剩余 nim-sum=0', t.getNimSum(), (2^4^2));
   eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
   eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
 }
+
+// ---------- 胜利 confetti ----------
+t.newGame([1,1]);
+ok('胜利前 confettiFired 为 false', t.confettiFired() === false);
+t.remove(0,1);
+t.remove(1,1);
+ok('游戏结束胜利 → confettiFired 为真', t.confettiFired() === true);
+
+const total = results.length;
+const pass = results.filter(r => r.pass).length;
+console.log(`\nnim: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);

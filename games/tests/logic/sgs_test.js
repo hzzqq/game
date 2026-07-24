@@ -543,6 +543,16 @@ ok('requireShan 防具格挡不触发回调', !triggered);
 ok('requireShan 防具格挡 armorBlock=false', !human2.armorBlock);
 ok('requireShan 防具格挡不设 pending', t.getPendingResponse()===null);
 
+// ===== 31. 胜利彩带钩子 =====
+t.newGame();
+t.getPlayers()[0].dead = false; t.getPlayers()[0].hp = 4;
+t.getPlayers()[1].role = 'loyal'; t.getPlayers()[1].dead = false;
+t.getPlayers()[2].role = 'rebel'; t.getPlayers()[2].dead = true;
+t.getPlayers()[3].role = 'spy'; t.getPlayers()[3].dead = true;
+t.setGameOver(false);
+t.checkWin();
+ok('win 主公胜 触发胜利彩带(confettiFired)', t.confettiFired());
+
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;

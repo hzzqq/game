@@ -193,3 +193,13 @@ H.eq('jetpack DIFF_ORDER 顺序', T.DIFF_ORDER, ['easy','normal','hard','hell'])
 })();
 
 module.exports = {};
+
+// ===== 破纪录正反馈：confetti + confettiFired 只读钩子 =====
+// 注意：best 为模块级、跨 reset 持久；用足够大的分数确保本局破纪录。
+T.start();                 // reset + state=play
+T.setScore(999999);        // 远大于已有 best → 破纪录
+T.setBird(540, 0);         // 直接落在地面以下 → hits() 为真
+T.step(0.016);             // 无盾撞击 → 死亡，破纪录 → confetti
+H.ok('jetpack: 破纪录触发 confetti', T.confettiFired() > 0, 'confettiFx=' + T.confettiFired());
+H.ok('jetpack: 确实死亡', T.getStatus() === 'dead');
+

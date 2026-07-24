@@ -155,6 +155,8 @@
   hBest.textContent = best;
 
   var player, enemies, worldSpeed, distance, lives, spawnTimer, lastTime, dashOffset, invuln, shake, pickups, boostTimer, shield, pickupTimer;
+  var _confettiFired=false;   // 注入：里程碑冲线彩带只读锁（独立于 Juice，仅视觉状态）
+  var WIN_DIST=1000;          // 注入：里程碑冲线里程（纯视觉庆祝，不结束游戏）
 
   function reset(){
     var m = roadMetrics();
@@ -180,6 +182,7 @@
     boostTimer = 0;
     shield = 0;
     pickupTimer = 2.5;
+    _confettiFired=false;   // 注入：重置里程碑彩带锁
     hLives.textContent = lives;
   }
 
@@ -290,6 +293,13 @@
     if (boostTimer > 0) boostTimer -= dt;
     var scoreMul = boostTimer > 0 ? 2 : 1;
     distance += worldSpeed * dt * 0.1 * scoreMul;  // meters (boost 翻倍计分)
+
+    // 注入：里程碑冲线 → 庆祝彩带 + 屏震（只读锁，不依赖 Juice，纯视觉不结束游戏）
+    if (distance >= WIN_DIST && !_confettiFired){
+      _confettiFired = true;
+      if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.5);
+    }
 
     dashOffset = (dashOffset + worldSpeed * dt) % 60;
 
@@ -563,7 +573,12 @@
     getBoost(){ return boostTimer; },
     setBoost(v){ boostTimer = v; },
     getDistance(){ return distance; },
-    getLives(){ return lives; }
+    getLives(){ return lives; },
+    // ---- 注入：里程碑彩带只读/驱动钩子 ----
+    confettiFired: function(){ return _confettiFired; },
+    getWinDist: function(){ return WIN_DIST; },
+    setDistance: function(v){ distance = v; },
+    win: function(){ startGame(); distance = WIN_DIST; update(0.001); }
   };
 })();
 </script>

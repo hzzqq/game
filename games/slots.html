@@ -131,9 +131,10 @@
 
   /* ===================== 状态机 ===================== */
   let balance, bet, spinning, reels, lastWin, gameOver;
+  let _confettiFired=false; // jackpot confetti 已触发（独立于 Juice 的只读测试锁）
   function reset(){
     balance = START_BAL; bet = 10; spinning = false; reels = [0,1,2];
-    lastWin = 0; gameOver = false;
+    lastWin = 0; gameOver = false; _confettiFired=false;
   }
   function setBet(v){
     if(spinning) return false;
@@ -160,6 +161,11 @@
         if(isJackpot(rs,bet)){ if(typeof Juice.flash==='function') Juice.flash('#f0b90b'); Juice.addTrauma(0.4); }
         else Juice.flash('#f0b90b');
       }
+    }
+    if(p.win>0 && isJackpot(rs,bet) && !_confettiFired){
+      _confettiFired=true;
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:160, life:3});
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.7);
     }
     return { reels:rs, win:p.win, kind:p.kind, jackpot:isJackpot(rs,bet) };
   }
@@ -203,6 +209,7 @@
       reset, setBet, spin,
       getBalance:()=>balance, getBet:()=>bet, getReels:()=>reels,
       getLastWin:()=>lastWin, isGameOver:()=>gameOver, isSpinning:()=>spinning,
+      confettiFired:()=>_confettiFired,
     };
   }
 })();

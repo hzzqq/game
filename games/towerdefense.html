@@ -61,6 +61,7 @@
   const PATHSET = new Set(PATH.map(p=>p[0]+','+p[1]));
 
   let gold, lives, wave, enemies, towers, waveActive, over, won, nextId;
+  let _confettiFired = false; // 守住全部波次通关 confetti 锁（独立于 Juice 的只读测试钩子）
 
   // ---- 注入：掉落道具/增益系统（纯反馈分支，不改核心玩法）----
   // 真实浏览器判定：node 测试 harness 的 navigator.userAgent 固定为 'node-test'
@@ -105,7 +106,7 @@
 
   function newGame(){
     gold = 120; lives = 20; wave = 0;
-    enemies = []; towers = []; waveActive = false; over = false; won = false; nextId = 1;
+    enemies = []; towers = []; waveActive = false; over = false; won = false; nextId = 1; _confettiFired = false;
     pickups = []; boostTimer = 0; shield = 0; rngPick = mk(0x1A2B3C4D);
   }
   function isPathCell(r,c){ return PATHSET.has(r+','+c); }
@@ -184,7 +185,7 @@
     if(waveActive && enemies.length === 0){
       waveActive = false;
       gold += 20; // 清波奖励
-      if(wave >= MAX_WAVE){ won = true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('towerdefense',1); } }
+      if(wave >= MAX_WAVE){ won = true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('towerdefense',1); } if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(W/2, H*0.3, {n:140, life:2.6}); if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.7); } }
     }
     // 注入：掉落物推进（仅真实游玩，单测用 stepPickups 确定性驱动）
     if(IN_BROWSER && pickups.length) updatePickups(dt);
@@ -292,7 +293,8 @@
       applyPickup:(type)=>{ applyPickup(type); },
       getPickups:()=>pickups,
       getShield:()=>shield, setShield:(v)=>{shield=v;},
-      getBoost:()=>boostTimer, setBoost:(v)=>{boostTimer=v;},
+      getBoost:()=>boostTimer,       setBoost:(v)=>{boostTimer=v;},
+      confettiFired: function(){ return _confettiFired; },
     };
   }
 })();

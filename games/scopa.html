@@ -47,7 +47,8 @@
 (function(){
   "use strict";
   let table, hand, captured, scopaCount, sel;
-  function newGame(){ table=[{v:2,s:0},{v:5,s:1},{v:7,s:2},{v:1,s:3}]; hand=[{v:3,s:0},{v:6,s:1},{v:9,s:2},{v:4,s:3}]; captured=0; scopaCount=0; sel=null; }
+  let _won=false, _confettiFired=0;
+  function newGame(){ table=[{v:2,s:0},{v:5,s:1},{v:7,s:2},{v:1,s:3}]; hand=[{v:3,s:0},{v:6,s:1},{v:9,s:2},{v:4,s:3}]; captured=0; scopaCount=0; sel=null; _won=false; _confettiFired=0; }
   function findCapture(val){
     const n=table.length; let best=null;
     for(let mask=1;mask<(1<<n);mask++){ let sum=0,cnt=0; for(let i=0;i<n;i++) if(mask&(1<<i)){ sum+=table[i].v; cnt++; } if(sum===val){ if(!best||cnt>best.cnt||(cnt===best.cnt&&sum>best.sum)) best={mask,cnt,sum}; } }
@@ -66,7 +67,11 @@
   function getHand(){ return hand.map(c=>({...c})); }
   function getCaptured(){ return captured; }
   function getScopa(){ return scopaCount; }
-  function setTableau(t,h){ table=t.map(c=>({...c})); hand=h.map(c=>({...c})); captured=0; scopaCount=0; sel=null; }
+  function setTableau(t,h){ table=t.map(c=>({...c})); hand=h.map(c=>({...c})); captured=0; scopaCount=0; sel=null; _won=false; _confettiFired=0; }
+  // 玩家获胜反馈：仅在状态跳变时触发一次，守卫 Juice 以防测试桩缺失
+  function declareWin(){ if(_won) return; _won=true; _confettiFired++;
+    if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#f0b90b', n:30}); }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function cardHTML(c,idx,sel){ return '<div class="card '+(c.s===0?'coin ':'')+(sel?'sel ':'')+(idx!==undefined?'h':'' )+'" data-i="'+idx+'">'+c.v+'</div>'; }
   function render(){
@@ -82,7 +87,8 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ newGame, play, getTable, getHand, getCaptured, getScopa, findCapture, setTableau };
+    window.__t={ newGame, play, getTable, getHand, getCaptured, getScopa, findCapture, setTableau,
+      declareWin, hasWon: function(){ return _won; }, confettiFired: function(){ return _confettiFired; } };
   }
 })();
 </script>

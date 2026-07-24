@@ -46,4 +46,11 @@ fresh();
 T.collectPickup({ x: 100, y: 100, type: 'shield' });
 H.ok(T.getRunner().shield === 1, 'parkour: collectPickup 护盾+1 (shield=' + T.getRunner().shield + ')');
 
+// ---------- 成就/胜利正反馈：到达距离里程碑触发 confettiFired ----------
+fresh();
+var pg = 0;
+while (!T.confettiFired() && pg < 600){ T.setObstacles([]); T.update(1); pg++; }
+H.ok(T.confettiFired() === true, 'parkour: 到达里程碑触发 confettiFired (steps=' + pg + ')');
+H.ok(pg < 600, 'parkour: 在合理步数内抵达里程碑');
+
 module.exports = {};

@@ -63,9 +63,10 @@
   function setRand(fn){ _rand = fn; }
 
   let dice, rolls, kept, used, scores, total, over;
+  let _confettiFired=false; // 终局 confetti 已触发（独立于 Juice 的只读测试锁）
   function newGame(){
     dice=new Array(DICE).fill(1); rolls=0; kept=new Array(DICE).fill(false);
-    used={}; scores={}; total=0; over=false;
+    used={}; scores={}; total=0; over=false; _confettiFired=false;
   }
   function reset(){ newGame(); }
   function rnd6(){ return 1+Math.floor(_rand()*6); }
@@ -119,6 +120,11 @@
     const sc=compute(cat);
     used[cat]=true; scores[cat]=sc; total+=sc;
     if(Object.keys(used).length>=TURNS){ over=true; }
+    if(over && !_confettiFired){
+      _confettiFired=true;
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:160, life:3});
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.6);
+    }
     else { dice=new Array(DICE).fill(1); rolls=0; kept=new Array(DICE).fill(false); }
     if(typeof Juice!=='undefined'){ if(over){ Juice.sfx('levelup'); Juice.popup(window.innerWidth/2, window.innerHeight*0.4, '终局 '+total, '#02c076', {size:18}); } else { Juice.sfx('click'); Juice.popup(window.innerWidth/2, window.innerHeight*0.5, '+'+sc, '#f0b90b', {size:16}); } }
     return true;
@@ -195,7 +201,8 @@
     window.__t = {
       DICE, MAX_ROLLS, TURNS, CATS,
       setRand, newGame, reset, roll, compute, assign,
-      getDice, getRolls, getKept, getScores, getTotal, isOver, getRound, getUsedCats, getCats, setDice,
+      getDice, getRolls, getKept, getScores, getTotal, isOver, getRound, getUsedCats, getCats,       setDice,
+      confettiFired:()=>_confettiFired,
     };
   }
 })();

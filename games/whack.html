@@ -102,6 +102,7 @@
   // state: 'empty' | 'rising' | 'up' | 'hit' | 'falling'
   let score=0, best=0, time=GAME_TIME, combo=0, maxCombo=0;
   let playing=false, over=false;
+  let _confettiFired=false; // 破纪录 confetti 已触发（独立于 Juice 的只读测试锁）
   let spawnTimer=0, spawnInterval=1.2;
   let gameTime=0;             // 已过时间（用于难度递增）
 
@@ -174,6 +175,7 @@
     resetHoles();
     score = 0; time = GAME_TIME; combo = 0; maxCombo = 0;
     spawnTimer = 0; spawnInterval = 1.2; gameTime = 0;
+    _confettiFired=false; // 新游戏重置破纪录反馈锁（仅视觉状态）
     pickups = []; rngPick = mk(0x55AA55AA);
     playing = true; over = false;
     document.getElementById('overlay').classList.remove('show');
@@ -316,6 +318,11 @@
     playing = false; over = true;
     if (score > best) {
       best = score;
+      if(!_confettiFired){
+        _confettiFired=true;
+        if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:140, life:2.6});
+        if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.6);
+      }
       try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){}
     }
     if (typeof Juice !== 'undefined') {
@@ -483,6 +490,7 @@
     applyPickup: (type)=>{ applyPickup(type); },
     getPickups: ()=>pickups,
     collectAt: (x,y)=>{ collectAt(x,y); },
+    confettiFired: ()=>_confettiFired,
   };
 })();
 </script>

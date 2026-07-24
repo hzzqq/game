@@ -64,9 +64,20 @@
   const homeRow=v=> v===RED ? SIZE-1 : 0;  // 到达底线即胜
 
   let S; // {board:[64], turn, winner}
+  let _wonPrev=false, winFx=0; // 胜利特效跳变防重 + 计数
   function newGame(){
     S={ board:new Array(64).fill(0), turn:RED, winner:0 };
     for(let c=0;c<SIZE;c++){ S.board[idx(0,c)]=RED; S.board[idx(1,c)]=RED; S.board[idx(6,c)]=BLACK; S.board[idx(7,c)]=BLACK; }
+    _wonPrev=false; winFx=0;
+  }
+  function fireWinFx(){ // 仅玩家(红)获胜时触发彩带 + 粒子，_wonPrev 跳变防重复
+    if(S.winner===RED && !_wonPrev){
+      _wonPrev=true; winFx++;
+      if(typeof Juice!=='undefined'){
+        if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+        if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:40, speed:160});
+      }
+    }
   }
 
   function movesFrom(s,r,c){
@@ -172,6 +183,7 @@
     if(!ok) return {ok:false,reason:'illegal'};
     applyMoveState(S,mv);
     if(typeof Juice!=='undefined') Juice.sfx('click');
+    fireWinFx();
     return {ok:true};
   }
   /* ===================== 难度系统 ===================== */
@@ -265,6 +277,7 @@
     countPieces, winnerOf(){ return S.winner; },
     getBoard(){ return S.board.slice(); },
     DIFFICULTY, setDifficulty, getDifficulty, setRand,
+    confettiFired(){ return winFx; },
   };
 })();
 </script>

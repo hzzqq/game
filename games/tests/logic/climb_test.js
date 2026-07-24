@@ -99,3 +99,10 @@ t.setBoost(2);
 t.stepPickups();
 ok('climb: stepPickups 拾取金币(bonus 增加)', t.getState().bonus > 0, 'bonus=' + t.getState().bonus);
 ok('climb: stepPickups 递减 boost', t.getBoost() === 1, 'boost=' + t.getBoost());
+
+// ---------- 成就/胜利正反馈：登顶触发 confettiFired ----------
+t.reset(12345);
+var ch = 0;
+while (!t.isWin() && ch < 300){ t.hop('up'); ch++; }
+ok('climb: 持续向上登顶 win', t.isWin() === true, 'hops=' + ch);
+ok('climb: 登顶触发 confettiFired', t.confettiFired() === true);

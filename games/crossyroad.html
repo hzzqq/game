@@ -76,6 +76,13 @@
   let rows, player, gameOver, furthest, score, pickups, bonus;
   const COIN_VALUE = 20;
 
+  // ---- 里程碑正反馈：分数每跨越一个 MILESTONE_STEP 触发一次 confetti（只读钩子 confettiFired）----
+  const MILESTONE_STEP = 10;
+  let confettiFx = 0;       // 成就命中次数（只读钩子）
+  let nextMilestone = MILESTONE_STEP;
+  function milestoneFire(){ confettiFx++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+  function checkMilestone(){ if(score >= nextMilestone){ nextMilestone += MILESTONE_STEP; milestoneFire(); } }
+
   // ---- Boss 系统（生存型「鹰 Boss」，每 BOSS_EVERY 个里程碑出现）----
   // wave = 里程碑计数：玩家每推进到更靠前的一行 +1；isBossWave 命中的波次召唤鹰。
   const BOSS_EVERY = 3;
@@ -112,6 +119,7 @@
     gameOver = false;
     furthest = START_ROW;
     score = 0; bonus = 0;
+    confettiFx = 0; nextMilestone = MILESTONE_STEP;
     boss = null; wave = 1;
     // 道具：随机撒在若干格（coin 加分 / shield 免一次死）
     pickups = [];
@@ -159,6 +167,7 @@
       }
     }
     score = (START_ROW - furthest) + bonus;
+    checkMilestone();
   }
 
   function hop(dir){
@@ -174,6 +183,7 @@
     }
     score = (START_ROW - furthest) + bonus;
     if(J) J.sfx('click'); if(J) J.addTrauma(0.1);
+    if(J) J.burst(player.col*40+20, player.row*40+20, { color:'#02c076', n:6, speed:100 });
     collectPickups();
     checkHere();
   }
@@ -290,6 +300,7 @@
       const reward = 100 * wave;
       bonus += reward;
       score = (START_ROW - furthest) + bonus;
+      checkMilestone();
       rows[player.row].type = 'safe';
       rows[player.row].obstacles = [];
       pickups.push({ type: 'coin', row: Math.max(0, player.row - 1), col: player.col });
@@ -432,7 +443,7 @@
       getPickups:()=>pickups.length,
       getShield:()=>player.shield, setShield:(v)=>{ player.shield=v; },
       getBonus:()=>bonus,
-      applyPickup:(type)=>{ if(type==='coin'){ bonus+=COIN_VALUE; score=(START_ROW-furthest)+bonus; } else if(type==='shield'){ player.shield++; } },
+      applyPickup:(type)=>{ if(type==='coin'){ bonus+=COIN_VALUE; score=(START_ROW-furthest)+bonus; } else if(type==='shield'){ player.shield++; } checkMilestone(); },
       collectPickups,
       // ---- Boss 系统钩子（B6 鹰 Boss）----
       BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
@@ -440,7 +451,8 @@
       setBossHp:(v)=>{ if(boss) boss.hp=v; },
       setBoss:(v)=>{ boss=v; },
       getWave:()=>wave, setWave:(v)=>{ wave=v; },
-      update:step };
+      update:step,
+      confettiFired:()=>confettiFx };
   }
 })();
 </script>

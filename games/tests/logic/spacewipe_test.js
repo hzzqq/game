@@ -189,3 +189,14 @@ t.setRand(Math.random);
   H.ok('DIFFICULTY 含 bossHpMult 地狱>简单', t.DIFFICULTY.hell.bossHpMult > t.DIFFICULTY.easy.bossHpMult);
   t.setDifficulty('normal'); t.reset(); t.setRand(Math.random);
 }
+
+// ===== 成就正反馈：击败 Boss 触发 confetti（纯视觉层，不改计分/击败判定）=====
+(() => {
+  t.reset(); t.start(); t.startWave(3);
+  const bs = t.getBoss();
+  H.ok('spacewipe Boss 存在', bs !== null);
+  t.setBossHp(1);
+  t.addBullet(bs.x, bs.y);
+  t.update(0.016); // 一发命中 → 击败
+  H.eq('spacewipe 击败 Boss 触发 confettiFired', t.confettiFired(), true);
+})();

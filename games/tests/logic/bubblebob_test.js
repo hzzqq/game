@@ -136,3 +136,12 @@ bb.takeHit(1);
 H.ok('胶囊 无护盾 生命-1', bb.capLives === lvNo - 1);
 bb.takeHit(99);
 H.ok('胶囊 生命归零 capDead', bb.capDead === true);
+
+// [10] 玩家(P0)获胜触发 confetti：kill 其余玩家 → update → state=roundover 且 confettiFired 为真
+bb.startGame('1v1');
+bb.players.forEach(p => { p.isAI = false; });
+H.ok('获胜前 confettiFired 为 false', bb.confettiFired === false);
+bb.players.forEach(p => { if (p.id !== 0) p.alive = false; });
+bb.update(0.05);
+H.ok('P0 获胜 → state=roundover', bb.state === 'roundover');
+H.ok('P0 获胜 → confettiFired 为真', bb.confettiFired === true);

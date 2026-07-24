@@ -179,6 +179,7 @@
 
   // ============ 状态 ============
   var state = 'menu'; // menu | play | win | over
+  var _confettiFired = false;
   var hero, enemies, projectiles, particles, boss, pickups = [], heroRage = 0;
   var cameraX = 0;
   var score = 0;
@@ -232,6 +233,7 @@
     };
     boss.y = groundY() - boss.h;
     state = 'play';
+    _confettiFired = false;
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('bosswrap').style.display = 'none';
     updateHUD();
@@ -375,6 +377,11 @@
   }
   function win(){
     state = 'win';
+    if(!_confettiFired){
+      _confettiFired = true;
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:160, life:2.8});
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
+    }
     if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',0.4); }
     showOverlay('★ 关卡通关 ★', '牛魔王已被斩杀！最终分数 ' + score, '再来一局');
     if(typeof Juice!=='undefined'){ var b=Juice.best('dream',score); var rk=Juice.rank(score); Juice.achievement('🏆 通关！分数 '+score+' · 段位 '+rk); }
@@ -795,7 +802,9 @@
       pickups=[];
     },
     start(){ initGame(); },
-    getState(){ return state; }
+    win(){ win(); },
+    getState(){ return state; },
+    confettiFired(){ return _confettiFired; }
   };
 })();
 </script>

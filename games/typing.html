@@ -60,12 +60,12 @@
   let _now = (typeof performance!=='undefined') ? ()=>performance.now() : ()=>Date.now();
   function setClock(fn){ _now = fn; }
 
-  let words, idx, totalCorrectChars, totalEntryChars, correctWords, startTime, endTime, finished;
+  let words, idx, totalCorrectChars, totalEntryChars, correctWords, startTime, endTime, finished, confettiFired;
   function setWords(w){ words = w.slice(); }
   function reset(){
     if(!words || !words.length) words = DEFAULT_WORDS.slice();
     idx = 0; totalCorrectChars = 0; totalEntryChars = 0; correctWords = 0;
-    startTime = null; endTime = null; finished = false;
+    startTime = null; endTime = null; finished = false; confettiFired = false;
   }
   // 提交一次键入（typed: 字符串）
   function submitWord(typed){
@@ -81,7 +81,7 @@
     if(wordCorrect) correctWords++;
     const result = {target, typed, correctChars:cc, wordCorrect, index:idx};
     idx++;
-    if(idx>=words.length){ endTime = _now(); finished = true; }
+    if(idx>=words.length){ endTime = _now(); finished = true; confettiFired = true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     if(typeof Juice!=='undefined') Juice.sfx(wordCorrect?'click':'boom');
     return result;
   }
@@ -133,6 +133,7 @@
     window.__t = {
       setWords, setClock, reset, submitWord, getStats, getState,
       getDefaultWords:()=>DEFAULT_WORDS.slice(),
+      getConfettiFired:()=>confettiFired,
     };
   }
 })();

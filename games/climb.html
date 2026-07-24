@@ -57,7 +57,7 @@
   const COIN_VALUE = 20;
   const BOOST_DUR = 40;        // 🚀加速持续帧数（每帧自动向上冲一格）
   const ROCK_INTERVAL = 14;    // 落石生成间隔（步）
-  let player, rocks, pickups, gameOver, win, score, bonus, furthest, rockTimer;
+  let player, rocks, pickups, gameOver, win, score, bonus, furthest, rockTimer, confettiFired = false;
 
   function genField(){
     player = { row: START_ROW, col: Math.floor(COLS/2), shield: 0, boost: 0 };
@@ -65,6 +65,7 @@
     pickups = [];
     score = 0; bonus = 0; furthest = START_ROW;
     gameOver = false; win = false;
+    confettiFired = false;  // 重置成就标记
     rockTimer = ROCK_INTERVAL;
     // 道具：随机撒在塔身若干格（coin 加分 / shield 护盾 / boost 加速）
     for(let i=0;i<5;i++){
@@ -111,7 +112,7 @@
     score = (START_ROW - furthest) + bonus;
     if(J) J.sfx('click'); if(J) J.addTrauma(0.08);
     collectPickups();
-    if(player.row === 0){ win = true; if(J) J.sfx('levelup'); }
+    if(player.row === 0){ win = true; if(J) J.sfx('levelup'); if(!confettiFired){ confettiFired=true; if(typeof Juice!=='undefined'){ if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.4, {color:'#02c076', n:34, speed:280}); } } }
   }
 
   function step(dt){
@@ -236,7 +237,8 @@
       getShield:()=>player.shield, setShield:(v)=>{ player.shield=v; },
       getBoost:()=>player.boost, setBoost:(v)=>{ player.boost=v; },
       applyPickup, collectPickups,
-      stepPickups:()=>{ if(player.boost>0) player.boost--; collectPickups(); } };
+      stepPickups:()=>{ if(player.boost>0) player.boost--; collectPickups(); },
+      confettiFired:()=>confettiFired };
   }
 })();
 </script>

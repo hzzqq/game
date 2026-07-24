@@ -157,3 +157,51 @@ t.newGame();
 const lives1 = t.getLives();
 t.takeHit();
 ok('斗兽棋: 无护盾受击扣血', t.getLives() === lives1 - 1);
+
+// ============ 胜利 confetti ============
+{
+  t.newGame();
+  t.setBoard([
+    [null,null,null,null,null,null,null],
+    [null,null,null,{side:'b',rank:7},null,null,null],
+    [null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null],
+  ], 'b');
+  ok('红方踏入蓝穴获胜', t.move(1,3,0,3));
+  ok('已结束', t.isOver());
+  eq('红方胜', t.getWinner(), 'b');
+  eq('胜利 confetti 触发', t.confettiFired(), true);
+}
+
+// ============ 难度系统（四档 AI 人机） ============
+{
+  eq('有 4 个难度档', Object.keys(t.DIFFICULTY).length, 4);
+  ok('含地狱档', !!t.DIFFICULTY.hell);
+  eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty 返回 hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
+  eq('非法档不改变难度', t.getDifficulty(), 'hell');
+
+  // 切换难度不崩、蓝方 AI 走合法着法
+  t.setDifficulty('easy'); t.setRand(()=>0.0);
+  t.newGame();
+  t.setBoard(t.getBoard(), 'w'); // 轮到蓝方(AI)
+  const mv = t.aiTurn();
+  ok('蓝方 AI 返回合法着法', !!mv && mv.fr!=null && mv.tr!=null);
+  t.setRand(Math.random); t.setDifficulty('normal');
+}
+
+// ============ AI 随机路径确定性（setRand 注入） ============
+{
+  t.setDifficulty('easy'); t.setRand(()=>0.0);
+  t.newGame();
+  t.setBoard(t.getBoard(), 'w');
+  const mv = t.aiTurn();
+  ok('easy+随机流 返回合法着法', !!mv);
+  t.setRand(Math.random); t.setDifficulty('normal');
+}

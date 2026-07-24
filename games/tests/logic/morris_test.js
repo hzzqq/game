@@ -1,4 +1,4 @@
-const { loadGame, ok, eq } = require('./harness');
+const { loadGame, results, ok, eq } = require('./harness');
 const { t } = loadGame('../morris.html');
 
 // 布子连线胜
@@ -38,3 +38,14 @@ ok('非相邻走子被拒', !t.move(0,0,0,2));
   eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
   eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
 }
+
+// ---------- 胜利 confetti ----------
+t.newGame();
+ok('胜利前 confettiFired 为 false', t.confettiFired() === false);
+t.place(0,0); t.place(1,0); t.place(0,1); t.place(1,1); t.place(0,2);
+ok('游戏结束胜利 → confettiFired 为真', t.confettiFired() === true);
+
+const total = results.length;
+const pass = results.filter(r => r.pass).length;
+console.log(`\nmorris: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);

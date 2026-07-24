@@ -102,6 +102,7 @@
     let bullets=[], enemies=[], eBullets=[], particles=[], drops=[];
     let lastShoot=0;
     let score=0, level=1, spawnT=0, boss=null, bossNext=1200, running=false, paused=false, over=false;
+    let _confettiFired=false;   // 注入：BOSS 击败彩带只读锁（独立于 Juice，仅视觉状态）
     const DROP={power:{c:'#f0b90b',g:'P'},life:{c:'#02c076',g:'♥'},shield:{c:'#3aa0ff',g:'S'},rapid:{c:'#ff8a96',g:'R'},bomb:{c:'#f6465d',g:'B'},heal:{c:'#7CFC00',g:'+'}};
 
     // ===== 输入（接入共享输入层 input.js，根治断触 / 失焦卡键）=====
@@ -219,6 +220,12 @@
         drops.push({x:boss.x, y:boss.y, type:'bomb'}); // 击败掉落
         boss=null; level=nl; player.power=Math.min(6,player.power+1); bossNext=score+1400;
         document.getElementById('bossbar').style.display='none';
+        // 注入：BOSS 击败 → 庆祝彩带 + 屏震（只读锁，不依赖 Juice）
+        if(!_confettiFired){
+          _confettiFired=true;
+          if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:160, life:2.8});
+          if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.7);
+        }
         return true;
       }
       return false;
@@ -460,6 +467,7 @@
       bullets=[]; enemies=[]; eBullets=[]; particles=[]; drops=[];
       capPickups=[]; capBoost=0; capShield=false; capLives=3; capDead=false; capSpawn=12; capPower=1;
       score=0; level=1; spawnT=0.6; boss=null; over=false; paused=false; running=true;
+      _confettiFired=false;   // 注入：重置 BOSS 击败彩带锁
       document.getElementById('bossbar').style.display='none';
       document.getElementById('overlay').style.display='none';
       document.getElementById('pauseBtn').textContent='暂停';
@@ -600,7 +608,10 @@
       getCapPower: function(){ return capPower; },
       getCapLives: function(){ return capLives; },
       getCapDead: function(){ return capDead; },
-      takeHit: function(i){ takeHit(i); }
+      takeHit: function(i){ takeHit(i); },
+      // ---- 注入：BOSS 击败彩带只读/驱动钩子 ----
+      confettiFired: function(){ return _confettiFired; },
+      win: function(){ spawnBoss(); if(boss) boss.hp=0; updateBoss(0.016); }
     };
 
     // 初始渲染一帧（菜单背景）

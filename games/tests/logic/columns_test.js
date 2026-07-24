@@ -84,3 +84,19 @@ t.newGame(23);
 }
 
 console.log('  ✓ columns_test.js 全部通过');
+
+// ===== 成就：跨越 1000 分里程碑 → confetti 钩子（独立于 Juice） =====
+t.newGame(999);
+{
+  const g = [];
+  for(let r=0;r<t.ROWS;r++) g.push(new Array(t.COLS).fill(null));
+  g[t.ROWS-1][0] = 1; g[t.ROWS-1][1] = 1; g[t.ROWS-1][2] = 1; // 底部横向 3 连
+  t.setBoard(g);
+  t.setCurrent({ x:5, cells:[9,9,9], y:0 }); // 远离，避免干扰
+  t.setScore(990);
+  t.clearMatches();  // 990+30=1020，跨过 1000 里程碑
+  H.ok('成就: 跨 1000 里程碑触发 confettiFired', t.confettiFired() === true, 'score='+t.getScore());
+}
+
+if (H.results.some(r => !r.pass)) process.exit(1);
+process.exit(0);

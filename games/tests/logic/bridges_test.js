@@ -85,3 +85,16 @@ const { t } = loadGame('../bridges.html');
   ok('度数和为偶数', sum%2===0);
   t.setRand(Math.random);
 }
+
+// ===== 8. 通关触发完成特效标记 =====
+{
+  t.setBoard([
+    {r:0,c:0,deg:1},
+    {r:0,c:2,deg:2},
+    {r:0,c:4,deg:1},
+  ]);
+  eq('通关前未标记完成特效', t.confettiFired, false);
+  ok('A-B 建桥合法', t.addBridge(0,1,1)===true);
+  ok('B-C 建桥合法', t.addBridge(1,2,1)===true);
+  ok('通关后标记完成特效', t.confettiFired===true);
+}

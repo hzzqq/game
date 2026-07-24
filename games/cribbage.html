@@ -105,11 +105,12 @@
   function cardValue(c){ const r=rank(c); if(r===0) return 1; if(r>=10) return 10; return r+1; } // A=1,2..10, JQK=10
 
   let hands, crib, starter, dealer, phase, playPile, playTotal, current, peg, show, playedCount, lastToPlay;
+  let _confettiFired=false;
   let _lastSeed = 1;
 
   function freshState(){
     hands=[[],[]]; crib=[]; starter=-1; dealer=0; phase='discard';
-    playPile=[]; playTotal=0; current=0; peg=[0,0]; show=[0,0,0]; playedCount=0; lastToPlay=-1;
+    playPile=[]; playTotal=0; current=0; peg=[0,0]; show=[0,0,0]; playedCount=0; lastToPlay=-1; _confettiFired=false;
   }
   function deal(){
     const d=[]; for(let c=0;c<52;c++) d.push(c);
@@ -255,6 +256,7 @@
     peg[0]+=h0; peg[1]+=h1; peg[dealer]+=cr;
     if(rank(starter)===10) peg[dealer]+=2; // his heels
     phase='over';
+    if(peg[0]>peg[1] && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
   }
 
   function step(){
@@ -398,7 +400,7 @@
     window.__t = {
       SUITS, RNAMES, suit, rank, cardName, cardValue,
       setRand, newGame, reset, getState, legalMoves, playCard, discard, go:doGo,
-      scorePeg, scoreHand, scoreCrib, scoreShow, step, getScores, getPegScore, isOver, setup,
+      scorePeg, scoreHand, scoreCrib, scoreShow, step, getScores, getPegScore, isOver, setup, confettiFired: ()=>_confettiFired,
       DIFFICULTY, setDifficulty, getDifficulty
     };
   }

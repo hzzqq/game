@@ -68,6 +68,7 @@
   let pieces = [];        // [{id, cells:[[dr,dc]...]}]
   let placements = {};    // id -> {rot, r, c} 或 null
   let won = false;
+  let confettiFired = false;
 
   function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
 
@@ -115,7 +116,7 @@
       if(g[ar][ac] && g[ar][ac]!==id+1) return false; // 与他片重叠
     }
     placements[id] = {rot:((rot%4)+4)%4, r, c};
-    if(isWin()){ won=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('tangram', pieces.length); } }
+    if(isWin()){ won=true; confettiFired=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('tangram', pieces.length); if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
     return true;
   }
   function remove(id){ if(id in placements){ delete placements[id]; won=false; } }
@@ -136,7 +137,7 @@
     target = tg.map(row=>row.slice());
     pieces = shapes.map((s,i)=>({id:i, cells:s.map(c=>c.slice())}));
     placements = {};
-    won=false;
+    won=false; confettiFired=false;
     return {N:N_local, pieces:pieces.length, target:targetCount()};
   }
 
@@ -180,7 +181,7 @@
       if(cuts.every(x=>Math.abs(x-c)>=3)) cuts.push(c);
     }
     cuts.sort((a,b)=>a-b);
-    pieces=[]; placements={}; won=false;
+    pieces=[]; placements={}; won=false; confettiFired=false;
     let prev=0;
     for(let i=0;i<k;i++){
       const end = (i===k-1) ? order.length : cuts[i];
@@ -295,6 +296,7 @@
     window.__t = {
       N, setRand, newGame, reset, setBoard, place, remove, rotate, isWin,
       getState, update, pieceCells, occupiedGrid, coveredCount, targetCount, isPlaced,
+      get confettiFired(){ return confettiFired; },
     };
   }
 })();

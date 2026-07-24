@@ -1,4 +1,4 @@
-const { loadGame, ok, eq } = require('./harness');
+const { loadGame, ok, eq, results } = require('./harness');
 const { t } = loadGame('../life.html');
 
 function sortedAlive(s){ return s.alive.slice().sort((a,b)=> a[0]-b[0] || a[1]-b[1]); }
@@ -54,3 +54,18 @@ t.newGame(8, 8);
 t.setRand(() => 0.3);   // 固定 PRNG，保证可复现
 t.step();
 ok('life: 步进后代数=1', t.getState().gen === 1);
+
+// ===== 胜利彩带钩子（静物达成）=====
+t.newGame(6, 6);
+[[1,1],[1,2],[2,1],[2,2]].forEach(([r,c]) => t.setCell(r,c,true));
+t.step();  // block 为 still-life（稳定）+ 有存活 → 触发彩带
+ok('life: 静物(block)达成 触发胜利彩带(confettiFired)', t.confettiFired());
+
+// ===== 汇总 =====
+const passed = results.filter(r=>r.pass).length;
+const total = results.length;
+console.log(`\nlife: ${passed}/${total} 通过`);
+if (passed !== total) {
+  results.filter(r=>!r.pass).forEach(r => console.log(`  ✗ ${r.name}  ${r.info}`));
+  process.exit(1);
+}

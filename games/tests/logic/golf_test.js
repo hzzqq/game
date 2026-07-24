@@ -89,3 +89,11 @@ t.reset();
 const lives1 = t.getLives();
 t.takeHit();
 ok('高尔夫: 无护盾受击扣血', t.getLives() === lives1 - 1);
+
+// ===== 进洞胜利 confetti =====
+t.reset();
+eq('进洞前 confettiFired 为 false', t.confettiFired(), false);
+t.setBall(0,0); t.setHole(50,0); t.setObstacles([]);
+t.hit(0,50);
+ok('进洞成功', t.isInHole() === true);
+eq('进洞触发 confettiFired', t.confettiFired(), true);

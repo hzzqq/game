@@ -63,4 +63,22 @@ T.reset(); T.setLives(10); T.setShield(0);
 T.takeHit(1);
 H.eq('towerdefense: 无盾扣血，命数-1', T.getLives(), 9);
 
+// 10) 守住全部波次触发通关 confetti
+T.newGame();
+H.ok('通关前 confettiFired 为 false', T.confettiFired() === false);
+T.setWave(T.MAX_WAVE);
+T.setWaveActive(true);
+T.setEnemies([]);
+T.update(0.016); // waveActive 且无敌人 → 通关
+H.ok('守住全部波次 hasWon 为 true', T.hasWon() === true);
+H.ok('通关 → confettiFired 为 true', T.confettiFired() === true);
+T.newGame();
+H.ok('重开后 confettiFired 复位为 false', T.confettiFired() === false);
+
+// 汇总
+const total = H.results.length;
+const pass = H.results.filter(r => r.pass).length;
+console.log(`\ntowerdefense: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);
+
 module.exports = {};

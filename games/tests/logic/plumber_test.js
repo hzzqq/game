@@ -96,3 +96,19 @@ t.reset();
 t.applyPickup('shield');
 ok('护盾已激活', t.getShield() === true);
 
+// ===== 轮5：完成彩带特效（解出触发，只读标记）=====
+const solvedBoard = [
+  [L|R, L|R, L|R, L|R, L|R, L|D],
+  [0,   0,   0,   0,   0,   U|D],
+  [0,   0,   0,   0,   0,   U|D],
+  [0,   0,   0,   0,   0,   U|D],
+  [0,   0,   0,   0,   0,   U|D],
+  [0,   0,   0,   0,   0,   U|R],
+];
+t.setBoard(solvedBoard);
+const pf0 = t.confettiFired;
+t.render();
+eq('接水管解出触发彩带', t.confettiFired, pf0+1);
+t.render();
+eq('已解出不重复触发', t.confettiFired, pf0+1);
+

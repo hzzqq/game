@@ -55,6 +55,13 @@
   "use strict";
   let n=4, grid=[], cages=[], sol=[], cellCage={}, cageSat=[];
   let rand = Math.random;
+  let _solvedPrev = false;
+  let _confettiCount = 0;
+  function _fireConfetti(){
+    _confettiCount++;
+    if(typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(typeof Juice !== 'undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.4, {color:'#02c076', n:40});
+  }
 
   // ---- 确定性 RNG（mulberry32） ----
   function makeRng(seed){
@@ -171,6 +178,7 @@
     grid = Array.from({length:n},()=>Array(n).fill(0));
     cellCage={}; cages.forEach((cage,i)=>cage.cells.forEach(p=>{ cellCage[p[0]+','+p[1]]=i; }));
     recomputeCageSat();
+    _solvedPrev = false;
   }
   function setValue(r,c,v){
     if(r<0||c<0||r>=n||c>=n) return false;
@@ -182,7 +190,8 @@
     recomputeCageSat();
     if(idx!=null && cageSat[idx] && !beforeSat){ Juice.sfx('pickup'); Juice.addTrauma(.15); }
     if(v>=1 && (rowHasDup(r)||colHasDup(c))) Juice.sfx('error');
-    if(isSolved()){ Juice.sfx('win'); Juice.flash('#02c076',.5); }
+    if(isSolved()){ if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } if(!_solvedPrev) _fireConfetti(); }
+    _solvedPrev = isSolved();
     return true;
   }
   function getState(){
@@ -249,7 +258,8 @@
   // ---- boot ----
   newPuzzle(1); // 固定 seed 保证确定性，避免随机改变干扰逻辑单测
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
-  if(typeof window!=='undefined'){ window.__t={ reset, newPuzzle, setValue, getState, setRand, solution }; }
+  if(typeof window!=='undefined'){ window.__t={ reset, newPuzzle, setValue, getState, setRand, solution,
+    get confettiFired(){ return _confettiCount; } }; }
 })();
 </script>
 </body>

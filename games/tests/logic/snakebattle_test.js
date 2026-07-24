@@ -79,3 +79,21 @@ const { t } = H.loadGame('../snakebattle.html');
   H.ok('蛇战 拾取speed获得加速', t.getBoost(1) === true);
 })();
 
+// 13) 胜利彩带：一方被淘汰 → confettiFired 置真（只读锁，独立于 Juice）
+t.reset();
+H.ok(t.confettiFired() === false, 'snakebattle: 胜利前 confettiFired 为 false');
+t.win();
+H.ok(t.confettiFired() === true, 'snakebattle: 一方被淘汰(P1胜) → confettiFired 为真');
+H.ok(t.getState().gameOver === true, 'snakebattle: win() 进入结束态');
+
+// 14) 重置后锁复位
+t.reset();
+H.ok(t.confettiFired() === false, 'snakebattle: 重置后 confettiFired 复位');
+
+const total = H.results.length;
+const pass = H.results.filter(r => r.pass).length;
+console.log(`\nsnakebattle: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);
+
+module.exports = {};
+

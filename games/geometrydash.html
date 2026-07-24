@@ -154,6 +154,8 @@
 
   var player, obstacles, particles, pickups;
   var speed, baseSpeed, distance, score, spawnTimer, spawnGap, frame, scroll, bgScroll, farScroll, lastTime;
+  var confettiFx = 0;       // 成就命中次数（只读钩子 confettiFired）
+  function milestoneFire(){ confettiFx++; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, { n:120, life:2.4 }); }
   var pickTimer, boostTimer;
 
   function reset(){
@@ -169,6 +171,7 @@
     boostTimer = 0;          // 加速增益计时
     spawnTimer = 0;
     spawnGap = 70;
+    confettiFx = 0;
     pickTimer = 90;          // 首枚道具刷新前的帧数
     frame = 0;
     scroll = 0;
@@ -531,6 +534,7 @@
       try { localStorage.setItem('gd_best', String(best)); } catch(e){}
     }
     bestEl.textContent = best;
+    if (nb) milestoneFire();   // 打破最高分 → 正反馈彩带（只读钩子记录）
     ovTitle.textContent = 'GAME OVER // 撞毁';
     ovTitle.style.color = '#f6465d';
     ovText.innerHTML = '本次距离 <b style="color:#f0b90b">' + d + '</b>' +
@@ -603,6 +607,7 @@
     getDistance: function(){ return distance; },
     getScore: function(){ return score; },
     isGameOver: function(){ return state === 'over'; },
+    confettiFired: function(){ return confettiFx; },
     getState: function(){
       return {
         distance: distance, over: state === 'over', speed: speed, boost: boostTimer,

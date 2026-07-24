@@ -55,6 +55,7 @@
   let bridges = {};   // "i-j"(i<j) -> count(1|2)
   let sol = [];       // 生成时的解：[{i,j,count}]
   let won = false;
+  let confettiFired = false;
 
   function key(i,j){ return i<j ? i+'-'+j : j+'-'+i; }
   function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
@@ -137,7 +138,7 @@
     if(target===0) delete bridges[key(i,j)];
     else bridges[key(i,j)]=target;
     won=isWin();
-    if(won && typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('bridges', islands.length); }
+    if(won){ fireWin(); if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('bridges', islands.length); } }
     return true;
   }
   function removeBridge(i,j){ return addBridge(i,j,0); }
@@ -157,13 +158,17 @@
     for(const p of islands){ if(usedOf(islands.indexOf(p))!==p.deg) return false; }
     return connected();
   }
+  function fireWin(){
+    confettiFired = true;
+    if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+  }
 
   function setBoard(islandList){
     N_local = Math.max.apply(null, islandList.flatMap(p=>[p.r,p.c])) + 1;
     islands = islandList.map(p=>({r:p.r,c:p.c,deg:p.deg,used:0}));
     bridges = {};
     sol = [];
-    won=false;
+    won=false; confettiFired=false;
     return {islands:islands.length, won:isWin()};
   }
 
@@ -172,6 +177,7 @@
     bridges = {};
     for(const e of sol){ bridges[key(e.i,e.j)] = e.count; }
     won=isWin();
+    if(won) fireWin();
     return won;
   }
 
@@ -235,7 +241,7 @@
   function newGame(){
     let ok=false, guard=0;
     do { ok = buildSolution(); guard++; } while(!ok && guard<10);
-    won=false;
+    won=false; confettiFired=false;
   }
   function reset(){ newGame(); }
 
@@ -310,7 +316,7 @@
       render();
     });
     if(nb) nb.onclick=()=>{ newGame(); sel=null; render(); };
-    if(rb) rb.onclick=()=>{ bridges={}; won=false; sel=null; render(); };
+    if(rb) rb.onclick=()=>{ bridges={}; won=false; confettiFired=false; sel=null; render(); };
   }
   newGame();
   if(typeof document!=='undefined'){
@@ -321,6 +327,7 @@
     window.__t = {
       N, setRand, newGame, reset, setBoard, addBridge, removeBridge, isWin, solve,
       getState, update, alignedClear, usedOf, bridgeCount, connected, allSatisfied, islandAt,
+      get confettiFired(){ return confettiFired; },
     };
   }
 })();

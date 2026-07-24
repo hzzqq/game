@@ -185,6 +185,13 @@ eq('setDifficulty(hell) 返回 true', t.setDifficulty('hell'), true);
 eq('getDifficulty 为 hell', t.getDifficulty(), 'hell');
 eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
 
+// 28. 玩家(地主)获胜触发 confetti 钩子
+t.newGame();
+t.humanCall();           // 你叫地主
+ok('成为地主(landlordIndex=0)', t.getLandlord() === 0);
+t.endGame(0);            // 你出完获胜
+ok('玩家(地主)获胜触发 confettiFired', t.confettiFired());
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

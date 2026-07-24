@@ -51,3 +51,9 @@ eq('自动掉落已生效并移除', t.getPickups(), 0);
 // 5. 回归：纯计分 score() 不受奖励池影响
 t.setRolls(new Array(12).fill(10));
 eq('完美局纯计分仍 300', t.score(), 300);
+
+// ===== 胜利/达成 confetti：全中(strike) =====
+t.reset();
+eq('达成前 confettiFired 为 false', t.confettiFired(), false);
+t.roll(10);
+eq('全中触发 confettiFired', t.confettiFired(), true);

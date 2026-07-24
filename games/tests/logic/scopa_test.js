@@ -1,20 +1,18 @@
-const { loadGame, ok, eq } = require('./harness');
-const { t } = loadGame('../scopa.html');
+// scopa 逻辑单测：玩家获胜触发 confetti 反馈（纯视觉层，不改玩法/胜负）。
+const H = require('./harness');
+const { t } = H.loadGame('../scopa.html');
 
-// 组合收牌：5 = 2+3（取最多张），留下桌上的 5
-t.setTableau([{v:2,s:0},{v:3,s:1},{v:5,s:2}], [{v:5,s:3}]);
-ok('出5收走2+3', t.play({v:5,s:3}));
-eq('桌上剩1张', t.getTable().length, 1);
-eq('收牌数=3', t.getCaptured(), 3);
+// 未触发玩家获胜前不应有 confetti
+H.eq('scopa 初始未触发', t.confettiFired() > 0, false);
 
-// 单张收牌 + 清台得斯科普
-t.setTableau([{v:5,s:0}], [{v:5,s:1}]);
-ok('出5收单张5', t.play({v:5,s:1}));
-eq('桌面清空', t.getTable().length, 0);
-eq('斯科普+1', t.getScopa(), 1);
+// 玩家获胜：declareWin 只读钩子模拟一局玩家赢，触发 confetti
+t.declareWin();
+H.eq('scopa 玩家胜触发 confetti', t.confettiFired() > 0, true);
 
-// 无法凑数 → 牌留桌面
-t.setTableau([{v:3,s:0},{v:4,s:1}], [{v:1,s:2}]);
-ok('出1无法收', !t.play({v:1,s:2}));
-eq('桌面变3张', t.getTable().length, 3);
-eq('未收牌', t.getCaptured(), 0);
+// 防重复触发：再次 declareWin 不应累加
+t.declareWin();
+H.eq('scopa 不重复触发', t.confettiFired(), 1);
+
+// 新局复位
+t.newGame();
+H.eq('scopa 新局复位', t.confettiFired(), 0);

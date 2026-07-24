@@ -1,6 +1,7 @@
 // 双按钮节奏点击 · 逻辑单测
 // 经 window.__t 钩子确定性驱动：命中判定（perfect/good）、错键失误、漏接、连击累计。
 const H = require('./harness');
+const results = H.results;
 const { t } = H.loadGame('../rhythmclick.html');
 
 function freshGame(){
@@ -120,3 +121,19 @@ H.eq('回归: 正中得分=100', t.getState().score, 100);
 H.eq('回归: 连击=1', t.getState().combo, 1);
 // 还原掉落 PRNG 为默认随机流（确定性块结束）
 t.setRand(Math.random);
+
+// ===== 胜利彩带钩子（高连击达成）=====
+t.reset(); t.start(); t.setSpawnEnabled(false); t.clearNotes();
+const HYc = t.getState().hitLineY;
+for (let i=0;i<20;i++){ t.spawnNote(0, HYc); t.applyAction(0); }
+H.ok('rhythm: 连击累计至20', t.getState().maxCombo >= 20, 'maxCombo=' + t.getState().maxCombo);
+H.ok('rhythm: 高连击触发胜利彩带(confettiFired)', t.confettiFired());
+
+// ===== 汇总 =====
+const passed = results.filter(r=>r.pass).length;
+const total = results.length;
+console.log(`\nrhythmclick: ${passed}/${total} 通过`);
+if (passed !== total) {
+  results.filter(r=>!r.pass).forEach(r => console.log(`  ✗ ${r.name}  ${r.info}`));
+  process.exit(1);
+}

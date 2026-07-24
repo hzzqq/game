@@ -75,11 +75,11 @@
   function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
   function getDifficulty(){ return difficulty; }
 
-  let board, current, over, winner;
+  let board, current, over, winner, _wonPrev=false;
   function newGame(){
     board = new Array(14).fill(INIT);
     board[6]=0; board[13]=0;
-    current=0; over=false; winner=null;
+    current=0; over=false; winner=null; _wonPrev=false;
   }
   function reset(){ newGame(); }
   function oppStore(p){ return p===0?13:6; }
@@ -127,7 +127,7 @@
       board[6] += sumPits(0); board[13] += sumPits(1);
       OWN[0].forEach(i=>board[i]=0); OWN[1].forEach(i=>board[i]=0);
       over=true;
-      winner = board[6]>board[13]?0:(board[13]>board[6]?1:-1);
+      winner = board[6]>board[13]?0:(board[13]>board[6]?1:-1); if(winner===0 && !_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       if(typeof Juice!=='undefined'){
         if(winner===0){ Juice.sfx('win'); Juice.flash('#02c076',.4); }
         else if(winner===1){ Juice.sfx('lose'); Juice.flash('#f6465d',.4); }
@@ -247,6 +247,7 @@
       newGame, reset, sow, getCurrent, isOver, getWinner, getBoard, getStore, sumPits,
       setBoard, checkEnd,
       setRand, DIFFICULTY, setDifficulty, getDifficulty, aiChoosePit,
+      confettiFired(){ return _wonPrev; },
     };
   }
 })();

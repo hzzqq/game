@@ -71,4 +71,15 @@ T.stepPickups(1);
 H.ok(T.getCoins() === cc + 1, 'subway: stepPickups 碰撞拾取生效 (coins ' + T.getCoins() + ')');
 H.ok(T.getPickups().length === 0, 'subway: stepPickups 拾取后移除');
 
+// ===== 成就正反馈：破最高分触发 confetti（纯视觉层，不改计分/死亡判定）=====
+(() => {
+  T.reset(); T.startGame(); T.setObstacles([]); T.setState('play');
+  T.setRunner({ y: T.GROUND_Y(), onGround: true, vy: 0, jumps: 0, shield: 0, invuln: 0 });
+  T.update(1); T.update(1); T.update(1); // 累计距离 > 0
+  T.setRunner({ shield: 0, invuln: 0 });
+  T.setObstacles([{ type: 0, x: 90, y: T.GROUND_Y() - 26, w: 22, h: 26 }]);
+  T.update(1); // 撞障碍 → gameOver，距离破纪录
+  H.eq('subway 破最高分触发 confettiFired', T.confettiFired(), true);
+})();
+
 module.exports = {};

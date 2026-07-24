@@ -53,6 +53,7 @@
 (function(){
   "use strict";
   let p1, p2, over, winner, last;
+  let _wonPrev=false, _confettiFired=0;
 
   // ---- 注入：掉落道具/增益系统（纯反馈分支，不改核心玩法）----
   // 真实浏览器判定：node 测试 harness 的 navigator.userAgent 固定为 'node-test'
@@ -83,7 +84,7 @@
   }
 
   function rank(r){ return r; } // 2..14，A=14 最大
-  function newGame(){ p1=[{r:10},{r:7},{r:3}]; p2=[{r:5},{r:7},{r:2}]; over=false; winner=null; last=null; pickups=[]; shield=0; rngPick=mk(0x7A5B3C1D); }
+  function newGame(){ p1=[{r:10},{r:7},{r:3}]; p2=[{r:5},{r:7},{r:2}]; over=false; winner=null; last=null; pickups=[]; shield=0; rngPick=mk(0x7A5B3C1D); _wonPrev=false; _confettiFired=0; }
   function step(){
     if(over) return null;
     const pot=[];
@@ -104,19 +105,19 @@
       // 注入：翻牌掉落（仅真实游玩，局部 PRNG）
       if(IN_BROWSER && rngPick()<0.3) spawnPickupAt(150, 150);
       if(!p1.length||!p2.length){ over=true; winner=p1.length?1:2; }
-      if(over){ Juice.sfx('win'); Juice.flash('#02c076', .5); }
+      if(over){ Juice.sfx('win'); Juice.flash('#02c076', .5); if(winner===1 && !_wonPrev){ _wonPrev=true; _confettiFired++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30}); } }
       else { Juice.sfx('hit'); Juice.addTrauma(.2); }
       return last;
     }
     over=true; winner = p1.length>p2.length?1:(p2.length>p1.length?2:'draw');
-    if(over){ Juice.sfx('win'); Juice.flash('#02c076', .5); }
+    if(over){ Juice.sfx('win'); Juice.flash('#02c076', .5); if(winner===1 && !_wonPrev){ _wonPrev=true; _confettiFired++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30}); } }
     return last;
   }
   function getDecks(){ return { p1:p1.length, p2:p2.length }; }
   function getWinner(){ return winner; }
   function isOver(){ return over; }
   function getLast(){ return last; }
-  function setDecks(d1,d2){ p1=d1.map(c=>({...c})); p2=d2.map(c=>({...c})); over=false; winner=null; last=null; }
+  function setDecks(d1,d2){ p1=d1.map(c=>({...c})); p2=d2.map(c=>({...c})); over=false; winner=null; last=null; _wonPrev=false; _confettiFired=0; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
@@ -150,6 +151,7 @@
       getPickups:()=>pickups,
       collectPickup:(i)=>{ collectPickup(i); },
       getShield:()=>shield, setShield:(v)=>{shield=v;},
+      confettiFired:()=>_confettiFired,
     };
   }
 })();

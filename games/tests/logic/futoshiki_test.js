@@ -100,3 +100,22 @@ const SOL = [
   ok('双给定约束与解一致', okC);
   t.setRand(Math.random);
 }
+
+// ===== 8. 完成特效：解出后 confettiFired 标记 =====
+{
+  const givens = [
+    [1,0,0],
+    [0,3,0],
+    [0,0,2],
+  ];
+  const cts = [
+    {r1:0,c1:0,r2:0,c2:1,op:'<'},
+    {r1:1,c1:1,r2:2,c2:1,op:'>'},
+  ];
+  const before = t.confettiFired;
+  t.setBoard(givens, cts);
+  t.setValue(0,1,2); t.setValue(0,2,3);
+  t.setValue(1,0,2); t.setValue(1,2,1);
+  t.setValue(2,0,3); t.setValue(2,1,1);
+  ok('解出谜题→confettiFired 增加', t.confettiFired > before);
+}

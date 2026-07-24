@@ -78,6 +78,7 @@
 
   // 核心状态（普通 JS 变量，逻辑脱离 DOM）
   let player, aliens, pbullets, ebullets, score, lives, over, win, cooldown, diveEnabled, pickups, wave, boss;
+  let _confettiFired = false; // 过关/胜利 confetti 钩子（独立于 Juice，只读暴露）
 
   // ---------- 掉落道具系统（击落敌机随机掉落，下坠拾取增益）----------
   const DROP_PROB = 0.22;          // 敌机被击落时掉落道具概率
@@ -180,6 +181,7 @@
       pickups.push(makePickup('rocket', boss.x + boss.w/2, boss.y + boss.h));
       if(J){ J.sfx && J.sfx('win'); J.flash && J.flash('#02c076', .4); }
       boss = null;
+      if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       return true;
     }
     return false;
@@ -189,6 +191,7 @@
     player = { x: W/2, shield:0, rapidT:0, spreadT:0 };
     aliens = []; pbullets = []; ebullets = []; pickups = [];
     score = 0; lives = START_LIVES; over = false; win = false; cooldown = 0;
+    _confettiFired = false;
     diveEnabled = true;
     wave = 1; boss = null;
     buildAliens();
@@ -269,6 +272,8 @@
           a.alive = false; score += KILL_SCORE; b.dead = true;
           if(_rng() < DROP_PROB) dropPickup(a.x + AW/2, a.y + AH/2);
           if(J) J.sfx('pickup');
+          if(J && J.burst) J.burst(a.x+AW/2, a.y+AH/2, { color:'#f6465d', n:10, speed:160 });
+          if(J && J.shake) J.shake(0.2);
           break;
         }
       }
@@ -308,7 +313,10 @@
     updatePickups();
 
     // 胜负判定
-    if(aliveCount() === 0){ win = true; if(J) J.sfx('levelup'); }
+    if(aliveCount() === 0){
+      win = true; if(J) J.sfx('levelup');
+      if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+    }
   }
 
   function isWin(){ return win; }
@@ -434,6 +442,7 @@
       setLives:(v)=>{ lives=v; if(lives<=0){lives=0;over=true;} },
       setDiveEnabled:(v)=>{ diveEnabled=!!v; },
       getOver:()=>over, getWin:()=>win,
+      confettiFired:()=>_confettiFired,
       // ---- 掉落道具系统钩子 ----
       DROP_PROB, PICKUP_TYPES,
       spawnPickup:(type,x,y)=>dropPickup(x!==undefined?x:player.x, y!==undefined?y:0, type),

@@ -1,4 +1,4 @@
-const { loadGame, ok, eq } = require('./harness');
+const { loadGame, results, ok, eq } = require('./harness');
 const { t } = loadGame('../hex.html');
 
 // 红方沿第 0 列连通上下 → 胜
@@ -47,3 +47,19 @@ ok('已占格被拒', !t.play(1,1,'g'));
   eq('getDifficulty()==hell', t.getDifficulty(), 'hell');
   eq('setDifficulty(bad) 返回 false', t.setDifficulty('bad'), false);
 }
+
+// ---------- 胜利 confetti ----------
+t.newGame(3);
+t.setBoard([
+  ['r',null,null],
+  ['r',null,null],
+  [null,null,null],
+], 'r', 3);
+ok('胜利前 confettiFired 为 false', t.confettiFired() === false);
+t.play(2,0,'r');
+ok('游戏结束胜利 → confettiFired 为真', t.confettiFired() === true);
+
+const total = results.length;
+const pass = results.filter(r => r.pass).length;
+console.log(`\nhex: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);

@@ -109,11 +109,12 @@
 
   // ---- 状态 ----
   let hands, phase, current, trick, leadSuit, heartsBroken, tricksPlayed, taken, scores, passed, sel, lastSeed, lastRoundCards;
+  let _confettiFired=false;
 
   function freshState(){
     hands=[[],[],[],[]]; phase='pass'; current=0; trick=[]; leadSuit=null;
     heartsBroken=false; tricksPlayed=0; taken=[[],[],[],[]];
-    scores=[0,0,0,0]; passed=[null,null,null,null]; sel=[]; lastRoundCards=0;
+    scores=[0,0,0,0]; passed=[null,null,null,null]; sel=[]; lastRoundCards=0; _confettiFired=false;
   }
 
   function deal(){
@@ -261,6 +262,7 @@
     if(scores.some(s=>s>=100)){
       phase='over';
       if(J) J.sfx('levelup');
+      if(scores[0]===Math.min.apply(null, scores) && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     } else {
       deal();
       passed=[null,null,null,null]; phase='pass';
@@ -327,6 +329,21 @@
   function setHands(arr, cur){
     hands = arr.map(h=>h.slice().sort((a,b)=>a-b));
     current = (cur===undefined)?0:cur; phase='play'; trick=[]; leadSuit=null; heartsBroken=false; tricksPlayed=0;
+    return getState();
+  }
+  // 测试辅助：直接设定最终分数并判定游戏结束（人类胜=分数最低）
+  function setScores(arr){
+    scores = arr.slice();
+    return getState();
+  }
+  function gameOver(){
+    if(scores.some(s=>s>=100)){
+      phase='over';
+      if(scores[0]===Math.min.apply(null, scores) && !_confettiFired){
+        _confettiFired=true;
+        if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      }
+    }
     return getState();
   }
 
@@ -432,7 +449,7 @@
     window.__t = {
       SUITS, RNAMES, CLUBS2, QS, suit, rank, rankNum, cardName,
       setRand, newGame, reset, getState, legalMoves, playCard, step,
-      passCards, aiChoose, winnerOfTrick, scoreRound, playRound, getScores, isOver, setHands,
+      passCards, aiChoose, winnerOfTrick, scoreRound, playRound, getScores, isOver, setHands, setScores, gameOver, confettiFired: ()=>_confettiFired,
       DIFFICULTY, setDifficulty, getDifficulty
     };
   }

@@ -207,6 +207,13 @@
   }
 
   /* ===================== UI ===================== */
+  let confettiFired = false;
+  function finishFind(){
+    const ws = findWords();
+    confettiFired = true;
+    if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    return ws;
+  }
   function $(id){ return (typeof document!=='undefined') ? document.getElementById(id) : null; }
   const PAD = 16; let cell = 80;
   function layout(){
@@ -236,7 +243,7 @@
     const nb=$('new'), fb=$('find');
     if(nb) nb.onclick=()=>{ newGame(); layout(); render(); };
     if(fb) fb.onclick=()=>{
-      const ws=findWords();
+      const ws=finishFind();
       const sc=ws.reduce((a,w)=>a+score(w),0);
       const msg=$('msg'); if(msg){ msg.className='msg win'; msg.textContent='找到 '+ws.length+' 词，得分 '+sc+'：'+ws.slice(0,24).join(' ')+(ws.length>24?' …':''); }
       if(J) J.sfx('levelup');
@@ -249,7 +256,7 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { setRand, newGame, reset, setup, getState, findWords, score, inDict, N };
+    window.__t = { setRand, newGame, reset, setup, getState, findWords, score, inDict, N, finishFind, getConfettiFired:()=>confettiFired };
   }
 })();
 </script>

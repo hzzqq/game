@@ -1,4 +1,4 @@
-const { loadGame, eq, ok } = require('./harness');
+const { loadGame, eq, ok, results } = require('./harness');
 const { t } = loadGame('../slots.html');
 
 // ---------- 常量 / 符号表 ----------
@@ -110,3 +110,21 @@ ok('两同非 jackpot', t.isJackpot([0,0,1],10)===false);
 }
 
 console.log('slots: 全部断言通过');
+
+// ===== jackpot 大奖 confetti 测试（仅视觉反馈钩子，不改玩法）=====
+t.reset(); t.setRand(()=>0.99); t.setBet(10); // 三连钻石（mult 100>=50 → jackpot）
+ok('slots: jackpot 前 confettiFired 为 false', t.confettiFired() === false);
+const r = t.spin();
+ok('slots: 三连钻石为 jackpot', r.jackpot === true);
+ok('slots: jackpot → confettiFired 为真', t.confettiFired() === true);
+ok('slots: jackpot 后余额增加（1000 赢）', t.getBalance() === 1190);
+// reset 清空锁后，新一局 jackpot 可再次触发（验证锁随新局重置）
+t.reset(); t.setRand(()=>0.99); t.setBet(10);
+ok('slots: reset 后 confettiFired 重置为 false', t.confettiFired() === false);
+t.spin();
+ok('slots: 新一局 jackpot 可再次触发 confetti', t.confettiFired() === true);
+
+const total = results.length;
+const pass = results.filter(r => r.pass).length;
+console.log(`\nslots: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);

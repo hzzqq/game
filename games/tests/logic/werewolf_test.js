@@ -212,6 +212,14 @@ for (let i=0;i<20;i++){
   ok('pickStatement 返回非空字符串', typeof s==='string' && s.length>0);
 }
 
+// ===== 11. 胜利彩带钩子 =====
+t.newGame();
+// 强制人类为好人阵营，保证 endGame('good') 时人类获胜 → 彩带触发
+t.getPlayers()[0].role = 'villager';
+t.getPlayers().forEach(p => { if(p.role==='wolf') p.alive=false; });
+t.checkWin();
+ok('endGame 好人胜 触发胜利彩带(confettiFired)', t.confettiFired());
+
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;

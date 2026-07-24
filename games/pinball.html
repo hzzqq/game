@@ -89,14 +89,20 @@
     pickups.push(makePickup(type, b.x, b.y-10));
   }
 
-  let ball, score, lives, over, leftDown, rightDown;
+  let ball, score, lives, over, leftDown, rightDown, confettiFired=false;
   function resetBall(){
     ball = { x:W/2, y:80, vx:(Math.random()*2-1)*2, vy:1.5 };
   }
   function reset(){
     score=0; lives=START_LIVES; over=false; leftDown=false; rightDown=false;
     pickups=[]; boostTimer=0; shield=0; rngPick=mk(0x9E3779B1);
-    resetBall();
+    resetBall(); confettiFired=false;
+  }
+  // 达成目标反馈：破目标分(GOAL)一次性触发胜利彩带，跳变防重复
+  const GOAL=200;
+  function checkGoal(){
+    if(confettiFired) return;
+    if(score>=GOAL){ confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(W/2,H/2,{color:'#f0b90b',n:30}); }
   }
   // 受击：护盾优先消耗，无盾才扣命
   function takeHit(){
@@ -152,6 +158,7 @@
     }
     // 注入：掉落物推进（仅真实游玩，单测用 stepPickups 确定性驱动）
     if(IN_BROWSER && pickups.length) updatePickups(1/60);
+    checkGoal();
   }
   function setLeft(v){ leftDown = v; }
   function setRight(v){ rightDown = v; }
@@ -236,6 +243,7 @@
       reset, step, setLeft, setRight, takeHit,
       getBall:()=>ball, setBall:(b)=>{ball=b;},
       getScore:()=>score, setScore:(v)=>{score=v;},
+      confettiFired: function(){ return confettiFired; },
       getLives:()=>lives, setLives:(v)=>{lives=v;},
       isOver:()=>over, getLeft:()=>leftDown, getRight:()=>rightDown,
       // 注入钩子

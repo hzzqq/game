@@ -57,3 +57,10 @@ T.takeHit();
 H.eq('pinball: 无盾扣血，命数-1', T.getLives(), 0);
 
 module.exports = {};
+
+// ===== 达成目标 confetti：破目标分(GOAL=200) =====
+T.reset();
+H.eq('达成前 confettiFired 为 false', T.confettiFired(), false);
+T.setScore(200); T.setBall({x:200,y:300,vx:0,vy:0}); T.setLives(3);
+T.step(1);
+H.eq('破目标分触发 confettiFired', T.confettiFired(), true);

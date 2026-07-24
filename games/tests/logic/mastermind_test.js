@@ -104,3 +104,15 @@ eq('COLORS 6 色', t.COLORS.length, 6);
 }
 
 console.log('mastermind: 全部断言通过');
+
+// ---------- 轮2：胜利 confetti 标记 ----------
+{
+  t.reset(); t.setSecret([0,1,2,3]);
+  t.submitGuess([0,1,2,3]);
+  ok('破解后 confettiFired 置位', t.getConfettiFired()===true);
+}
+{
+  t.reset(); t.setSecret([0,1,2,3]);
+  t.submitGuess([4,4,4,4]); // 未中
+  ok('未破解不置位', t.getConfettiFired()===false);
+}

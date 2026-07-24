@@ -51,6 +51,7 @@
   "use strict";
   let W=12, H=12, maze;
   let _rand=Math.random;
+  let _confettiCount=0;   // 完成彩带触发计数（只读标记）
 
   // ---- 注入：掉落道具 / 增益系统（玩家 + 掉落物，不改核心生成/求解逻辑） ----
   let player, pickups, shield, boostTimer, lives, score;
@@ -95,7 +96,7 @@
       if(!inb(nr,nc)) break;
       if(!open(player.r,player.c,d)) break;
       player.r=nr; player.c=nc;
-      if(player.r===H-1 && player.c===W-1){ if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } break; }
+      if(player.r===H-1 && player.c===W-1){ if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } if(typeof Juice!=='undefined' && Juice.confetti){ Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } _confettiCount++; break; }
     }
     updatePickups(0);
   }
@@ -172,6 +173,7 @@
       getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
       getLives(){ return lives; }, setLives(v){ lives=v; },
       getScore(){ return score; } };
+    Object.defineProperty(window.__t, 'confettiFired', { get: ()=>_confettiCount, enumerable:true });
   }
 })();
 </script>

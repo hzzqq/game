@@ -53,10 +53,12 @@
 
   let ROWS = 24, COLS = 24;
   let grid, gen;
+  let _confettiFired = false;
 
   function emptyGrid(){
     grid = Array.from({length:ROWS},()=>new Array(COLS).fill(false));
     gen = 0;
+    _confettiFired = false;
   }
   function newGame(rows, cols){
     ROWS = rows || ROWS; COLS = cols || COLS;
@@ -83,14 +85,26 @@
   }
 
   function step(){
+    const prev = grid;
     const next = Array.from({length:ROWS},()=>new Array(COLS).fill(false));
     for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
       const n = neighbors(r,c);
       if(grid[r][c]) next[r][c] = (n === 2 || n === 3);   // 活：2/3 存活
       else next[r][c] = (n === 3);                         // 死：恰 3 复活
     }
+    let stable = true, alive = false;
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      if(next[r][c] !== prev[r][c]) stable = false;
+      if(next[r][c]) alive = true;
+    }
     grid = next;
     gen += 1;
+    // 静物（still-life）达成：网格稳定且仍有存活细胞 → 庆祝反馈
+    if(stable && alive && !_confettiFired){
+      _confettiFired = true;
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.4);
+    }
   }
 
   function getState(){
@@ -138,7 +152,7 @@
   emptyGrid();
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render(); }
   if(typeof window!=='undefined'){
-    window.__t = { setRand, newGame, reset, setCell, clear, randomize, step, getState };
+    window.__t = { setRand, newGame, reset, setCell, clear, randomize, step, getState, confettiFired: function(){ return _confettiFired; } };
   }
 })();
 </script>

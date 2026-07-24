@@ -47,9 +47,16 @@
 (function(){
   "use strict";
   const W=400, H=240, HOLE_R=6;
-  let ball, hole, obstacles, strokes, inHole;
+  let ball, hole, obstacles, strokes, inHole, confettiFired=false;
   let pickups, shield, boostTimer, lives, score;
-  function reset(){ ball={x:30,y:H/2}; hole={x:360,y:H/2}; obstacles=[]; strokes=0; inHole=false; pickups=[]; shield=0; boostTimer=0; lives=3; score=0; }
+  function reset(){ ball={x:30,y:H/2}; hole={x:360,y:H/2}; obstacles=[]; strokes=0; inHole=false; pickups=[]; shield=0; boostTimer=0; lives=3; score=0; confettiFired=false; }
+  // 胜利彩带：进洞时一次性触发，跳变防重复
+  function fireVictory(){
+    if(confettiFired) return;
+    confettiFired = true;
+    if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(hole.x, hole.y, {color:'#02c076', n:24});
+  }
   function setBall(x,y){ ball={x,y}; }
   function setHole(x,y){ hole={x,y}; }
   function setObstacles(list){ obstacles=list.map(o=>({...o})); }
@@ -68,7 +75,7 @@
       ball.x=nx; ball.y=ny;
     }
     if(dist(ball.x,ball.y,hole.x,hole.y)<=HOLE_R) inHole=true;
-    if(inHole){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.burst(hole.x,hole.y,{color:'#02c076',n:14}); spawnPickup('coin', hole.x, hole.y); }
+    if(inHole){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.burst(hole.x,hole.y,{color:'#02c076',n:14}); spawnPickup('coin', hole.x, hole.y); fireVictory(); }
     updatePickups(0);
   }
   function getStrokes(){ return strokes; }
@@ -153,7 +160,7 @@
   function loop(){ if(typeof requestAnimationFrame==='undefined') return; update(0.016); render(); requestAnimationFrame(loop); }
   reset();
   if(typeof document!=='undefined'){ const hb=$('hit'),nb=$('new'),ai=$('ang'),pi=$('pow'); if(hb)hb.onclick=()=>{ hit(+ai.value||0,+pi.value||0); render(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
-  if(typeof window!=='undefined'){ window.__t={ reset, setBall, setHole, setObstacles, hit, getStrokes, isInHole, getBall, update, takeHit,
+  if(typeof window!=='undefined'){ window.__t={ reset, setBall, setHole, setObstacles, hit, getStrokes, isInHole, getBall, update, takeHit, confettiFired: function(){ return confettiFired; },
     getState(){ return {inHole,shield,boostTimer,lives,score,strokes,pickups:pickups.length}; },
     spawnPickup,
     stepPickups(dt){ updatePickups(dt); },

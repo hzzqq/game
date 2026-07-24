@@ -442,6 +442,7 @@ function buildBeatmapFromBuffer(buffer){
 }
 
 /* ============== 生命周期 ============== */
+let _confettiFired = false; // 高评级终演 confetti 已触发（独立于 Juice 的只读测试锁）
 function resetState(){
   G.score=0; G.combo=0; G.maxCombo=0;
   G.perfect=0; G.good=0; G.miss=0; G.totalJudged=0;
@@ -449,6 +450,7 @@ function resetState(){
   G.laneActive=[false,false,false,false];
   G.shield=0; G.shieldCharge=0;
   G.playing=false;
+  _confettiFired=false; // 新游戏重置终演反馈锁（仅视觉状态）
   if(G.schedulerId){ clearInterval(G.schedulerId); G.schedulerId=null; }
   if(G.mp3Source){ try{ G.mp3Source.stop(); }catch(e){} G.mp3Source=null; }
 }
@@ -543,6 +545,11 @@ function finish(){
     else { Juice.sfx('levelup'); }
     const tag = (b.isNew && G.score>0) ? '🏆 新纪录 ' : '';
     Juice.achievement(tag + '评级 '+rating+' · 分数 '+G.score.toLocaleString()+' · 段位 '+rk);
+    if((rating === 'S' || rating === 'A') && !_confettiFired){
+      _confettiFired=true;
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:160, life:3});
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.6);
+    }
   }
 }
 
@@ -872,7 +879,9 @@ mp3Input.addEventListener('change', async (e)=>{
     firstUnjudged(lane){
       for(const n of G.notes){ if((lane==null || n.lane===lane) && !n.judged) return n; }
       return null;
-    }
+    },
+    finish,
+    confettiFired:()=>_confettiFired,
   };
 
 updateHUD();

@@ -108,4 +108,13 @@ H.eq('胶囊: 无盾扣血 PLives-1', t.getPLives(), 2);
   t.setDifficulty('normal'); t.newGame(); // 还原
 })();
 
+// 5) 通关（盘面清空）触发 confetti：setGrid(空盘) → checkEnd → state=won 且 confettiFired 为真
+t.newGame();
+var empty = blankGrid();           // 直接清空盘面（仅用于驱动视觉反馈判定）
+t.setGrid(empty);
+H.ok('通关前 confettiFired 为 false', t.confettiFired() === false);
+t.checkEnd();
+H.eq('通关 → state=won', t.getState(), 'won');
+H.ok('通关 → confettiFired 为真', t.confettiFired() === true);
+
 module.exports = {};

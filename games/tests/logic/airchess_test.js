@@ -114,6 +114,47 @@ ok('ITEMS 5 个', Array.isArray(t.ITEMS) && t.ITEMS.length === 5);
 ok('ITEMS 都有 e 描述', t.ITEMS.every(it => typeof it.e === 'string' && it.e.length > 0));
 ok('ITEMS 都有 fn 函数', t.ITEMS.every(it => typeof it.fn === 'function'));
 
+// 13. 胜利彩带 / 完成反馈（confettiFired 标记）
+{
+  t.newGame();
+  const ps = t.getPlayers();
+  ps[0].done = 3; ps[0].planes[0].state='track'; ps[0].planes[0].prog = t.getWIN()-1; // 55→再走 1 到 56 终点
+  t.setPlayers(ps);
+  t.setDice(1);
+  t.doMove(0, 0, 1); // 抵达终点 → done=4
+  t.postMove(0);     // 触发胜利判定 + showOverlay（彩带）
+  ok('玩家(红)4 架归港获胜', t.getPlayers()[0].done === 4);
+  ok('玩家获胜触发 confettiFired', t.confettiFired() >= 1);
+}
+
+// 14. 难度系统（四档 AI 人机难度）
+{
+  ok('默认难度 normal', t.getDifficulty() === 'normal');
+  eq('setDifficulty easy 返回 true', t.setDifficulty('easy'), true);
+  eq('getDifficulty 反映 easy', t.getDifficulty(), 'easy');
+  eq('setDifficulty hell 返回 true', t.setDifficulty('hell'), true);
+  eq('getDifficulty 反映 hell', t.getDifficulty(), 'hell');
+  eq('setDifficulty 非法返回 false', t.setDifficulty('xx'), false);
+  ok('DIFFICULTY 含 4 档', Object.keys(t.DIFFICULTY).length === 4);
+  ok('地狱档 aiRandom=0', t.DIFFICULTY.hell.aiRandom === 0);
+  ok('简单档随机率 > 地狱档', t.DIFFICULTY.easy.aiRandom > t.DIFFICULTY.hell.aiRandom);
+
+  // easy 随机分支（setRand 确定性）：aiRandom=0.55，_rand()=0.5<0.55 → 走随机合法步
+  t.newGame(); t.setDifficulty('easy'); t.setRand(()=>0.5); t.setCur(1);
+  t.aiPickAndMove(1, 6, t.movablePlanes(1,6));
+  const easyMoved = t.getPlayers()[1].planes.findIndex(p=>p.state!=='base');
+  eq('easy 随机分支落到非首架(plane 2)', easyMoved, 2);
+
+  // hard 最优分支（无随机）：走启发式最优（首架 base）
+  t.newGame(); t.setDifficulty('hard'); t.setRand(()=>0.5); t.setCur(1);
+  t.aiPickAndMove(1, 6, t.movablePlanes(1,6));
+  const hardMoved = t.getPlayers()[1].planes.findIndex(p=>p.state!=='base');
+  eq('hard 最优分支落到首架(plane 0)', hardMoved, 0);
+
+  ok('easy 与 hard AI 行为可区分', easyMoved !== hardMoved);
+  t.setRand(Math.random);
+}
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

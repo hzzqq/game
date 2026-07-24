@@ -1,4 +1,4 @@
-const { loadGame, ok, eq } = require('./harness');
+const { loadGame, ok, eq, results } = require('./harness');
 const { t } = loadGame('../survivor.html');
 
 // --- boot ---
@@ -65,3 +65,17 @@ t.spawnEnemy('brute', p.x+3, p.y);
 let died=false;
 for(let i=0;i<400;i++){ t.step(0.05); if(t.getState().over){ died=true; break; } }
 ok(died, '被压制时玩家死亡并结束');
+
+// --- 升级里程碑触发 confetti（_confettiFired 只读锁，独立于 Juice）---
+t.reset();
+ok(t.confettiFired() === false, '升级前 confettiFired 为 false');
+t.gainXp(100);
+ok(t.confettiFired() === true, '升级 → confettiFired 为 true');
+t.reset();
+ok(t.confettiFired() === false, '重开复位 confettiFired 为 false');
+
+// 汇总
+const total = results.length;
+const pass = results.filter(r => r.pass).length;
+console.log(`\nsurvivor: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);

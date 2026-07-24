@@ -97,6 +97,7 @@
     function getDifficulty(){ return difficulty; }
     function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
     let S=null;
+    let confettiFiredFlag = false;    // 成就反馈：击败 Boss 置真（跳变防重复）
     function fresh(){
       return {
         player:{x:W/2,y:H-60,r:16,speed:360,fireCd:0},
@@ -169,6 +170,8 @@
         S.score+=200*Math.max(1,Math.floor(bs.maxHp/30));
         S.pickups.push(makePickup('heal', bs.x, bs.y));
         if(J){ J.sfx&&J.sfx('win'); J.flash&&J.flash('#02c076',0.35); J.achievement&&J.achievement('Boss 击破！'); }
+        // 成就正反馈：击败 Boss → confetti + 粒子（纯注入，不改计分/击败判定）
+        if(!confettiFiredFlag){ confettiFiredFlag=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(bs.x, bs.y, {color:'#9b6bff', n:20, speed:240}); }
         S.boss=null;
         return true;
       }
@@ -183,6 +186,7 @@
 
     function reset(){
       S=fresh();
+      confettiFiredFlag=false;
       syncHud();
     }
     function start(){
@@ -287,7 +291,9 @@
       getBoss(){ return S.boss?{x:S.boss.x,y:S.boss.y,w:S.boss.w,h:S.boss.h,hp:S.boss.hp,maxHp:S.boss.maxHp,phase:S.boss.phase}:null; },
       setBossHp(v){ if(S.boss) S.boss.hp=v; },
       setWave(n){ S.wave=n; },
-      addBullet(x,y){ S.bullets.push({x,y,vx:0,vy:-700,r:4}); }
+      addBullet(x,y){ S.bullets.push({x,y,vx:0,vy:-700,r:4}); },
+      // —— 成就反馈只读钩子（击败 Boss 置真，跳变防重复）——
+      confettiFired(){ return confettiFiredFlag; }
     };
 
     // ===== 渲染（沙箱下 ctx 为桩，无副作用）=====

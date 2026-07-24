@@ -45,3 +45,10 @@ t.applyPickup('hint');
 ok('提示计时>0', t.getHint().timer > 0);
 t.stepPickups(10);
 eq('提示计时归零', t.getHint().timer, 0);
+
+// ===== 通关触发完成特效标记 =====
+t.setCars([{ id:0, dir:'h', len:2, r:2, c:0 }]);
+eq('通关前未标记完成特效', t.confettiFired, false);
+t.move(0,'R',4);
+eq('红色车到达 c=4', t.getCars()[0].c, 4);
+ok('通关后标记完成特效', t.confettiFired === true);

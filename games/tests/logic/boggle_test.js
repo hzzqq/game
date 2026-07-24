@@ -90,3 +90,16 @@ const { t } = loadGame('../boggle.html');
   t.setup([['q','q','q','q'],['q','q','q','q'],['q','q','q','q'],['q','q','q','q']]);
   eq('全 Q 盘无词', t.findWords(), []);
 }
+
+// ===== 7. 轮2：完成反馈 confetti 标记 =====
+{
+  t.setup([
+    ['c','a','t','s'],
+    ['o','r','e','n'],
+    ['t','r','a','p'],
+    ['e','s','t','s']
+  ]);
+  const ws = t.finishFind();
+  ok('finishFind 返回词数组', Array.isArray(ws) && ws.length>0);
+  ok('完成后 confettiFired 置位', t.getConfettiFired()===true);
+}

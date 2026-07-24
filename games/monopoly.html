@@ -188,7 +188,7 @@
   };
 
   /* ---------- 状态 ---------- */
-  let players, board, currentPlayerIdx, current, phase, logArr, lastRoll, dirty, cssSize, aiTimer;
+  let players, board, currentPlayerIdx, current, phase, logArr, lastRoll, dirty, cssSize, aiTimer, _confettiFired=false;
   const canvas = document.getElementById('cv');
   const ctx = canvas.getContext('2d');
   const boardWrap = document.getElementById('boardWrap');
@@ -400,10 +400,36 @@
       });
   }
 
+  /* ===================== 难度系统 ===================== */
+  const DIFFICULTY = {
+    easy:   { label:'简单', aiRandom:0.55 },
+    normal: { label:'普通', aiRandom:0.20 },
+    hard:   { label:'困难', aiRandom:0.05 },
+    hell:   { label:'地狱', aiRandom:0 },
+  };
+  const DIFF_ORDER = ['easy','normal','hard','hell'];
+  let _difficulty='normal';
+  let _rand = _rng;
+  function setRand(fn){ _rand = fn || _rng; }
+  function setDifficulty(d){ if(DIFFICULTY[d]){ _difficulty=d; return true; } return false; }
+  function getDifficulty(){ return _difficulty; }
+  function fireConfetti(){
+    if(_confettiFired) return;
+    _confettiFired = true;
+    if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+  }
+  function confettiFired(){ return _confettiFired; }
   function aiBuy(p,t){
-    if(p.cash >= t.price + 80){ p.cash-=t.price; t.owner=p.id; log(p.name+' 购买 '+t.name+' ¥'+t.price); if(typeof Juice!=='undefined') Juice.sfx('pickup'); }
+    if(typeof document==='undefined') return;
+    const cfg=DIFFICULTY[_difficulty]||DIFFICULTY.normal;
+    let buy = (p.cash >= t.price + 80);
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) buy = _rand()<0.5; // 随机决策：以 aiRandom 概率走随机着法（弱化 AI）
+    if(buy){ p.cash-=t.price; t.owner=p.id; log(p.name+' 购买 '+t.name+' ¥'+t.price); if(typeof Juice!=='undefined') Juice.sfx('pickup'); }
   }
   function aiUpgrade(p){
+    if(typeof document==='undefined') return;
+    const cfg=DIFFICULTY[_difficulty]||DIFFICULTY.normal;
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) return; // 随机跳过升级（易档更弱）
     let guard=0;
     while(p.cash>600 && guard<6){
       let best=null;
@@ -493,7 +519,7 @@
       x.textContent = youWin ? '你是最后的地产大亨。' : '你已出局，'+winner.name+' 笑到最后。';
     } else { t.textContent='平局'; t.style.color='#f0b90b'; x.textContent='无人生还。'; }
     if(typeof Juice!=='undefined'){
-      if(winner && winner.id===0){ Juice.sfx('win'); Juice.flash('#02c076',0.28); Juice.addTrauma(0.6); const b=Juice.best('monopoly',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
+      if(winner && winner.id===0){ Juice.sfx('win'); Juice.flash('#02c076',0.28); Juice.addTrauma(0.6); const b=Juice.best('monopoly',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); fireConfetti(); }
       else if(winner){ Juice.sfx('lose'); Juice.flash('#f6465d',0.3); Juice.addTrauma(0.6); }
       else { Juice.sfx('click'); }
     }
@@ -590,7 +616,7 @@
     players=makePlayers();
     board=makeBoard();
     currentPlayerIdx=0; current=players[0];
-    phase='roll'; logArr=[]; lastRoll=0;
+    phase='roll'; logArr=[]; lastRoll=0; _confettiFired=false;
     setDice(0,0);
     hideOverlay();
     clearAction();
@@ -618,6 +644,8 @@
     get logArr(){ return logArr; },
     doRoll, reset,
     setCash(id,v){ players[id].cash=v; },
+    // 难度系统
+    DIFFICULTY, DIFF_ORDER, setDifficulty, getDifficulty, setRand, confettiFired, endGame,
     // 纯函数
     rand, houseLabel, houseCostOf, playerById, aliveCount, countOwned,
     nextIdx, cornerType, sendToJail, makePlayers, makeBoard

@@ -81,3 +81,10 @@ t.setPlayer(100);
 t.setObstacles([{x:100,y:280,vy:10}]);
 t.tick();
 ok('无 buff 1 命中即死', t.isDead() === true);
+
+// ---------- 成就/胜利正反馈：存活到目标时间触发 confettiFired ----------
+t.reset();
+var ds = 0;
+while (!t.confettiFired() && ds < 200){ t.setObstacles([]); t.tick(); ds++; }
+ok('dodge: 存活到目标时间触发 confettiFired', t.confettiFired() === true, 'ticks=' + ds);
+ok('dodge: 存活期间未死亡', t.isDead() === false);

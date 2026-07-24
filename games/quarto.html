@@ -54,15 +54,21 @@
   const N=4;
   // 16 枚棋子，属性 [color,height,shape,top] ∈ {0,1}
   const PIECES=[]; for(let i=0;i<16;i++) PIECES.push([(i>>0)&1,(i>>1)&1,(i>>2)&1,(i>>3)&1]);
-  let board, turn, available, pending, over, winner, sel;
-  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn=0; available=PIECES.map((_,i)=>i); pending=0; over=false; winner=null; sel=null; }
+  let board, turn, available, pending, over, winner, sel, _confettiFired=false;
+  function fireConfetti(){
+    if(_confettiFired) return;
+    _confettiFired = true;
+    if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+  }
+  function confettiFired(){ return _confettiFired; }
+  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn=0; available=PIECES.map((_,i)=>i); pending=0; over=false; winner=null; sel=null; _confettiFired=false; }
   function give(idx){ if(available.indexOf(idx)<0) return false; pending=idx; return true; }
   function place(r,c){
     if(over) return false;
     if(board[r][c]!==null) return false;
     if(pending===null||available.indexOf(pending)<0) return false;
     board[r][c]=pending; available.splice(available.indexOf(pending),1); pending=null;
-    if(checkWin(r,c)){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); return true; }
+    if(checkWin(r,c)){ over=true; winner=turn; Juice.sfx('win'); Juice.flash('#02c076',.5); fireConfetti(); return true; }
     if(available.length===0){ over=true; winner='draw'; return true; }
     turn = turn===0?1:0;
     Juice.sfx('hit'); Juice.addTrauma(.25);
@@ -83,7 +89,7 @@
   function getWinner(){ return winner; }
   function getPending(){ return pending; }
   function getAvailable(){ return available.slice(); }
-  function setBoard(b,t,p){ board=b.map(r=>r.slice()); turn=t||0; available=PIECES.map((_,i)=>i).filter(i=>!b.flat().includes(i)); pending=(p===null||p===undefined)?null:p; over=false; winner=null; }
+  function setBoard(b,t,p){ board=b.map(r=>r.slice()); turn=t||0; available=PIECES.map((_,i)=>i).filter(i=>!b.flat().includes(i)); pending=(p===null||p===undefined)?null:p; over=false; winner=null; _confettiFired=false; }
 
   /* ===================== 难度系统 ===================== */
   const DIFFICULTY = {
@@ -181,7 +187,7 @@
     else { build(); bindUI(); render(); buildDiffBar(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ N, PIECES, newGame, give, place, getBoard, getTurn, isOver, getWinner, getPending, getAvailable, checkWin, setBoard,
+    window.__t={ N, PIECES, newGame, give, place, getBoard, getTurn, isOver, getWinner, getPending, getAvailable, checkWin, setBoard, confettiFired,
       DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves };
   }
 })();

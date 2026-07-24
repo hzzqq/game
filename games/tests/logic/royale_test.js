@@ -64,4 +64,19 @@ H.ok(T.getState().over === true, 'royale: 无盾致命 king 失守 → over');
 T.setBoost(6);
 H.ok(T.getBoost() === 6, 'royale: 加速 buff=6');
 
+// 10) 摧毁敌方国王塔触发胜利 confetti
+T.reset();
+H.ok('胜利前 confettiFired 为 false', T.confettiFired() === false);
+T.finish('win');
+H.ok('胜利 → confettiFired 为 true', T.confettiFired() === true);
+H.ok('finish 后 result=win', T.state.result === 'win');
+T.reset();
+H.ok('重开后 confettiFired 复位为 false', T.confettiFired() === false);
+
+// 汇总
+const total = H.results.length;
+const pass = H.results.filter(r => r.pass).length;
+console.log(`\nroyale: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);
+
 module.exports = {};

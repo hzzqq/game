@@ -1,4 +1,4 @@
-const { loadGame, eq, ok } = require('./harness');
+const { loadGame, eq, ok, results } = require('./harness');
 const { t } = loadGame('../wordchain.html');
 
 // ---------- 默认词库非空 ----------
@@ -62,3 +62,15 @@ ok('默认词库非空', t.getDefaultDict().length>0);
 }
 
 console.log('wordchain: 全部断言通过');
+
+// ---------- 玩家胜 胜利彩带（confettiFired 标记） ----------
+{
+  t.reset();
+  t.setDict(['cat','tap','pot']);
+  t.setRand(()=>0);
+  t.play('cat');   // AI 接 tap
+  t.play('pot');   // AI 无词可接 → 玩家胜
+  ok('玩家胜 winner=player', t.getState().winner==='player');
+  ok('玩家胜 confettiFired 触发', t.confettiFired() >= 1);
+}
+if (results.some(r => !r.pass)) process.exit(1);

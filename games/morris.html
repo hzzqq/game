@@ -48,8 +48,14 @@
 (function(){
   "use strict";
   const N=3, NEED=3;
-  let board, turn, placed, phase, over, winner, sel;
-  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn='b'; placed={b:0,w:0}; phase='place'; over=false; winner=null; sel=null; }
+  let board, turn, placed, phase, over, winner, sel, _confettiFired=false;
+  function fireConfetti(){
+    if(_confettiFired) return;
+    _confettiFired = true;
+    if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+  }
+  function confettiFired(){ return _confettiFired; }
+  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn='b'; placed={b:0,w:0}; phase='place'; over=false; winner=null; sel=null; _confettiFired=false; }
   function adj(r,c){ const out=[]; if(r>0)out.push([r-1,c]); if(r<N-1)out.push([r+1,c]); if(c>0)out.push([r,c-1]); if(c<N-1)out.push([r,c+1]); return out; }
   function lineWin(color){
     for(let r=0;r<N;r++){ let ok=true; for(let c=0;c<N;c++) if(board[r][c]!==color){ok=false;break;} if(ok) return true; }
@@ -65,7 +71,7 @@
     board[r][c]=turn; placed[turn]++;
     if(placed.b>=NEED&&placed.w>=NEED) phase='move';
     const col=turn;
-    if(lineWin(col)){ over=true; winner=col; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} return true; }
+    if(lineWin(col)){ over=true; winner=col; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} fireConfetti(); return true; }
     turn = turn==='b'?'w':'b';
     if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.2); }
     return true;
@@ -78,7 +84,7 @@
     if(!ok) return false;
     board[tr][tc]=turn; board[fr][fc]=null;
     const col=turn;
-    if(lineWin(col)){ over=true; winner=col; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} return true; }
+    if(lineWin(col)){ over=true; winner=col; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} fireConfetti(); return true; }
     turn = turn==='b'?'w':'b';
     if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.2); }
     return true;
@@ -88,7 +94,7 @@
   function getPhase(){ return phase; }
   function isOver(){ return over; }
   function getWinner(){ return winner; }
-  function setBoard(b,t,p){ board=b.map(r=>r.slice()); turn=t||'b'; phase=p||'place'; over=false; winner=null; }
+  function setBoard(b,t,p){ board=b.map(r=>r.slice()); turn=t||'b'; phase=p||'place'; over=false; winner=null; _confettiFired=false; }
 
   /* ===================== 难度系统 ===================== */
   const DIFFICULTY = {
@@ -179,7 +185,7 @@
     else { buildBoard(); bindUI(); render(); buildDiffBar(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ N, NEED, newGame, place, move, getBoard, getTurn, getPhase, isOver, getWinner, setBoard,
+    window.__t={ N, NEED, newGame, place, move, getBoard, getTurn, getPhase, isOver, getWinner, setBoard, confettiFired,
       DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves };
   }
 })();

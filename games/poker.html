@@ -168,6 +168,7 @@
   /* ===================== 游戏状态机 ===================== */
   const NAMES = ['你','AI-北','AI-南','AI-东'];
   let players, deck, community, stage, pot, currentBet, minRaise, dealerIdx, toAct, handOver, busy, handCount;
+  let _confettiFired=false;
 
   function freshPlayers(){
     const ps = [];
@@ -181,7 +182,7 @@
     players = freshPlayers();
     deck = shuffle(makeDeck());
     community = [];
-    pot = 0; currentBet = 0; minRaise = BB; handOver = false; busy = false;
+    pot = 0; currentBet = 0; minRaise = BB; handOver = false; busy = false; _confettiFired=false;
     // 发底牌
     for(let i=0;i<4;i++){ players[i].hole = [deck.pop(), deck.pop()]; }
     // 庄家轮转（首局 0 号，之后 +1）
@@ -295,6 +296,7 @@
     const winner = activePlayers()[0];
     winner.chips += pot;
     winner._win = true;
+    if(winner.id===0 && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     handOver = true;
     if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('poker', players[0].chips); }
     logMsg('[' + winner.name + '] 赢下底池 ' + pot + '（其余弃牌）', 'me');
@@ -311,6 +313,7 @@
     });
     const share = Math.floor(pot/winners.length);
     winners.forEach(w=>{ w.chips += share; w._win = true; });
+    if(winners.some(w=>w.id===0) && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     const rem = pot - share*winners.length; if(rem>0 && winners[0]) winners[0].chips += rem;
     handOver = true;
     const names = winners.map(w=>w.name).join('、');
@@ -498,6 +501,7 @@
       setToAct: (i) => { toAct = i; },
       setStage: (s) => { stage = s; },
       setHandOver: (v) => { handOver = v; },
+      confettiFired: () => _confettiFired,
     };
   }
 })();

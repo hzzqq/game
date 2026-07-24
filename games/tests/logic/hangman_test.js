@@ -1,4 +1,4 @@
-const { loadGame, eq, ok } = require('./harness');
+const { loadGame, eq, ok, results } = require('./harness');
 const { t } = loadGame('../hangman.html');
 
 // ---------- 常量 / 词库 ----------
@@ -96,3 +96,13 @@ ok('GALLOWS 7 阶段', t.GALLOWS.length === 7);
 }
 
 console.log('hangman: 全部断言通过');
+
+// ---------- 胜利彩带 / 完成反馈（confettiFired 标记） ----------
+{
+  t.reset({w:'APPLE', h:'苹果'});
+  t.guess('A'); t.guess('P'); t.guess('L'); t.guess('E');
+  ok('胜利后 confettiFired 触发', t.confettiFired() >= 1);
+  ok('胜利状态 hasWon', t.hasWon());
+  ok('胜利后 status=won', t.getStatus() === 'won');
+}
+if (results.some(r => !r.pass)) process.exit(1);

@@ -78,3 +78,11 @@ t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; 
 }
 
 t.setRand(Math.random);
+
+// ===== 8. 完成特效标记 =====
+{
+  t.newPuzzle(12345);
+  const before = t.confettiFired;
+  t.applySolution();
+  ok('applySolution 解出→confettiFired 增加', t.confettiFired > before);
+}

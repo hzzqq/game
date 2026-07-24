@@ -74,4 +74,14 @@ T.loadLevel(0);
 H.ok(T.getLevel() === 0 && T.countLevels() >= 3, 'sokoban: 加载预设关卡0，共 ' + T.countLevels() + ' 关');
 H.ok(T.isWon() === false, 'sokoban: 预设关卡初始未胜利');
 
+// 8) 通关触发完成特效标记
+lvl([
+  '#####',
+  '#@$.#',
+  '#####'
+]);
+H.ok(T.confettiFired === false, 'sokoban: 通关前未标记完成特效');
+T.move('right');                // 把箱推到 (3,1) 目标
+H.ok(T.confettiFired === true, 'sokoban: 通关后标记完成特效');
+
 module.exports = {};

@@ -76,16 +76,23 @@
   const INT_SPD=300, BLAST=34, CITY_HIT=26;
 
   let cities, missiles, interceptors, explosions, score, clearedWaves, over, won, auto, stars=[];
+  let _confettiFired = false; // 通关 confetti 锁（独立于 Juice 的只读测试钩子）
 
   function reset(){
     cities=[]; for(let i=0;i<TOTAL_CITIES;i++) cities.push({ x: 80 + i*((W-160)/(TOTAL_CITIES-1)), alive:true });
-    missiles=[]; interceptors=[]; explosions=[]; score=0; clearedWaves=0; over=false; won=false; auto=false;
+    missiles=[]; interceptors=[]; explosions=[]; score=0; clearedWaves=0; over=false; won=false; auto=false; _confettiFired=false;
   }
   function start(){
     reset(); auto=true;
   }
 
   function setAuto(v){ auto=!!v; }
+  function fireVictoryConfetti(){
+    if(_confettiFired) return;
+    _confettiFired = true;
+    if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(W/2, H*0.35, {n:140, life:2.6});
+    if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.7);
+  }
 
   function spawnIncoming(x, tx, speed){
     const sx = (x==null)? (40+_rng()*(W-80)) : x;
@@ -136,7 +143,7 @@
     checkEnd();
     if(auto && !over && missiles.length===0 && interceptors.length===0){
       clearedWaves++;
-      if(clearedWaves>=TARGET_WAVES){ over=true; won=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('导弹防御通关'); } }
+      if(clearedWaves>=TARGET_WAVES){ over=true; won=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('导弹防御通关'); } fireVictoryConfetti(); }
       else { const n=Math.max(1, Math.round((2+clearedWaves) * diffCfg().countMult)); for(let k=0;k<n;k++) spawnIncoming(null,null,null); }
     }
     render();
@@ -148,7 +155,7 @@
   function checkEnd(){
     if(over) return;
     if(aliveCities()===0){ over=true; won=false; if(typeof Juice!=='undefined') Juice.sfx('lose'); }
-    else if(clearedWaves>=TARGET_WAVES && missiles.length===0 && interceptors.length===0){ over=true; won=true; if(typeof Juice!=='undefined') Juice.sfx('win'); }
+    else if(clearedWaves>=TARGET_WAVES && missiles.length===0 && interceptors.length===0){ over=true; won=true; if(typeof Juice!=='undefined') Juice.sfx('win'); fireVictoryConfetti(); }
   }
 
   function setClearedWaves(n){ clearedWaves=n; }
@@ -214,7 +221,8 @@
   if(typeof window!=='undefined'){
     window.__t={ W,H,GROUND,BX,BY,TOTAL_CITIES,TARGET_WAVES,INT_SPD,BLAST,CITY_HIT,
       setSeed, reset, start, setAuto, spawnIncoming, launch, explodeAt, step, checkEnd, setClearedWaves, killCity, aliveCities, getState,
-      DIFFICULTY, setDifficulty, getDifficulty };
+      DIFFICULTY, setDifficulty, getDifficulty,
+      confettiFired: function(){ return _confettiFired; } };
   }
 })();
 </script>

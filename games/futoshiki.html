@@ -66,6 +66,14 @@
   let givens = [];      // 布尔：是否为题目给定（不可改）
   let constraints = []; // [{r1,c1,r2,c2,op:'<'|'>'}]
   let won = false;
+  let _wonPrev = false;
+  let _confettiCount = 0;
+  function _fireConfetti(){
+    _confettiCount++;
+    if(typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(typeof Juice !== 'undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.4, {color:'#f0b90b', n:40});
+  }
+  function _checkWinFx(){ if(won && !_wonPrev) _fireConfetti(); _wonPrev = won; }
 
   function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
 
@@ -98,6 +106,7 @@
     if(v!==0 && (v<1 || v>N_local)) return false;
     grid[r][c]=v;
     won = isWin();
+    _checkWinFx();
     if(won && typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('futoshiki', N_local); }
     return true;
   }
@@ -148,7 +157,7 @@
     if(givens.flat().every(g=>!g)){ givens[0][0]=true; givens[N-1][N-1]=true; }
     // 当前 grid 含全部解→以此为“已解”展示？不：仅保留给定，其余清空
     for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(!givens[r][c]) grid[r][c]=0;
-    won=false;
+    won=false; _wonPrev=false;
   }
   function reset(){ newGame(); }
 
@@ -236,6 +245,7 @@
     window.__t = {
       N, setRand, newGame, reset, setBoard, setValue, isWin, getState, update,
       latinOK, constraintsOK,
+      get confettiFired(){ return _confettiCount; }
     };
   }
 })();

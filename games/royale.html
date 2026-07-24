@@ -181,6 +181,7 @@
       range:TOWER_DEF[kind].range,atk:TOWER_DEF[kind].atk,cd:0,dead:false});
     return [mk('king',xC,yk), mk('princess',xL,yp), mk('princess',xR,yp)];
   }
+  let _confettiFired = false; // 摧毁敌方国王塔胜利 confetti 锁（独立于 Juice 的只读测试钩子）
   function resetState(){
     state.units = [];
     state.towers = [].concat(makeTowers('me'), makeTowers('ai'));
@@ -195,7 +196,7 @@
     state.deckMe = DECK.slice(); state.deckAi = DECK.slice();
     state.selCard = null;
     state.time = 150;            // 比赛时长（秒）
-    state.over = false; state.win = false;
+    state.over = false; state.win = false; _confettiFired = false;
     state.aiTimer = 2.2;
     hideOverlay();
     renderHand(); renderPips();
@@ -497,6 +498,9 @@
   function finish(result){
     if(state.over) return;
     state.over = true; state.result = result;
+    if(result==='win'){
+      if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(W/2, H*0.32, {n:140, life:2.6}); if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.7); }
+    }
     showOverlay(result);
   }
 
@@ -734,7 +738,9 @@
     setShield: function(v){ state.shieldMe=v; },
     getBoost: function(){ return state.boostTimer; },
     setBoost: function(v){ state.boostTimer=v; },
-    takeHit: function(dmg){ takeHit(dmg); }
+    takeHit: function(dmg){ takeHit(dmg); },
+    finish: finish,
+    confettiFired: function(){ return _confettiFired; }
   };
 })();
 </script>

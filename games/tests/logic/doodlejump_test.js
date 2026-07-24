@@ -221,3 +221,14 @@ H.ok('Boss命中(无盾): 判负', t.isGameOver() === true);
 t.setDifficulty('normal');
 
 console.log('  ✓ doodlejump_test.js 全部通过');
+
+// ===== 里程碑正反馈：confetti + confettiFired 只读钩子 =====
+t.reset(3);
+t.step(0.016);   // 初始 score=0，无里程碑
+H.ok('doodlejump: 初始无里程碑不触发', t.confettiFired() === 0);
+t.reset(3);
+t.applyPickup('star'); t.applyPickup('star'); t.applyPickup('star'); t.applyPickup('star'); // 星星各 +50 → score=200
+H.ok('doodlejump: 分数已达里程碑阈值', t.getScore() >= 200, 'score=' + t.getScore());
+t.step(0.016);   // step 内 floor(score/200) 跨里程碑 → wave=1 → confetti
+H.ok('doodlejump: 高度里程碑触发 confetti', t.confettiFired() > 0, 'confettiFx=' + t.confettiFired());
+

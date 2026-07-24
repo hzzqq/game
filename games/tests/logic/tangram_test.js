@@ -74,3 +74,14 @@ const FULL3 = [
   ok('每片≥3格', st.piecesDef.every(p=>p.cells.length>=3));
   t.setRand(Math.random);
 }
+
+// ===== 8. 通关触发完成特效标记 =====
+{
+  t.setBoard(FULL3, [BAR, BAR, BAR]);
+  eq('通关前未标记完成特效', t.confettiFired, false);
+  ok('放 P0 合法', t.place(0,0,0,0)===true);
+  ok('放 P1 合法', t.place(1,0,0,1)===true);
+  ok('放 P2 合法', t.place(2,0,0,2)===true);
+  ok('三片铺满→胜利', t.isWin()===true);
+  ok('通关后标记完成特效', t.confettiFired===true);
+}

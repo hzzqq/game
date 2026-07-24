@@ -1,4 +1,4 @@
-const { loadGame, ok, eq } = require('./harness');
+const { loadGame, ok, eq, results } = require('./harness');
 const { t } = loadGame('../wordle.html');
 
 // 反馈规则
@@ -22,3 +22,10 @@ t.setSolution('BRICK');
 for(let i=0;i<6;i++) t.guess('ZZZZZ');
 ok('已结束', t.isOver());
 ok('未中', !t.isWon());
+
+// 胜利彩带 / 完成反馈（confettiFired 标记）
+t.setSolution('APPLE');
+t.guess('APPLE');
+ok('猜中', t.isWon());
+ok('胜利后 confettiFired 触发', t.confettiFired() >= 1);
+if (results.some(r => !r.pass)) process.exit(1);

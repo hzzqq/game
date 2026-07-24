@@ -53,3 +53,16 @@ ok('默认词表非空', t.getDefaultWords().length>0);
 }
 
 console.log('typing: 全部断言通过');
+
+// ---------- 轮2：胜利 confetti 标记 ----------
+{
+  t.reset(); t.setWords(['a','b']);
+  t.setClock(()=>0); t.submitWord('a');
+  t.setClock(()=>1000); t.submitWord('b'); // 完成
+  ok('完成后 confettiFired 标记置位', t.getConfettiFired()===true);
+}
+{
+  t.reset(); t.setWords(['x','y']);
+  t.submitWord('x'); // 仅完成第一词，未结束
+  ok('未完成不置位', t.getConfettiFired()===false);
+}
