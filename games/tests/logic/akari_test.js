@@ -65,3 +65,11 @@ t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; 
 }
 
 t.setRand(Math.random);
+
+// === confetti 视觉庆祝标记（胜利触发，纯旁路，不改玩法）===
+t.newPuzzle(12345);
+ok('akari 新局未庆祝', t.confettiFired() === false);
+t.applySolution();
+ok('akari 应用规范解(胜利)后庆祝标记置位', t.confettiFired() === true);
+t.newPuzzle(12345);
+ok('akari 重开新谜题后庆祝标记复位', t.confettiFired() === false);

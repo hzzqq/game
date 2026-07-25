@@ -19,3 +19,11 @@ eq('自由格清空', t.getState().free[0], null);
 // 通关
 t.setTableau([],[13,13,13,13],[null,null,null,null]);
 ok('四座满即胜', t.isWin());
+
+// ============ 胜利/里程碑 confetti：四座收齐标记一次庆祝 ============
+t.setTableau([],[12,12,12,12],[{s:0,r:13},{s:1,r:13},{s:2,r:13},{s:3,r:13}]);
+ok('freecell: 初始未触发庆祝特效', t.confettiFired === false);
+t.moveFreeToFoundation(0); t.moveFreeToFoundation(1); t.moveFreeToFoundation(2); t.moveFreeToFoundation(3);
+ok('freecell: 四座收齐触发庆祝特效', t.confettiFired === true);
+t.setTableau([],[0,0,0,0],[null,null,null,null]);
+ok('freecell: 重开后庆祝特效标记恢复 false', t.confettiFired === false);

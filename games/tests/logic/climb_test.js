@@ -106,3 +106,17 @@ var ch = 0;
 while (!t.isWin() && ch < 300){ t.hop('up'); ch++; }
 ok('climb: 持续向上登顶 win', t.isWin() === true, 'hops=' + ch);
 ok('climb: 登顶触发 confettiFired', t.confettiFired() === true);
+
+// ===== 手感深化：屏震/粒子 只读计数钩子 =====
+t.reset(7);
+eq('climb: 新局 fxShakes=0', t.fxShakes(), 0);
+eq('climb: 新局 fxBursts=0', t.fxBursts(), 0);
+// 驱动：向上跳到新高度里程碑 → 屏震 + 粒子
+t.setPlayer(10, 4); t.clearRocks(); t.setRockTimer(99);
+t.hop('up');
+ok('climb: 新高度里程碑触发屏震 fxShakes>0', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+ok('climb: 新高度里程碑触发粒子 fxBursts>0', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+// 重开归零
+t.reset(8);
+eq('climb: 重开 fxShakes=0', t.fxShakes(), 0);
+eq('climb: 重开 fxBursts=0', t.fxBursts(), 0);

@@ -142,3 +142,26 @@ const total = results.length;
 const pass = results.filter(r => r.pass).length;
 console.log(`\narkanoid: ${pass}/${total} 通过`);
 if (pass !== total) process.exit(1);
+
+// ===== Juice 手感钩子测试（追加，不改旧断言）=====
+(function(){
+  // 1) 新局归零
+  t.startGame();
+  eq('[fx] arkanoid 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] arkanoid 新局 fxBursts=0', t.fxBursts(), 0);
+  // 2) 失球 → shake
+  t.startGame(); t.launch();
+  t.setBalls([{x:390,y:700,vx:0,vy:5,r:7,stuck:false}]);
+  t.update(0.016);
+  ok('[fx] arkanoid 失球 → fxShakes>0', t.fxShakes() > 0);
+  // 3) 通关 → shake + burst
+  t.startGame(); t.setBricks([]); t.launch(); t.update(0.016);
+  ok('[fx] arkanoid 通关 → fxShakes>0', t.fxShakes() > 0);
+  ok('[fx] arkanoid 通关 → fxBursts>0', t.fxBursts() > 0);
+  // 4) 重开归零
+  t.startGame();
+  eq('[fx] arkanoid 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] arkanoid 重开 fxBursts=0', t.fxBursts(), 0);
+  const fxPass = results.filter(r => r.pass).length;
+  console.log(`\narkanoid[fx]: ${fxPass}/${results.length} 通过`);
+})();

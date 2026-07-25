@@ -1,4 +1,4 @@
-const { loadGame, ok, eq } = require('./harness');
+const { loadGame, ok, eq, results } = require('./harness');
 const { t } = loadGame('../hitori.html');
 
 let s = 20260722;
@@ -70,3 +70,35 @@ t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; 
 }
 
 t.setRand(Math.random);
+
+// ===== 手感深化：Juice 反馈钩子（纯注入，不改动玩法）=====
+{
+  // 初始计数应为 0
+  t.newPuzzle(12345);
+  eq('fx: 初始 fxShakes=0', t.fxShakes(), 0);
+  eq('fx: 初始 fxBursts=0', t.fxBursts(), 0);
+
+  // 错误涂黑（与规范解不一致）→ 触发 shake
+  const sol = t.getSolution();
+  let wr=-1, wc=-1;
+  for(let r=0;r<6&&wr<0;r++) for(let c=0;c<6;c++) if(!sol[r][c]){ wr=r; wc=c; break; }
+  if(wr>=0) t.setBlack(wr,wc,true); // 涂黑一个本应为白格的位置（错误）
+  ok('fx: 错误涂黑触发 shake (fxShakes>0)', t.fxShakes() > 0);
+  eq('fx: 错误涂黑未触发 burst', t.fxBursts(), 0);
+
+  // 正确解题（applySolution）→ 触发 burst
+  t.newPuzzle(12345);
+  t.applySolution();
+  ok('fx: 解题触发 burst (fxBursts>0)', t.fxBursts() > 0);
+
+  // newPuzzle 后计数归零
+  t.newPuzzle(12345);
+  eq('fx: newPuzzle 后归零', t.fxShakes(), 0);
+  eq('fx: newPuzzle 后归零2', t.fxBursts(), 0);
+}
+
+const total = results.length;
+const pass = results.filter(r => r.pass).length;
+console.log(`\nhitori: ${pass}/${total} 通过`);
+if (pass !== total) process.exit(1);
+

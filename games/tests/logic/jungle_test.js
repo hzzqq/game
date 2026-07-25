@@ -205,3 +205,31 @@ ok('斗兽棋: 无护盾受击扣血', t.getLives() === lives1 - 1);
   ok('easy+随机流 返回合法着法', !!mv);
   t.setRand(Math.random); t.setDifficulty('normal');
 }
+
+// ============ 手感深化：Juice.shake / Juice.burst 反馈钩子 ============
+// A) 初始 fxShakes / fxBursts 均为 0
+t.newGame();
+eq('jungle: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('jungle: 初始 fxBursts=0', t.fxBursts(), 0);
+
+// B) 红狮吃蓝狼（吃子）→ 屏震 + 粒子爆发（fxShakes / fxBursts 递增，纯反馈不改胜负）
+t.newGame();
+t.setBoard([
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,{side:'w',rank:4},null,null,null],
+  [null,null,null,{side:'b',rank:7},null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null],
+], 'b');
+ok('jungle: 红狮吃蓝狼', t.move(5,3,4,3));
+ok('jungle: 吃子触发 shake', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+ok('jungle: 吃子触发 burst', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+
+// C) 新局归零
+t.newGame();
+eq('jungle: 新局 fxShakes=0', t.fxShakes(), 0);
+eq('jungle: 新局 fxBursts=0', t.fxBursts(), 0);

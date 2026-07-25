@@ -185,6 +185,7 @@
     var koWinner = null;
     var bannerTimer = 0, bannerText = '';
     var startTapped = false;
+    var _confettiFired = false;
 
     var player, cpu, projectiles, floats, items, itemTimer;
 
@@ -217,6 +218,8 @@
     }
     function applyPickup(it, f){ applyItem(f || player, it); }
     function winConfetti(){
+      if (_confettiFired) return;
+      _confettiFired = true;
       if (typeof Juice !== 'undefined' && Juice.confetti){
         Juice.confetti(W/2, H/2, { n: 80, colors:['#f6465d','#02c076','#f0b90b'], spread:0.9, life:1.2, up:true });
       }
@@ -479,6 +482,7 @@
 
     // ---- round / match flow ----
     function beginMatch() {
+      _confettiFired = false;
       pips = { p: 0, c: 0 }; roundNum = 1;
       hide(startOv); hide(matchOv); hide(pauseOv);
       initAudio();
@@ -816,7 +820,8 @@
       addParticle: addParticle,
       getShake: function(){ return shake; },
       setShake: function(v){ shake=v; },
-      forceWin: winConfetti
+      forceWin: winConfetti,
+      confettiFired: () => _confettiFired
     };
 
     requestAnimationFrame(loop);

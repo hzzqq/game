@@ -62,3 +62,18 @@ const { t } = loadGame('../puzzle15.html');
   ok('越界移动被拒', t.move(-1,-1)===false && t.move(9,9)===false);
   ok('新格局仍合法（未崩溃）', Array.isArray(t.getBoard()));
 }
+
+// ===== 6. 拼图复原完成特效标记（confetti 钩子范式）=====
+(() => {
+  // 已解局面仅 (3,3) 空格；让 (3,2) 空、(3,3) 放 15，一步可复原
+  const b=Array.from({length:4},()=>new Array(4).fill(0));
+  let v=1;
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){ if(r===3&&c===3){b[r][c]=0;} else {b[r][c]=v++;} }
+  b[3][2]=0; b[3][3]=15;
+  t.setBoard(b,3,2);
+  eq('复原前未标记完成特效', t.confettiFired(), false);
+  ok('最后一步复原', t.move(3,3)===true);
+  eq('复原后标记完成特效', t.confettiFired(), true);
+  t.newGame();
+  eq('新局重置完成特效', t.confettiFired(), false);
+})();

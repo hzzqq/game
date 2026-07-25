@@ -75,6 +75,7 @@
   const START_ROW = ROWS - 1;
   let rows, player, gameOver, furthest, score, pickups, bonus;
   const COIN_VALUE = 20;
+  let _fxShakes = 0, _fxBursts = 0;   // Juice 手感计数（只读钩子）
 
   // ---- 里程碑正反馈：分数每跨越一个 MILESTONE_STEP 触发一次 confetti（只读钩子 confettiFired）----
   const MILESTONE_STEP = 10;
@@ -119,7 +120,7 @@
     gameOver = false;
     furthest = START_ROW;
     score = 0; bonus = 0;
-    confettiFx = 0; nextMilestone = MILESTONE_STEP;
+    confettiFx = 0; nextMilestone = MILESTONE_STEP; _fxShakes = 0; _fxBursts = 0;
     boss = null; wave = 1;
     // 道具：随机撒在若干格（coin 加分 / shield 免一次死）
     pickups = [];
@@ -155,7 +156,10 @@
   // 死亡：有护盾则消耗护盾免死，否则结束（注入式分支，shield=0 时行为不变）
   function die(){
     if(player.shield > 0){ player.shield--; if(J) J.sfx('block'); return; }
+    if(gameOver) return;
     gameOver = true; if(J) J.sfx('lose');
+    _fxShakes++;
+    if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
   }
   function collectPickups(){
     for(let i=pickups.length-1;i>=0;i--){
@@ -305,6 +309,10 @@
       rows[player.row].obstacles = [];
       pickups.push({ type: 'coin', row: Math.max(0, player.row - 1), col: player.col });
       if(J){ J.sfx('win'); J.flash('#02c076'); }
+      _fxShakes++;
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3);
+      _fxBursts++;
+      if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(player.col*40+20, player.row*40+20, { color:'#f0b90b', n:16, speed:260 });
       boss = null;
       return true;
     }
@@ -452,7 +460,8 @@
       setBoss:(v)=>{ boss=v; },
       getWave:()=>wave, setWave:(v)=>{ wave=v; },
       update:step,
-      confettiFired:()=>confettiFx };
+      confettiFired:()=>confettiFx,
+      fxShakes:()=>_fxShakes, fxBursts:()=>_fxBursts };
   }
 })();
 </script>

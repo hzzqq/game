@@ -28,3 +28,16 @@ t.call(); // 开牌分胜负 → 胜利路径 → celebrate()
 let lthrew=false;
 try { t.triggerWinEffect(); } catch(e){ lthrew=true; }
 ok('triggerWinEffect 在 Juice 无 confetti 时不抛错', lthrew === false);
+
+// ===== confetti：玩家赢局后完成特效标记（纯追加，不改上方旧断言）=====
+(() => {
+  const { t: ld } = loadGame('../liarsdice.html');
+  ok('liarsdice confetti: 初始未标记', ld.confettiFired === false);
+  ld.setDice([[1, 1, 1], [2, 2, 2]]);
+  ld.placeBid(5, 1); // 叫「至少5个1点」，实际全场仅3个 → 开牌者(玩家)胜
+  const r = ld.call();
+  ok('liarsdice confetti: 实际不足叫注→开牌者胜', r.winner === 1);
+  ok('liarsdice confetti: 玩家赢局后标记完成特效', ld.confettiFired === true);
+  ld.gen();
+  ok('liarsdice confetti: 新局恢复未标记', ld.confettiFired === false);
+})();

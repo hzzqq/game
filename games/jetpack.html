@@ -113,6 +113,7 @@
     // ===== 核心状态 =====
     var state, bird, pipes, score, best, spawnX, flashMsg, groundHit;
     var confettiFx = 0;       // 成就命中次数（只读钩子 confettiFired）
+    var _fxShakes = 0, _fxBursts = 0;   // 手感深化：屏震/粒子计数（只读钩子 fxShakes/fxBursts）
     function milestoneFire(){ confettiFx++; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, { n:120, life:2.4 }); }
     var pickups;        // 掉落物数组
     var shield;         // 护盾计数（免一次撞击/个）
@@ -130,6 +131,7 @@
       flashMsg = '';
       groundHit = false;
       confettiFx = 0;
+      _fxShakes = 0; _fxBursts = 0;
       // 道具系统状态初始化
       pickups = [];
       shield = 0;
@@ -166,7 +168,7 @@
     // 拾取生效：type 可为字符串或 {type:...}
     function applyPickup(type) {
       if (type && typeof type === 'object') type = type.type;
-      if (type === 'coin') { score += 50; }                       // 💰 加分
+      if (type === 'coin') { score += 50; _fxBursts++; if (typeof Juice !== 'undefined' && Juice.burst) Juice.burst(bird.x, bird.y, { color: COL.gold, n: 8, speed: 160, life: 0.5 }); }  // 💰 加分 + 金币粒子反馈
       else if (type === 'boost') { boostTimer = 8; }              // 🚀 加速计时
       else if (type === 'shield') { shield = (shield || 0) + 1; } // 🛡 免一次撞击
       if (J) { J.sfx('pickup'); J.popup(bird.x, bird.y - 20, PICKUP_SYM[type] || '★', COL.gold, { size: 16 }); }
@@ -195,6 +197,8 @@
         invuln = 1.2;             // 短暂无敌，避免同一障碍连续扣盾
         bird.vy = -200;           // 给一点上抬帮助脱离
         if (J) { J.flash('#02c076', 0.3); J.sfx('hit'); }
+        _fxShakes++; if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.3);   // 护盾抵挡撞击 → 屏震
+        _fxBursts++; if (typeof Juice !== 'undefined' && Juice.burst) Juice.burst(bird.x, bird.y, { color: COL.green, n: 14, speed: 200 });
         return false;             // 未死
       }
       return true;                // 应判失败
@@ -391,6 +395,8 @@
       getBest: function () { return best; },
       getGap: function () { return GAP; },
       confettiFired: function () { return confettiFx; },
+      fxShakes: function () { return _fxShakes; },
+      fxBursts: function () { return _fxBursts; },
       scrollSpd: function () { return scrollSpd(); },
       GROUND: GROUND, GAP: GAP, PIPE_W: PIPE_W, GRAV: GRAV, FLAP: FLAP,
       // —— 标准掉落钩子（spec §4）——

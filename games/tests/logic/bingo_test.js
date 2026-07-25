@@ -25,8 +25,13 @@ ok('(0,4) 未被标记', t.getMarked(0,4) === false);
 
 // --- Round 7: 胜利/完成特效（纯渲染层，Juice 桩无 confetti → 守卫式 no-op 不抛错）---
 t.setCard(card);
+ok('confettiFired 初始 false', t.confettiFired() === false);
 for(let c=0;c<5;c++) t.call(c+1); // 第 0 行命中 → 宾果 → celebrate()
 ok('宾果胜利路径触发 over', t.isWin() === true);
+ok('宾果达成后 confettiFired=true', t.confettiFired() === true);
 let bthrew=false;
 try { t.triggerWinEffect(); } catch(e){ bthrew=true; }
 ok('triggerWinEffect 在 Juice 无 confetti 时不抛错', bthrew === false);
+// 重开新局（setCard 复位）后恢复 false
+t.setCard(card);
+ok('重开新局后 confettiFired=false', t.confettiFired() === false);

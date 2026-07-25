@@ -71,3 +71,19 @@ t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; 
 }
 
 t.setRand(Math.random);
+
+// ---------- 手感深化：解出谜题屏震 / 粒子计数器（只读钩子，不改动玩法）----------
+(function(){
+  t.newPuzzle(12345);
+  eq('手感: 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 新局 fxBursts=0', t.fxBursts(), 0);
+
+  t.applySolution();
+  ok('手感: 解出谜题 fxShakes>0', t.fxShakes() > 0);
+  ok('手感: 解出谜题 fxBursts>0', t.fxBursts() > 0);
+
+  t.newPuzzle(777);
+  eq('手感: 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 重开 fxBursts=0', t.fxBursts(), 0);
+})();
+

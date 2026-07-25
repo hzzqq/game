@@ -203,3 +203,29 @@ T.step(0.016);             // 无盾撞击 → 死亡，破纪录 → confetti
 H.ok('jetpack: 破纪录触发 confetti', T.confettiFired() > 0, 'confettiFx=' + T.confettiFired());
 H.ok('jetpack: 确实死亡', T.getStatus() === 'dead');
 
+// ===================== 手感深化：Juice.shake / Juice.burst 反馈钩子 =====================
+// A) 初始 fxShakes / fxBursts 均为 0
+T.reset();
+H.eq('jetpack: 初始 fxShakes=0', T.fxShakes(), 0);
+H.eq('jetpack: 初始 fxBursts=0', T.fxBursts(), 0);
+
+// B) 拾取金币 → 金币粒子爆发（fxBursts 递增，纯反馈不改加分逻辑）
+T.reset(); T.setStatus('play'); T.setScore(0);
+T.applyPickup('coin');
+H.ok('jetpack: 金币拾取触发 burst', T.fxBursts() > 0, 'fxBursts=' + T.fxBursts());
+H.eq('jetpack: 金币拾取仍加分+50', T.getScore(), 50);
+
+// C) 护盾抵挡撞击 → 屏震 + 粒子（fxShakes / fxBursts 递增，纯反馈不改存活逻辑）
+T.reset(); T.setStatus('play'); T.setShield(1);
+var bj = T.getState().bird;
+T.clearPipes(); T.addPipe(bj.x, 0); T.setBird(300, 0);
+T.step(0.016);
+H.ok('jetpack: 护盾抵挡触发 shake', T.fxShakes() > 0, 'fxShakes=' + T.fxShakes());
+H.ok('jetpack: 护盾抵挡触发 burst', T.fxBursts() > 0, 'fxBursts=' + T.fxBursts());
+H.ok('jetpack: 护盾抵挡仍存活', T.getStatus() === 'play');
+
+// D) 重置归零
+T.reset();
+H.eq('jetpack: 重置 fxShakes=0', T.fxShakes(), 0);
+H.eq('jetpack: 重置 fxBursts=0', T.fxBursts(), 0);
+

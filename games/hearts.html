@@ -67,6 +67,9 @@
   "use strict";
   const J = (typeof Juice!=='undefined') ? Juice : null;
 
+  // ---- 手感深化：反馈层计数器（仅统计，不改玩法）----
+  let _fxShakes = 0, _fxBursts = 0;
+
   // ---- 局部 PRNG（mulberry32），绝不使用 Math.random ----
   function mk(seed){
     let s = (seed>>>0) || 1;
@@ -115,6 +118,7 @@
     hands=[[],[],[],[]]; phase='pass'; current=0; trick=[]; leadSuit=null;
     heartsBroken=false; tricksPlayed=0; taken=[[],[],[],[]];
     scores=[0,0,0,0]; passed=[null,null,null,null]; sel=[]; lastRoundCards=0; _confettiFired=false;
+    _fxShakes=0; _fxBursts=0;
   }
 
   function deal(){
@@ -225,9 +229,12 @@
     if(J) J.sfx('click');
     if(trick.length===4){
       const w = winnerOfTrick(trick.map(t=>t.card));
-      taken[w] = taken[w].concat(trick.map(t=>t.card));
+      const wonCards = trick.map(t=>t.card);
+      taken[w] = taken[w].concat(wonCards);
       tricksPlayed++;
       trick=[]; leadSuit=null; current=w;
+      if(wonCards.indexOf(QS)>=0){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3); }
+      if(w===HUMAN){ _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(300, 200, {n:14}); }
       if(J) J.flash('#f0b90b', .25);
       if(tricksPlayed===13) endRound();
     } else {
@@ -256,6 +263,7 @@
 
   function endRound(){
     const rs = scoreRound(taken);
+    if(rs.some(s=>s===26)){ _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(300, 200, {n:14}); }
     for(let p=0;p<4;p++) scores[p]+=rs[p];
     lastRoundCards = [].concat(...taken).length;
     taken=[[],[],[],[]];
@@ -450,6 +458,7 @@
       SUITS, RNAMES, CLUBS2, QS, suit, rank, rankNum, cardName,
       setRand, newGame, reset, getState, legalMoves, playCard, step,
       passCards, aiChoose, winnerOfTrick, scoreRound, playRound, getScores, isOver, setHands, setScores, gameOver, confettiFired: ()=>_confettiFired,
+      fxShakes: () => _fxShakes, fxBursts: () => _fxBursts,
       DIFFICULTY, setDifficulty, getDifficulty
     };
   }

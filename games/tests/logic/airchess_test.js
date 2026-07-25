@@ -160,3 +160,35 @@ const total = results.length;
 const pass = results.filter(r => r.pass).length;
 console.log(`\nairchess: ${pass}/${total} 通过`);
 if (pass !== total) process.exit(1);
+
+// ===== Juice 手感钩子测试（追加，不改旧断言）=====
+(function(){
+  // 1) 新局归零
+  t.newGame();
+  eq('[fx] airchess 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] airchess 新局 fxBursts=0', t.fxBursts(), 0);
+  // 2) 吃子（确定性驱动：红0号到位 m=2，绿0号同格被击落）
+  t.setProg(0, 0, 0);
+  t.setProg(1, 0, 41);   // mainIndexOf(1,41)=(13+41)%52=2，与红 m=2 同格
+  t.doMove(0, 0, 2);
+  ok('[fx] airchess 吃子 → fxShakes>0', t.fxShakes() > 0);
+  ok('[fx] airchess 吃子 → fxBursts>0', t.fxBursts() > 0);
+  // 3) 重开归零
+  t.newGame();
+  eq('[fx] airchess 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] airchess 重开 fxBursts=0', t.fxBursts(), 0);
+  // 4) 胜利（确定性驱动：红 3 架归港 + 第4架到终点）
+  t.newGame();
+  const ps2 = t.getPlayers();
+  ps2[0].done = 3; ps2[0].planes[0].state = 'track'; ps2[0].planes[0].prog = t.getWIN() - 1;
+  t.setPlayers(ps2); t.setDice(1);
+  t.doMove(0, 0, 1); t.postMove(0);
+  ok('[fx] airchess 胜利 → fxShakes>0', t.fxShakes() > 0);
+  ok('[fx] airchess 胜利 → fxBursts>0', t.fxBursts() > 0);
+  // 5) 最终归零
+  t.newGame();
+  eq('[fx] airchess 最终 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] airchess 最终 fxBursts=0', t.fxBursts(), 0);
+  const fxPass = results.filter(r => r.pass).length;
+  console.log(`\nairchess[fx]: ${fxPass}/${results.length} 通过`);
+})();

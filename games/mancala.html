@@ -76,10 +76,12 @@
   function getDifficulty(){ return difficulty; }
 
   let board, current, over, winner, _wonPrev=false;
+  let _fxShakes = 0, _fxBursts = 0;   // 手感深化：屏震/粒子计数（只读钩子 fxShakes/fxBursts）
   function newGame(){
     board = new Array(14).fill(INIT);
     board[6]=0; board[13]=0;
     current=0; over=false; winner=null; _wonPrev=false;
+    _fxShakes = 0; _fxBursts = 0;
   }
   function reset(){ newGame(); }
   function oppStore(p){ return p===0?13:6; }
@@ -105,16 +107,21 @@
     // 落进自己大库 → 额外回合
     if(last === STORE[player]){
       checkEnd();
-      if(!over && typeof Juice!=='undefined') Juice.sfx('click');
+      if(!over){
+        if(typeof Juice!=='undefined') Juice.sfx('click');
+        _fxBursts++; if (typeof Juice!=='undefined' && Juice.burst) Juice.burst((player===0?60:340), 200, {n:14, color:'#02c076'});  // 末子进粮仓获再走一次 → 粒子
+      }
       return true; // 不改变 current
     }
     // 落进己方空格且对面有子 → 吃子
     if(inOwn(last,player) && board[last]===1){
       const opp = 12 - last; // 对面坑
       if(board[opp]>0){
-        board[STORE[player]] += board[last] + board[opp];
+        const _cap = board[last] + board[opp];
+        board[STORE[player]] += _cap;
         board[last]=0; board[opp]=0;
         if(typeof Juice!=='undefined') Juice.sfx('levelup');
+        if(_cap >= 4){ _fxShakes++; if (typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3); }  // 大量捕获（≥4 子）→ 屏震
       }
     }
     current = 1-player;
@@ -248,6 +255,8 @@
       setBoard, checkEnd,
       setRand, DIFFICULTY, setDifficulty, getDifficulty, aiChoosePit,
       confettiFired(){ return _wonPrev; },
+      fxShakes(){ return _fxShakes; },
+      fxBursts(){ return _fxBursts; },
     };
   }
 })();

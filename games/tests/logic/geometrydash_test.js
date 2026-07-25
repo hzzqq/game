@@ -115,6 +115,29 @@ t.update(1);   // 撞击 → gameOver，距离>0 破纪录 → confetti
 ok('geometrydash: 破纪录触发 confetti', t.confettiFired() > 0, 'confettiFx=' + t.confettiFired());
 ok('geometrydash: 确实结束', t.isGameOver() === true);
 
+// ===== 手感深化（P-juice）：_fxShakes / _fxBursts 钩子 =====
+t.reset();
+eq('geometrydash: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('geometrydash: 初始 fxBursts=0', t.fxBursts(), 0);
+
+// 撞障碍死亡 → shake(0.5) 触发
+t.reset();
+const gyD = t.GROUND_Y();
+t.setObstacles([{ type:'spike', x:115, y:gyD-30, w:40, h:30 }]);
+t.setShield(0);
+t.update(1);
+ok('geometrydash: 死亡触发 fxShakes>0', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+
+// 距离里程碑 → burst 触发
+t.reset();
+for (let i = 0; i < 4000; i++){ t.setObstacles([]); t.update(1); }
+ok('geometrydash: 里程碑触发 fxBursts>0', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+
+// newGame(reset) 后归零
+t.reset();
+eq('geometrydash: reset 后 fxShakes=0', t.fxShakes(), 0);
+eq('geometrydash: reset 后 fxBursts=0', t.fxBursts(), 0);
+
 // ===== 结果汇总 =====
 const passed = require('./harness').results.filter(r => r.pass).length;
 const total = require('./harness').results.length;

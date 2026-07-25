@@ -76,6 +76,7 @@
 
   let player, aliens, bullets, ox, oy, dir, speed, score, lives, wave, over, cooldown;
   let _confettiFired = false; // 过关/胜利 confetti 钩子（独立于 Juice，只读暴露）
+  let _fxShakes=0, _fxBursts=0;   // 手感深化：反馈层计数器（不改动玩法）
   let boss = null;       // Boss 波：{x,y,w,h,hp,maxHp,dir,vx,phase} 非 boss 波为 null
   const BOSS_EVERY = 3;  // 每 3 波出现一次 Boss
   let pickups = [];      // 掉落道具：{x,y,vy,type}
@@ -172,6 +173,7 @@
   // 致死分支：护盾优先消耗并顶回编队，无盾才 game over
   function playerHit(){
     if(shieldUntil > nowMs()){ shieldUntil = 0; oy = 0; return; } // 护盾免死
+    _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3);   // 受击/失败反馈
     over = true;
     if(typeof Juice!=='undefined'){ Juice.flash('#f6465d'); Juice.best('invaders', score); }
   }
@@ -180,6 +182,7 @@
     bullets=[];
     score=0; lives=3; wave=1; over=false; cooldown=0;
     _confettiFired = false;
+    _fxShakes=0; _fxBursts=0;   // 手感深化：反馈层计数归零（不改动玩法）
     boss=null;
     pickups=[]; rocketLeft=0; shieldUntil=0; pickupTimer=0;
     reseed(0x1A2B3C4D & 0xFFFFFFFF);
@@ -249,6 +252,7 @@
     }
     // 全清 → 下一波（每 BOSS_EVERY 波出 Boss）
     if(!over && aliveCount()===0){
+      _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(player.x, PLAYER_Y, {n:14});   // 一波清空反馈
       wave++; speed*=diffCfg().growth;
       if(typeof Juice!=='undefined') Juice.sfx('levelup');
       if(isBossWave(wave)) spawnBoss();
@@ -353,6 +357,8 @@
       getLives:()=>lives, setLives:(v)=>{lives=v;},
       getWave:()=>wave, getOver:()=>over, setOver:(v)=>{over=v;},
       confettiFired:()=>_confettiFired,
+      fxShakes:()=>_fxShakes,
+      fxBursts:()=>_fxBursts,
       // —— Boss 系统钩子 ——
       BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
       getBoss:()=>boss ? {x:boss.x,y:boss.y,w:boss.w,h:boss.h,hp:boss.hp,maxHp:boss.maxHp,phase:boss.phase,dir:boss.dir} : null,

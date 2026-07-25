@@ -89,7 +89,7 @@
   const ctx = canvas.getContext('2d');
   const wrap = document.getElementById('wrap');
 
-  let board, history, current, gameOver, lastWin;
+  let board, history, current, gameOver, lastWin, _confettiFired;
   let cssSize = 0, MARGIN = 0, STEP = 0;
   const RED = '#f6465d', GREEN = '#02c076';
 
@@ -118,6 +118,7 @@
     current = P;       // 玩家先手
     gameOver = false;
     lastWin = null;
+    _confettiFired = false;
     setTurn();
     hideOverlay();
     draw();
@@ -224,6 +225,10 @@
       lastWin = line;
       draw();
       const youWin = (who === P);
+      if(youWin && !_confettiFired){
+        _confettiFired = true;
+        if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      }
       endGame(youWin ? '你赢了！' : 'AI 获胜',
                youWin ? '红方连珠五子，终端判定胜利。' : '绿方连成五子，再接再厉。');
       return;
@@ -356,7 +361,7 @@
     document.getElementById('ovTitle').style.color = (title.indexOf('你赢')>=0) ? GREEN : (title.indexOf('平')>=0 ? '#f0b90b' : RED);
     document.getElementById('ovText').textContent = text;
     if(typeof Juice!=='undefined'){
-      if(title.indexOf('你赢')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('gomoku',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      if(title.indexOf('你赢')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('gomoku',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
       else if(title.indexOf('平')>=0){ Juice.sfx('click'); }
       else { Juice.sfx('lose'); Juice.flash(RED,0.3); Juice.addTrauma(0.5); }
     }
@@ -418,6 +423,7 @@
     getBoard() { return board.slice(); },
     get gameOver() { return gameOver; },
     get lastWin() { return lastWin; },
+    get confettiFired() { return _confettiFired; },
     get current() { return current; },
     set current(v) { current = v; }
   };

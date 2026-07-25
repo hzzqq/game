@@ -109,3 +109,16 @@ while(g3++ < 60){
   t.endTurn();
 }
 ok(t.isOver(), '被 Boss 击败后游戏结束');
+
+// ===== 通关庆祝 confetti 只读钩子（击败 Boss 通关）=====
+(() => {
+  t.resetRun();
+  ok('尖塔 初始未触发庆祝', t.confettiFired() === false);
+  t.startCombat(['dragon'], 'boss');
+  t.debugDeal(0, 999);        // 直接打死 Boss
+  t.debugSetHand(['demon']);   // 非攻击牌，playCard 会触发 checkEnemiesDead → 通关
+  t.playCard(0, 0);
+  ok('尖塔 击败 Boss 后触发庆祝', t.confettiFired() === true);
+  t.resetRun();
+  ok('尖塔 新一局重置未触发', t.confettiFired() === false);
+})();

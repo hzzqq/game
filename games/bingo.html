@@ -50,19 +50,20 @@
 (function(){
   "use strict";
   const N=5;
-  let card, marked, called, over;
+  let card, marked, called, over, _confettiFired;
   let _rand=Math.random;
   function setRand(fn){ _rand=fn; }
   // 胜利/完成特效：仅渲染层，受 Juice 存在性守卫（confetti 在桩环境为 no-op）
-  function celebrate(){ if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+  // _confettiFired：确保一次宾果仅触发一次彩带（纯旁路视觉标记）
+  function celebrate(){ if(_confettiFired) return; _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
   function markFx(){ if(typeof Juice!=='undefined' && Juice.spawnParticle) Juice.spawnParticle(window.innerWidth/2, window.innerHeight*0.4, {color:'#02c076', n:10}); }
   function gen(){
     const pool=[]; for(let i=1;i<=75;i++) pool.push(i);
     for(let i=pool.length-1;i>0;i--){ const j=Math.floor(_rand()*(i+1)); const t=pool[i];pool[i]=pool[j];pool[j]=t; }
     card=[]; for(let r=0;r<N;r++){ const row=[]; for(let c=0;c<N;c++) row.push(pool[r*N+c]); card.push(row); }
-    marked=Array.from({length:N},()=>Array(N).fill(false)); called=0; over=false;
+    marked=Array.from({length:N},()=>Array(N).fill(false)); called=0; over=false; _confettiFired=false;
   }
-  function setCard(c){ card=c.map(r=>r.slice()); marked=Array.from({length:N},()=>Array(N).fill(false)); called=0; over=false; }
+  function setCard(c){ card=c.map(r=>r.slice()); marked=Array.from({length:N},()=>Array(N).fill(false)); called=0; over=false; _confettiFired=false; }
   function call(n){
     if(over) return false;
     let hit=false;
@@ -97,7 +98,7 @@
   }
   gen();
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
-  if(typeof window!=='undefined'){ window.__t={ gen, setCard, call, autoCall, isWin, getMarked, getCard, setRand, triggerWinEffect:celebrate }; }
+  if(typeof window!=='undefined'){ window.__t={ gen, setCard, call, autoCall, isWin, getMarked, getCard, setRand, triggerWinEffect:celebrate, confettiFired:()=>_confettiFired }; }
 })();
 </script>
 </body>

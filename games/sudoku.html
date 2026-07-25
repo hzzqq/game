@@ -91,6 +91,7 @@
   const N=9;
   let solution=[], board=[], given=[], notes=[], sel=-1, difficulty='easy';
   let notesMode=false, mistakes=0, hintsLeft=3, solved=false, timer=0, timerId=null;
+  let _confettiFired = false;   // 只读钩子：解出庆祝是否已触发（仅一次）
   const J = (typeof Juice !== 'undefined') ? Juice : null;
 
   const CLUES={easy:42, medium:34, hard:28};
@@ -126,7 +127,7 @@
       if(countSolutions(puzzle,2)!==1) puzzle[idx]=bak; else removed++;
     }
     board=puzzle.slice(); given=puzzle.map(v=>v!==0); notes=Array.from({length:81},()=>new Set());
-    sel=-1; mistakes=0; hintsLeft=3; solved=false; timer=0; notesMode=false;
+    sel=-1; mistakes=0; hintsLeft=3; solved=false; timer=0; notesMode=false; _confettiFired=false;
     document.getElementById('noteBtn').classList.remove('on');
     render(); updateMeta(); startTimer();
   }
@@ -185,7 +186,7 @@
       document.getElementById('overlay').style.display='flex';
       document.getElementById('ovText').textContent='用时 '+fmt(timer)+' · 错误 '+mistakes+' 次';
       if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('数独完成 · 难度 '+difficulty+' · '+fmt(timer)); }
-      if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      if(!_confettiFired){ _confettiFired = true; } if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
   }
 
   function startTimer(){ stopTimer(); timerId=setInterval(()=>{ timer++; document.getElementById('time').textContent=fmt(timer); },1000); }
@@ -222,7 +223,8 @@
     setGiven(arr) { given = arr.slice(); },
     setSel(i) { sel = i; },
     get mistakes() { return mistakes; },
-    get solved() { return solved; }
+    get solved() { return solved; },
+    confettiFired: () => _confettiFired
   };
 })();
 </script>

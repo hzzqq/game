@@ -65,3 +65,14 @@ t.newRun();
 t.debugSetTarget(1e9);
 for(let i=0;i<4;i++){ t.debugSetHand([C(2,'spade'),C(3,'heart'),C(4,'diamond'),C(5,'club'),C(6,'spade')]); t.toggleSelect(0); t.playSelected(); }
 ok(t.isOver(), '出手耗尽未达标则游戏结束');
+
+// === confetti 视觉庆祝标记（首次赢下盲注触发，纯旁路，不改玩法）===
+t.newRun();
+ok('balatro 开局未庆祝', t.confettiFired() === false);
+t.debugSetTarget(1);
+t.debugSetHand([C(2,'spade'),C(2,'heart')]); // 对子，得分 20 >= 1
+t.toggleSelect(0); t.toggleSelect(1);
+t.playSelected();
+ok('balatro 赢下盲注后庆祝标记置位', t.confettiFired() === true);
+t.newRun();
+ok('balatro 重开后庆祝标记复位', t.confettiFired() === false);

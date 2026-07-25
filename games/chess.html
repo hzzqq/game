@@ -87,6 +87,7 @@
   const wrap = document.getElementById('wrap');
 
   let board, turn, gameOver, mode, selected, legalCache, lastMove, history;
+  let _confettiFired = false;
   let cssW=0, MARGIN=0, CW=0, CH=0;
 
   /* ---------- 棋盘规则 ---------- */
@@ -205,7 +206,7 @@
     return b;
   }
   function reset(){
-    board=initialBoard(); turn='r'; gameOver=false; mode='pvp'; selected=null; legalCache=[]; lastMove=null; history=[];
+    board=initialBoard(); turn='r'; gameOver=false; mode='pvp'; selected=null; legalCache=[]; lastMove=null;     history=[]; _confettiFired = false;
     document.getElementById('modeBtn').textContent='对手: 双人'; document.getElementById('modeBtn').classList.remove('on');
     setTurn(); hideOverlay(); draw();
   }
@@ -290,7 +291,7 @@
   }
   function endGame(){
     gameOver=true;
-    if(J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     const redLost = (turn==='r'); // 轮到红方却无棋 → 红负
     let title, sub, col;
     if(redLost){ title='绿方胜利！'; sub='红方无棋可走（将死/困毙）。'; col=GREEN; }
@@ -372,7 +373,8 @@
     get gameOver(){ return gameOver; },
     get mode(){ return mode; }, set mode(v){ mode=v; },
     get selected(){ return selected; },
-    get legalCache(){ return legalCache; }
+    get legalCache(){ return legalCache; },
+    get confettiFired(){ return _confettiFired; }
   };
 })();
 </script>

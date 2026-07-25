@@ -79,6 +79,7 @@
   function getDifficulty(){ return difficulty; }
 
   let board, turn, pending; // pending=[r,c] 必须继续连吃的棋子，或 null
+  let _confettiFired = false;
 
   function inBoard(r,c){ return r>=0 && r<SIZE && c>=0 && c<SIZE; }
   function isDark(r,c){ return ((r+c) % 2) === 1; }
@@ -99,6 +100,7 @@
       else if(r>=5) board[r][c] = REDman;
     }
     turn = 'red'; pending = null;
+    _confettiFired = false;
   }
 
   function capturesFrom(r,c){
@@ -157,6 +159,10 @@
       if(more.length){ pending=[tr,tc]; return; } // 连吃
     }
     pending=null;
+    if (winner() && !_confettiFired) {
+      _confettiFired = true;
+      if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, { n: 120, life: 2.4 });
+    }
     turn = turn==='red' ? 'black' : 'red';
   }
   function countPieces(side){
@@ -254,7 +260,7 @@
     if(!moves.length) return;
     applyMove(moves[0]);
     selected=null;
-    if(typeof Juice!=='undefined'){ Juice.sfx(moves[0].capture?'click':'click'); if(winner()){ Juice.sfx('levelup'); Juice.best('checkers',1); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
+    if(typeof Juice!=='undefined'){ Juice.sfx(moves[0].capture?'click':'click'); if(winner()){ Juice.sfx('levelup'); Juice.best('checkers',1); } }
     if(turn==='black' && !winner()){
       if(typeof Juice!=='undefined') Juice.sfx('click');
       aiMove();
@@ -295,6 +301,7 @@
       countPieces, winner, pieceAt, getBoard, getTurn, getPending,
       setBoard, setTurn, setPending, aiMove, scoreMoveAI,
       setRand, DIFFICULTY, setDifficulty, getDifficulty,
+      get confettiFired(){ return _confettiFired; }
     };
   }
 })();

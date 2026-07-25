@@ -192,5 +192,24 @@ ok('crossyroad: 跨越下一里程碑再次触发', t.confettiFired() >= 2, 'con
 t.reset(1);
 ok('crossyroad: 新局未达里程碑 confettiFx=0', t.confettiFired() === 0);
 
+// ===== Juice 手感深化（屏震 + 粒子爆发）只读计数钩子 =====
+t.reset(7);
+eq('crossyroad: 新局 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);
+// 驱动撞车死亡：shake(0.5)
+t.reset(1);
+t.setPlayer(5, 3); t.setRow(5, 'road'); t.setObstacles(5, [3]); t.setRowSpeed(5, 0);
+t.step(1);
+ok('crossyroad: 撞车死亡触发屏震', t.fxShakes() > 0, 'shakes=' + t.fxShakes());
+// 驱动击败 Boss：shake(0.3)+burst
+t.reset(7);
+t.spawnBoss();
+t.setBossHp(0);
+t.updateBoss(0.016);
+ok('crossyroad: 击败 Boss 触发屏震', t.fxShakes() > 0, 'shakes=' + t.fxShakes());
+ok('crossyroad: 击败 Boss 触发粒子爆发', t.fxBursts() > 0, 'bursts=' + t.fxBursts());
+// 重开归零
+t.reset(7);
+eq('crossyroad: 重开后 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);
+
 
 

@@ -73,3 +73,18 @@ const { t } = loadGame('../klotski.html');
   ok('曹操不在出口位（棋盘确已打乱）', !(cao.r===2 && cao.c===1));
   t.setRand(Math.random);
 }
+
+// ===== confetti：胜利后完成特效标记（纯追加，不改上方旧断言）=====
+(() => {
+  const { t: kt } = loadGame('../klotski.html');
+  ok('klotski confetti: 初始未标记', kt.confettiFired === false);
+  kt.setPieces([
+    { id: 'cao', name: '曹操', r: 1, c: 1, w: 2, h: 2, cao: true, kind: 'cao' },
+  ]);
+  ok('klotski confetti: 接近出口尚未胜', kt.isWin() === false);
+  kt.move('cao', 1, 0); // 下移一格 → 到达出口 (2,1)
+  ok('klotski confetti: 曹操到出口即胜', kt.isWin() === true);
+  ok('klotski confetti: 通关后标记完成特效', kt.confettiFired === true);
+  kt.reset();
+  ok('klotski confetti: 重开恢复未标记', kt.confettiFired === false);
+})();

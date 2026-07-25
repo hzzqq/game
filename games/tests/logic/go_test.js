@@ -75,3 +75,46 @@ eq('黑胜', t.getWinner(), 'b');
   eq('黑胜', t.getWinner(), 'b');
   eq('胜利 confetti 触发', t.confettiFired(), true);
 }
+
+// ===== 手感深化（P-juice）：_fxShakes / _fxBursts 钩子 =====
+t.newGame();
+eq('go: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('go: 初始 fxBursts=0', t.fxBursts(), 0);
+
+// 提子（1 子）→ burst 触发
+t.newGame();
+t.setBoard([
+  ['w',null,null,null,null,null,null,null,null],
+  ['b',null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+], 'b');
+t.place(0,1,'b');
+ok('go: 提子触发 fxBursts>0', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+
+// 大块提子（>=3 子）→ shake 触发
+t.newGame();
+t.setBoard([
+  ['b','w','w','w',null,null,null,null,null],
+  ['b','b','b','b',null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null,null],
+], 'b');
+t.place(0,4,'b');
+ok('go: 大块提子(>=3)触发 fxShakes>0', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+ok('go: 大块提子(>=3)被提走3子', t.getCaptures().b, 3);
+
+// newGame 后归零
+t.newGame();
+eq('go: newGame 后 fxShakes=0', t.fxShakes(), 0);
+eq('go: newGame 后 fxBursts=0', t.fxBursts(), 0);

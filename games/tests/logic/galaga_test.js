@@ -191,6 +191,28 @@ H.ok('击败后重建普通编队', t.getState().enemyCount > 0);
 // 注：galaga 核心为「清空即胜」，故 boss 波通过 spawnBoss 钩子/显式 wave 进入，
 // 不破坏原有「清空编队→胜利」断言（测试 5）。
 
+// ===== 手感深化：击毁 Boss / 玩家被击中 → shake+burst =====
+t.newGame(41); t.setWave(3);
+t.spawnBoss();
+t.setBossHp(1);
+let gb = t.getBoss();
+t.addBullet(gb.x + gb.w/2, gb.y + gb.h/2, false);
+H.ok(t.fxShakes() === 0 && t.fxBursts() === 0, 'galaga: 初始 fx 计数为 0');
+const beaten2 = t.updateBoss(1);
+H.ok(beaten2 === true, 'galaga: 击毁 Boss');
+H.ok(t.fxShakes() > 0, 'galaga: 击毁 Boss 触发 shake');
+H.ok(t.fxBursts() > 0, 'galaga: 击毁 Boss 触发 burst');
+// 玩家被击中
+t.newGame(42); t.setLives(3); t.setDiveEnabled(false);
+const pl3 = t.getState().player;
+t.spawnEnemyBullet(pl3.x, pl3.y + 2);
+t.step();
+H.ok(t.fxShakes() > 0, 'galaga: 玩家被击中触发 shake');
+H.ok(t.fxBursts() > 0, 'galaga: 玩家被击中触发 burst');
+// 重置归零
+t.newGame(43);
+H.ok(t.fxShakes() === 0 && t.fxBursts() === 0, 'galaga: 重置后 fx 归零');
+
 console.log('  ✓ galaga_test.js 全部通过');
 
 // ===== 击败 Boss 即胜利 → confetti 钩子（独立于 Juice） =====

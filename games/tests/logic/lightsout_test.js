@@ -76,3 +76,18 @@ const { t } = loadGame('../lightsout.html');
   t.newGame();
   ok('越界点击不崩溃', t.click(-1,-1) === false && t.click(9,9) === false);
 }
+
+// ===== confetti：全灭后完成特效标记（纯追加，不改上方旧断言）=====
+(() => {
+  const { t: lo } = loadGame('../lightsout.html');
+  ok('lightsout confetti: 初始未标记', lo.confettiFired === false);
+  const b = Array.from({ length: lo.N }, () => new Array(lo.N).fill(0));
+  b[0][0] = 1; b[1][0] = 1; b[0][1] = 1; // 对(0,0)按一次后所留局面
+  lo.setBoard(b);
+  ok('lightsout confetti: 尚余三灯未灭', lo.isWin() === false);
+  lo.click(0, 0); // 翻转 (0,0) 与上下左右 → 全灭
+  ok('lightsout confetti: 全灭即胜', lo.isWin() === true);
+  ok('lightsout confetti: 通关后标记完成特效', lo.confettiFired === true);
+  lo.reset();
+  ok('lightsout confetti: 重置恢复未标记', lo.confettiFired === false);
+})();

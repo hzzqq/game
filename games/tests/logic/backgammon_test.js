@@ -89,3 +89,45 @@ console.log('✓ backgammon_test 完成 · 共 21 条断言');
   eq('红方获胜', t.winner, 'red');
   eq('胜利 confetti 触发', t.confettiFired(), true);
 }
+
+// ===== Juice 手感钩子测试（追加，不改旧断言）=====
+(function(){
+  // 1) 新局归零
+  t.reset();
+  eq('[fx] backgammon 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] backgammon 新局 fxBursts=0', t.fxBursts(), 0);
+  // 2) 击中对方孤子(hit) → shake + burst
+  t.reset(); t.debugClear();
+  t.debugSet(13, 1, 0);   // 红 1 子在 idx13(点14)
+  t.debugSet(10, 0, 1);   // 白 1 子(blot)在 idx10(点11)
+  let seq = [0.4, 0.0]; let si = 0; t.setRand(() => seq[si++ % seq.length]);
+  t.rollDice();           // 期望 [3,1]
+  ok(t.move(13, 3), '红走3步落白blot合法');
+  ok('[fx] backgammon 击中孤子 → fxShakes>0', t.fxShakes() > 0);
+  ok('[fx] backgammon 击中孤子 → fxBursts>0', t.fxBursts() > 0);
+  // 3) 重开归零
+  t.reset();
+  eq('[fx] backgammon 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] backgammon 重开 fxBursts=0', t.fxBursts(), 0);
+  // 4) 首次 bear off → shake
+  t.reset(); t.debugClear();
+  t.debugSet(0, 3, 0); t.debugSet(1, 3, 0); t.debugSet(2, 3, 0);
+  t.debugSet(3, 3, 0); t.debugSet(4, 2, 0); t.debugSet(5, 1, 0);
+  t.debugBar('red', 0);
+  seq = [0.9, 0.0]; si = 0; t.setRand(() => seq[si++ % seq.length]);
+  t.rollDice();           // 期望 [6,1]
+  ok(t.bearOff(5, 6), '点6(die=6)精确移出合法');
+  ok('[fx] backgammon 首次bearoff → fxShakes>0', t.fxShakes() > 0);
+  // 5) 胜利 → shake + burst
+  t.reset(); t.debugClear(); t.debugOff('red', 14); t.debugSet(5, 1, 0); t.debugBar('red', 0); t.turn = 'red';
+  seq = [0.9, 0.0]; si = 0; t.setRand(() => seq[si++ % seq.length]);
+  t.rollDice();
+  ok(t.bearOff(5, 6), '最后一枚移出');
+  ok('[fx] backgammon 胜利 → fxShakes>0', t.fxShakes() > 0);
+  ok('[fx] backgammon 胜利 → fxBursts>0', t.fxBursts() > 0);
+  // 6) 最终归零
+  t.reset();
+  eq('[fx] backgammon 最终 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] backgammon 最终 fxBursts=0', t.fxBursts(), 0);
+  console.log('\nbackgammon[fx]: 全部断言通过');
+})();

@@ -107,6 +107,7 @@
   function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
   function getDifficulty(){ return difficulty; }
   var _wonPrev=false, winFx=0; // 胜利彩带跳变防重 + 计数
+  var _fxShakes=0, _fxBursts=0; // Juice 手感只读计数（测试钩子，纯反馈层）
 
   function angleOf(i){ return -Math.PI/2 + i*(2*Math.PI/N); }
   function cellPos(i){ var a=angleOf(i), rx=W/2-46, ry=H/2-46; return [cx+rx*Math.cos(a), cy+ry*Math.sin(a)]; }
@@ -134,6 +135,7 @@
     }
     cur=0; dice=0; extra=0; winner=-1; phase='idle';
     _wonPrev=false; winFx=0;
+    _fxShakes=0; _fxBursts=0;
     log('新对局开始，红方先手。','d');
     hideOverlay(); refresh();
   }
@@ -175,7 +177,7 @@
           for(var j=0;j<4;j++){ var op=ops[j];
             if(op.state==='track' && mainIndexOf(o,op.prog)===m){
               if(players[o].shield){ players[o].shield=false; log(NAME[o]+' 护盾抵挡了撞击！','d'); }
-              else { var jp=planeXY(o,op.prog); op.state='base'; op.prog=-1; log(NAME[c]+' 击落了 '+NAME[o]+' 的飞机！','i'); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.25); Juice.burst(jp[0],jp[1],{color:COL[o],n:12,speed:180}); Juice.popup(jp[0],jp[1],'击落',COL[o],{size:14}); } }
+              else { var jp=planeXY(o,op.prog); op.state='base'; op.prog=-1; log(NAME[c]+' 击落了 '+NAME[o]+' 的飞机！','i'); _fxShakes++; _fxBursts++; if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.shake(0.25); Juice.burst(jp[0],jp[1],{color:COL[o],n:12,speed:180}); Juice.popup(jp[0],jp[1],'击落',COL[o],{size:14}); } }
             }
           }
         }
@@ -276,8 +278,9 @@
     document.getElementById('startBtn').textContent='再来一局';
     if(typeof Juice!=='undefined'){
       if(winner===0){
-        if(!_wonPrev){ winFx++; if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:40, speed:160}); _wonPrev=true; }
-        Juice.sfx('win'); Juice.flash('#02c076',0.28); Juice.addTrauma(0.6); var b=Juice.best('airchess',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
+        _fxShakes++;
+        if(!_wonPrev){ winFx++; _fxBursts++; if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:40, speed:160}); _wonPrev=true; }
+        Juice.sfx('win'); Juice.flash('#02c076',0.28); if(Juice.shake) Juice.shake(0.5); var b=Juice.best('airchess',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
       else { Juice.sfx('lose'); Juice.flash('#f6465d',0.3); Juice.addTrauma(0.6); }
     }
   }
@@ -359,6 +362,8 @@
     postMove: postMove,
     aiPickAndMove: aiPickAndMove,
     confettiFired: function(){ return winFx; },
+    fxShakes: function(){ return _fxShakes; },
+    fxBursts: function(){ return _fxBursts; },
     DIFFICULTY, DIFF_ORDER, setDifficulty, getDifficulty, setRand,
     getDifficultyName: function(){ return difficulty; },
   };

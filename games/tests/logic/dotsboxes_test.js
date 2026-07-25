@@ -71,3 +71,37 @@ const { t } = loadGame('../dotsboxes.html');
   eq('玩家(绿)获胜', t.getWinner(), 0);
   eq('胜利 confetti 触发', t.confettiFired(), true);
 }
+
+// ---------- 手感深化：fxShakes / fxBursts 反馈层（纯追加，不改动玩法）----------
+{
+  t.newGame(4,4);
+  eq('手感: 初始 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 初始 fxBursts=0', t.fxBursts(), 0);
+}
+{
+  // 玩家(绿)补最后一边成格 → burst
+  const h=[[true,false,false],[true,false,false],[false,false,false],[false,false,false]];
+  const v=[[true,false,false,false],[false,false,false,false],[false,false,false,false]];
+  const own=[[-1,-1,-1],[-1,-1,-1],[-1,-1,-1]];
+  t.setRaw(h,v,own,0,[0,0]);
+  t.playV(0,1); // 绿方成格
+  ok('手感: 玩家成格触发 burst', t.fxBursts()>0);
+  eq('手感: 玩家成格不触发对手 shake', t.fxShakes(), 0);
+}
+{
+  // 对手(红, current=1)一步连吃 2 格 → shake + burst
+  t.newGame(3,3);
+  const h=[[true,false],[false,false],[true,false]];
+  const v=[[true,true,false],[true,true,false]];
+  const own=[[-1,-1],[-1,-1]];
+  t.setRaw(h,v,own,1,[0,0]);
+  t.playH(1,0); // 红方一步补 h[1][0]，同时闭合 box(0,0) 与 box(1,0)
+  ok('手感: 对手连吃2格触发 shake', t.fxShakes()>0);
+  ok('手感: 对手连吃2格触发 burst', t.fxBursts()>0);
+}
+{
+  // newGame 归零
+  t.newGame(4,4);
+  eq('手感: newGame 后 fxShakes 归零', t.fxShakes(), 0);
+  eq('手感: newGame 后 fxBursts 归零', t.fxBursts(), 0);
+}

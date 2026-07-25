@@ -113,3 +113,29 @@ function get(r, c) { return t.getBoard()[r * N + c]; }
   H.ok('五子棋 简单档随机步仍落一子', cnt1 === cnt0 + 1);
   t.setDifficulty('hell'); t.setRand(Math.random); // 复位
 })();
+
+// 10) 玩家五连胜利触发 confetti 标记（且仅触发一次）
+(() => {
+  t.reset();
+  H.ok('五子棋 初始未标记 confetti', t.confettiFired === false);
+  const b = Array(N * N).fill(EMPTY);
+  for (let c = 0; c < 4; c++) b[0 * N + c] = P;
+  t.setBoard(b);
+  t.doMove(0, 4, P); // 玩家成五连 → 胜利
+  H.ok('五子棋 玩家胜利标记 confetti', t.confettiFired === true);
+  H.ok('五子棋 玩家胜利 gameOver', t.gameOver === true);
+  // 重开恢复 false
+  t.reset();
+  H.ok('五子棋 重开重置 confetti 标记', t.confettiFired === false);
+})();
+
+// 11) AI 胜利不触发玩家 confetti 标记
+(() => {
+  t.reset();
+  const b = Array(N * N).fill(EMPTY);
+  for (let r = 0; r < 5; r++) b[r * N + 3] = A; // 已四连（AI 占），再落一手即胜
+  t.setBoard(b);
+  t.doMove(4, 3, A); // AI 成五连
+  H.ok('五子棋 AI 胜利不标记玩家 confetti', t.confettiFired === false);
+})();
+

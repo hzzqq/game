@@ -103,3 +103,28 @@ const { t } = loadGame('../boggle.html');
   ok('finishFind 返回词数组', Array.isArray(ws) && ws.length>0);
   ok('完成后 confettiFired 置位', t.getConfettiFired()===true);
 }
+
+// ---------- 手感深化：长词屏震 / 粒子计数器（只读钩子，不改动玩法）----------
+(function(){
+  t.newGame(42);
+  eq('手感: 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 新局 fxBursts=0', t.fxBursts(), 0);
+
+  // 受控盘含 5 字母长词 apple（路径 a→p→p→l→e，相邻含对角）
+  const GRID=[
+    ['a','p','p','x'],
+    ['x','x','l','x'],
+    ['x','x','e','x'],
+    ['x','x','x','x']
+  ];
+  t.setup(GRID);
+  const ws = t.findWords();
+  ok('手感: 受控盘含长词 apple', ws.includes('apple'));
+  ok('手感: 长词触发 fxShakes>0', t.fxShakes() > 0);
+  ok('手感: 长词触发 fxBursts>0', t.fxBursts() > 0);
+
+  t.newGame(7);
+  eq('手感: 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 重开 fxBursts=0', t.fxBursts(), 0);
+})();
+

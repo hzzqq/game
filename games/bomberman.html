@@ -50,10 +50,16 @@
 <script>
 (function(){
   "use strict";
-  let W,H, blocks, walls, bombs, players, range, pickups, score, shield, bombCap, fire, blastSet;
+  let W,H, blocks, walls, bombs, players, range, pickups, score, shield, bombCap, fire, blastSet, _confettiFired;
   function setup(w,h,blockList){
     W=w; H=h; blocks=new Set((blockList||[]).map(b=>b[0]+','+b[1])); walls=new Set(); bombs=[]; players=[]; range=2; pickups=[]; score=0;
-    shield=0; bombCap=1; fire=0; blastSet=new Set();
+    shield=0; bombCap=1; fire=0; blastSet=new Set(); _confettiFired=false;
+  }
+  // 胜利彩带（纯旁路视觉，受 Juice 守卫，仅触发一次）；逻辑层无原生胜负，以「全清场」里程碑 + forceWin 钩子驱动
+  function winConfetti(){
+    if(_confettiFired) return;
+    _confettiFired=true;
+    if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(240, 300, { n:100, life:2.2 });
   }
   function setRange(r){ range=r; }
   function setBomb(x,y){ if(bombs.length>=bombCap) return false; bombs.push({x,y}); return true; }
@@ -120,6 +126,8 @@
       }
     }
     if(typeof Juice!=='undefined'){ if(Juice.sfx) Juice.sfx('boom'); if(Juice.addTrauma) Juice.addTrauma(.4); }
+    // 全清场里程碑：所有角色被炸死 → 触发一次胜利彩带（仅视觉，不改玩法）
+    if(players.length && players.every(function(p){return p.dead;}) && !_confettiFired) winConfetti();
     bombs.length=0;
     return cells;
   }
@@ -178,7 +186,9 @@
     getBombs(){ return bombCap; },
     setBombs(v){ bombCap=v; },
     getBombCount(){ return bombs.length; },
-    getPlayers(){ return players.map(function(p){return {x:p.x,y:p.y,dead:p.dead};}); }
+    getPlayers(){ return players.map(function(p){return {x:p.x,y:p.y,dead:p.dead};}); },
+    forceWin: winConfetti,
+    confettiFired: function(){ return _confettiFired; }
   }; }
 })();
 </script>

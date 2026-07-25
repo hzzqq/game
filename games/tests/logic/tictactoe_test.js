@@ -118,3 +118,15 @@ eq('LINES 8 条', t.LINES.length, 8);
 }
 
 console.log('tictactoe: 全部断言通过');
+
+// ===== confetti 完成特效标记（玩家胜局）=====
+(function () {
+  t.setDifficulty('hell');
+  t.reset();
+  t.setBoardRaw([1,1,0, 2,2,0, 0,0,0]);
+  ok('tictactoe: 玩家胜局前未标记 confettiFired', t.confettiFired() === false);
+  t.humanMove(2); // 玩家落位2 → 行0 三连，玩家胜
+  ok('tictactoe: 玩家三连后标记 confettiFired', t.confettiFired() === true);
+  t.reset();
+  ok('tictactoe: 重开后 confettiFired 复位 false', t.confettiFired() === false);
+})();

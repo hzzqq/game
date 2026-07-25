@@ -68,6 +68,7 @@
   let clues = {top:[], bottom:[], left:[], right:[]}; // 各长 N，0=无
   let sol = [];         // 生成时的完整解
   let won = false;
+  let _confettiFired = false;
 
   function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
   function vis(a){ let mx=0,cnt=0; for(const v of a){ if(v>mx){ mx=v; cnt++; } } return cnt; }
@@ -96,7 +97,10 @@
     if(v!==0 && (v<1||v>N_local)) return false;
     grid[r][c]=v;
     won=isWin();
-    if(won && typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('towers', N_local); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+    if(won){
+      if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('towers', N_local); }
+      if(!_confettiFired){ _confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+    }
     return true;
   }
 
@@ -110,6 +114,7 @@
     };
     sol = givensGrid.map(row=>row.slice());
     won = isWin();
+    _confettiFired = false;
     return {N:N_local, givens:givensGrid.flat().filter(v=>v!==0).length};
   }
 
@@ -148,7 +153,7 @@
     for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(_rand()<0.25) givens[r][c]=true;
     if(givens.flat().every(g=>!g)){ givens[0][0]=true; }
     for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(!givens[r][c]) grid[r][c]=0;
-    won=false;
+    won=false; _confettiFired=false;
   }
   function reset(){ newGame(); }
 
@@ -233,6 +238,7 @@
   if(typeof window!=='undefined'){
     window.__t = {
       N, setRand, newGame, reset, setBoard, setValue, solve, isWin, getState, update, vis, latinOK, cluesOK, computeClues,
+      confettiFired: function(){ return _confettiFired; },
     };
   }
 })();

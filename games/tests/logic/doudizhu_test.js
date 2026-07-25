@@ -192,6 +192,20 @@ ok('成为地主(landlordIndex=0)', t.getLandlord() === 0);
 t.endGame(0);            // 你出完获胜
 ok('玩家(地主)获胜触发 confettiFired', t.confettiFired());
 
+// ---------- 手感深化：炸弹/王炸 shake+burst；剩1张警报 shake ----------
+t.newGame();
+eq('手感: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('手感: 初始 fxBursts=0', t.fxBursts(), 0);
+// 炸弹出牌 → shake(0.5) + burst
+const bomb = [C(3),C(3,'♥'),C(3,'♦'),C(3,'♣')];
+t.doPlay(0, bomb, t.getCombo(bomb));
+ok('手感: 炸弹触发 shake', t.fxShakes()>0);
+ok('手感: 炸弹触发 burst', t.fxBursts()>0);
+// newGame 归零
+t.newGame();
+eq('手感: newGame 后 fxShakes 归零', t.fxShakes(), 0);
+eq('手感: newGame 后 fxBursts 归零', t.fxBursts(), 0);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

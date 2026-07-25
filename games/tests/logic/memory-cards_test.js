@@ -128,6 +128,15 @@ ok('memory: 步数宽限 简单>普通>困难>地狱',
 t.setDifficulty('normal'); t.reset(7);
 ok('memory: 普通档 maxMoves=20', t.maxMoves() === 20, 'maxMoves=' + t.maxMoves());
 
+// ===== 胜利 confetti 标记（P4：纯视觉，整局仅一次，绝不改玩法/判定）=====
+t.setGrid(['A','A','B','B']);
+ok('memory: 配对前未标记 confetti', t.confettiFired === false);
+t.flip(0); t.flip(1);
+t.flip(2); t.flip(3);
+ok('memory: 全配对胜利后标记 confetti', t.confettiFired === true);
+t.reset(12345);
+ok('memory: 重开后 confetti 复位', t.confettiFired === false);
+
 // ===== 汇总 =====
 const failed = H.results.filter(r => !r.pass).length;
 console.log('\n----------------------------------------');

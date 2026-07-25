@@ -38,3 +38,20 @@ const { t } = H.loadGame('../reversi.html');
   H.ok('黑白棋 简单档随机步完成落子', b1 > b0);
   t.setDifficulty('hell'); t.setRand(Math.random);
 })();
+
+// 3) 终局玩家赢局完成特效标记（confetti 钩子范式）
+(() => {
+  t.reset(); // 确保完成特效标记归零
+  // 构造满盘（仅 (0,0) 为绿，其余红）→ 红 63 绿 1，红方胜
+  const b = Array.from({length:8},()=>new Array(8).fill(t.R));
+  b[0][0] = t.G;
+  t.setBoard(b);
+  t.current = t.R;
+  H.eq('终局前未标记完成特效', t.confettiFired(), false);
+  t.step(0,0, t.R); // 落子非法但触发双无步判定 → endGame
+  H.ok('终局红胜 gameOver', t.gameOver === true);
+  H.eq('终局红方子数=63', t.score().r, 63);
+  H.ok('玩家赢局标记完成特效', t.confettiFired() === true);
+  t.reset();
+  H.eq('新局重置完成特效', t.confettiFired(), false);
+})();

@@ -68,3 +68,14 @@ t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; 
 }
 
 t.setRand(Math.random);
+
+// --- confetti 庆祝标记（旁路视觉，独立于 Juice 桩）---
+// 说明：fillomino 的给定格仅存于 clue 数组、grid 中保持 0，且 setCell 拒绝改写给定格，
+// 因此通关只能经由 applySolution()（与既有 #2/#3 断言一致的解谜完成路径）触发。
+t.newPuzzle(12345);
+ok('fillomino 初始未庆祝', t.confettiFired() === false);
+ok('fillomino 应用解获胜', t.applySolution() === true && t.isWin() === true);
+ok('fillomino 胜利后标记庆祝', t.confettiFired() === true);
+t.reset();
+ok('fillomino 重置后标记清除', t.confettiFired() === false);
+

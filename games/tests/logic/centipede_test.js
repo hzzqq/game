@@ -188,6 +188,22 @@ ok('centipede: 过关 confettiFired 置真', t.confettiFired() === true);
 t.setMushrooms([]); t.setPlayer(10, 5); t.setCentipede([{ row:10, col:4, dir:1 }]); t.step();
 ok('centipede: confettiFired 不被重复置位（保持真）', t.confettiFired() === true);
 
+// ===== 手感深化：屏震/粒子 只读计数钩子 =====
+t.reset(1);
+eq('centipede: 新局 fxShakes=0', t.fxShakes(), 0);
+eq('centipede: 新局 fxBursts=0', t.fxBursts(), 0);
+// 驱动：单节蜈蚣(头)被击中 → 头节屏震 + 波次清空 屏震+粒子
+t.setMushrooms([]);
+t.setCentipede([{ row: 5, col: 5, dir: 1 }]);
+t.setBullets([{ row: 6, col: 5 }]);
+t.step();
+ok('centipede: 击杀头节触发屏震 fxShakes>0', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+ok('centipede: 波次清空触发粒子 fxBursts>0', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+// 重开归零
+t.reset(2);
+eq('centipede: 重开 fxShakes=0', t.fxShakes(), 0);
+eq('centipede: 重开 fxBursts=0', t.fxBursts(), 0);
+
 const H = require('./harness');
 if (H.results.some(r => !r.pass)) process.exit(1);
 process.exit(0);

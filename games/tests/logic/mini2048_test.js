@@ -108,3 +108,30 @@ function lockRand(){ t.setRand(()=>0); }
 }
 
 console.log('mini2048: 全部断言通过');
+
+// ===== _confettiFired 只读钩子范式：达成 128 彩带标记（纯视觉，不改玩法） =====
+(function () {
+  // 1) 初始未触发
+  t.reset(); lockRand();
+  eq('mini2048: 初始 confettiFired=false', t.confettiFired(), false);
+
+  // 2) 64 64 -> 128 胜利触发
+  t.reset(); lockRand();
+  t.setBoard([[64, 64, 0], [0, 0, 0], [0, 0, 0]]);
+  const r = t.move('left');
+  eq('mini2048: 合成128后状态 win', r.status, 'win');
+  eq('mini2048: 胜利后 confettiFired=true', t.confettiFired(), true);
+
+  // 3) 重开新局重置为 false
+  t.reset(); lockRand();
+  eq('mini2048: 重开后 confettiFired=false', t.confettiFired(), false);
+})();
+
+// ===== confetti 钩子汇总（确保 exit 0） =====
+{
+  const Hmod = require('./harness');
+  const allTotal = Hmod.results.length;
+  const allPass = Hmod.results.filter(x => x.pass).length;
+  console.log(`mini2048(confetti-hook): ${allPass}/${allTotal} 通过`);
+  if (allPass !== allTotal) process.exit(1);
+}

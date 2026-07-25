@@ -47,3 +47,16 @@ const { t } = loadGame('../hanoi.html');
   t.move(0,2);
   ok('部分移动仍未胜', t.isWin()===false);
 }
+
+// ===== 6. confetti 标记：通关时触发、重开复位 =====
+{
+  t.newGame(3);
+  ok('初始未标记 confetti', t.confettiFired===false);
+  const sol=[[0,2],[0,1],[2,1],[0,2],[1,0],[1,2],[0,2]];
+  for(const [f,tt] of sol){ t.move(f,tt); }
+  ok('通关后标记 confetti', t.confettiFired===true);
+  ok('通关后 isWin', t.isWin()===true);
+  t.reset(); // 重开
+  ok('重开重置 confetti 标记', t.confettiFired===false);
+  ok('重开未胜', t.isWin()===false);
+}

@@ -148,4 +148,21 @@ H.ok(T.getStatus() === 'menu', 'flappy: 重置回菜单');
   H.eq('flappy 平纪录(0)不触发 confettiFired', T.confettiFired(), false);
 })();
 
+// ===== 手感深化：过 10 管里程碑 shake+burst；破纪录 shake =====
+T.reset(); T.setStatus('play'); T.setScore(9);
+H.ok(T.fxShakes() === 0 && T.fxBursts() === 0, 'flappy: 初始 fx 计数为 0');
+const birdX = T.getState().bird.x;
+T.addPipe(birdX - T.PIPE_W - 1, 200);  // 刚好飞过鸟身后(计分线在鸟左侧)
+T.step(0.05);
+H.ok(T.fxShakes() > 0, 'flappy: 过10管里程碑触发 shake');
+H.ok(T.fxBursts() > 0, 'flappy: 过10管里程碑触发 burst');
+// 破纪录触发 shake
+T.reset(); T.setStatus('play'); T.setScore(5);
+T.setBird(T.GROUND + 5, 0);
+T.step(0.016); // 撞地 dead，score=5>best(0) 破纪录
+H.ok(T.fxShakes() > 0, 'flappy: 破纪录触发 shake');
+// 重置归零
+T.reset();
+H.ok(T.fxShakes() === 0 && T.fxBursts() === 0, 'flappy: 重置后 fx 归零');
+
 module.exports = {};

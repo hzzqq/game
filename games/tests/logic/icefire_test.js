@@ -113,6 +113,30 @@ H.ok(T.getState() === 'win', 'icefire: win() 进入通关态');
 T.reset();
 H.ok(T.confettiFired() === false, 'icefire: 重置后 confettiFired 复位');
 
+// ============ 手感深化：Juice 反馈钩子（纯注入，不改动玩法）============
+{
+  // 初始计数应为 0
+  T.reset();
+  H.eq('fx: 初始 fxShakes=0', T.fxShakes(), 0);
+  H.eq('fx: 初始 fxBursts=0', T.fxBursts(), 0);
+
+  // 受击（无盾）→ 触发 shake
+  T.setShield(0); T.ice.shieldGrace = 0;
+  T.takeHit(1);
+  H.ok('fx: 受击触发 shake (fxShakes>0)', T.fxShakes() > 0);
+  H.eq('fx: 受击未触发 burst', T.fxBursts(), 0);
+
+  // 道具拾取（applyPickup）→ 触发 burst（确定性坐标，不消耗随机数）
+  const p = T.spawnPickup('speed', 100, 100);
+  T.applyPickup(p);
+  H.ok('fx: 道具拾取触发 burst (fxBursts>0)', T.fxBursts() > 0);
+
+  // reset 后计数归零
+  T.reset();
+  H.eq('fx: reset 后归零', T.fxShakes(), 0);
+  H.eq('fx: reset 后归零2', T.fxBursts(), 0);
+}
+
 const total = H.results.length;
 const pass = H.results.filter(r => r.pass).length;
 console.log(`\nicefire: ${pass}/${total} 通过`);

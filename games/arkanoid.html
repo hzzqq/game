@@ -125,6 +125,7 @@
   let levelClearTime=0;
   let shakeTime=0;
   let _confettiFired=false; // 通关 confetti 已触发（独立于 Juice 的只读测试锁）
+  let _fxShakes=0, _fxBursts=0; // Juice 手感只读计数（测试钩子，纯反馈层）
   const baseSpeed = 4.2;
 
   // ---------- 难度系统（简单/普通/困难/地狱）----------
@@ -212,6 +213,7 @@
     pickups=[]; wideUntil=0; slowUntil=0;
     paddle.w=paddle.baseW;
     _confettiFired=false; // 新游戏重置通关反馈锁（仅视觉状态）
+    _fxShakes=0; _fxBursts=0;
     buildLevel(); resetBall();
     setState('ready');
   }
@@ -373,8 +375,8 @@
       if(b.y-b.r>H){ balls.splice(i,1); }
     }
     if(balls.length===0){
-      lives--; shakeTime=350;
-      if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.addTrauma(0.4); Juice.flash('#f6465d',0.3); }
+      lives--; shakeTime=350; _fxShakes++;
+      if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.shake(0.4); Juice.flash('#f6465d',0.3); }
       if(lives<=0){
         setState('gameover');
         if(typeof Juice!=='undefined'){
@@ -425,8 +427,10 @@
         if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076',0.2); Juice.achievement('第 '+level+' 关 通过 ✓'); }
         if(!_confettiFired){
           _confettiFired=true;
+          _fxShakes++; _fxBursts++;
           if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
-          if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.4);
+          if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
+          if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(W/2, H/2, {color:'#02c076', n:30, speed:200});
         }
       }
     } else if(state==='levelcomplete'){
@@ -666,6 +670,8 @@
     update: update,
     setBricks: function(arr){ bricks = arr.map(function(b){ return {x:b.x,y:b.y,w:b.w,h:b.h,color:b.color,points:b.points,alive:(b.alive!==false)}; }); },
     confettiFired: function(){ return _confettiFired; },
+    fxShakes: function(){ return _fxShakes; },
+    fxBursts: function(){ return _fxBursts; },
     getWideUntil: function(){ return wideUntil; }, getSlowUntil: function(){ return slowUntil; },
     // ===== 道具系统钩子 =====
     reset: startGame,

@@ -27,3 +27,14 @@ ok('全部数块正确 → 通关', t.isSolved() === true);
 // 重复数字应判非法
 t.setCell(0,1,1); // 与 (0,0)=1 重复
 ok('同块重复数字 → 该块非法', t.checkRun(puzzle.runs[0]) === false);
+
+// confetti 标记：解谜完成触发、重开复位
+t.puzzle(); // 重开复位标记（前序用例已解过，标记可能为 true）
+ok('初始未标记 confetti', t.confettiFired === false);
+t.setPuzzle(puzzle);
+t.setCell(0,0,1); t.setCell(0,1,2); t.setCell(1,0,3); t.setCell(1,1,4);
+ok('全部数块正确 → 通关', t.isSolved() === true);
+ok('通关后标记 confetti', t.confettiFired === true);
+t.puzzle(); // 重开
+ok('重开重置 confetti 标记', t.confettiFired === false);
+ok('重开未解', t.isSolved() === false);

@@ -57,3 +57,22 @@ t.reset();
 eq('达成前 confettiFired 为 false', t.confettiFired(), false);
 t.roll(10);
 eq('全中触发 confettiFired', t.confettiFired(), true);
+
+// ---------- 手感深化：全中/补中屏震计数器（只读钩子，不改动玩法）----------
+(function(){
+  t.reset();
+  eq('手感: 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 新局 fxBursts=0', t.fxBursts(), 0);
+
+  t.roll(10); // 全中
+  ok('手感: 全中 fxShakes>0', t.fxShakes() > 0);
+  ok('手感: 全中触发胜利粒子 fxBursts>0', t.fxBursts() > 0);
+
+  t.reset();
+  eq('手感: 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 重开 fxBursts=0', t.fxBursts(), 0);
+
+  t.roll(4); t.roll(6); // 补中（两球合计=10）
+  ok('手感: 补中 fxShakes>0', t.fxShakes() > 0);
+})();
+

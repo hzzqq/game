@@ -106,11 +106,12 @@
 
   let hands, crib, starter, dealer, phase, playPile, playTotal, current, peg, show, playedCount, lastToPlay;
   let _confettiFired=false;
+  let _fxShakes = 0, _fxBursts = 0;   // Juice 手感计数（只读钩子，测试可断言）
   let _lastSeed = 1;
 
   function freshState(){
     hands=[[],[]]; crib=[]; starter=-1; dealer=0; phase='discard';
-    playPile=[]; playTotal=0; current=0; peg=[0,0]; show=[0,0,0]; playedCount=0; lastToPlay=-1; _confettiFired=false;
+    playPile=[]; playTotal=0; current=0; peg=[0,0]; show=[0,0,0]; playedCount=0; lastToPlay=-1; _confettiFired=false; _fxShakes=0; _fxBursts=0;
   }
   function deal(){
     const d=[]; for(let c=0;c<52;c++) d.push(c);
@@ -254,8 +255,15 @@
     const h0=scoreHand(0), h1=scoreHand(1), cr=scoreCrib();
     show=[h0,h1,cr];
     peg[0]+=h0; peg[1]+=h1; peg[dealer]+=cr;
-    if(rank(starter)===10) peg[dealer]+=2; // his heels
+    if(rank(starter)===10){ peg[dealer]+=2; // his heels
+      _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.2);
+    }
     phase='over';
+    // 手感深化：大一手（单手 ≥8 分：15s+对+顺组合）屏震 + 粒子爆发
+    const _big = Math.max(h0, h1, cr);
+    if(_big >= 8){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3); _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.4, {color:'#f0b90b', n:16, speed:260}); }
+    // 胜局屏震
+    if(peg[0] > peg[1]){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5); }
     if(peg[0]>peg[1] && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
   }
 
@@ -401,6 +409,7 @@
       SUITS, RNAMES, suit, rank, cardName, cardValue,
       setRand, newGame, reset, getState, legalMoves, playCard, discard, go:doGo,
       scorePeg, scoreHand, scoreCrib, scoreShow, step, getScores, getPegScore, isOver, setup, confettiFired: ()=>_confettiFired,
+      fxShakes: ()=>_fxShakes, fxBursts: ()=>_fxBursts,
       DIFFICULTY, setDifficulty, getDifficulty
     };
   }

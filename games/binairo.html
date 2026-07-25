@@ -56,6 +56,7 @@
   let sol;     // N×N，规范解（0/1）
   let won = false;
   let confettiFired = false;
+  let _fxShakes=0, _fxBursts=0, _solvedFx=false; // 手感计数器：解出谜题屏震/粒子（仅视觉反馈）
 
   // ---- 生成合法解：回溯逐格填，约束行/列计数与无 3 连同色 ----
   function genSolution(){
@@ -88,7 +89,18 @@
     sol = genSolution();
     board = Array.from({length:N},()=>new Array(N).fill(null));
     won = false;
+    _solvedFx=false; _fxShakes=0; _fxBursts=0;
     return getState();
+  }
+
+  // 手感：解出谜题 → 屏震 + 粒子爆发（仅触发一次，与 confettiFired 互不冲突）
+  function _fireSolveFx(){
+    if(_solvedFx) return;
+    _solvedFx=true;
+    _fxShakes++;
+    if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3);
+    _fxBursts++;
+    if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(188,188,{color:'#02c076',n:18});
   }
 
   function isComplete(){
@@ -116,6 +128,7 @@
     else return false;
     won=isWin();
     if(won&&J) J.sfx('levelup');
+    if(won) _fireSolveFx();
     return true;
   }
   function toggleCell(r,c){
@@ -124,10 +137,11 @@
     board[r][c] = (v===null)?0 : (v===0?1:null);
     won=isWin();
     if(won&&J) J.sfx('levelup');
+    if(won) _fireSolveFx();
     return true;
   }
-  function reset(){ board=Array.from({length:N},()=>new Array(N).fill(null)); won=false; return getState(); }
-  function applySolution(){ board=sol.map(row=>row.slice()); won=isWin(); return won; }
+  function reset(){ board=Array.from({length:N},()=>new Array(N).fill(null)); won=false; _solvedFx=false; _fxShakes=0; _fxBursts=0; return getState(); }
+  function applySolution(){ board=sol.map(row=>row.slice()); won=isWin(); if(won) _fireSolveFx(); return won; }
   function getSolution(){ return sol.map(row=>row.slice()); }
   function getState(){ return { N, board:board.map(r=>r.slice()), sol:sol.map(r=>r.slice()), won }; }
 
@@ -179,7 +193,8 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setCell, toggleCell, applySolution, getSolution, getState };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setCell, toggleCell, applySolution, getSolution, getState,
+      fxShakes: ()=>_fxShakes, fxBursts: ()=>_fxBursts };
   }
 })();
 </script>

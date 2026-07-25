@@ -102,6 +102,7 @@
 
     var shoe = [], chips = 1000, bet = 10;
     var player = [], dealer = [], dealerHidden = true, phase = 'bet', result = null;
+    var _confettiFired = false;   // 胜利彩带仅触发一次的纯旁路标记
 
     // ---- 纯逻辑 ----
     function buildShoe() {
@@ -145,8 +146,8 @@
       else if (result === 'blackjack') chips += Math.floor(bet * 2.5);
       else if (result === 'push') chips += bet;
       if (typeof Juice !== 'undefined') {
-        if (result === 'blackjack') { Juice.sfx('win'); Juice.achievement('🂡 黑杰克 BLACKJACK!'); Juice.burst(W / 2, H / 2, { color: COL.gold, n: 22, speed: 240 }); Juice.ring(W / 2, H / 2, { color: COL.gold, r1: 120 }); if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
-        else if (result === 'win') { Juice.sfx('win'); Juice.burst(W / 2, H / 2, { color: COL.green, n: 16, speed: 220 }); Juice.popup(W / 2, H / 2, '+' + bet, COL.green, { size: 28, big: true }); if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+        if (result === 'blackjack') { Juice.sfx('win'); Juice.achievement('🂡 黑杰克 BLACKJACK!'); Juice.burst(W / 2, H / 2, { color: COL.gold, n: 22, speed: 240 }); Juice.ring(W / 2, H / 2, { color: COL.gold, r1: 120 }); if (typeof Juice!=='undefined' && Juice.confetti && !_confettiFired) { _confettiFired = true; Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
+        else if (result === 'win') { Juice.sfx('win'); Juice.burst(W / 2, H / 2, { color: COL.green, n: 16, speed: 220 }); Juice.popup(W / 2, H / 2, '+' + bet, COL.green, { size: 28, big: true }); if (typeof Juice!=='undefined' && Juice.confetti && !_confettiFired) { _confettiFired = true; Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
         else if (result === 'lose') { Juice.sfx('lose'); Juice.addTrauma(0.35); Juice.flash('#f6465d', 0.25); Juice.popup(W / 2, H / 2, '-' + bet, COL.red, { size: 26, big: true }); }
         else { Juice.sfx('click'); Juice.popup(W / 2, H / 2, 'PUSH', COL.dim, { size: 22 }); }
       }
@@ -158,6 +159,7 @@
       if (phase !== 'bet') return;
       if (chips < bet) { bet = chips; }
       if (chips <= 0) return;
+      _confettiFired = false;
       chips -= bet;
       player = [draw(), draw()]; dealer = [draw(), draw()]; dealerHidden = true; result = null;
       if (isBlackjack(player)) { dealerHidden = false; finish(); return; }
@@ -249,6 +251,7 @@
       setPhase: function (p) { phase = p; },
       // 直接摆好牌面并结算（绕过随机发牌，供单测）
       runRound: function (p, d, b) {
+        _confettiFired = false;
         b = b || 10; chips -= b; bet = b;
         player = p.map(function (c) { return { r: c.r, v: c.v, s: c.s || '♠', c: c.c || 'green' }; });
         dealer = d.map(function (c) { return { r: c.r, v: c.v, s: c.s || '♠', c: c.c || 'green' }; });
@@ -257,7 +260,8 @@
       },
       getResult: function () { return result; },
       getState: function () { return { phase: phase, chips: chips, bet: bet, result: result,
-        player: player.map(function (c) { return c.r; }), dealer: dealer.map(function (c) { return c.r; }) }; }
+        player: player.map(function (c) { return c.r; }), dealer: dealer.map(function (c) { return c.r; }) }; },
+      confettiFired: function () { return _confettiFired; }
     };
 
     buildShoe();

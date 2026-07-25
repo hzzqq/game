@@ -178,6 +178,32 @@ t.getAliens().forEach(a => a.alive = false);
 t.update();  // 全清 → 下一波（过关）
 ok('invaders: 全清过关 confettiFired 置真', t.confettiFired() === true);
 
+// ===== 手感深化：Juice 反馈钩子（纯注入，不改动玩法）=====
+{
+  // 初始计数应为 0
+  t.reset();
+  eq('fx: 初始 fxShakes=0', t.fxShakes(), 0);
+  eq('fx: 初始 fxBursts=0', t.fxBursts(), 0);
+
+  // 编队抵达底线 → 受击/失败 → 触发 shake（游戏结束）
+  t.reset();
+  t.setOy(400);   // 最底行远超玩家线
+  t.update();
+  ok('fx: 编队触底受击触发 shake (fxShakes>0)', t.fxShakes() > 0);
+  eq('fx: 受击未触发 burst', t.fxBursts(), 0);
+
+  // 一波清空 → 触发 burst（确定性坐标 player.x, PLAYER_Y）
+  t.reset(); t.setScore(0);
+  t.getAliens().forEach(a => a.alive = false);
+  t.update();
+  ok('fx: 一波清空触发 burst (fxBursts>0)', t.fxBursts() > 0);
+
+  // reset 后计数归零
+  t.reset();
+  eq('fx: reset 后归零', t.fxShakes(), 0);
+  eq('fx: reset 后归零2', t.fxBursts(), 0);
+}
+
 const H = require('./harness');
 if (H.results.some(r => !r.pass)) process.exit(1);
 process.exit(0);

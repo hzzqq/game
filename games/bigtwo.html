@@ -56,6 +56,7 @@
   const SUITS=['♣','♦','♥','♠']; // ♣<♦<♥<♠（黑桃最大）
   let hands, turn, lead, lastWinner, passes, over, winner, sel;
   let _confettiFired=false;
+  let _fxShakes=0, _fxBursts=0; // 手感计数器：屏震/粒子触发次数（仅视觉反馈，不影响玩法）
   function setRand(fn){ _rand=fn||Math.random; } let _rand=Math.random;
   function rankVal(r){ return r===2?15 : r===1?14 : r; }
   function suitVal(s){ return s; }
@@ -81,7 +82,7 @@
     const d=[]; for(let s=0;s<4;s++) for(let r=1;r<=13;r++) d.push({s,r});
     for(let i=d.length-1;i>0;i--){ const j=Math.floor((_rand||Math.random)()*(i+1)); const t=d[i];d[i]=d[j];d[j]=t; }
     hands=[[],[],[],[]]; for(let i=0;i<52;i++) hands[i%4].push(d[i]);
-    turn=0; lead=null; lastWinner=0; passes=0; over=false; winner=null; sel=[]; _confettiFired=false;
+    turn=0; lead=null; lastWinner=0; passes=0; over=false; winner=null; sel=[]; _confettiFired=false; _fxShakes=0; _fxBursts=0;
   }
   function play(player, combo){
     if(over) return false;
@@ -97,7 +98,18 @@
     else { if(combo.type!==lead.type) return false; if(!higher(combo,lead)) return false; lead=combo; lastWinner=player; passes=0; }
     for(const c of combo.cards){ const i=hands[player].findIndex(x=>x.s===c.s&&x.r===c.r); if(i>=0) hands[player].splice(i,1); }
     Juice.sfx('click'); Juice.addTrauma(.2);
+    // 手感：出对子（大牌型）→ 屏震 + 粒子爆发
+    if(combo.type==='pair'){
+      _fxShakes++;
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3);
+      _fxBursts++;
+      if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight/2, {color:'#f0b90b', n:16});
+    }
     if(hands[player].length===0){ over=true; winner=player; Juice.sfx('win'); Juice.flash('#02c076', .5);
+      _fxShakes++;
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
+      _fxBursts++;
+      if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight/2, {color:'#02c076', n:24});
       if(player===0 && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       return true; }
     turn=(turn+1)%4; return true;
@@ -190,7 +202,8 @@
   }
   if(typeof window!=='undefined'){
     window.__t={ SUITS, rankVal, suitVal, comboOf, higher, newGame, play, isWin, getWinner, getTurn, getHands, setHands, setRand,
-      DIFFICULTY, setDifficulty, getDifficulty, legalCombos, aiChoose, aiTurn, stepBots, confettiFired: ()=>_confettiFired };
+      DIFFICULTY, setDifficulty, getDifficulty, legalCombos, aiChoose, aiTurn, stepBots, confettiFired: ()=>_confettiFired,
+      fxShakes: ()=>_fxShakes, fxBursts: ()=>_fxBursts };
   }
 })();
 </script>

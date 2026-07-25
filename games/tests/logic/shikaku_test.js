@@ -75,3 +75,13 @@ t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; 
 }
 
 t.setRand(Math.random);
+
+// ===== 7) confetti 只读钩子范式（胜利庆祝一次性标记）=====
+(() => {
+  t.newPuzzle(12345);
+  ok('数织 初始未触发庆祝', t.confettiFired() === false);
+  t.applySolution();           // 解出谜题 → 胜利
+  ok('数织 解出后触发庆祝', t.confettiFired() === true);
+  t.reset();                  // 新局重置
+  ok('数织 新局重置未触发', t.confettiFired() === false);
+})();

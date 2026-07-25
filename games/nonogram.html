@@ -67,7 +67,7 @@
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
 
-  let solution, marks, won, over, filled;
+  let solution, marks, won, over, filled, _confettiFired = false;
   function hintsFor(line){
     const h=[]; let run=0;
     for(const v of line){ if(v===1){ run++; } else { if(run>0){ h.push(run); run=0; } } }
@@ -87,7 +87,7 @@
   function newGame(){
     solution=genSolution();
     marks=Array.from({length:R},()=>new Array(C).fill(0));
-    won=false; over=false; filled=0;
+    won=false; over=false; filled=0; _confettiFired=false;
   }
   function reset(){ newGame(); }
   function computeHints(){
@@ -101,7 +101,7 @@
     filled = marks.flat().reduce((a,b)=>a+b,0);
     if(matches()){ won=true; over=true; }
     if(typeof Juice!=='undefined'){
-      if(won){ Juice.sfx('levelup'); Juice.best('nonogram', filled); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      if(won){ Juice.sfx('levelup'); Juice.best('nonogram', filled); if(!_confettiFired){ _confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
       else Juice.sfx('click');
     }
     return true;
@@ -115,7 +115,7 @@
   function getRHints(){ return computeHints().rh; }
   function getCHints(){ return computeHints().ch; }
   function getRC(){ return [R,C]; }
-  function setSolution(b){ solution=b.map(row=>row.slice()); marks=Array.from({length:R},()=>new Array(C).fill(0)); won=false; over=false; filled=0; }
+  function setSolution(b){ solution=b.map(row=>row.slice()); marks=Array.from({length:R},()=>new Array(C).fill(0)); won=false; over=false; filled=0; _confettiFired=false; }
 
   /* ===================== UI ===================== */
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
@@ -161,6 +161,7 @@
     window.__t = {
       R, C, setRand, newGame, reset, toggle, isWin, isOver, getFilled,
       getSolution, getMarks, getRHints, getCHints, getRC, setSolution,
+      confettiFired: function () { return _confettiFired; },
     };
   }
 })();

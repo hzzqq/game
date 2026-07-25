@@ -33,3 +33,14 @@ ok('胜利路径触发后 over', t.isOver() === true);
 let dthrew=false;
 try { t.triggerWinEffect(); } catch(e){ dthrew=true; }
 ok('triggerWinEffect 在 Juice 无 confetti 时不抛错', dthrew === false);
+
+// --- confetti 庆祝标记（旁路视觉，独立于 Juice 桩）---
+t.reset();
+ok('dice 初始未庆祝', t.confettiFired() === false);
+t.setTotal(0, 99);
+t.setRand(() => 0.99);          // v=1+floor(0.99*6)=6
+t.roll();                       // 99+6=105 ≥100 → 胜利
+ok('dice 胜利后标记庆祝', t.confettiFired() === true);
+t.reset();
+ok('dice 新局重置庆祝标记', t.confettiFired() === false);
+

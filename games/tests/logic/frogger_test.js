@@ -35,6 +35,15 @@ t.reset();
 t.setFrog(0,5);
 ok('处于第0行 → 到达终点', t.isGoal() === true);
 
+// ============ 胜利/里程碑 confetti：首次到达终点播一次庆祝 ============
+t.reset();
+t.setFrog(1,5);
+ok('青蛙: 移动前未触发庆祝特效', t.confettiFired === false);
+t.move('up'); // → 第0行到达终点
+ok('青蛙: 首次到达终点触发庆祝特效', t.confettiFired === true);
+t.reset();
+ok('青蛙: 重开后庆祝特效标记恢复 false', t.confettiFired === false);
+
 // 回归：踩浮木被带出右边界应落水身亡，且 frog.col 不越界（曾无边界判定被带出棋盘）
 t.reset();
 t.setRow(2,'water');

@@ -232,3 +232,25 @@ H.ok('doodlejump: 分数已达里程碑阈值', t.getScore() >= 200, 'score=' + 
 t.step(0.016);   // step 内 floor(score/200) 跨里程碑 → wave=1 → confetti
 H.ok('doodlejump: 高度里程碑触发 confetti', t.confettiFired() > 0, 'confettiFx=' + t.confettiFired());
 
+// ===== Juice 手感深化（屏震 + 粒子爆发）只读计数钩子 =====
+t.newGame(3);
+H.eq('doodlejump: 新局 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);
+// 踩弹簧起跳触发 burst
+t.newGame(3);
+t.applyPickup('spring');
+H.ok('doodlejump: 弹簧起跳触发粒子爆发', t.fxBursts() > 0, 'bursts=' + t.fxBursts());
+// 坠落死亡触发屏震
+t.newGame(3);
+t.triggerFall();
+t.step(0.016);
+H.ok('doodlejump: 坠落死亡触发屏震', t.fxShakes() > 0, 'shakes=' + t.fxShakes());
+// 破纪录（高度里程碑）触发屏震 + 爆发
+t.newGame(3);
+t.applyPickup('star'); t.applyPickup('star'); t.applyPickup('star'); t.applyPickup('star');
+t.step(0.016);
+H.ok('doodlejump: 里程碑触发屏震', t.fxShakes() > 0, 'shakes=' + t.fxShakes());
+H.ok('doodlejump: 里程碑触发粒子爆发', t.fxBursts() > 0, 'bursts=' + t.fxBursts());
+// 重开归零
+t.newGame(3);
+H.eq('doodlejump: 重开后 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);
+

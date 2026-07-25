@@ -69,6 +69,23 @@ ok('darts: 胜利后 isOver 为真', t.isOver() === true);
 t.throwDart(0);
 ok('darts: 同一局重复触发不会再次置位（仍为真，已过锁）', t.confettiFired() === true);
 
+// ===== Juice 手感深化（屏震 + 粒子爆发）只读计数钩子 =====
+t.reset();
+eq('darts: 新局 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);
+// 命中牛眼（50）触发 particle burst
+t.reset();
+t.throwDart(50);
+ok('darts: 牛眼触发粒子爆发', t.fxBursts() > 0, 'bursts=' + t.fxBursts());
+// 完美收官（checkout 减到 0）触发 shake + burst
+t.reset();
+t.setScores([10,20]);
+t.throwDart(10);
+ok('darts: checkout 触发屏震', t.fxShakes() > 0, 'shakes=' + t.fxShakes());
+ok('darts: checkout 触发粒子爆发', t.fxBursts() > 0, 'bursts=' + t.fxBursts());
+// 重开归零
+t.reset();
+eq('darts: 重开后 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);
+
 const total = results.length;
 const pass = results.filter(r => r.pass).length;
 console.log(`\ndarts: ${pass}/${total} 通过`);

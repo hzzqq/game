@@ -126,6 +126,7 @@
   let selected = null;
   let busy = false;
   let gameOver = false;
+  let _confettiFired = false;   // 里程碑庆祝标记：整局只触发一次（纯视觉，不改判定/计分）
 
   const boardEl = document.getElementById('board');
   const scoreEl = document.getElementById('score');
@@ -153,6 +154,19 @@
 
   const delay = (ms) => new Promise(res => setTimeout(res, ms));
   const rnd = () => Math.floor(Math.random() * GEMS);
+
+  // ---- 里程碑庆祝（纯视觉，不改玩法/计分）----
+  // 大消除（单步 >=5 连消）触发一次 confetti；整局只触发一次。
+  function fireMilestoneConfetti(){
+    if(_confettiFired) return;
+    _confettiFired = true;
+    if(typeof Juice!=='undefined' && J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+  }
+  function hasBigMatch(){
+    for(let r=0;r<SIZE;r++){ let run=1; for(let c=1;c<=SIZE;c++){ if(c<SIZE && board[r][c]===board[r][c-1]) run++; else { if(run>=5) return true; run=1; } } }
+    for(let c=0;c<SIZE;c++){ let run=1; for(let r=1;r<=SIZE;r++){ if(r<SIZE && board[r][c]===board[r-1][c]) run++; else { if(run>=5) return true; run=1; } } }
+    return false;
+  }
 
   function initBoard(){
     board = [];
@@ -285,7 +299,7 @@
           Juice.ring(cxp, cyp, { color: '#f0b90b', r1: 64, life: 0.5 });
           Juice.addTrauma(Math.min(0.5, 0.18 + combo * 0.06));
         }
-        if (matches.length >= 5 && J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+        if (matches.length >= 5) fireMilestoneConfetti();
       } else if (combo >= 2) {
         comboEl.textContent = 'COMBO x' + combo + '!';
       }
@@ -381,6 +395,7 @@
     selected = null;
     busy = false;
     gameOver = false;
+    _confettiFired = false;
     comboEl.textContent = '';
     overlay.style.display = 'none';
     initBoard();
@@ -421,7 +436,10 @@
       findMatches, swapArr, applyGravity, adjacent,
       getScore: () => score,
       getMoves: () => moves,
-      newGame
+      newGame,
+      get confettiFired(){ return _confettiFired; },
+      hasBigMatch,
+      milestone: function(){ if(hasBigMatch()) fireMilestoneConfetti(); }
     };
   }
 })();

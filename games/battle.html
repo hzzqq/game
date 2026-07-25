@@ -241,7 +241,11 @@
       }
     }
     // 胜利彩带（受控：Juice 未定义或不含 confetti 时直接跳过，绝不抛错）
+    // _confettiFired：确保一场比赛仅触发一次（纯旁路视觉标记，不改胜负逻辑）
+    let _confettiFired = false;
     function winConfetti() {
+      if (_confettiFired) return;
+      _confettiFired = true;
       if (typeof Juice !== 'undefined' && Juice.confetti) {
         Juice.confetti(W / 2, H / 2, { n: 80, colors: ['#f6465d', '#02c076', '#f0b90b'], spread: 0.9, life: 1.2, up: true });
       }
@@ -370,6 +374,7 @@
       tankA.x=W*0.25;tankA.y=H*0.5;tankA.a=-Math.PI/2;tankA.hp=MAXHP;
       tankB.x=W*0.75;tankB.y=H*0.5;tankB.a=Math.PI/2;tankB.hp=MAXHP;
       bullets=[]; myBullets=[]; remoteBullets=[]; tankA.fireCd=0; tankB.fireCd=0; fireCd=0;
+      _confettiFired=false;
     }
 
     // ============ 渲染 ============
@@ -564,7 +569,8 @@
       addParticle: addParticle,
       getShake: function(){ return shake; },
       setShake: function(v){ shake = v; },
-      forceWin: winConfetti
+      forceWin: winConfetti,
+      confettiFired: function(){ return _confettiFired; }
     };
   })();
   </script>

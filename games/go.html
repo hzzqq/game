@@ -53,7 +53,9 @@
   "use strict";
   const N=9;
   let board,turn,captures,ko,over,winner,passes,_wonPrev=false;
-  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn='b'; captures={b:0,w:0}; ko=null; over=false; winner=null; passes=0; _wonPrev=false; }
+  // 手感深化（P-juice）：屏震 / 粒子计数器（纯反馈，不改玩法）
+  let _fxShakes = 0, _fxBursts = 0;
+  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn='b'; captures={b:0,w:0}; ko=null; over=false; winner=null; passes=0; _wonPrev=false; _fxShakes=0; _fxBursts=0; }
   function inb(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
   function opp(x){ return x==='b'?'w':'b'; }
   function group(r,c){
@@ -82,7 +84,11 @@
     ko=null;
     if(captured.length===1 && myg.stones.length===1 && myg.lib.size===1){ ko=[captured[0][0],captured[0][1]]; }
     captures[col]+=captured.length;
-    if(captured.length){ Juice.sfx('hit'); Juice.addTrauma(.25); }
+    if(captured.length){
+      _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(captured[0][1]*40+20, captured[0][0]*40+20, {color:'#f0b90b', n:14});
+      if(captured.length>=3){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3); }
+      Juice.sfx('hit'); Juice.addTrauma(.25);
+    }
     turn=enemy; passes=0;
     return {ok:true,captured};
   }
@@ -215,7 +221,10 @@
   if(typeof window!=='undefined'){
     window.__t={ N, newGame, place, pass, resign, score, getBoard, getTurn, getCaptures, isOver, getWinner, getScore, group, setBoard,
       DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves,
-      confettiFired(){ return _wonPrev; } };
+      confettiFired(){ return _wonPrev; },
+      // 手感深化（P-juice）：屏震 / 粒子只读钩子
+      fxShakes(){ return _fxShakes; },
+      fxBursts(){ return _fxBursts; } };
   }
 })();
 </script>

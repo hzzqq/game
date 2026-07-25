@@ -86,3 +86,22 @@ t.setRand(Math.random);
   t.applySolution();
   ok('applySolution 解出→confettiFired 增加', t.confettiFired > before);
 }
+
+// ============ 手感深化：Juice.shake / Juice.burst 反馈钩子 ============
+// A) 初始 fxShakes / fxBursts 均为 0
+t.newPuzzle(12345);
+eq('kakurasu: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('kakurasu: 初始 fxBursts=0', t.fxBursts(), 0);
+
+// B) 仅把第 0 行按规范解选中（整盘未解出）→ 行约束满足触发屏震 + 粒子（纯反馈不改胜负）
+t.newPuzzle(12345);
+const kSol = t.getSolution();
+for(let c=0;c<5;c++) t.setCell(0, c, kSol[0][c]);
+ok('kakurasu: 单行满足触发 shake', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+ok('kakurasu: 单行满足触发 burst', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+ok('kakurasu: 单行满足但未解出', t.isWin() === false);
+
+// C) 新局（newPuzzle）归零
+t.newPuzzle(777);
+eq('kakurasu: 新谜题 fxShakes=0', t.fxShakes(), 0);
+eq('kakurasu: 新谜题 fxBursts=0', t.fxBursts(), 0);

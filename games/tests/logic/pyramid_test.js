@@ -77,3 +77,14 @@ const rows = [
   H.ok('新局 基准非空', st.base !== null);
   H.ok('新局 已消=0', st.removed === 0);
 })();
+
+// 9) 清空金字塔完成特效标记（confetti 钩子范式）
+(() => {
+  const one = [[{s:0, r:5}]];
+  t.setPyramid(one, {s:0, r:6}, []);
+  H.eq('通关前未标记完成特效', t.confettiFired(), false);
+  t.remove(0,0); // 单层消除 → 清空即胜
+  H.ok('清空后标记完成特效', t.confettiFired() === true);
+  t.newGame();
+  H.eq('新局重置完成特效', t.confettiFired(), false);
+})();

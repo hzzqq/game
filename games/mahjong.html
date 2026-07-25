@@ -202,8 +202,9 @@ let currentPlayer=0, selected=null, drawnTile=null, over=false;
 let claimPhase=false, pendingDiscard=null, pendingDiscarder=null, humanSelfWin=false;
 let messageText='';
 
-/* 胜利/完成特效：仅渲染层，受 Juice 存在性守卫（confetti 在桩环境为 no-op） */
-function celebrate(){ if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+/* 胜利/完成特效：仅渲染层，受 Juice 存在性守卫（confetti 在桩环境为 no-op）。_confettiFired 保证整局仅庆祝一次（纯视觉，不改判定）。 */
+let _confettiFired=false;
+function celebrate(){ if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
 function discardFx(){ if(typeof Juice!=='undefined' && Juice.spawnParticle) Juice.spawnParticle(window.innerWidth/2, window.innerHeight*0.72, {color:'#e6edf3', n:6}); }
 
 function tileLabel(t){ const r=t%9+1; const s=Math.floor(t/9); return r+['万','条','筒'][s]; }
@@ -218,7 +219,7 @@ function newGame(){
   hands=[[],[],[],[]];
   melds=[0,0,0,0];
   discards=[];
-  currentPlayer=0; selected=null; drawnTile=null; over=false;
+  currentPlayer=0; selected=null; drawnTile=null; over=false; _confettiFired=false;
   claimPhase=false; pendingDiscard=null; pendingDiscarder=null; humanSelfWin=false;
   for(let i=0;i<13;i++) for(let p=0;p<4;p++) hands[p].push(wall.pop());
   for(let p=0;p<4;p++) hands[p].sort((a,b)=>a-b);
@@ -436,7 +437,8 @@ function hideOverlay(){ const o=document.getElementById('overlay'); if(o) o.styl
     buildWall, shuffle, countTile, removeTile,
     canFormMelds, canWin, mostIsolated,
     tileLabel, tileClass,
-    triggerWinEffect:celebrate, winGame
+    triggerWinEffect:celebrate, winGame, newGame,
+    get confettiFired(){ return _confettiFired; }
   };
 
   newGame();

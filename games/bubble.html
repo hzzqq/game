@@ -157,6 +157,7 @@
   var aimAngle;      // radians, pointing up (negative)
   var score, best, shots, state;
   var _confettiFired=false; // 通关（盘面清空）confetti 已触发（独立于 Juice 的只读测试锁）
+  var _fxShakes = 0, _fxBursts = 0; // 手感深化：屏震/粒子 只读计数钩子
   var popFx;         // particle effects
   var clears;        // 成功消除计数（用于蓄力特殊泡）
 
@@ -217,6 +218,7 @@
     }
     score = 0; shots = 0; clears = 0;
     _confettiFired=false; // 新游戏重置通关反馈锁（仅视觉状态）
+    _fxShakes = 0; _fxBursts = 0; // 新游戏重置手感计数钩子
     flying = null; popFx = [];
     pickups=[]; boostTimer=0; shield=false; spawnTimer=12; plives=3; pdead=false;
     aimAngle = -Math.PI / 2;
@@ -405,6 +407,12 @@
           Juice.burst(matchCenter.x, matchCenter.y, { color: COLORS[placedColor], n: 10, speed: 180 });
           Juice.popup(matchCenter.x, matchCenter.y - 10, '+' + (group.length * 10), COLORS[placedColor], { size: 16 });
         }
+        // 深化：大簇消除（≥6 泡）额外屏震 + 粒子爆发
+        if (group.length >= 6) {
+          _fxShakes++; _fxBursts++;
+          if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.35);
+          if (typeof Juice !== 'undefined' && Juice.burst) Juice.burst(matchCenter.x, matchCenter.y, { color: COLORS[placedColor], n: 14, speed: 200 });
+        }
         dropDisconnected();
       }
     }
@@ -459,17 +467,24 @@
         if (bubbleAt(nr, nc)) { seen[key] = true; stack.push([nr, nc]); }
       }
     }
-    var dropped = 0;
+    var dropped = 0, dcx = 0, dcy = 0;
     for (var r = 0; r < MAXROWS; r++) {
       for (var cc = 0; cc < grid[r].length; cc++) {
         if (grid[r][cc] >= 0 && !seen[r + "," + cc]) {
+          var dcp = cellCenter(r, cc);
+          dcx += dcp.x; dcy += dcp.y;
           spawnFx(r, cc, grid[r][cc]);
           grid[r][cc] = -1;
           dropped++;
         }
       }
     }
-    if (dropped > 0) score += dropped * 20;
+    if (dropped > 0) {
+      score += dropped * 20;
+      // 深化：掉落孤立泡 → 粒子爆发（坐标取掉落簇质心，确定性）
+      _fxBursts++;
+      if (typeof Juice !== 'undefined' && Juice.burst) Juice.burst(dcx / dropped, dcy / dropped, { color: '#f0b90b', n: 10, speed: 160 });
+    }
   }
 
   function checkEnd() {
@@ -855,7 +870,9 @@
     getPLives: function(){ return plives; }, setPLives: function(v){ plives=v; }, getDead: function(){ return pdead; },
     getSpawnTimer: function(){ return spawnTimer; },
     checkEnd: checkEnd,
-    confettiFired: function(){ return _confettiFired; }
+    confettiFired: function(){ return _confettiFired; },
+    fxShakes: function(){ return _fxShakes; },
+    fxBursts: function(){ return _fxBursts; }
   };
 
   newGame();

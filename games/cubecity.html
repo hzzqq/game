@@ -96,6 +96,7 @@
     let money=1000, population=0, happiness=60, incomePerSec=0, score=0;
     const cells=Array.from({length:GRID},()=>Array(GRID).fill(null));
     let selected='residential';
+    let _confettiFired=false, _built=0;
 
     const stage=document.getElementById('stage');
     const renderer=new THREE.WebGLRenderer({antialias:true});
@@ -232,6 +233,11 @@
       mesh.userData.h=t.h; mesh.castShadow=true; mesh.receiveShadow=true;
       scene.add(mesh);
       cells[c.i][c.j]={type:selected, level:1, h:t.h, mesh};
+      _built++;
+      if(_built>=5 && !_confettiFired){
+        _confettiFired=true;
+        if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      }
       updateHUD();
       if(typeof Juice!=='undefined') Juice.sfx('pickup');
     }
@@ -301,6 +307,7 @@
     el('resetBtn').onclick=()=>{
       for(let i=0;i<GRID;i++) for(let j=0;j<GRID;j++){ if(cells[i][j]){ scene.remove(cells[i][j].mesh); cells[i][j]=null; } }
       money=1000; population=0; happiness=60; incomePerSec=0; score=0; updateHUD();
+      _built=0; _confettiFired=false;
       if(typeof Juice!=='undefined') Juice.sfx('click');
     };
 
@@ -335,12 +342,14 @@
       getScore: ()=>score, setScore: v=>{score=v;},
       getCells: ()=>cells,
       getSelected: ()=>selected, setSelected: v=>{selected=v;},
+      confettiFired: () => _confettiFired,
       reset: ()=>{
         for(let i=0;i<GRID;i++) for(let j=0;j<GRID;j++){
           if(cells[i][j] && cells[i][j].mesh) { try{scene.remove(cells[i][j].mesh);}catch(e){} }
           cells[i][j]=null;
         }
         money=1000; population=0; happiness=60; incomePerSec=0; score=0;
+        _built=0; _confettiFired=false;
         updateHUD();
       },
     };

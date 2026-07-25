@@ -135,7 +135,7 @@
   function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
   function getDifficulty(){ return difficulty; }
   function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
-  var milestone10 = false;
+  let _confettiFired = false;   // 只读钩子：分数里程碑庆祝是否已触发（仅一次）
   const J = (typeof Juice !== 'undefined') ? Juice : null;
 
   function nowMs(){ return (typeof performance!=='undefined' && performance.now) ? performance.now() : 0; }
@@ -157,7 +157,7 @@
     powerups = [];
     boostUntil = 0;
     shieldUntil = 0;
-    milestone10 = false;
+    _confettiFired = false;
     reseed(0x5EED ^ (GRID*2654435761));
     spawnFood();
     overlay.style.display = 'none';
@@ -276,7 +276,7 @@
       if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
       spawnFood();
       updateHud();
-      if(snake.length>=10 && !milestone10){ milestone10=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      if(score>=10 && !_confettiFired){ _confettiFired = true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     }
     if(!ate) snake.pop();
   }
@@ -512,7 +512,8 @@
     getAlive() { return alive; },
     getBoost() { return nowMs() < boostUntil; },
     getShield() { return nowMs() < shieldUntil; },
-    getDir() { return { x: dir.x, y: dir.y }; }
+    getDir() { return { x: dir.x, y: dir.y }; },
+    confettiFired: () => _confettiFired
   };
 })();
 </script>

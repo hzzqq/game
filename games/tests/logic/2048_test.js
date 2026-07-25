@@ -51,3 +51,12 @@ t.freezeSpawn(true);
 t.setBoard([[2,4,2,4],[4,2,4,2],[2,4,2,4],[4,2,4,8]]);
 t.move(3); // 此步无效（无空格可动、无合并），move 不改变；over 仍 false（因为 moved=false 不判定）
 H.ok('2048 构造棋盘未崩', Array.isArray(board()));
+
+// === confetti 视觉庆祝标记（合成 2048 触发，纯旁路，不改玩法）===
+t.newGame(); t.freezeSpawn(true);
+H.ok('2048 初始未庆祝', t.confettiFired() === false);
+t.setBoard([[1024,1024,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]);
+t.move(3); // 左移合并出 2048
+H.ok('2048 合成 2048 后庆祝标记置位', t.confettiFired() === true && t.won === true);
+t.newGame(); t.freezeSpawn(true);
+H.ok('2048 重开后庆祝标记复位', t.confettiFired() === false);

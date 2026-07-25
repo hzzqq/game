@@ -31,3 +31,11 @@ ok('step3 通关触发 celebrate', t.wasCelebrated() === true);
 let threw = false;
 try { t.triggerWinEffect(); } catch (e) { threw = true; }
 ok('triggerWinEffect 不抛错', threw === false);
+
+// ---------- 胜利/里程碑 confetti：满盘同色标记一次庆祝 ----------
+t.setBoard(board);
+ok('floodfill: 重摆初始未触发庆祝特效', t.confettiFired === false);
+t.step(1); t.step(2); t.step(3);
+ok('floodfill: 满盘同色触发庆祝特效', t.confettiFired === true);
+t.setBoard(board);
+ok('floodfill: 重摆后庆祝特效标记恢复 false', t.confettiFired === false);

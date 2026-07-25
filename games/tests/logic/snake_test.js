@@ -160,3 +160,21 @@ function head() { return t.getSnake()[0]; }
   H.ok('建模 渲染后 alive 不变', t.getAlive() === before.alive);
   H.ok('建模 渲染后 snake 不变', JSON.stringify(t.getSnake()) === before.snake);
 })();
+
+// ===== 15) confetti 只读钩子范式（分数里程碑一次性标记）=====
+(() => {
+  t.reset();
+  H.ok('蛇 初始未触发庆祝', t.confettiFired() === false);
+  t.setSnake([{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 3, y: 5 }]);
+  t.setDir(1, 0);
+  for (let i = 0; i < 10; i++) {
+    const s = t.getSnake();
+    const h = s[0];
+    const d = t.getDir();
+    t.setFood({ x: h.x + d.x, y: h.y + d.y });
+    t.step();
+  }
+  H.ok('蛇 吃满 10 食物后触发庆祝', t.confettiFired() === true);
+  t.reset();
+  H.ok('蛇 新局重置未触发', t.confettiFired() === false);
+})();

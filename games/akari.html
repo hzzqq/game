@@ -60,6 +60,7 @@
   let lamps;   // N×N bool
   let sol;     // N×N bool 规范解
   let won = false;
+  let _confettiFired = false;
 
   function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
   function isWall(r,c){ return !inb(r,c) || board[r][c]>=0; } // 越界或 board>=0 视为阻挡
@@ -117,6 +118,7 @@
     }
     sol = lamps.map(row=>row.slice());
     won = false;
+    _confettiFired = false;
     return getState();
   }
 
@@ -174,13 +176,22 @@
     if(board[r][c]!==-1) return false; // 仅空格可放灯
     lamps[r][c]=!!bool;
     won=isWin();
-    if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
-    if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(won){
+      if (typeof Juice!=='undefined') Juice.sfx('levelup');
+      if(!_confettiFired){
+        _confettiFired=true;
+        if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      }
+    }
     return true;
   }
   function toggleLamp(r,c){ return setLamp(r,c, !lamps[r][c]); }
-  function reset(){ lamps=Array.from({length:N},()=>new Array(N).fill(false)); won=false; return getState(); }
-  function applySolution(){ lamps=sol.map(row=>row.slice()); won=isWin(); return won; }
+  function reset(){ lamps=Array.from({length:N},()=>new Array(N).fill(false)); won=false; _confettiFired=false; return getState(); }
+  function applySolution(){
+    lamps=sol.map(row=>row.slice()); won=isWin();
+    if(won && !_confettiFired){ _confettiFired=true; if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+    return won;
+  }
   function getSolution(){ return sol.map(row=>row.slice()); }
   function getState(){
     return { N, board:board.map(r=>r.slice()), lamps:lamps.map(r=>r.slice()), won };
@@ -234,7 +245,7 @@
     else { buildBoard(); bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setLamp, toggleLamp, applySolution, getSolution, getState, lit, MAXLEN };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setLamp, toggleLamp, applySolution, getSolution, getState, lit, MAXLEN, confettiFired: function () { return _confettiFired; } };
   }
 })();
 </script>

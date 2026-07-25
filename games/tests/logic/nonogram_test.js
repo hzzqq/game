@@ -72,3 +72,32 @@ const { t } = loadGame('../nonogram.html');
   eq('再 toggle 取消→0', t.getFilled(), 0);
   ok('取消后未胜', t.isWin()===false);
 }
+
+// ===== _confettiFired 只读钩子范式：还原成功彩带标记（纯视觉，不改玩法） =====
+(function () {
+  const N = 5;
+  const sol = Array.from({length:N},()=>new Array(N).fill(0));
+  for(let i=0;i<N;i++) sol[i][i]=1;   // 对角 5 格为 1
+
+  // 1) 初始未触发
+  t.setSolution(sol);
+  eq('nonogram: 初始 confettiFired=false', t.confettiFired(), false);
+
+  // 2) 还原解 → 触发
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(sol[r][c]) t.toggle(r,c);
+  ok('nonogram: 还原后 isWin=true', t.isWin()===true);
+  eq('nonogram: 通关后 confettiFired=true', t.confettiFired(), true);
+
+  // 3) 新局重置为 false
+  t.newGame();
+  eq('nonogram: 新局后 confettiFired=false', t.confettiFired(), false);
+})();
+
+// ===== confetti 钩子汇总（确保 exit 0） =====
+{
+  const Hmod = require('./harness');
+  const allTotal = Hmod.results.length;
+  const allPass = Hmod.results.filter(x => x.pass).length;
+  console.log(`nonogram(confetti-hook): ${allPass}/${allTotal} 通过`);
+  if (allPass !== allTotal) process.exit(1);
+}

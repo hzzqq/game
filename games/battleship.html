@@ -74,10 +74,10 @@
   function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
   function getDifficulty(){ return difficulty; }
 
-  let board, ships, shots, hits, sunkCount, over, won;
+  let board, ships, shots, hits, sunkCount, over, won, _confettiFired;
   function reset(){
     board = []; for(let r=0;r<SIZE;r++) board.push(new Array(SIZE).fill(0)); // 0空 1舰 2命中
-    ships = []; shots = new Set(); hits = 0; sunkCount = 0; over = false; won = false;
+    ships = []; shots = new Set(); hits = 0; sunkCount = 0; over = false; won = false; _confettiFired = false;
     placeShips();
   }
   function key(r,c){ return r+','+c; }
@@ -128,7 +128,14 @@
       const ship = ships.find(s=>s.cells.some(p=>p.r===r&&p.c===c));
       ship.hits++;
       if(ship.hits===ship.len){ ship.sunk=true; sunkCount++; res.sunk=true; }
-      if(sunkCount===ships.length){ won=true; over=true; }
+      if(sunkCount===ships.length){
+        won=true; over=true;
+        // 胜利彩带（纯旁路视觉，受 Juice 守卫，仅触发一次）
+        if(!_confettiFired){
+          _confettiFired=true;
+          if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(300, 200, { n:100, life:2.2 });
+        }
+      }
     }
     if(!won && shots.size>=SIZE*SIZE) over=true; // 极端：全射完未胜（理论上不会，因舰必被击中）
     if(typeof Juice!=='undefined'){
@@ -204,6 +211,7 @@
       getHits:()=>hits, getSunk:()=>sunkCount,
       setBoard:(b)=>{ board=b; }, addShot:(r,c)=>shots.add(key(r,c)),
       DIFFICULTY, setDifficulty, getDifficulty,
+      confettiFired:()=>_confettiFired,
     };
   }
 })();

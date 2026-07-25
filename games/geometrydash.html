@@ -156,6 +156,11 @@
   var speed, baseSpeed, distance, score, spawnTimer, spawnGap, frame, scroll, bgScroll, farScroll, lastTime;
   var confettiFx = 0;       // 成就命中次数（只读钩子 confettiFired）
   function milestoneFire(){ confettiFx++; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, { n:120, life:2.4 }); }
+
+  // ===== 手感深化（P-juice）：屏震 / 粒子计数器（纯反馈，不改玩法）=====
+  var _fxShakes = 0, _fxBursts = 0;
+  var MILESTONES = [300, 600, 900];   // 距离里程碑（确定性，无随机）
+  var _msIdx = 0;
   var pickTimer, boostTimer;
 
   function reset(){
@@ -172,6 +177,7 @@
     spawnTimer = 0;
     spawnGap = 70;
     confettiFx = 0;
+    _fxShakes = 0; _fxBursts = 0; _msIdx = 0;
     pickTimer = 90;          // 首枚道具刷新前的帧数
     frame = 0;
     scroll = 0;
@@ -308,6 +314,12 @@
       if (boostTimer < 0) boostTimer = 0;
     }
 
+    // 距离里程碑 burst（手感深化：纯反馈，不改玩法；确定性坐标）
+    if (_msIdx < MILESTONES.length && distance >= MILESTONES[_msIdx]){
+      _fxBursts++; if (typeof Juice !== 'undefined' && Juice.burst) Juice.burst(W / 2, GROUND_Y - 60, { n: 14, color: '#f0b90b' });
+      _msIdx++;
+    }
+
     // 玩家物理（核心玩法，不动）
     player.vy += GRAV;
     player.y += player.vy;
@@ -362,6 +374,7 @@
           J.addTrauma(0.3);
         }
       } else {
+        _fxShakes++; if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.5);
         gameOver();
       }
     }
@@ -608,6 +621,9 @@
     getScore: function(){ return score; },
     isGameOver: function(){ return state === 'over'; },
     confettiFired: function(){ return confettiFx; },
+    // ---- 手感深化（P-juice）：屏震 / 粒子只读钩子 ----
+    fxShakes: function(){ return _fxShakes; },
+    fxBursts: function(){ return _fxBursts; },
     getState: function(){
       return {
         distance: distance, over: state === 'over', speed: speed, boost: boostTimer,

@@ -51,4 +51,14 @@ T.setChips(1000);
 T.runRound([Ten, N9], [Ten, N6, N8], 100);
 H.eq('bj: 庄家爆牌胜 +100', T.getChips(), 1100, '1000-100+200');
 
+// ===== 胜利彩带标记（confettiFired）=====
+H.ok(T.confettiFired() === false, 'bj: 初始 confettiFired=false');
+T.setChips(1000);
+T.runRound([A, K], [Ten, N7], 100);   // 黑杰克 → 触发彩带
+H.ok(T.confettiFired() === true, 'bj: 黑杰克胜后 confettiFired=true');
+// 新一局（runRound 内部已复位）应恢复 false
+T.setChips(1000);
+T.runRound([Ten, N7], [Ten, N8], 100); // 普通负，不触发彩带
+H.ok(T.confettiFired() === false, 'bj: 新局重置后 confettiFired=false');
+
 module.exports = {};

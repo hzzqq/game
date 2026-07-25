@@ -84,3 +84,14 @@ t.step(0.1, {});
 const st = t.getState();
 ok('lunarlander: 稳定期间角度趋向 0', Math.abs(st.angle) < 0.4, 'angle=' + st.angle.toFixed(3));
 ok('lunarlander: 稳定期间横向速度衰减', Math.abs(st.vx) < 12, 'vx=' + st.vx.toFixed(3));
+
+// ===== 胜利 confetti 标记（P4：纯视觉，绝不改玩法/判定）=====
+t.reset(100);
+ok('lunarlander: 着陆前未标记 confetti', t.confettiFired === false);
+t.setShip({ x: 300, y: 535, vx: 0, vy: 19, angle: 0, fuel: 100 });
+t.step(0.1, { thrust:false, left:false, right:false });
+ok('lunarlander: 软着陆判定胜利', t.getState().won === true, 'won=' + t.getState().won);
+ok('lunarlander: 着陆后标记 confetti', t.confettiFired === true);
+t.reset(101);
+ok('lunarlander: 重开后 confetti 复位', t.confettiFired === false);
+

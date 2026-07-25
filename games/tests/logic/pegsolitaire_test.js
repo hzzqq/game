@@ -65,3 +65,16 @@ const { t } = loadGame('../pegsolitaire.html');
   try { t.triggerWinEffect(); } catch(e){ threw=true; }
   ok('triggerWinEffect 不抛错', threw===false);
 }
+
+// ===== 8. 通关完成特效标记（confetti 钩子范式）=====
+(() => {
+  // 仅剩 2 子、一步跳吃至剩 1 子即胜
+  const b=Array.from({length:7},()=>new Array(7).fill(0));
+  b[3][1]=1; b[3][2]=1; b[3][3]=0;
+  t.setBoard(b);
+  eq('通关前未标记完成特效', t.confettiFired(), false);
+  t.move(3,1,3,3); // 跳吃至剩 1 子
+  eq('通关后标记完成特效', t.confettiFired(), true);
+  t.newGame();
+  eq('新局重置完成特效', t.confettiFired(), false);
+})();

@@ -302,6 +302,7 @@
   let tileId;         // 自增 id
   let mergedAway;     // 本回合被合并、待移除的 tile
   let score, best, won, keepPlaying, over, paused;
+  let _confettiFired = false;
 
   // 背景格子
   for (let i = 0; i < SIZE * SIZE; i++) {
@@ -356,6 +357,7 @@
     mergedAway = [];
     score = 0;
     won = false;
+    _confettiFired = false;
     keepPlaying = false;
     over = false;
     paused = false;
@@ -503,7 +505,10 @@
           setTimeout(() => { if (fx.parentNode) fx.parentNode.removeChild(fx); }, 560);
           if (nextTile.value === 2048) {
             won = true;
-            if (J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, { n: 120, life: 2.4 });
+            if (!_confettiFired) {
+              _confettiFired = true;
+              if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, { n: 120, life: 2.4 });
+            }
           }
           mergedAway.push(tile);
           moved = true;
@@ -653,6 +658,7 @@
       get score() { return score; },
       get over() { return over; },
       get won() { return won; },
+      confettiFired: function () { return _confettiFired; },
       freezeSpawn(v) { addRandomTile = v ? function () {} : _origAdd; }
     };
   })();

@@ -67,3 +67,11 @@ t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; 
 }
 
 t.setRand(Math.random);
+
+// ===== 7. 胜利 confetti 标记（P4：纯视觉，整局仅一次，绝不改玩法/判定）=====
+t.newPuzzle(12345);
+ok('masyu: 新谜题未标记 confetti', t.confettiFired === false);
+t.applySolution();
+ok('masyu: 应用解胜利后标记 confetti', t.confettiFired === true);
+t.reset();
+ok('masyu: reset 后 confetti 复位', t.confettiFired === false);

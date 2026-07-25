@@ -16,3 +16,12 @@ t.play('R','S'); t.play('P','P'); t.play('S','R');
 const sc = t.getScore();
 ok('三回合后比分为 1:1(1胜1负1平)', sc[0]===1 && sc[1]===1);
 eq('总回合数=3', t.getRound(), 3);
+
+// 净胜 3 局里程碑完成特效标记（confetti 钩子范式）
+t.reset();
+eq('净胜前未标记完成特效', t.confettiFired(), false);
+t.play('R','S'); t.play('R','S'); t.play('R','S'); // 玩家连胜 3 局
+eq('玩家净胜 3 局', t.getScore()[0]-t.getScore()[1], 3);
+eq('净胜 3 局标记完成特效', t.confettiFired(), true);
+t.reset();
+eq('重开重置完成特效', t.confettiFired(), false);

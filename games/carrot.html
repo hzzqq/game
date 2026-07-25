@@ -223,6 +223,7 @@
   // ---------- 游戏状态 ----------
   const occupied = new Set();
   const state = {};
+  let _confettiFired = false;
   function resetState(){
     state.coins = 120;
     state.lives = 10;
@@ -242,6 +243,7 @@
     state.gameOver = false;
     state.won = false;
     state.running = true;
+    _confettiFired = false;
     occupied.clear();
     hideOverlay();
     updatePalette();
@@ -436,6 +438,8 @@
     else state.lives += 1;
   }
   function winConfetti(){
+    if (_confettiFired) return;
+    _confettiFired = true;
     if (typeof Juice !== 'undefined' && Juice.confetti){
       Juice.confetti(W/2, H/2, { n: 80, colors:['#f6465d','#02c076','#f0b90b'], spread:0.9, life:1.2, up:true });
     }
@@ -875,7 +879,9 @@
     addParticle: addParticle,
     getShake: function(){ return shake; },
     setShake: function(v){ shake=v; },
-    forceWin: winConfetti
+    forceWin: winConfetti,
+    reset: resetState,
+    get confettiFired(){ return _confettiFired; }
   };
 })();
 </script>

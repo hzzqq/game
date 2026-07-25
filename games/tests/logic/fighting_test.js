@@ -72,6 +72,23 @@ H.ok(T.confettiFired() === true, 'fighting: 玩家获胜 → confettiFired 为�
 T.reset();
 H.ok(T.confettiFired() === false, 'fighting: 重置后 confettiFired 复位');
 
+// ---------- 手感深化：KO/局胜 shake+burst；狂暴触发 shake；完美格挡 shake ----------
+T.reset();
+H.ok(T.fxShakes() === 0 && T.fxBursts() === 0, 'fighting: 初始 fx 计数为 0');
+// 击倒对手(ai.health=0) → 局胜：shake + burst
+T.ai.health = 0;
+T.update(16.6667);
+H.ok(T.fxShakes() > 0, 'fighting: 击倒对手(局胜)触发 shake');
+H.ok(T.fxBursts() > 0, 'fighting: 击倒对手(局胜)触发 burst');
+// 狂暴触发 → shake
+T.reset();
+T.setRage(T.player, 100);
+T.triggerBerserk(T.player);
+H.ok(T.fxShakes() > 0, 'fighting: 狂暴触发 shake');
+// 重置归零
+T.reset();
+H.ok(T.fxShakes() === 0 && T.fxBursts() === 0, 'fighting: 重置后 fx 归零');
+
 const total = H.results.length;
 const pass = H.results.filter(r => r.pass).length;
 console.log(`\nfighting: ${pass}/${total} 通过`);

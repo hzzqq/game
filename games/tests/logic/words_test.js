@@ -63,6 +63,19 @@ eq('setS/getS rank', t.getS().rank, '黄金');
   ok('接龙成功 chainFx 触发', t.chainFx() >= 1);
 }
 
+// 9. confetti 完成特效标记（接龙成功首触发，重开复位）
+(function () {
+  t.newState(false); // 重开 → 复位 _confettiFired=false
+  t.setS({ running:true, over:false, daily:false, dateKey:1, score:0, combo:0, lives:3, hints:3, skips:2, anchor:'人山人海', required:'一', challenge:false, rank:'青铜', best:0, wrong:[] });
+  ok('words: 接龙前未标记 confettiFired', t.confettiFired() === false);
+  t.submitWord('一鸣惊人'); // '一' === required → 成功，首次触发
+  ok('words: 接龙成功后标记 confettiFired', t.confettiFired() === true);
+  t.submitWord('人山人海'); // 再次成功，标志位防重复
+  ok('words: 重复接龙不重复标记（仍为 true）', t.confettiFired() === true);
+  t.newState(false); // 重开
+  ok('words: 重开后 confettiFired 复位 false', t.confettiFired() === false);
+})();
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

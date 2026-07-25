@@ -97,3 +97,32 @@ t.setBall(0,0); t.setHole(50,0); t.setObstacles([]);
 t.hit(0,50);
 ok('进洞成功', t.isInHole() === true);
 eq('进洞触发 confettiFired', t.confettiFired(), true);
+
+// ===== 手感深化（P-juice）：_fxShakes / _fxBursts 钩子 =====
+t.reset();
+eq('golf: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('golf: 初始 fxBursts=0', t.fxBursts(), 0);
+
+// 击球起飞 → burst 触发（未进洞，避免与进洞 burst 混淆）
+t.reset();
+t.setBall(0,0); t.setHole(300,0); t.setObstacles([]);
+t.hit(0,30);
+ok('golf: 击球起飞触发 fxBursts>0', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+
+// 撞墙 → burst 触发
+t.reset();
+t.setBall(0,0); t.setHole(300,0); t.setObstacles([{x:20,y:-10,w:2,h:40}]);
+t.hit(0,50);
+ok('golf: 撞墙触发 fxBursts>0', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+
+// 无盾受击 → shake + burst 触发
+t.reset();
+t.setShield(0);
+t.takeHit();
+ok('golf: 无盾受击触发 fxShakes>0', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+ok('golf: 无盾受击触发 fxBursts>0', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+
+// reset 后归零
+t.reset();
+eq('golf: reset 后 fxShakes=0', t.fxShakes(), 0);
+eq('golf: reset 后 fxBursts=0', t.fxBursts(), 0);

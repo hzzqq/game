@@ -138,11 +138,14 @@
   function pickWord(){ return WORDS[Math.floor(_rand()*WORDS.length)]; }
 
   let secret, guessed, wrong, status, winFx = 0;
+  // 手感深化（P-juice）：屏震 / 粒子计数器（纯反馈，不改玩法）
+  let _fxShakes = 0, _fxBursts = 0;
   function reset(wordObj){
     secret = wordObj || pickWord();
     guessed = new Set();
     wrong = 0;
     status = 'playing';
+    _fxShakes = 0; _fxBursts = 0;
   }
   // 返回 'ok' | 'repeat' | 'invalid' | 'over'
   function guess(letter){
@@ -152,10 +155,12 @@
     if(guessed.has(letter)) return 'repeat';
     guessed.add(letter);
     if(secret.w.indexOf(letter) >= 0){
-      if(isWin()){ status = 'won'; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); winFx++; }
+      if(isWin()){ status = 'won'; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); winFx++;
+        _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {n:14}); }
     } else {
       wrong++;
       if(wrong >= MAX_WRONG) status = 'lost';
+      _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.15);
     }
     return 'ok';
   }
@@ -235,6 +240,9 @@
       masked, isWin, getWrong, getMaxWrong, getRemaining, getGuessed,
       getStatus, getSecret, getHint, hasWon, hasLost, getGallows,
       confettiFired: function(){ return winFx; },
+      // 手感深化（P-juice）：屏震 / 粒子只读钩子
+      fxShakes: function(){ return _fxShakes; },
+      fxBursts: function(){ return _fxBursts; },
     };
   }
 })();

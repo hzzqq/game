@@ -74,3 +74,16 @@ const SOL = [
   ok('线索值在 1..N', [].concat(st.clues.top,st.clues.bottom,st.clues.left,st.clues.right).every(v=>v>=1&&v<=5));
   t.setRand(Math.random);
 }
+
+// ===== confetti 完成特效标记（解出谜题）=====
+(function () {
+  const clues = t.computeClues(SOL);
+  const g = SOL.map(r=>r.slice()); g[0][2]=0; // 留空一格
+  t.setBoard(g, clues);
+  ok('towers: 解出前未标记 confettiFired', t.confettiFired() === false);
+  t.setValue(0,2,3); // 完成解
+  ok('towers: 解出谜题后标记 confettiFired', t.confettiFired() === true);
+  // 重开（用 setBoard 加载新局，避免消费随机流）
+  t.setBoard(g, clues);
+  ok('towers: 重开（setBoard）后 confettiFired 复位 false', t.confettiFired() === false);
+})();

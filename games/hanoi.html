@@ -53,12 +53,12 @@
   const TARGET = 2;     // 目标柱
   const COLORS = ['#f6465d','#f0b90b','#02c076','#3aa0ff','#b073ff','#ff8a3a','#27c93f','#ff5f56'];
 
-  let N, pegs, moves, won, over, sel;
+  let N, pegs, moves, won, over, sel, _confettiFired;
   function newGame(n){
     N = (n && n>=1 && n<=8) ? n : 3;
     pegs = [[],[],[]];
     for(let d=N; d>=1; d--) pegs[0].push(d); // 底大顶小
-    moves=0; won=false; over=false; sel=null;
+    moves=0; won=false; over=false; sel=null; _confettiFired=false;
   }
   function reset(){ newGame(N); }
   function top(p){ return pegs[p].length ? pegs[p][pegs[p].length-1] : null; }
@@ -75,7 +75,13 @@
     sel=null;
     if(pegs[TARGET].length===N){ won=true; over=true; }
     if(typeof Juice!=='undefined'){
-      if(won){ Juice.sfx('levelup'); Juice.best('hanoi', moves); if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      if(won){
+        Juice.sfx('levelup'); Juice.best('hanoi', moves);
+        if(!_confettiFired){
+          _confettiFired = true;
+          if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+        }
+      }
       else Juice.sfx('click');
     }
     return true;
@@ -146,6 +152,7 @@
       PEGS, TARGET, COLORS,
       newGame, reset, move, canMove, isWin, isOver, getMoves, getMinMoves,
       getPegs, getN, getSel, select, setPegs, top,
+      get confettiFired() { return _confettiFired; },
     };
   }
 })();

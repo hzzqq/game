@@ -88,3 +88,17 @@ var ds = 0;
 while (!t.confettiFired() && ds < 200){ t.setObstacles([]); t.tick(); ds++; }
 ok('dodge: 存活到目标时间触发 confettiFired', t.confettiFired() === true, 'ticks=' + ds);
 ok('dodge: 存活期间未死亡', t.isDead() === false);
+
+// ===== Juice 手感深化（屏震）只读计数钩子 =====
+t.reset();
+eq('dodge: 新局 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);
+// 驱动陨石命中：被击中/死亡 shake(0.5) + 碰撞 burst 计数
+t.reset();
+t.setPlayer(100);
+t.setObstacles([{x:100,y:280,vy:10}]);
+t.tick();
+ok('dodge: 被击中触发屏震', t.fxShakes() > 0, 'shakes=' + t.fxShakes());
+ok('dodge: 碰撞记录粒子爆发', t.fxBursts() > 0, 'bursts=' + t.fxBursts());
+// 重开归零
+t.reset();
+eq('dodge: 重开后 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);

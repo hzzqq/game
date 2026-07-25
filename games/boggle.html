@@ -53,6 +53,7 @@
 
   const N = 4;
   let board;   // N×N 字符
+  let _fxShakes=0, _fxBursts=0; // 手感计数器：长词/达标屏震+粒子（仅视觉反馈）
 
   // ---- 加权字母分布（多元音、常见辅音）----
   const LETTERS = [
@@ -166,6 +167,7 @@
     if(typeof seed==='number') _rng = mk(seed>>>0);
     board = [];
     for(let r=0;r<N;r++){ const row=[]; for(let c=0;c<N;c++) row.push(pickLetter()); board.push(row); }
+    _fxShakes=0; _fxBursts=0;
     return getState();
   }
   function reset(){ return newGame(); }
@@ -188,11 +190,14 @@
 
   function findWords(){
     const found = new Set();
+    let longFired = false;
     const vis = Array.from({length:N},()=>new Array(N).fill(false));
     function dfs(r,c,str){
       const ns = str + board[r][c];
       vis[r][c]=true;
-      if(ns.length>=3 && inDict(ns)) found.add(ns);
+      if(ns.length>=3 && inDict(ns)){ found.add(ns);
+        if(ns.length>=5 && !longFired){ longFired=true; _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.25); _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight/2, {color:'#02c076',n:16}); }
+      }
       if(ns.length < N*N){
         for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
           if(dr===0 && dc===0) continue;
@@ -210,6 +215,8 @@
   let confettiFired = false;
   function finishFind(){
     const ws = findWords();
+    const sc = ws.reduce((a,w)=>a+score(w),0);
+    if(sc>=20){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.4); } // 达成目标分（≥20）→ 屏震
     confettiFired = true;
     if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
     return ws;
@@ -256,7 +263,8 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { setRand, newGame, reset, setup, getState, findWords, score, inDict, N, finishFind, getConfettiFired:()=>confettiFired };
+    window.__t = { setRand, newGame, reset, setup, getState, findWords, score, inDict, N, finishFind, getConfettiFired:()=>confettiFired,
+      fxShakes: ()=>_fxShakes, fxBursts: ()=>_fxBursts };
   }
 })();
 </script>

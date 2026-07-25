@@ -326,6 +326,17 @@ t.applyEconomy();
 t.applyEconomy();
 eq('多次 applyEconomy money=1012', t.getMoney(), 1012);
 
+// ===== 13. confetti 建造里程碑（旁路视觉，独立于 Juice 桩）=====
+t.reset();
+t.setMoney(100000);
+t.setSelected('residential');
+ok('cubecity 初始未庆祝', t.confettiFired() === false);
+for (let k = 0; k < 5; k++) t.handleClick({ i: k, j: 0 });   // 建造 5 栋 → 里程碑
+ok('cubecity 建造5栋里程碑触发庆祝', t.confettiFired() === true);
+t.reset();
+ok('cubecity 重置后标记清除', t.confettiFired() === false);
+
+
 const pass = results.filter(r => r.pass).length;
 const total = results.length;
 console.log(`\ncubecity: ${pass}/${total} 通过`);

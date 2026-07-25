@@ -121,3 +121,31 @@ eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
   ok('人类获胜触发 confettiFired', t.confettiFired());
 }
 
+// ===== 手感深化：Juice 反馈钩子（纯注入，不改动玩法）=====
+{
+  t.newGame(123);
+  eq('fx: 初始 fxShakes=0', t.fxShakes(), 0);
+  eq('fx: 初始 fxBursts=0', t.fxBursts(), 0);
+
+  // 触发 shake：一墩含 ♠Q 被吃（P1 吃 Q）
+  t.setHands([[1],[11],[2],[3]], 0);
+  t.playCard(0, 1); t.playCard(1, 11); t.playCard(2, 2); t.playCard(3, 3);
+  ok('fx: 吃 ♠Q 触发 shake (fxShakes>0)', t.fxShakes() > 0);
+  eq('fx: 此时未触发 burst', t.fxBursts(), 0);
+
+  // 复位
+  t.newGame(123);
+  eq('fx: newGame 后归零', t.fxShakes(), 0);
+  eq('fx: newGame 后归零2', t.fxBursts(), 0);
+
+  // 触发 burst：人类(P0) 赢下一墩
+  t.setHands([[0],[1],[2],[3]], 0);
+  t.playCard(0, 0); t.playCard(1, 1); t.playCard(2, 2); t.playCard(3, 3);
+  ok('fx: 人类赢墩触发 burst (fxBursts>0)', t.fxBursts() > 0);
+
+  // reset 归零
+  t.reset();
+  eq('fx: reset 后归零', t.fxShakes(), 0);
+  eq('fx: reset 后归零2', t.fxBursts(), 0);
+}
+

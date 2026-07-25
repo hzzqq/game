@@ -60,3 +60,38 @@ ok('人类出完获胜', t.isWin());
 eq('获胜者是人类玩家0', t.getWinner(), 0);
 ok('人类获胜触发 confettiFired', t.confettiFired());
 
+// ---------- 手感深化：Juice 屏震 / 粒子计数器（只读钩子，不改动玩法）----------
+(function(){
+  t.newGame();
+  eq('手感: 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 新局 fxBursts=0', t.fxBursts(), 0);
+
+  // 出对子（大牌型）触发屏震 + 粒子
+  t.setHands([
+    [{s:3,r:5},{s:0,r:5}],
+    [{s:1,r:2}],
+    [{s:2,r:3}],
+    [{s:0,r:4}],
+  ], 0);
+  t.play(0, t.comboOf([{s:3,r:5},{s:0,r:5}]));
+  ok('手感: 出对子 fxShakes>0', t.fxShakes() > 0);
+  ok('手感: 出对子 fxBursts>0', t.fxBursts() > 0);
+
+  // 重开新局归零
+  t.newGame();
+  eq('手感: 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 重开 fxBursts=0', t.fxBursts(), 0);
+
+  // 玩家出完获胜 → 重屏震 + 粒子
+  t.setHands([
+    [{s:3,r:5}],
+    [{s:0,r:6}],
+    [{s:1,r:7}],
+    [{s:2,r:8}],
+  ], 0);
+  t.play(0, t.comboOf([{s:3,r:5}]));
+  ok('手感: 获胜 fxShakes>0', t.fxShakes() > 0);
+  ok('手感: 获胜 fxBursts>0', t.fxBursts() > 0);
+})();
+
+

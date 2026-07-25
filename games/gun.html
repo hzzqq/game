@@ -141,6 +141,8 @@
   // ---------- Boss 系统：每 BOSS_EVERY 波出现一次 Boss ----------
   var boss = null;
   var _confettiFired = false; // 击败 Boss 里程碑 confetti 锁（独立于 Juice 的只读测试钩子）
+  // 手感深化（P-juice）：屏震 / 粒子计数器（纯反馈，不改玩法）
+  var _fxShakes = 0, _fxBursts = 0;
   var BOSS_EVERY = 3;
   function isBossWave(w){ return w > 0 && (w % BOSS_EVERY) === 0; }
 
@@ -154,9 +156,11 @@
     best=Juice.load('best_gun',0);
     document.getElementById('besttxt').textContent=best;
     nextWave();
+    _fxShakes = 0; _fxBursts = 0;   // 计数器在 newGame 起点归零（nextWave 已在上方触发过一次）
   }
   function nextWave(){
     wave++; document.getElementById('wavetxt').textContent=wave;
+    _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(W/2, H/2, {color:'#f0b90b', n:12, speed:160});
     waveT = 1.2;
     if(isBossWave(wave)){
       // Boss 波：不刷普通编队，改为召唤 Boss
@@ -179,6 +183,8 @@
     boss={ x:W/2, y:80, r:40, hp:maxHp, maxhp:maxHp, phase:1,
       vx:(70 + wave*6) * cfg.spdMult, dir:1, vy:22*cfg.spdMult,
       shootCd:1.2, flash:0, dmg:16*cfg.dmgMult };
+    _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
+    _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(W/2, 80, {color:'#f6465d', n:14, speed:220});
   }
 
   // 更新 Boss：返回 true 表示本帧被击败
@@ -607,6 +613,9 @@
     setBossHp: function(v){ if(boss) boss.hp = v; },
     addBullet: function(b){ bullets.push(b); },
     confettiFired: function(){ return _confettiFired; },
+    // 手感深化（P-juice）：屏震 / 粒子只读钩子
+    fxShakes: function(){ return _fxShakes; },
+    fxBursts: function(){ return _fxBursts; },
     // ---- 注入：标准化掉落/增益系统钩子 ----
     spawnPickup: function(type,x,y){ if(type===undefined) return spawnPickupAtRandom(); return makePickup(type, x!==undefined?x:player.x, y!==undefined?y:player.y); },
     stepPickups: function(dt){ updatePickups(dt); },

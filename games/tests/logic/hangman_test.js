@@ -105,4 +105,24 @@ console.log('hangman: 全部断言通过');
   ok('胜利状态 hasWon', t.hasWon());
   ok('胜利后 status=won', t.getStatus() === 'won');
 }
+
+// ===== 手感深化（P-juice）：_fxShakes / _fxBursts 钩子 =====
+t.reset({w:'APPLE', h:'苹果'});
+eq('hangman: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('hangman: 初始 fxBursts=0', t.fxBursts(), 0);
+
+// 猜错一笔 → shake 触发
+t.reset({w:'APPLE', h:'苹果'});
+t.guess('Z'); // 不在 APPLE
+ok('hangman: 猜错触发 fxShakes>0', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+
+// 猜对整词 → burst 触发
+t.reset({w:'APPLE', h:'苹果'});
+t.guess('A'); t.guess('P'); t.guess('L'); t.guess('E');
+ok('hangman: 猜对整词触发 fxBursts>0', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+
+// reset 后归零
+t.reset({w:'APPLE', h:'苹果'});
+eq('hangman: reset 后 fxShakes=0', t.fxShakes(), 0);
+eq('hangman: reset 后 fxBursts=0', t.fxBursts(), 0);
 if (results.some(r => !r.pass)) process.exit(1);

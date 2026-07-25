@@ -77,6 +77,7 @@
   const wrap = document.getElementById('wrap');
 
   let board, current, gameOver, lastWin;
+  let _confettiFired = false;
   let cssW = 0, MARGIN = 0, CELL = 0, RADIUS = 0;
   let dropAnim = null; // {col,row,color,t}
   let animating = false;
@@ -84,7 +85,7 @@
   function reset(){
     board = [];
     for(let r=0;r<ROWS;r++){ const row=[]; for(let c=0;c<COLS;c++) row.push(EMPTY); board.push(row); }
-    current = R; gameOver = false; lastWin = null; dropAnim = null; animating = false;
+    current = R; gameOver = false; lastWin = null; dropAnim = null; animating = false; _confettiFired = false;
     setTurn(); hideOverlay(); draw();
   }
 
@@ -219,13 +220,15 @@
   }
 
   function endGame(title, text){
+    const isWin = title.indexOf('红')>=0 || title.indexOf('绿')>=0;
+    if (isWin && !_confettiFired) { _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     const ov = document.getElementById('overlay');
     document.getElementById('ovTitle').textContent = title;
     document.getElementById('ovTitle').style.color = (title.indexOf('红')>=0)?RED:(title.indexOf('平')>=0?'#f0b90b':GREEN);
     document.getElementById('ovText').textContent = text;
     if(typeof Juice!=='undefined'){
-      if(title.indexOf('红')>=0){ Juice.sfx('win'); Juice.flash(RED,0.28); Juice.addTrauma(0.5); const b=Juice.best('connect4',1); Juice.rank(1); if(b.isNew) Juice.achievement('红方新纪录！'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
-      else if(title.indexOf('绿')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('connect4',2); Juice.rank(2); if(b.isNew) Juice.achievement('绿方新纪录！'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      if(title.indexOf('红')>=0){ Juice.sfx('win'); Juice.flash(RED,0.28); Juice.addTrauma(0.5); const b=Juice.best('connect4',1); Juice.rank(1); if(b.isNew) Juice.achievement('红方新纪录！'); }
+      else if(title.indexOf('绿')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('connect4',2); Juice.rank(2); if(b.isNew) Juice.achievement('绿方新纪录！'); }
       else { Juice.sfx('click'); }
     }
     ov.style.display='flex';
@@ -270,7 +273,8 @@
     get current(){ return current; },
     set current(v){ current = v; },
     get animating(){ return animating; },
-    cellCenter
+    cellCenter,
+    get confettiFired(){ return _confettiFired; }
   };
 })();
 </script>

@@ -55,7 +55,7 @@
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
 
-  let board, moves, won, over, scramble;
+  let board, moves, won, over, scramble, _confettiFired = false;
   function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
   function flip(r,c){ if(inb(r,c)) board[r][c] = board[r][c] ? 0 : 1; }
   // 点击 (r,c)：反转自身 + 上下左右
@@ -64,7 +64,7 @@
   }
   function newGame(){
     board = Array.from({length:N}, ()=>new Array(N).fill(0));
-    moves = 0; won = false; over = false; scramble = [];
+    moves = 0; won = false; over = false; scramble = []; _confettiFired = false;
     // 从全灭出发随机按若干下，保证可解
     for(let i=0;i<SCRAMBLE;i++){
       const r = Math.floor(_rand()*N), c = Math.floor(_rand()*N);
@@ -80,7 +80,7 @@
     toggle(r,c); moves++;
     if(isWin()){ won = true; over = true; }
     if(typeof Juice!=='undefined'){
-      if(won){ Juice.sfx('levelup'); Juice.best('lightsout', moves); if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      if(won){ Juice.sfx('levelup'); Juice.best('lightsout', moves); if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
       else Juice.sfx('click');
     }
     return true;
@@ -98,7 +98,7 @@
   function isOver(){ return over; }
   function getScramble(){ return scramble.map(p=>p.slice()); }
   // 测试钩子：直接设置棋盘（b 为 N×N 的 0/1 数组）
-  function setBoard(b){ board = b.map(row=>row.slice()); moves=0; won=false; over=false; scramble=[]; }
+  function setBoard(b){ board = b.map(row=>row.slice()); moves=0; won=false; over=false; scramble=[]; _confettiFired=false; }
 
   /* ===================== UI ===================== */
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
@@ -146,6 +146,7 @@
       N, SCRAMBLE,
       setRand, newGame, reset, click, toggle, isWin, countOn,
       getCell, getBoard, getMoves, isOver, getScramble, setBoard,
+      get confettiFired() { return _confettiFired; },
     };
   }
 })();

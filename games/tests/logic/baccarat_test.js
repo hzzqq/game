@@ -98,3 +98,12 @@ eq('二次重置余额=1000', s.balance, 1000);
 eq('二次重置闲空', s.player, []);
 eq('二次重置庄空', s.banker, []);
 eq('二次重置无下注', s.bet, null);
+
+// === confetti 视觉庆祝标记（赢下首局触发，纯旁路，不改玩法）===
+t.reset();
+ok('baccarat 重置后未庆祝', t.confettiFired() === false);
+t.setRand(seq([rk(9), rk(10), rk(9), rk(13)])); // P9 B10 P9 BK → 闲胜
+t.reset(); t.placeBet('player', 100); t.deal();
+ok('baccarat 赢下首局后庆祝标记置位', t.confettiFired() === true);
+t.reset();
+ok('baccarat 重开后庆祝标记复位', t.confettiFired() === false);

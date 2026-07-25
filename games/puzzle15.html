@@ -56,7 +56,7 @@
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
 
-  let board, emptyR, emptyC, moves, won, over, scramble;
+  let board, emptyR, emptyC, moves, won, over, scramble, _confettiFired=false;
   function solved(){
     const b=Array.from({length:SIZE},()=>new Array(SIZE).fill(0));
     let v=1;
@@ -81,14 +81,21 @@
     emptyR=r; emptyC=c;
     moves++;
     if(isWin()){ won=true; over=true; }
-    if(typeof Juice!=='undefined'){
-      if(won){ Juice.sfx('levelup'); Juice.best('puzzle15', moves); if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
-      else Juice.sfx('click');
+    if(won){
+      if(!_confettiFired){
+        _confettiFired=true;   // ⚠️ 无条件置位，不依赖 Juice 存在
+        if(typeof Juice!=='undefined'){
+          Juice.sfx('levelup'); Juice.best('puzzle15', moves);
+          if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+        }
+      }
+    } else if(typeof Juice!=='undefined'){
+      Juice.sfx('click');
     }
     return true;
   }
   function newGame(){
-    board=solved(); emptyR=SIZE-1; emptyC=SIZE-1; moves=0; won=false; over=false; scramble=[];
+    board=solved(); emptyR=SIZE-1; emptyC=SIZE-1; moves=0; won=false; over=false; scramble=[]; _confettiFired=false;
     // 从已解状态随机滑动若干步 → 必可解
     const neigh=[[ -1,0],[1,0],[0,-1],[0,1]];
     let guard=0;
@@ -113,7 +120,7 @@
   function getMoves(){ return moves; }
   function isOver(){ return over; }
   function getScramble(){ return scramble.map(p=>p.slice()); }
-  function setBoard(b,er,ec){ board=b.map(row=>row.slice()); emptyR=er; emptyC=ec; moves=0; won=false; over=false; scramble=[]; }
+  function setBoard(b,er,ec){ board=b.map(row=>row.slice()); emptyR=er; emptyC=ec; moves=0; won=false; over=false; scramble=[]; _confettiFired=false; }
 
   /* ===================== UI ===================== */
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
@@ -161,6 +168,7 @@
       SIZE, SCRAMBLE,
       setRand, newGame, reset, move, canMove, isWin,
       getBoard, getEmpty, getMoves, isOver, getScramble, setBoard,
+      confettiFired:function(){ return _confettiFired; },
     };
   }
 })();

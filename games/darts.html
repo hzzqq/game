@@ -53,22 +53,28 @@
   "use strict";
   let scores, turn, over, winner, bonus, pickups;
   let _confettiFired=false; // 胜利 confetti 已触发（独立于 Juice 的只读测试锁）
-  function reset(){ scores=[501,501]; turn=0; over=false; winner=-1; bonus=0; pickups=[]; _confettiFired=false; }
+  let _fxShakes = 0, _fxBursts = 0;   // Juice 手感计数（只读钩子）
+  function reset(){ scores=[501,501]; turn=0; over=false; winner=-1; bonus=0; pickups=[]; _confettiFired=false; _fxShakes=0; _fxBursts=0; }
   function setScores(arr){ scores=arr.slice(); turn=0; over=false; winner=-1; }
   function throwDart(pts){
     if(over) return;
     const p=turn;
     const ns=scores[p]-pts;
     if(ns===0){ scores[p]=0; over=true; winner=p; Juice.sfx('win'); Juice.flash('#02c076',.5);
+      _fxBursts++;
+      if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.4, {color:'#f0b90b', n:18, speed:300});
       if(!_confettiFired){
         _confettiFired=true;
         if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
-        if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
+        if(typeof Juice!=='undefined' && Juice.shake){ Juice.shake(0.5); _fxShakes++; }
       }
     }
     else if(ns<0){ /* 爆镖：本镖作废，分数不变 */ Juice.sfx('error'); Juice.addTrauma(.25); }
     else { scores[p]=ns; Juice.sfx('hit'); Juice.addTrauma(.25); }
-    if(pts===50){ const p=makePickup('bull',0,0); pickups.push(p); applyPickup(p); } // 命中靶心掉落 🎯 奖励
+    if(pts===50){ const p=makePickup('bull',0,0); pickups.push(p); applyPickup(p);
+      _fxBursts++;
+      if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.4, {color:'#f6465d', n:14, speed:260});
+    } // 命中靶心掉落 🎯 奖励
   }
   // ---- 注入式掉落道具系统（本地种子 PRNG，禁止 Math.random）----
   function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
@@ -106,7 +112,8 @@
     getPickups(){ return pickups.length; },
     getPickup(i){ return pickups[i]; },
     getBonus(){ return bonus; },
-    confettiFired(){ return _confettiFired; }
+    confettiFired(){ return _confettiFired; },
+    fxShakes(){ return _fxShakes; }, fxBursts(){ return _fxBursts; }
   }; }
 })();
 </script>

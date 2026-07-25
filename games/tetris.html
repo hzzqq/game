@@ -349,6 +349,7 @@
   let score, level, linesCleared, dropInterval, dropCounter, lastTime;
   let paused, gameOver, running;
   let particles = [];
+  let _confettiFired = false;   // 只读钩子：Tetris(一次消4行)庆祝是否已触发（仅一次）
 
   // ---------- 难度系统（简单/普通/困难/地狱）----------
   // dropMult=自动下落间隔倍率（越小越快越难）。normal=1.0 保基线（不影响计分/等级单测）
@@ -540,7 +541,7 @@
       charges = Math.min(3, charges + cleared);   // 消行积攒道具充能
       const before = level;
       linesCleared += cleared;
-      const gained = SCORE_TABLE[cleared] * level;   // 按消行时所在等级计分（标准俄罗斯方块）
+      gained = SCORE_TABLE[cleared] * level;   // 按消行时所在等级计分（标准俄罗斯方块）
       score += gained;
       level = Math.floor(linesCleared/10) + 1;
       Juice.sfx(cleared>=4 ? 'win' : 'levelup');
@@ -548,7 +549,7 @@
       // 弹窗显示「实际净增」：= 消行分 + 当帧已加的软/硬降分，确保与真实 score 增量一致
       const net = score - scoreBase;
       Juice.popup(window.innerWidth/2, window.innerHeight*0.4, (cleared>=4?'TETRIS! ':'')+'+'+net, '#f0b90b', {size:22});
-      if(cleared>=4){ Juice.achievement('⚡ TETRIS！一次消 4 行'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      if(cleared>=4){ Juice.achievement('⚡ TETRIS！一次消 4 行'); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(!_confettiFired) _confettiFired = true; }
       if(level!==before){
         dropInterval = computeDropInterval();
       }
@@ -783,6 +784,7 @@
 
   // ====== 流程控制 ======
   function startGame(){
+    _confettiFired = false;
     grid = emptyGrid();
     bag = newBag();
     score = 0; level = 1; linesCleared = 0;
@@ -902,7 +904,8 @@
       addCharge(n){ charges = Math.min(3, charges + (n||1)); },
       getShield: () => shieldCharge,
       setRand(fn){ if (fn) Math.random = fn; },
-      startGame
+      startGame,
+      confettiFired: () => _confettiFired
     };
   }
 })();

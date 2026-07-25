@@ -290,9 +290,14 @@ t.applyPickup(t.makePickup('heal', 10, 10));
 ok('makePickup+applyPickup 封顶 MAXHP', t.getTankA().hp === t.MAXHP);
 
 // 胜利彩带（Juice 无 confetti 桩时不抛错）
+ok('confettiFired 初始为 false', t.confettiFired() === false);
 let threwConfetti=false;
 try { t.forceWin(); } catch(e){ threwConfetti=true; }
 ok('forceWin 不抛错（Juice 无 confetti）', !threwConfetti);
+ok('forceWin 后 confettiFired 置 true', t.confettiFired() === true);
+// 重开新局（resetPositions）后恢复 false
+t.resetPositions();
+ok('重开新局后 confettiFired 复位 false', t.confettiFired() === false);
 
 // 确定性步进调度生成道具（零 Math.random）
 (function(){

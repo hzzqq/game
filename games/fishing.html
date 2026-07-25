@@ -50,7 +50,9 @@
   const W=400, H=240, R=14;
   let fish, hook, score;
   let pickups, shield, boostTimer, luckTimer, lives;
-  function reset(){ fish=[{x:120,y:80,id:1},{x:260,y:150,id:2},{x:200,y:60,id:3}]; hook=null; score=0; pickups=[]; shield=0; boostTimer=0; luckTimer=0; lives=3; }
+  let _confettiFired=false;
+  const SCORE_MILESTONE=3;
+  function reset(){ fish=[{x:120,y:80,id:1},{x:260,y:150,id:2},{x:200,y:60,id:3}]; hook=null; score=0; pickups=[]; shield=0; boostTimer=0; luckTimer=0; lives=3; _confettiFired=false; }
   function setFish(arr){ fish=arr.map(f=>({x:f.x,y:f.y,id:f.id})); hook=null; score=0; }
   function castAt(x,y){ hook={x,y}; }
   function dist(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); }
@@ -62,11 +64,19 @@
     if(!hook || !getBiting()) return null;
     let best=null,bd=1e9;
     for(const f of fish){ const d=dist(hook.x,hook.y,f.x,f.y); if(d<=R&&d<bd){ bd=d; best=f; } }
-    if(best){ fish=fish.filter(f=>f.id!==best.id); score++; Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(hook.x,hook.y,{color:'#f0b90b',n:12}); Juice.popup(hook.x,hook.y,'+1','#f0b90b'); spawnPickupAtRandom(hook.x,hook.y); return best.id; }
+    if(best){ fish=fish.filter(f=>f.id!==best.id); score++; maybeCelebrate(); Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(hook.x,hook.y,{color:'#f0b90b',n:12}); Juice.popup(hook.x,hook.y,'+1','#f0b90b'); spawnPickupAtRandom(hook.x,hook.y); return best.id; }
     return null;
   }
   function getScore(){ return score; }
   function getFish(){ return fish.map(f=>({x:f.x,y:f.y,id:f.id})); }
+  // 钓鱼无明确胜负，达到渔获里程碑时播一次胜利庆祝（纯视觉，不改玩法/计分）
+  function maybeCelebrate(){
+    if(_confettiFired) return;
+    if(score>=SCORE_MILESTONE){
+      _confettiFired=true;
+      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    }
+  }
 
   // ---- 注入：掉落道具 / 增益系统（不改核心玩法） ----
   function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return((t^t>>>14)>>>0)/4294967296; }; }
@@ -137,7 +147,8 @@
     getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
     getLuck(){ return luckTimer; }, setLuck(v){ luckTimer=v; },
     getLives(){ return lives; }, setLives(v){ lives=v; },
-    getHook(){ return hook?{x:hook.x,y:hook.y}:null; } }; }
+    getHook(){ return hook?{x:hook.x,y:hook.y}:null; },
+    get confettiFired(){ return _confettiFired; } }; }
 })();
 </script>
 </body>

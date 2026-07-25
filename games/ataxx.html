@@ -63,17 +63,21 @@
 
   let S; // {board:[49], turn, winner}
   let _wonPrev=false, winFx=0; // 胜利特效跳变防重 + 计数
+  let _fxShakes=0, _fxBursts=0; // Juice 手感只读计数（测试钩子，纯反馈层）
   function newGame(){
     S={ board:new Array(SIZE*SIZE).fill(0), turn:RED, winner:0 };
     const corners=[[0,0],[0,1],[1,0],[1,1],[SIZE-1,SIZE-1],[SIZE-1,SIZE-2],[SIZE-2,SIZE-1],[SIZE-2,SIZE-2]];
     corners.forEach((p,i)=> S.board[idx(p[0],p[1])] = (i<4)?RED:BLACK);
     _wonPrev=false; winFx=0;
+    _fxShakes=0; _fxBursts=0;
   }
   function fireWinFx(){ // 仅玩家(红)获胜时触发彩带 + 粒子，_wonPrev 跳变防重复
     if(S.winner===RED && !_wonPrev){
       _wonPrev=true; winFx++;
+      _fxShakes++; _fxBursts++;
       if(typeof Juice!=='undefined'){
         if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+        if(Juice.shake) Juice.shake(0.4);
         if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:40, speed:160});
       }
     }
@@ -182,7 +186,11 @@
     if(S.winner!==0) return {ok:false,reason:'over'};
     const ok=legalMovesState(S).some(m=>m.from[0]===mv.from[0]&&m.from[1]===mv.from[1]&&m.to[0]===mv.to[0]&&m.to[1]===mv.to[1]&&m.type===mv.type);
     if(!ok) return {ok:false,reason:'illegal'};
+    const me=S.turn, foe=(me===RED)?BLACK:RED;
+    const foeBefore = countPieces(S.board, foe);
     applyMoveState(S,mv);
+    const infected = foeBefore - countPieces(S.board, foe);
+    if(infected >= 3){ _fxShakes++; _fxBursts++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.25); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight/2, {color:'#f0b90b', n:30, speed:200}); }
     if(typeof Juice!=='undefined') Juice.sfx('click');
     fireWinFx();
     return {ok:true};
@@ -278,6 +286,8 @@
     getBoard(){ return S.board.slice(); },
     DIFFICULTY, setDifficulty, getDifficulty, setRand,
     confettiFired(){ return winFx; },
+    fxShakes(){ return _fxShakes; },
+    fxBursts(){ return _fxBursts; },
   };
 })();
 </script>

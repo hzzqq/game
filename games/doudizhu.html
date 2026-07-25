@@ -373,6 +373,7 @@
   const selection=new Set();
   let hintList=[], hintIdx=-1;
   let _confettiFired=false;
+  let _fxShakes = 0, _fxBursts = 0;
 
   const names=['你','AI 左','AI 右'];
 
@@ -485,6 +486,7 @@
   /* ---------- 流程 ---------- */
   function newGame(){
     phase='bidding'; landlordIndex=null; bottomCards=[]; lastPlay=null; passes=0; _confettiFired=false;
+    _fxShakes = 0; _fxBursts = 0;
     trickPlay=[null,null,null]; selection.clear(); hintList=[]; hintIdx=-1;
     const deck=shuffle(buildDeck());
     hands=[deck.slice(0,17), deck.slice(17,34), deck.slice(34,51)];
@@ -531,6 +533,13 @@
     lastPlay={owner:idx, combo:combo, cards:cards};
     trickPlay[idx]=cards;
     if(typeof Juice!=='undefined' && (combo.type==='bomb'||combo.type==='rocket')) Juice.sfx('boom');
+    // 手感：炸弹/王炸 → 屏震 + 粒子爆发
+    if(typeof Juice!=='undefined' && (combo.type==='bomb'||combo.type==='rocket')){
+      _fxShakes++; Juice.shake(0.5);
+      _fxBursts++; Juice.burst(360, 300, {n:14});
+    }
+    // 手感：一方剩 1 张警报 → 轻屏震
+    if(hands.some(h=>h.length===1)){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.15); }
     passes=0;
     selection.clear(); hintList=[]; hintIdx=-1;
     if(hands[idx].length===0){ endGame(idx); return; }
@@ -661,7 +670,8 @@
     enumerateCombos,
     handStrength, chooseLead, chooseFollow,
     DIFFICULTY, setDifficulty, getDifficulty, setRand,
-    newGame, humanCall, endGame, getLandlord: ()=>landlordIndex, confettiFired: ()=>_confettiFired
+    newGame, humanCall, endGame, getLandlord: ()=>landlordIndex, confettiFired: ()=>_confettiFired,
+    doPlay, fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
   };
 
   buildDiffBar();

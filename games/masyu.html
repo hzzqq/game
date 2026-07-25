@@ -54,7 +54,9 @@
   let pearls;  // N×N : 0 无, 1 白, 2 黑
   let h, v;     // 玩家线（单元格邻接边），均为 N×N
   let sol;      // {h,v}
-  let won = false;
+  let won = false, _confettiFired = false;
+  // 胜利庆祝：仅视觉，整局只触发一次；受 Juice 存在性守卫（桩环境为 no-op）
+  function fireWinFx(){ if(won && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
 
   function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
 
@@ -139,7 +141,7 @@
     pearls = p;
     h = Array.from({length:N},()=>new Array(N).fill(false));
     v = Array.from({length:N},()=>new Array(N).fill(false));
-    won=false;
+    won=false; _confettiFired=false;
     return getState();
   }
 
@@ -204,13 +206,12 @@
     if(type==='h'){ if(r<0||r>=N||c<0||c>=N-1) return false; h[r][c]=!!val; }
     else { if(r<0||r>=N-1||c<0||c>=N) return false; v[r][c]=!!val; }
     won=isWin();
-    if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
-    if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(won){ if(typeof Juice!=='undefined') Juice.sfx('levelup'); fireWinFx(); }
     return true;
   }
   function toggleEdge(type,r,c){ const cur=(type==='h')?h[r][c]:v[r][c]; return setEdge(type,r,c,!cur); }
-  function reset(){ h=Array.from({length:N},()=>new Array(N).fill(false)); v=Array.from({length:N},()=>new Array(N).fill(false)); won=false; return getState(); }
-  function applySolution(){ h=sol.h.map(row=>row.slice()); v=sol.v.map(row=>row.slice()); won=isWin(); return won; }
+  function reset(){ h=Array.from({length:N},()=>new Array(N).fill(false)); v=Array.from({length:N},()=>new Array(N).fill(false)); won=false; _confettiFired=false; return getState(); }
+  function applySolution(){ h=sol.h.map(row=>row.slice()); v=sol.v.map(row=>row.slice()); won=isWin(); if(won) fireWinFx(); return won; }
   function getSolution(){ return {h:sol.h.map(r=>r.slice()), v:sol.v.map(r=>r.slice())}; }
   function getState(){ return { N, pearls:pearls.map(r=>r.slice()), h:h.map(r=>r.slice()), v:v.map(r=>r.slice()), won }; }
 
@@ -269,7 +270,8 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setEdge, toggleEdge, applySolution, getSolution, getState, analyze, isStraightCell, isTurnCell };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setEdge, toggleEdge, applySolution, getSolution, getState, analyze, isStraightCell, isTurnCell,
+      get confettiFired(){ return _confettiFired; } };
   }
 })();
 </script>

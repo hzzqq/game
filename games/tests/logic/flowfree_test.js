@@ -85,3 +85,15 @@ const EP = [
   eq('端点互不重叠', uniq.size, eps.length);
   t.setRand(Math.random);
 }
+
+// ===== 9. 胜利/里程碑 confetti：全管线连通标记一次庆祝 =====
+{
+  t.setBoard(SOL, EP); t.clearPath(1); t.clearPath(2); t.clearPath(3);
+  ok('flowfree: 未连通未触发庆祝特效', t.confettiFired === false);
+  t.setPath(1, [[0,0],[0,1],[0,2]]);
+  t.setPath(2, [[1,0],[1,1],[1,2]]);
+  t.setPath(3, [[2,0],[2,1],[2,2]]);
+  ok('flowfree: 全连通胜利触发庆祝特效', t.confettiFired === true);
+  t.setBoard(SOL, EP);
+  ok('flowfree: 重开(重新加载)后庆祝特效标记恢复 false', t.confettiFired === false);
+}

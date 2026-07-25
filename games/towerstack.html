@@ -49,13 +49,13 @@
 
   const W=400, H=600, SPEED=130, LAYER=34, TARGET=12;
 
-  let blocks, current, gameOver, won, target;
+  let blocks, current, gameOver, won, target, _confettiFired = false;
 
   function reset(){
     target=TARGET;
     blocks=[{ x:0, w:W }];
     spawnCurrent(W);
-    gameOver=false; won=false;
+    gameOver=false; won=false; _confettiFired=false;
   }
   function start(){ reset(); }
 
@@ -91,7 +91,9 @@
     const nw=orr-ol;
     blocks.push({ x:ol, w:nw });
     if(blocks.length>=target){ gameOver=false; won=true; gameOver=true;
-      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('叠塔通关'); } render(); return getState(); }
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('叠塔通关'); }
+      if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      render(); return getState(); }
     spawnCurrent(nw);
     if(typeof Juice!=='undefined') Juice.sfx('click');
     render();
@@ -128,7 +130,7 @@
   reset();
   if(typeof document!=='undefined'){ bindUI(); render(); }
   if(typeof window!=='undefined'){
-    window.__t={ W,H,SPEED,TARGET, setSeed, reset, start, step, drop, setBlocks, setCurrent, setTarget, getState };
+    window.__t={ W,H,SPEED,TARGET, setSeed, reset, start, step, drop, setBlocks, setCurrent, setTarget, getState, confettiFired(){ return _confettiFired; } };
   }
 })();
 </script>

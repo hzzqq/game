@@ -132,3 +132,36 @@ H.ok('jumpjump: 里程碑达成触发 confetti', t.confettiFired() > 0, 'confett
 t.newGame(52);
 H.ok('jumpjump: 新局未达里程碑 confettiFx=0', t.confettiFired() === 0);
 
+// ===================== 手感深化：Juice.shake / Juice.burst 反馈钩子 =====================
+// A) 初始 fxShakes / fxBursts 均为 0
+t.newGame(60);
+H.eq('jumpjump: 初始 fxShakes=0', t.fxShakes(), 0);
+H.eq('jumpjump: 初始 fxBursts=0', t.fxBursts(), 0);
+
+// B) 拾取金币 → 粒子爆发（fxBursts 递增，纯反馈不改加分）
+t.newGame(61);
+const jjScB = t.getScore();
+t.applyPickup('coin');
+H.ok('jumpjump: 金币拾取触发 burst', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+H.eq('jumpjump: 金币拾取仍加分 COIN_VALUE', t.getScore() - jjScB, t.COIN_VALUE);
+
+// C) 护盾救援 → 粒子爆发（fxBursts 递增，纯反馈不改救援逻辑）
+t.newGame(62);
+t.setShield(1);
+t.triggerFall();
+t.step(0.016);
+H.ok('jumpjump: 护盾救援触发 burst', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+H.ok('jumpjump: 护盾救援仍存活', t.isGameOver() === false);
+
+// D) 坠落失败 → 屏震（fxShakes 递增，纯反馈不改失败逻辑）
+t.newGame(63);
+t.triggerFall();
+t.step(0.016);
+H.ok('jumpjump: 坠落失败触发 shake', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+H.ok('jumpjump: 坠落确实 gameOver', t.isGameOver() === true);
+
+// E) 新局归零
+t.newGame(64);
+H.eq('jumpjump: 新局 fxShakes=0', t.fxShakes(), 0);
+H.eq('jumpjump: 新局 fxBursts=0', t.fxBursts(), 0);
+

@@ -51,4 +51,11 @@ H.ok(!threwP2, 'carrot: 手感 spawnParticle 不抛错');
 H.ok(_cc === 0, 'carrot: 手感不消耗 Math.random (calls=' + _cc + ')');
 H.ok(T.getParticles() > 0, 'carrot: 生成粒子');
 
+// 8) 胜利 confetti 标记（forceWin 驱动到过关胜利态，确定性）
+H.ok(T.confettiFired === false, 'carrot: confettiFired 初始 false');
+T.forceWin();
+H.ok(T.confettiFired === true, 'carrot: 过关胜利后 confettiFired 置 true');
+T.reset();
+H.ok(T.confettiFired === false, 'carrot: reset 后 confettiFired 恢复 false');
+
 module.exports = {};

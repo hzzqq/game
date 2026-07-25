@@ -70,3 +70,29 @@ t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; 
 }
 
 t.setRand(Math.random);
+
+// ===== _confettiFired 只读钩子范式：涂黑解出彩带标记（纯视觉，不改玩法） =====
+(function () {
+  // 1) 初始未触发
+  t.newPuzzle(12345);
+  eq('nurikabe: 初始 confettiFired=false', t.confettiFired(), false);
+
+  // 2) 沿规范解涂黑全部黑格 → 触发
+  const sol = t.getSolution();
+  for(let r=0;r<5;r++) for(let c=0;c<5;c++) if(sol[r][c]===1) t.setBlack(r,c,true);
+  ok('nurikabe: 涂黑解出后 isWin=true', t.isWin()===true);
+  eq('nurikabe: 通关后 confettiFired=true', t.confettiFired(), true);
+
+  // 3) 重置新局 → 重置为 false
+  t.reset();
+  eq('nurikabe: 重置后 confettiFired=false', t.confettiFired(), false);
+})();
+
+// ===== confetti 钩子汇总（确保 exit 0） =====
+{
+  const Hmod = require('./harness');
+  const allTotal = Hmod.results.length;
+  const allPass = Hmod.results.filter(x => x.pass).length;
+  console.log(`nurikabe(confetti-hook): ${allPass}/${allTotal} 通过`);
+  if (allPass !== allTotal) process.exit(1);
+}

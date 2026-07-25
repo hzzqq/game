@@ -158,8 +158,10 @@
     const GOLD = 0.12; // 黄金成语概率（可变奖励）
     let S = null;
     let chainFx = 0;
+    let _confettiFired = false;
 
     function newState(daily) {
+      _confettiFired = false;
       const today = new Date();
       const key = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
       const start = daily ? IDIOMS[key % IDIOMS.length] : IDIOMS[(Math.random() * IDIOMS.length) | 0];
@@ -233,7 +235,7 @@
         S.required = v[3]; S.challenge = false;
       }
       Juice.save('idiom', S.score > S.best ? S.score : S.best);
-      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       chainFx++;
       rankCheck();
       syncHUD();
@@ -343,7 +345,8 @@
       getS: function(){ return S ? JSON.parse(JSON.stringify(S)) : null; },
       setS: function(v){ S = v; },
       submitWord: function(w){ submit(w); },
-      chainFx: function(){ return chainFx; }
+      chainFx: function(){ return chainFx; },
+      confettiFired: function(){ return _confettiFired; }
     };
   })();
   </script>

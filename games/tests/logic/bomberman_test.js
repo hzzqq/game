@@ -157,3 +157,18 @@ t.render(); // 仅绘制，不应改动任何逻辑状态
 eq('建模 渲染后 range 不变', t.getRange(), bRange);
 eq('建模 渲染后 score 不变', t.getScore(), bScore);
 eq('建模 渲染后 shield 不变', t.getShield(), bShield);
+
+// ===== 胜利彩带标记（confettiFired）=====
+// 逻辑层无原生胜负，以「全清场」里程碑 + forceWin 钩子驱动（纯旁路视觉）
+t.setup(5,5,[]);
+t.setRange(2);
+ok('confettiFired 初始 false', t.confettiFired() === false);
+t.setBomb(2,2);
+t.setPlayers([{x:3,y:2}]);   // 玩家在爆炸十字 → 被炸死，触发全清场里程碑
+t.explode();
+ok('全清场后 confettiFired=true', t.confettiFired() === true);
+t.setup(5,5,[]);             // 新局（setup）复位
+ok('新局重置后 confettiFired=false', t.confettiFired() === false);
+// forceWin 钩子直接驱动
+t.forceWin();
+ok('forceWin 钩子触发 confettiFired=true', t.confettiFired() === true);

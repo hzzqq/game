@@ -82,3 +82,28 @@ const { t } = H.loadGame('../minesweeper.html');
   H.eq('扫雷 通关后 flagCount 应等于 M(=1)', t.getState().flagCount, 1);
   H.ok('扫雷 通关后 mineLeft 不为负 (M-flagCount>=0)', (t.getState().M - t.getState().flagCount) >= 0);
 })();
+
+// ===== _confettiFired 只读钩子范式：通关彩带标记（纯视觉，不改玩法） =====
+(() => {
+  // 1) 初始未触发
+  t.setDim(2, 2, 1);
+  t.setGrid([-1, 0, 0, 0]);              // (0,0) 为雷，其余 3 格可翻（setGrid 用一维数组）
+  H.eq('扫雷 初始 confettiFired=false', t.confettiFired(), false);
+
+  // 2) 翻开所有非雷格 → 通关触发
+  t.clickCell(3);                        // 翻非雷格(1,1)，flood 展开其余非雷 → 仅雷未开 → 通关
+  H.ok('扫雷 点击后 won=true', t.getState().won === true);
+  H.eq('扫雷 通关后 confettiFired=true', t.confettiFired(), true);
+
+  // 3) 新局重置为 false
+  t.generate();
+  H.eq('扫雷 新局后 confettiFired=false', t.confettiFired(), false);
+})();
+
+// ===== confetti 钩子汇总（确保 exit 0） =====
+{
+  const allTotal = H.results.length;
+  const allPass = H.results.filter(r => r.pass).length;
+  console.log(`minesweeper(confetti-hook): ${allPass}/${allTotal} 通过`);
+  if (allPass !== allTotal) process.exit(1);
+}

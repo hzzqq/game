@@ -84,7 +84,7 @@
   (function () {
     var COL = { red:'#f6465d', green:'#02c076', gold:'#f0b90b', dim:'#6b7785' };
     var SYMS = ['◆','▲','●','■','★','✦','◐','◑','▼','◇','○','□','☆','✧','◍','◒','▼','◭'];
-    var size = 4, cards = [], openIdx = [], moves = 0, matched = 0, won = false, started = 0, celebrated = false;
+    var size = 4, cards = [], openIdx = [], moves = 0, matched = 0, won = false, started = 0, celebrated = false, _confettiFired = false;
 
     var boardEl = document.getElementById('board');
     var fx = document.getElementById('fx');
@@ -96,7 +96,7 @@
     function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var r = (Math.random() * (i + 1)) | 0; var t = a[i]; a[i] = a[r]; a[r] = t; } return a; }
 
     function newGame(n) {
-      size = n; cards = []; openIdx = []; moves = 0; matched = 0; won = false; celebrated = false; started = Date.now();
+      size = n; cards = []; openIdx = []; moves = 0; matched = 0; won = false; celebrated = false; _confettiFired = false; started = Date.now();
       var pairs = (n * n) / 2;
       var deck = [];
       for (var i = 0; i < pairs; i++) { deck.push(i); deck.push(i); }
@@ -202,7 +202,10 @@
 
     function celebrate() {
       celebrated = true;
-      if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth / 2, window.innerHeight * 0.3, { n: 120, life: 2.4 });
+      if (!_confettiFired) {
+        _confettiFired = true;
+        if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth / 2, window.innerHeight * 0.3, { n: 120, life: 2.4 });
+      }
     }
     function spawnParticle(x, y, color) {
       if (typeof Juice === 'undefined') return;
@@ -221,7 +224,8 @@
       getSize: function () { return size; },
       celebrate: celebrate, spawnParticle: spawnParticle,
       triggerWinEffect: function () { celebrate(); },
-      wasCelebrated: function () { return celebrated; }
+      wasCelebrated: function () { return celebrated; },
+      confettiFired: function () { return _confettiFired; }
     };
 
     newGame(4);

@@ -59,6 +59,36 @@ ok('胜利前 confettiFired 为 false', t.confettiFired() === false);
 t.play(2,0,'r');
 ok('游戏结束胜利 → confettiFired 为真', t.confettiFired() === true);
 
+// ===== 手感深化：Juice 反馈钩子（纯注入，不改动玩法）=====
+{
+  // 初始计数应为 0
+  t.newGame(3);
+  eq('fx: 初始 fxShakes=0', t.fxShakes(), 0);
+  eq('fx: 初始 fxBursts=0', t.fxBursts(), 0);
+
+  // 占位（非法落子）→ 触发 shake
+  t.newGame(3);
+  t.play(1,1,'r');
+  t.play(1,1,'g'); // 同一格已占，应被拒并触发 shake
+  ok('fx: 占位触发 shake (fxShakes>0)', t.fxShakes() > 0);
+  eq('fx: 占位未触发 burst', t.fxBursts(), 0);
+
+  // 胜利 → 触发 burst（确定性坐标，不消耗随机数）
+  t.newGame(3);
+  t.setBoard([
+    ['r',null,null],
+    ['r',null,null],
+    [null,null,null],
+  ], 'r', 3);
+  t.play(2,0,'r'); // 连通上下 → 胜利
+  ok('fx: 胜利触发 burst (fxBursts>0)', t.fxBursts() > 0);
+
+  // newGame 后计数归零
+  t.newGame(3);
+  eq('fx: newGame 后归零', t.fxShakes(), 0);
+  eq('fx: newGame 后归零2', t.fxBursts(), 0);
+}
+
 const total = results.length;
 const pass = results.filter(r => r.pass).length;
 console.log(`\nhex: ${pass}/${total} 通过`);

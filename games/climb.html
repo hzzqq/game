@@ -58,6 +58,7 @@
   const BOOST_DUR = 40;        // 🚀加速持续帧数（每帧自动向上冲一格）
   const ROCK_INTERVAL = 14;    // 落石生成间隔（步）
   let player, rocks, pickups, gameOver, win, score, bonus, furthest, rockTimer, confettiFired = false;
+  let _fxShakes = 0, _fxBursts = 0; // 手感深化：屏震/粒子 只读计数钩子
 
   function genField(){
     player = { row: START_ROW, col: Math.floor(COLS/2), shield: 0, boost: 0 };
@@ -80,6 +81,7 @@
   function reset(seed){
     if(typeof seed==='number') _rng = mk(seed>>>0);
     genField();
+    _fxShakes = 0; _fxBursts = 0;
     return getState();
   }
   function newGame(seed){ return reset(seed); }
@@ -88,6 +90,9 @@
     // 护盾优先抵挡一次（注入式分支，shield=0 时行为不变）
     if(player.shield > 0){ player.shield--; if(J) J.sfx('block'); return; }
     gameOver = true; if(J) J.sfx('lose');
+    // 深化：坠落/受击 → 屏震
+    _fxShakes++;
+    if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.4);
   }
   function collectPickups(){
     for(let i=pickups.length-1;i>=0;i--){
@@ -108,7 +113,13 @@
     else if(dir === 'down')  player.row = Math.min(ROWS-1, player.row + 1);
     else if(dir === 'left')  player.col = Math.max(0, player.col - 1);
     else if(dir === 'right') player.col = Math.min(COLS-1, player.col + 1);
-    if(player.row < furthest) furthest = player.row;
+    if(player.row < furthest){
+      furthest = player.row;
+      // 深化：到达新高度里程碑 → 屏震 + 粒子（坐标取玩家当前格中心，确定性）
+      _fxShakes++; _fxBursts++;
+      if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.2);
+      if (typeof Juice !== 'undefined' && Juice.burst) Juice.burst(player.col * (360/COLS) + (360/COLS)/2, player.row * (600/ROWS) + (600/ROWS)/2, { color:'#02c076', n:10, speed:160 });
+    }
     score = (START_ROW - furthest) + bonus;
     if(J) J.sfx('click'); if(J) J.addTrauma(0.08);
     collectPickups();
@@ -238,7 +249,9 @@
       getBoost:()=>player.boost, setBoost:(v)=>{ player.boost=v; },
       applyPickup, collectPickups,
       stepPickups:()=>{ if(player.boost>0) player.boost--; collectPickups(); },
-      confettiFired:()=>confettiFired };
+      confettiFired:()=>confettiFired,
+      fxShakes:()=>_fxShakes,
+      fxBursts:()=>_fxBursts };
   }
 })();
 </script>

@@ -62,4 +62,19 @@ H.ok('消消乐 adjacent 同行隔格=false', t.adjacent([0,0],[0,2]) === false)
   let nulls = 0; for(let r=0;r<t.SIZE;r++) for(let c=0;c<t.SIZE;c++) if(g[r][c]===null) nulls++;
   H.ok('消消乐 applyGravity 无空洞', nulls === 0, 'null数 '+nulls);
   H.ok('消消乐 applyGravity 底部保留原值', g[t.SIZE-1][0] === 5);
+
+// ===== 胜利/里程碑 confetti 标记（P4：纯视觉，整局仅一次，绝不改玩法/计分）=====
+t.newGame();
+H.ok('消消乐 新局未标记 confetti', t.confettiFired === false);
+// resolve 内的 confetti 在 >=5 连消时触发，但受异步延迟影响；沙箱中走同步里程碑钩子驱动确定性断言。
+(() => {
+  const b = []; for(let r=0;r<t.SIZE;r++){ b[r]=[]; for(let c=0;c<t.SIZE;c++) b[r][c]=(c+r)%t.GEMS; }
+  for(let c=0;c<5;c++) b[0][c]=0;          // 第 0 行前 5 格同色 => 大消除里程碑
+  t.setBoard(b);
+  H.ok('消消乐 hasBigMatch 检出 >=5 连', t.hasBigMatch() === true);
+  t.milestone();
+  H.ok('消消乐 里程碑后标记 confetti', t.confettiFired === true);
+})();
+t.newGame();
+H.ok('消消乐 重开后 confetti 复位', t.confettiFired === false);
 })();

@@ -72,3 +72,19 @@ const lives1 = t.getLives();
 t.takeHit();
 ok('钓鱼: 无护盾受击扣血', t.getLives() === lives1 - 1);
 ok('钓鱼: 无护盾护盾保持0', t.getShield() === 0);
+
+// ============ 胜利/里程碑 confetti：渔获达里程碑(3条)播一次庆祝 ============
+// 初始未触发
+t.reset();
+t.setFish([{id:1,x:50,y:50},{id:2,x:60,y:60},{id:3,x:70,y:70}]);
+ok('钓鱼: 开局未触发庆祝特效', t.confettiFired === false);
+// 钓起 2 条尚未达里程碑
+t.castAt(50,50); t.reel();
+t.castAt(60,60); t.reel();
+ok('钓鱼: 钓到2条尚未达里程碑', t.confettiFired === false);
+// 钓满 3 条触发
+t.castAt(70,70); t.reel();
+ok('钓鱼: 钓满3条触发庆祝特效', t.confettiFired === true);
+// 重开后恢复
+t.reset();
+ok('钓鱼: 重开后庆祝特效标记恢复 false', t.confettiFired === false);

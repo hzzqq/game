@@ -134,3 +134,32 @@ console.log('ataxx: 全部断言通过');
   eq('获胜方为红', t.winnerOf(), RED);
   ok('玩家(红)获胜触发 confettiFired', t.confettiFired() >= 1);
 }
+
+// ===== Juice 手感钩子测试（追加，不改旧断言）=====
+(function(){
+  // 1) 新局归零
+  t.newGame();
+  eq('[fx] ataxx 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] ataxx 新局 fxBursts=0', t.fxBursts(), 0);
+  // 2) 连锁感染 >=3 → shake + burst（红(3,3)克隆到(3,4)，周围 3 枚黑被同化）
+  boardWith([[3,3,RED],[2,3,BLACK],[2,4,BLACK],[4,4,BLACK]], RED);
+  const mv = findMove(t.legalMoves(), 3,3, 3,4, 'clone');
+  ok('[fx] 找到连锁感染着法', !!mv);
+  t.applyMove(mv);
+  ok('[fx] ataxx 连锁感染>=3 → fxShakes>0', t.fxShakes() > 0);
+  ok('[fx] ataxx 连锁感染>=3 → fxBursts>0', t.fxBursts() > 0);
+  // 3) 胜利 → shake
+  t.newGame();
+  const pieces=[];
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) pieces.push([r,c,RED]);
+  pieces.push([0,1,0]); pieces.push([6,6,BLACK]);
+  boardWith(pieces, RED);
+  const wmv = findMove(t.legalMoves(), 0,0, 0,1, 'clone');
+  t.applyMove(wmv);
+  ok('[fx] ataxx 胜利 → fxShakes>0', t.fxShakes() > 0);
+  // 4) 重开归零
+  t.newGame();
+  eq('[fx] ataxx 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] ataxx 重开 fxBursts=0', t.fxBursts(), 0);
+  console.log('\nataxx[fx]: 全部断言通过');
+})();

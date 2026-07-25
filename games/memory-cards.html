@@ -79,7 +79,7 @@
   // 符号池（≥15 种，地狱档 15 对足够）
   var SYMBOLS = ['🍎','🍌','🍇','🍓','🍑','🍒','🥝','🍉','🍊','🥥','🍋','🍐','🫐','🥭','🍍','🥑','🌽','🥕','🌶','🍄'];
 
-  let rows, cols, cards, flipped, matched, moves, flips, score, combo, over;
+  let rows, cols, cards, flipped, matched, moves, flips, score, combo, over, _confettiFired = false;
   let _overrideMaxMoves = null;       // 测试用 maxMoves 覆盖（setGrid 设定，reset 清除）
   const CW = 70, CH = 84; // 卡牌像素尺寸（仅绘制层）
 
@@ -115,7 +115,7 @@
     rows = cfg.rows; cols = cfg.cols;
     buildDeck();
     flipped = [];
-    matched = 0; moves = 0; flips = 0; score = 0; combo = 0; over = false;
+    matched = 0; moves = 0; flips = 0; score = 0; combo = 0; over = false; _confettiFired = false;
     _overrideMaxMoves = null;          // 新局清除测试覆盖
   }
 
@@ -151,7 +151,7 @@
       flipped = [];
       if(J && typeof J.sfx==='function') J.sfx('match');
       if(J && typeof J.burst==='function') J.burst();
-      if(matched === pairs()){ over = true; if(J && typeof J.confetti==='function') J.confetti(); } // 全消除即胜利
+      if(matched === pairs()){ over = true; if(!_confettiFired){ _confettiFired=true; if(J && typeof J.confetti==='function') J.confetti(); } } // 全消除即胜利
     } else {
       // 不匹配：翻回，连击清零，消耗一步
       ca.faceUp = false; c.faceUp = false;
@@ -192,7 +192,7 @@
     cols = Math.ceil(Math.sqrt(n));
     rows = Math.ceil(n / cols);
     flipped = [];
-    matched = 0; moves = 0; flips = 0; score = 0; combo = 0; over = false;
+    matched = 0; moves = 0; flips = 0; score = 0; combo = 0; over = false; _confettiFired = false;
     if(typeof opts.maxMoves==='number'){
       // 临时覆盖 maxMoves：用闭包字段保存
       _overrideMaxMoves = opts.maxMoves;
@@ -321,7 +321,8 @@
       // ---- 扩展测试钩子（不影响核心玩法） ----
       setGrid, pairs, maxMoves,
       getRows:()=>rows, getCols:()=>cols,
-      getMoves:()=>moves, getMaxMoves:maxMoves, getMatched:()=>matched
+      getMoves:()=>moves, getMaxMoves:maxMoves, getMatched:()=>matched,
+      get confettiFired(){ return _confettiFired; }
     };
   }
 })();

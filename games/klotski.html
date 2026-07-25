@@ -78,7 +78,7 @@
       {id:'s4',  name:'兵', r:3, c:2, w:1, h:1, cao:false, kind:'sol'},
     ];
   }
-  let pieces, moves, won, over, sel;
+  let pieces, moves, won, over, sel, _confettiFired = false;
   function buildGrid(){
     const g=Array.from({length:H},()=>new Array(W).fill(-1));
     for(const p of pieces){
@@ -108,7 +108,7 @@
     moves++;
     if(isWin()){ won=true; over=true; }
     if(typeof Juice!=='undefined'){
-      if(won){ Juice.sfx('levelup'); Juice.best('klotski', moves); if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      if(won){ Juice.sfx('levelup'); Juice.best('klotski', moves); if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
       else Juice.sfx('click');
     }
     return true;
@@ -123,10 +123,10 @@
   function getExit(){ return [EXIT_R,EXIT_C]; }
   function getSel(){ return sel; }
   function select(id){ sel = (sel===id)?null:id; }
-  function setPieces(arr){ pieces=arr.map(p=>({...p})); moves=0; won=false; over=false; sel=null; }
+  function setPieces(arr){ pieces=arr.map(p=>({...p})); moves=0; won=false; over=false; sel=null; _confettiFired=false; }
   function newGame(){
     pieces = startPieces();
-    moves=0; won=false; over=false; sel=null;
+    moves=0; won=false; over=false; sel=null; _confettiFired=false;
     // 从经典开局随机走若干步 → 产生变化且保证可解（合法走法可逆）
     const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
     let guard=0;
@@ -211,6 +211,7 @@
       W, H, EXIT_R, EXIT_C, SCRAMBLE,
       setRand, newGame, reset, move, isWin, isOver, getMoves,
       getPieces, getExit, getSel, select, setPieces, buildGrid,
+      get confettiFired() { return _confettiFired; },
     };
   }
 })();

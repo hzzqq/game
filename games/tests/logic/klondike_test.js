@@ -25,3 +25,20 @@ eq('弃牌清空', t.getState().waste.length, 0);
 // 通关
 t.setTableau([],[13,13,13,13],[],[]);
 ok('四座满即胜', t.isWin());
+
+// confetti 标记：四座收齐触发、重开复位
+ok('初始未标记 confetti', t.confettiFired === false);
+// 四列各放一张 K，逐一收牌触发 checkWin
+t.setTableau(
+  [[{s:0,r:13}],[{s:1,r:13}],[{s:2,r:13}],[{s:3,r:13}],[],[]],
+  [12,12,12,12],[],[]
+);
+t.moveTableauToFoundation(0);
+t.moveTableauToFoundation(1);
+t.moveTableauToFoundation(2);
+t.moveTableauToFoundation(3);
+ok('四座收齐即胜', t.isWin());
+ok('通关后标记 confetti', t.confettiFired === true);
+t.newGame(); // 重开
+ok('重开重置 confetti 标记', t.confettiFired === false);
+ok('重开未胜', t.isWin() === false);

@@ -60,4 +60,13 @@ T.collectPickup(0);
 H.eq('basketball: collectPickup 生效 +5', T.getScore(), 5);
 H.eq('basketball: collectPickup 后清空', T.getPickups().length, 0);
 
+// === confetti 视觉庆祝标记（首次进球触发，纯旁路，不改玩法）===
+T.reset();
+H.ok('basketball 初始未庆祝', T.confettiFired() === false);
+T.setHoop(330,110); T.setBall(330,110);
+T.shoot(0,0); // 球已落在篮筐处，直接命中
+H.ok('basketball 首次进球后庆祝标记置位', T.confettiFired() === true);
+T.reset();
+H.ok('basketball 重开后庆祝标记复位', T.confettiFired() === false);
+
 module.exports = {};

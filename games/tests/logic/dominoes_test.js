@@ -53,3 +53,13 @@ ok('多米诺出完获胜 over', t.isOver());
 let dthrew=false;
 try { t.triggerWinEffect(); } catch(e){ dthrew=true; }
 ok('triggerWinEffect 在 Juice 无 confetti 时不抛错', dthrew === false);
+
+// --- confetti 庆祝标记（旁路视觉，独立于 Juice 桩）---
+t.newGame();
+ok('dominoes 初始未庆祝', t.confettiFired() === false);
+t.setHands([[1,2]], [[3,3]]);
+t.place([1,2], 'right');        // 出完手牌 → 胜利
+ok('dominoes 胜利后标记庆祝', t.confettiFired() === true);
+t.newGame();
+ok('dominoes 新局重置庆祝标记', t.confettiFired() === false);
+

@@ -107,7 +107,7 @@
   };
   let diff='easy', R=9, C=9, M=10;
   let grid=[], open=[], flag=[], revealedCount=0, flagCount=0;
-  let started=false, dead=false, won=false;
+  let started=false, dead=false, won=false, _confettiFired=false;
   let flagMode=false, timer=0, timerId=null;
 
   function setDiff(d){ diff=d; const cfg=DIFFS[d]; R=cfg.r;C=cfg.c;M=cfg.m; }
@@ -120,7 +120,7 @@
     grid=new Array(R*C).fill(0);
     open=new Array(R*C).fill(false);
     flag=new Array(R*C).fill(false);
-    revealedCount=0; flagCount=0; started=false; dead=false; won=false; timer=0;
+    revealedCount=0; flagCount=0; started=false; dead=false; won=false; timer=0; _confettiFired=false;
     document.getElementById('time').textContent='000';
     document.getElementById('face').textContent='🙂';
 
@@ -236,7 +236,7 @@
       updateMineLeft(); render();
       document.getElementById('face').textContent='😎';
       showOverlay('🎉 通关！','用时 '+timer+' 秒 · 雷区全部标记');
-      if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+      if(!_confettiFired){ _confettiFired = true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     }
   }
 
@@ -285,7 +285,7 @@
       grid = g.slice();
       open = new Array(R * C).fill(false);
       flag = new Array(R * C).fill(false);
-      revealedCount = 0; flagCount = 0; started = true; dead = false; won = false;
+      revealedCount = 0; flagCount = 0; started = true; dead = false; won = false; _confettiFired = false;
     },
     getGrid() { return grid.slice(); },
     getState() {
@@ -293,7 +293,8 @@
         open: open.slice(), flag: flag.slice(),
         revealedCount, flagCount, dead, won, R, C, M
       };
-    }
+    },
+    confettiFired: function () { return _confettiFired; }
   };
 })();
 </script>

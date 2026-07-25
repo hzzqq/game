@@ -97,6 +97,18 @@ eq('舰长 [5,4,3,3,2]', JSON.stringify(t.SHIP_LENS), JSON.stringify([5,4,3,3,2]
   ok('胜利即 over', t.isOver()===true);
   eq('击沉数=5', t.getSunk(), 5);
 }
+
+// ---------- 胜利彩带标记（confettiFired）----------
+{
+  t.setRand(_rng);
+  t.reset();
+  ok('confettiFired 初始 false', t.confettiFired() === false);
+  const wships = t.getShips();
+  wships.forEach(s=>s.cells.forEach(p=>{ t.shoot(p.r,p.c); }));
+  ok('全击沉后 confettiFired=true', t.confettiFired() === true);
+  t.reset();
+  ok('重置后 confettiFired=false', t.confettiFired() === false);
+}
 {
   // over 后不再接受
   t.setRand(_rng);

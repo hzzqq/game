@@ -58,3 +58,21 @@ const { t } = H.loadGame('../chess.html');
   H.ok('简单档随机着法合法', legal.some(m => m.from[0]===mvE.from[0] && m.from[1]===mvE.from[1] && m.to[0]===mvE.to[0] && m.to[1]===mvE.to[1]));
   t.setDifficulty('normal'); t.setRand(Math.random);
 })();
+
+// ---------- 胜利 confetti 标记（将死黑方，确定性构造）----------
+(() => {
+  t.reset();
+  H.ok('confettiFired 初始 false', t.confettiFired === false);
+  const b = t.initialBoard();
+  for (let r = 0; r < 10; r++) for (let c = 0; c < 9; c++) b[r][c] = null;
+  b[0][4] = { side: 'b', type: 'G' };   // 黑将
+  b[0][0] = { side: 'r', type: 'R' };    // 红车（行0将军）
+  b[1][0] = { side: 'r', type: 'R' };    // 红车（封锁 (1,4)）
+  b[9][3] = { side: 'r', type: 'G' };    // 红帅（不在第4列，避免飞将自将）
+  t.setBoard(b);
+  t.turn = 'r';
+  t.doMove(9, 3, 8, 3); // 红帅走一步，黑方被将死无棋
+  H.ok('将死黑方后 confettiFired 置 true', t.confettiFired === true);
+  t.reset();
+  H.ok('reset 后 confettiFired 恢复 false', t.confettiFired === false);
+})();

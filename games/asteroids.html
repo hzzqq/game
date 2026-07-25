@@ -49,7 +49,8 @@
   let pickups, boostTimer, shield, rapid, spread, lives, over, spawnTimer;
   let wave=1, boss=null, ebullets=[];
   let _confettiFired=false; // Boss 击败 confetti 已触发（独立于 Juice 的只读测试锁）
-  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; rapid=0; spread=0; lives=3; over=false; spawnTimer=4; fireCd=0; wave=1; boss=null; ebullets=[]; _confettiFired=false; spawnWave(); }
+  let _fxShakes=0, _fxBursts=0; // Juice 手感只读计数（测试钩子，纯反馈层）
+  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; rapid=0; spread=0; lives=3; over=false; spawnTimer=4; fireCd=0; wave=1; boss=null; ebullets=[]; _confettiFired=false; _fxShakes=0; _fxBursts=0; spawnWave(); }
   function spawnWave(){ asteroids=[]; for(let i=0;i<4;i++) asteroids.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()*2-1)*30,vy:(Math.random()*2-1)*30,r:30}); }
   // ---------- Boss 系统（每 BOSS_EVERY 波出现：巨大多边形母体，多阶段 + 击败奖励）----------
   const BOSS_EVERY = 3;
@@ -147,7 +148,7 @@
   }
   function updatePickups(dt){ for(let i=pickups.length-1;i>=0;i--){ const p=pickups[i]; p.y+=p.vy*dt; p.life-=dt; const dx=p.x-ship.x, dy=p.y-ship.y; if(dx*dx+dy*dy < (p.r+SH)*(p.r+SH)){ applyPickup(p); continue; } if(p.life<=0 || p.y>H+20) pickups.splice(i,1); } if(boostTimer>0) boostTimer=Math.max(0,boostTimer-dt); if(rapid>0) rapid=Math.max(0,rapid-dt); if(spread>0) spread=Math.max(0,spread-dt); }
   function drawPickups(ctx){ for(const p of pickups){ const col=p.type==='rapid'?'#f0b90b':p.type==='spread'?'#3aa0ff':p.type==='shield'?'#02c076':p.type==='coin'?'#f0b90b':'#5ab4ff'; ctx.save(); ctx.beginPath(); ctx.arc(p.x,p.y,p.r+4,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fill(); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke(); ctx.fillStyle='#fff'; ctx.font='14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(p.sym||'★',p.x,p.y); ctx.restore(); } }
-  function takeHit(){ if(shield>0){ shield--; if(typeof Juice!=='undefined') Juice.flash('#02c076',.3); return; } lives--; if(lives<=0){ over=true; if(typeof Juice!=='undefined') Juice.flash('#f6465d',.5); } }
+  function takeHit(){ if(shield>0){ shield--; if(typeof Juice!=='undefined') Juice.flash('#02c076',.3); return; } lives--; _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5); if(lives<=0){ over=true; if(typeof Juice!=='undefined') Juice.flash('#f6465d',.5); } }
   function setAsteroids(a){ asteroids=a.map(o=>({...o})); }
   function setBullets(b){ bullets=b.map(o=>({...o})); }
   function getAsteroids(){ return asteroids.map(o=>({...o})); }
@@ -171,7 +172,7 @@
     const hit=[];
     for(let i=0;i<asteroids.length;i++){ for(let j=0;j<bullets.length;j++){ const a=asteroids[i],b=bullets[j]; const dx=a.x-b.x,dy=a.y-b.y; if(dx*dx+dy*dy<(a.r+BR)*(a.r+BR)){ hit.push([i,j]); break; } } }
     const deadA=new Set(),deadB=new Set();
-    for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= (a.r>20?20:10)*(boostTimer>0?2:1); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(a.x, a.y, {color:'#f0b90b'}); } if(a.r>20){ for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(Math.random()*2-1)*60,vy:(Math.random()*2-1)*60,r:20}); } if(pickupRng()<DROP_PROB){ const PT=['rapid','spread','shield']; pickups.push(makePickup(PT[(pickupRng()*PT.length)|0], a.x, a.y)); } } // 击碎按概率掉落增益
+    for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= (a.r>20?20:10)*(boostTimer>0?2:1); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(a.x, a.y, {color:'#f0b90b'}); } if(a.r>20){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.2); for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(Math.random()*2-1)*60,vy:(Math.random()*2-1)*60,r:20}); } if(pickupRng()<DROP_PROB){ const PT=['rapid','spread','shield']; pickups.push(makePickup(PT[(pickupRng()*PT.length)|0], a.x, a.y)); } } // 击碎按概率掉落增益
     asteroids=asteroids.filter((_,i)=>!deadA.has(i));
     bullets=bullets.filter((_,j)=>!deadB.has(j));
   }
@@ -189,7 +190,7 @@
     }
     spawnTimer-=dt; if(spawnTimer<=0){ spawnPickupAtRandom(); spawnTimer=3+pickupRng()*3; }
     updatePickups(dt);
-    if(!over && asteroids.length===0){ wave++; if(isBossWave(wave)) spawnBoss(); else spawnWave(); } // 清屏进下一波
+    if(!over && asteroids.length===0){ wave++; _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(W/2, H/2, {color:'#02c076', n:30, speed:200}); if(isBossWave(wave)) spawnBoss(); else spawnWave(); } // 清屏进下一波
   }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
@@ -245,7 +246,9 @@
     getEBullets:()=> ebullets.length,
     setShip:(x,y)=>{ ship.x=x; ship.y=y; },
     getWave:()=>wave,
-    confettiFired:()=> _confettiFired
+    confettiFired:()=> _confettiFired,
+    fxShakes:()=> _fxShakes,
+    fxBursts:()=> _fxBursts
   }; }
 })();
 </script>

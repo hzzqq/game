@@ -98,5 +98,35 @@ t.newGame(999);
   H.ok('成就: 跨 1000 里程碑触发 confettiFired', t.confettiFired() === true, 'score='+t.getScore());
 }
 
+// ===== 手感深化（Juice 反馈计数器） =====
+// 触发点：连锁消除（级联 depth ≥ 2）→ fxShakes++ + 守卫 Juice.shake(0.35) + fxBursts++ + 守卫 Juice.burst；
+//         单次消除 ≥ 4 珠 → fxBursts++ + 守卫 Juice.burst。计数器无条件递增，仅 Juice 调用受守卫。
+// 构造级联：底行 [1,1,1] 消除后，上方 [2,2,2] 经重力落到底行形成第二次消除（chain=2）。
+t.newGame(31);
+let fxa = t.fxShakes(), fub = t.fxBursts();
+H.eq('手感: 开局 fxShakes=0', fxa, 0);
+H.eq('手感: 开局 fxBursts=0', fub, 0);
+
+t.newGame(33);
+{
+  const g = blankBoard();
+  const Rb = t.ROWS - 1;
+  // 第一次消除：col0 纵向 [1,1,1]（rows Rb,Rb-1,Rb-2）。其上方 col0 有 [2,2]。
+  // 消除后 col0 的 2 落到 col1/col2 底部已有的 2，形成底行横向 [2,2,2]（第二次消除 → chain=2）。
+  g[Rb][0] = 1; g[Rb-1][0] = 1; g[Rb-2][0] = 1;
+  g[Rb-3][0] = 2; g[Rb-4][0] = 2;
+  g[Rb][1] = 2; g[Rb][2] = 2;
+  t.setBoard(g);
+  t.setCurrent({ x:5, cells:[9,9,9], y:0 }); // 远离，避免干扰
+  t.setScore(0);
+  t.clearMatches();  // 级联：chain=2
+  H.ok('手感: 连锁消除使 fxShakes>0', t.fxShakes() > 0, 'shakes='+t.fxShakes());
+  H.ok('手感: 连锁消除使 fxBursts>0', t.fxBursts() > 0, 'bursts='+t.fxBursts());
+}
+
+t.newGame(37);
+H.eq('手感: 重开后 fxShakes=0', t.fxShakes(), 0);
+H.eq('手感: 重开后 fxBursts=0', t.fxBursts(), 0);
+
 if (H.results.some(r => !r.pass)) process.exit(1);
 process.exit(0);

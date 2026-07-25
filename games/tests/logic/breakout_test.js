@@ -159,6 +159,24 @@ t.update(0.016);
 eq('通关 → state=levelcomplete', t.getState(), 'levelcomplete');
 ok('通关 → confettiFired 为真', t.confettiFired() === true);
 
+// ---------- 手感深化：通关屏震 / 粒子计数器（只读钩子，不改动玩法）----------
+(function(){
+  t.startGame();
+  eq('手感: 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 新局 fxBursts=0', t.fxBursts(), 0);
+
+  t.setBricks([]);                 // 清空所有砖块（仅驱动视觉反馈判定）
+  t.launch();
+  t.update(0.016);
+  ok('手感: 通关触发 fxShakes>0', t.fxShakes() > 0);
+  ok('手感: 通关触发 fxBursts>0', t.fxBursts() > 0);
+
+  t.startGame();
+  eq('手感: 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('手感: 重开 fxBursts=0', t.fxBursts(), 0);
+})();
+
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

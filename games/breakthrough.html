@@ -65,14 +65,18 @@
 
   let S; // {board:[64], turn, winner}
   let _wonPrev=false, winFx=0; // 胜利特效跳变防重 + 计数
+  let _fxShakes = 0, _fxBursts = 0; // 手感深化：屏震/粒子 只读计数钩子
   function newGame(){
     S={ board:new Array(64).fill(0), turn:RED, winner:0 };
     for(let c=0;c<SIZE;c++){ S.board[idx(0,c)]=RED; S.board[idx(1,c)]=RED; S.board[idx(6,c)]=BLACK; S.board[idx(7,c)]=BLACK; }
     _wonPrev=false; winFx=0;
+    _fxShakes = 0; _fxBursts = 0;
   }
   function fireWinFx(){ // 仅玩家(红)获胜时触发彩带 + 粒子，_wonPrev 跳变防重复
     if(S.winner===RED && !_wonPrev){
       _wonPrev=true; winFx++;
+      _fxShakes++;
+      if (typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
       if(typeof Juice!=='undefined'){
         if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
         if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:40, speed:160});
@@ -181,8 +185,10 @@
     if(S.winner!==0) return {ok:false,reason:'over'};
     const ok=legalMovesState(S).some(m=>m.from[0]===mv.from[0]&&m.from[1]===mv.from[1]&&m.to[0]===mv.to[0]&&m.to[1]===mv.to[1]);
     if(!ok) return {ok:false,reason:'illegal'};
+    const isCapture = mv.to[1] !== mv.from[1]; // 突破棋：吃子=斜前(列变化)
     applyMoveState(S,mv);
     if(typeof Juice!=='undefined') Juice.sfx('click');
+    if(isCapture){ _fxShakes++; if (typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.25); }
     fireWinFx();
     return {ok:true};
   }
@@ -278,6 +284,8 @@
     getBoard(){ return S.board.slice(); },
     DIFFICULTY, setDifficulty, getDifficulty, setRand,
     confettiFired(){ return winFx; },
+    fxShakes: () => _fxShakes,
+    fxBursts: () => _fxBursts,
   };
 })();
 </script>

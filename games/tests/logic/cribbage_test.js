@@ -122,3 +122,15 @@ eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
   ok('人类获胜触发 confettiFired', t.confettiFired());
 }
 
+// ===== Juice 手感深化（屏震 + 粒子爆发）只读计数钩子 =====
+t.newGame(777);
+eq('cribbage: 新局 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);
+// 驱动 His Heels（切牌为 J，rank=10）：scoreShow 触发屏震
+t.setup({ hands:[[4,17,35,48],[4,17,35,48]], crib:[4,17,35,48], dealer:0, phase:'show', peg:[0,0], starter:10 });
+t.scoreShow();
+ok('cribbage: His Heels 触发屏震', t.fxShakes() > 0, 'shakes=' + t.fxShakes());
+ok('cribbage: 大一手(≥8) 触发粒子爆发', t.fxBursts() > 0, 'bursts=' + t.fxBursts());
+// 重开新局计数归零
+t.newGame(777);
+eq('cribbage: 重开后 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);
+

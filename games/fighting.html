@@ -110,6 +110,7 @@ var ai=makeFighter(false);
 var pWins=0,aWins=0,round=1,phase='fight';
 var roundEndTimer=0,roundWinnerText='';
 var _confettiFired=false;   // 注入：胜利彩带只读锁（独立于 Juice，仅视觉状态）
+var _fxShakes = 0, _fxBursts = 0;
 
 var held={left:false,right:false,block:false};
 var pickups=[];            // 注入：浮动掉落（🔥怒气狂暴 / 🛡格挡）
@@ -131,7 +132,7 @@ function startAttack(f,type){
 function triggerBerserk(f){
   if(f.berserkTimer>0 || f.rage < 100) return false;
   f.rage = 0; f.berserkTimer = 5000;   // 毫秒计(与 specialCd/hitstun 同单位)，5 秒；曾误写 5 致一帧即过期
-  if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#f0b90b',0.3); Juice.burst(f.x, f.y+f.h*0.4, {color:'#f0b90b', n:16, speed:220}); Juice.achievement('狂暴 BERSERK!'); }
+  if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#f0b90b',0.3); Juice.burst(f.x, f.y+f.h*0.4, {color:'#f0b90b', n:16, speed:220}); Juice.achievement('狂暴 BERSERK!'); _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3); }
   return true;
 }
 function doAttack(type){ if(phase==='fight') startAttack(player,type); }
@@ -222,6 +223,7 @@ function checkHits(att,def){
     } else if(typeof Juice!=='undefined'){
       Juice.sfx('click');
       Juice.burst(def.x, def.y+def.h*0.4, {color:COL.gold, n:6, speed:120});
+      _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.15);
     }
     att.meter=Math.min(100, att.meter+(def.blocking?0.5:1.5));
     att.rage=Math.min(100, att.rage+(def.blocking?1:4));
@@ -250,7 +252,7 @@ function checkRoundEnd(){
     else { aWins++; roundWinnerText='ROUND LOSS'; }
     if(typeof Juice!=='undefined'){
       if(isDraw){ Juice.sfx('lose'); }
-      else if(ai.health<=0){ Juice.sfx('win'); Juice.flash('#02c076',0.25); Juice.achievement('第'+round+'局 你赢了！'); }
+      else if(ai.health<=0){ Juice.sfx('win'); Juice.flash('#02c076',0.25); Juice.achievement('第'+round+'局 你赢了！'); _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3); _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(400,180,{n:14}); }
       else { Juice.sfx('lose'); Juice.addTrauma(0.4); Juice.flash('#f6465d',0.3); }
     }
   }
@@ -456,6 +458,7 @@ function restart(){
   pWins=0; aWins=0; round=1; phase='fight';
   resetFighter(player,200); resetFighter(ai,600);
   _confettiFired=false;   // 注入：重置胜利彩带锁
+  _fxShakes = 0; _fxBursts = 0;
   hideOverlay();
 }
 
@@ -531,6 +534,7 @@ document.getElementById('restart').addEventListener('click',restart);
     takeHit: function(dmg){ takeHit(dmg); },
     // ---- 注入：胜利彩带只读/驱动钩子 ----
     confettiFired: function(){ return _confettiFired; },
+    fxShakes: function(){ return _fxShakes; }, fxBursts: function(){ return _fxBursts; },
     win: function(){ pWins=2; phase='matchend'; showOverlay(); }
   };
 

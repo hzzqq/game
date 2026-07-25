@@ -88,3 +88,22 @@ function isValidSolution(g) {
   t.place(wrong);              // 错误
   H.ok('数独 填错误值记一次错', t.mistakes === before + 1);
 })();
+
+// ===== 9) confetti 只读钩子范式（解出完整数独一次性标记）=====
+(() => {
+  t.setDifficulty('easy');
+  t.generate();
+  H.ok('数独 初始未触发庆祝', t.confettiFired() === false);
+  const sol = t.getSolution();
+  const given = t.getGiven();
+  let idx = -1;
+  for (let k = 0; k < 81; k++) { if (!given[k]) { idx = k; break; } }
+  const board = sol.slice();
+  board[idx] = 0;                 // 留空一个非给定格
+  t.setBoard(board);
+  t.setSel(idx);
+  t.place(sol[idx]);             // 填入正确值 → 胜利
+  H.ok('数独 解出后触发庆祝', t.confettiFired() === true);
+  t.generate();                   // 新局
+  H.ok('数独 新局重置未触发', t.confettiFired() === false);
+})();

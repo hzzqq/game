@@ -141,3 +141,16 @@ ok('isKing', t.isKing(t.REDking) && t.isKing(t.BLACKking) && !t.isKing(t.REDman)
 }
 
 console.log('checkers: 全部断言通过');
+
+// ---------- 胜利 confetti 标记 ----------
+{
+  t.newGame();
+  ok('confettiFired 初始 false', t.confettiFired === false);
+  const board = Array.from({length:8},()=>new Array(8).fill(0));
+  board[5][2]=t.REDman; board[4][3]=t.BLACKman;
+  t.setBoard(board); t.setTurn('red'); t.setPending(null);
+  t.applyMove(t.legalMoves()[0]); // 吃黑子 → 红胜
+  ok('吃光黑子后 confettiFired 置 true', t.confettiFired === true);
+  t.newGame();
+  ok('newGame 后 confettiFired 恢复 false', t.confettiFired === false);
+}

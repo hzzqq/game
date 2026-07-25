@@ -111,10 +111,10 @@
     return pick;
   }
 
-  let board, cur, over, winLine, record;
+  let board, cur, over, winLine, record, _confettiFired = false;
   function reset(){
     board = new Array(9).fill(EMPTY);
-    cur = HUMAN; over=false; winLine=null;
+    cur = HUMAN; over=false; winLine=null; _confettiFired=false;
     if(typeof record==='undefined') record={w:0,l:0,d:0};
   }
   function humanMove(pos){
@@ -133,8 +133,10 @@
     if(w!==null){
       over=true; cur=null;
       winLine = LINES.find(l=>board[l[0]]===w && board[l[1]]===w && board[l[2]]===w);
-      if(J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
-      if(w===HUMAN){ record.w++; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076'); } }
+      if(w===HUMAN){
+        if(!_confettiFired){ _confettiFired=true; if(J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+        record.w++; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#02c076'); }
+      }
       else { record.l++; if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.flash('#f6465d'); } }
       return true;
     }
@@ -200,6 +202,8 @@
       DIFFICULTY, setDifficulty, getDifficulty,
       getBoard:()=>board, getCur:()=>cur, isOver:()=>over, getWinLine:()=>winLine,
       getRecord:()=>record, setRecord:(r)=>{record=r;},
+      confettiFired: () => _confettiFired,
+      setBoardRaw: function(arr){ board = arr.slice(); cur = HUMAN; over=false; winLine=null; _confettiFired=false; },
     };
   }
 })();

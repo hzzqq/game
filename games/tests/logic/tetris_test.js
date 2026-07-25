@@ -211,3 +211,48 @@ H.eq('俄罗斯 rotateCW', t.rotateCW([[1,2],[3,4]]), [[3,1],[4,2]]);
   H.ok('建模 渲染后 level 不变', t.getLevel() === before.level);
   H.ok('建模 渲染后 grid 不变', JSON.stringify(t.getGrid()) === before.grid);
 })();
+
+// 16) 回归（缺陷修复）：clearLines 返回值曾被内层 const gained 遮蔽，恒返回 0。
+//     修复后应返回本次消行的实际消行分（不含软/硬降分）；未消行时返回 0。
+(() => {
+  const { t } = H.loadGame('../tetris.html');
+  t.startGame();
+  // 未消行 → 返回 0
+  H.eq('clearLines 无消行返回 0', t.clearLines(), 0);
+  // 消 1 行 @ level 1 → 返回 SCORE_TABLE[1]*1 = 100
+  const g = t.getGrid();
+  for (let c = 0; c < t.COLS; c++) g[t.ROWS - 1][c] = '#x';
+  t.setGrid(g);
+  const ret1 = t.clearLines();
+  H.eq('clearLines 消1行返回消行分(旧bug恒为0)', ret1, t.SCORE_TABLE[1] * 1, '返回 ' + ret1);
+  // 消 2 行 @ level 1 → 返回 SCORE_TABLE[2]*1 = 300
+  const g2 = t.getGrid();
+  for (let c = 0; c < t.COLS; c++) { g2[t.ROWS - 1][c] = '#x'; g2[t.ROWS - 2][c] = '#x'; }
+  t.setGrid(g2);
+  const ret2 = t.clearLines();
+  H.eq('clearLines 消2行返回 SCORE_TABLE[2]*level', ret2, t.SCORE_TABLE[2] * 1, '返回 ' + ret2);
+  // 返回值与 score 增量自洽（此处无降落分，二者应相等）
+  H.eq('clearLines 返回值与 score 增量自洽', t.getScore(), t.SCORE_TABLE[1] + t.SCORE_TABLE[2]);
+  t.setRand(Math.random);
+})();
+
+// ===== 17) confetti 只读钩子范式（首次 Tetris 消 4 行一次性标记）=====
+(() => {
+  t.startGame();
+  H.ok('俄罗斯 初始未触发庆祝', t.confettiFired() === false);
+  // 底部 4 行填满仅留一列空，竖直 I 落于该列 → 一次消 4 行
+  const EMPTY = 2;                     // 参考测试 #12：旋转后实心在 matrix 第 2 列 → grid 列 = p.x+2
+  const g = t.getGrid();
+  for (let r = t.ROWS - 4; r < t.ROWS; r++)
+    for (let c = 0; c < t.COLS; c++) g[r][c] = '#x';
+  for (let r = t.ROWS - 4; r < t.ROWS; r++) g[r][EMPTY] = null;
+  t.setGrid(g);
+  const p = t.makePiece('I');
+  p.matrix = t.rotateCW(p.matrix);   // 竖直 I，实心在 matrix 第 2 列
+  p.x = EMPTY - 2; p.y = 0;            // grid 列 = p.x+2 = EMPTY
+  t.setCurrent(p);
+  t.hardDrop();
+  H.ok('俄罗斯 一次消 4 行(Tetris)触发庆祝', t.confettiFired() === true);
+  t.startGame();
+  H.ok('俄罗斯 新局重置未触发', t.confettiFired() === false);
+})();

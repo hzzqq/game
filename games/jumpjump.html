@@ -78,6 +78,7 @@
   const MILESTONE_STEP = 50;
   let confettiFx = 0;
   let nextMilestone = MILESTONE_STEP;
+  let _fxShakes = 0, _fxBursts = 0;   // 手感深化：屏震/粒子计数（只读钩子 fxShakes/fxBursts）
   function milestoneFire(){ confettiFx++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
   function checkMilestone(){ if(score >= nextMilestone){ nextMilestone += MILESTONE_STEP; milestoneFire(); } }
 
@@ -96,7 +97,7 @@
   }
   function applyPickup(type){
     if(type && typeof type==='object') type = type.type;   // 兼容对象式调用
-    if(type==='coin'){ score += COIN_VALUE; if(J) J.sfx&&J.sfx('pickup'); }
+    if(type==='coin'){ score += COIN_VALUE; _fxBursts++; if(J) J.burst&&J.burst(player.x, player.y, {n:14, color:'#f0b90b', speed:170}); if(J) J.sfx&&J.sfx('pickup'); }
     else if(type==='shield'){ player.shield = (player.shield||0)+1; if(J) J.sfx&&J.sfx('pickup'); }
     else if(type==='boost'){ player.boost = BOOST_DUR; if(J) J.sfx&&J.sfx('pickup'); }
     checkMilestone();
@@ -139,6 +140,7 @@
     spawnTimer = 0;
     score = 0; maxClimbY = START_Y; gameOver = false;
     confettiFx = 0; nextMilestone = MILESTONE_STEP;
+    _fxShakes = 0; _fxBursts = 0;
     player = { x: W/2, y: START_Y, vx:0, vy: JUMP_V, r: R, shield: 0, boost: 0, onGround:false };
     cam = player.y - H*0.7;
     platforms.push({ x: W/2 - PLAT_W/2, y: START_Y + 18, w: PLAT_W }); // 起始平台
@@ -217,10 +219,12 @@
         player.shield--;
         player.y = cam + H*0.5;
         player.vy = JUMP_V;
+        _fxBursts++; if(J) J.burst&&J.burst(player.x, player.y, {n:16, color:'#02c076', speed:200});
         if(J) J.flash&&J.flash('#02c076', .3);
         if(J) J.sfx&&J.sfx('hit');
       } else {
         gameOver = true;
+        _fxShakes++; if(J) J.shake&&J.shake(0.5);   // 坠落失败 → 屏震
         if(J) J.sfx&&J.sfx('lose');
         if(J) J.best&&J.best('jumpjump', score);
       }
@@ -336,6 +340,8 @@
       getBoost:()=>player.boost, setBoost:(v)=>{ player.boost=v; },
       applyPickup, stepPickups,
       confettiFired:()=>confettiFx,
+      fxShakes:()=>_fxShakes,
+      fxBursts:()=>_fxBursts,
     };
   }
 })();

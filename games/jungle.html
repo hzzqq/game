@@ -63,6 +63,7 @@
   function setDifficulty(d){ if(DIFFICULTY[d]){ difficulty=d; return true; } return false; }
   function getDifficulty(){ return difficulty; }
   let board, turn, over, winner, sel, _wonPrev=false;
+  let _fxShakes = 0, _fxBursts = 0;   // 手感深化：屏震/粒子计数（只读钩子 fxShakes/fxBursts）
   let pickups, shield, boostTimer, lives, score, _dropTimer;
   function newGame(){
     board=Array.from({length:R},()=>new Array(C).fill(null));
@@ -74,6 +75,7 @@
     set(8,6,'b',7); set(8,0,'b',6); set(7,5,'b',3); set(7,1,'b',2);
     set(6,6,'b',1); set(6,4,'b',5); set(6,2,'b',4); set(6,0,'b',8);
     turn='b'; over=false; winner=null; sel=null; _wonPrev=false;
+    _fxShakes = 0; _fxBursts = 0;
     pickups=[]; shield=0; boostTimer=0; lives=3; score=0; _dropTimer=5;
   }
   function isWater(r,c){ return (r>=3&&r<=5)&&(c===1||c===2||c===4||c===5); }
@@ -102,7 +104,13 @@
     board[tr][tc]=p; board[fr][fc]=null;
     updatePickups(0);
     _dropTimer -= 1; if(_dropTimer<=0){ spawnPickupAtRandom(); _dropTimer=5; }
-    if(target){ Juice.sfx('hit'); Juice.addTrauma(.25); }
+    if(target){
+      Juice.sfx('hit');
+      // 手感深化：大兽吃小兽 → 粒子爆发；落入敌方陷阱被吃 → 更强屏震
+      const _trapEat = isTrap(tr,tc) && isTrap(tr,tc)!==target.side;
+      _fxShakes++; if (typeof Juice!=='undefined' && Juice.shake) Juice.shake(_trapEat?0.3:0.25);
+      _fxBursts++; if (typeof Juice!=='undefined' && Juice.burst) Juice.burst(tr*56+28, tc*56+28, {n:14, color:'#f0b90b'});
+    }
     if(den && den!==turn){ over=true; winner=turn; if(!_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } Juice.sfx('win'); Juice.flash('#02c076',.5); return true; }
     turn = turn==='b'?'w':'b';
     return true;
@@ -253,7 +261,9 @@
       getScore(){ return score; },
       DIFFICULTY, setDifficulty, getDifficulty, setRand,
       aiTurn, aiChoose, legalMovesFor,
-      confettiFired(){ return _wonPrev; } };
+      confettiFired(){ return _wonPrev; },
+      fxShakes(){ return _fxShakes; },
+      fxBursts(){ return _fxBursts; } };
   }
 })();
 </script>

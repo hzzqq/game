@@ -63,18 +63,18 @@
   const PICKUP_VY = 38, PICKUP_LIFE = 12, SHIP_R = SHIP_H*0.6;
   const FUEL_REFILL = 40, STABLE_DUR = 4, SPAWN_INTERVAL = 5;
 
-  let ship, over, won, stars=[];
+  let ship, over, won, stars=[], _confettiFired=false;
   let pickups=[], score=0, spawnTimer=0;
   let input={thrust:false,left:false,right:false};
 
   function reset(){
     ship={ x:W/2, y:40, vx:( _rng()*2-1)*10, vy:6, angle:0, fuel:100, thrusting:false, shield:0, stableT:0, r:SHIP_R };
     over=false; won=false; input={thrust:false,left:false,right:false};
-    pickups=[]; score=0; spawnTimer=SPAWN_INTERVAL;
+    pickups=[]; score=0; spawnTimer=SPAWN_INTERVAL; _confettiFired=false;
   }
   function start(){ reset(); }
 
-  function setShip(s){ Object.assign(ship, s); over=false; won=false; }
+  function setShip(s){ Object.assign(ship, s); over=false; won=false; _confettiFired=false; }
 
   function evaluateLanding(){
     const touched = (ship.y + SHIP_H/2) >= GROUND;
@@ -111,7 +111,11 @@
     ship.y += ship.vy*dt;
     if(ship.x < 0 || ship.x > W){ over=true; won=false; ship.status='crashed'; return getState(); }
     const res=evaluateLanding();
-    if(res==='landed'){ over=true; won=true; ship.status='landed'; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('月球软着陆'); } }
+    if(res==='landed'){
+      over=true; won=true; ship.status='landed';
+      if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, { n:120, life:2.4 }); }
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('月球软着陆'); }
+    }
     else if(res==='crashed'){
       // 护盾优先消耗、无盾才判失败（注入式分支，shield=0 时行为不变）
       if(ship.shield > 0){
@@ -232,7 +236,8 @@
       getShield:()=>ship.shield||0, setShield:(v)=>{ ship.shield=v; },
       getFuel:()=>ship.fuel, setFuel:(v)=>{ ship.fuel=Math.max(0,Math.min(100,v)); },
       getStable:()=>ship.stableT||0, setStable:(v)=>{ ship.stableT=v; },
-      getScore:()=>score, setScore:(v)=>{ score=v; } };
+      getScore:()=>score, setScore:(v)=>{ score=v; },
+      get confettiFired(){ return _confettiFired; } };
   }
 })();
 </script>

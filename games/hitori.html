@@ -57,6 +57,7 @@
   let sol;     // N×N 规范解黑格 bool
   let won = false;
   let confettiFired = false;
+  let _fxShakes=0, _fxBursts=0;   // 手感深化：反馈层计数器（不改动玩法）
 
   // ---- 生成拉丁方（每行每列 1..N 互异）----
   function genLatin(){
@@ -121,6 +122,7 @@
     sol = genBlack();
     black = Array.from({length:N},()=>new Array(N).fill(false));
     won = false;
+    _fxShakes=0; _fxBursts=0;
     return getState();
   }
 
@@ -156,6 +158,8 @@
     if(r<0||r>=N||c<0||c>=N) return false;
     black[r][c]=!!val;
     won=isWin();
+    if(won){ _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(PAD+c*CELL+CELL/2, PAD+r*CELL+CELL/2, {n:14}); }
+    if(!won && black[r][c]!==!!sol[r][c]){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.15); }
     if(won&&J) J.sfx('levelup');
     return true;
   }
@@ -163,11 +167,13 @@
     if(r<0||r>=N||c<0||c>=N) return false;
     black[r][c]=!black[r][c];
     won=isWin();
+    if(won){ _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(PAD+c*CELL+CELL/2, PAD+r*CELL+CELL/2, {n:14}); }
+    if(!won && black[r][c]!==!!sol[r][c]){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.15); }
     if(won&&J) J.sfx('levelup');
     return true;
   }
-  function reset(){ black=Array.from({length:N},()=>new Array(N).fill(false)); won=false; return getState(); }
-  function applySolution(){ black=sol.map(row=>row.slice()); won=isWin(); return won; }
+  function reset(){ black=Array.from({length:N},()=>new Array(N).fill(false)); won=false; _fxShakes=0; _fxBursts=0; return getState(); }
+  function applySolution(){ black=sol.map(row=>row.slice()); won=isWin(); if(won){ _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(PAD+N*CELL/2, PAD+N*CELL/2, {n:14}); } return won; }
   function getSolution(){ return sol.map(row=>row.slice()); }
   function getState(){ return { N, grid:grid.map(r=>r.slice()), black:black.map(r=>r.slice()), sol:sol.map(r=>r.slice()), won }; }
 
@@ -222,7 +228,7 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setBlack, toggleBlack, applySolution, getSolution, getState };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setBlack, toggleBlack, applySolution, getSolution, getState, fxShakes: () => _fxShakes, fxBursts: () => _fxBursts };
   }
 })();
 </script>

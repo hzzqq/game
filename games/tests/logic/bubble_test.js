@@ -117,4 +117,24 @@ t.checkEnd();
 H.eq('通关 → state=won', t.getState(), 'won');
 H.ok('通关 → confettiFired 为真', t.confettiFired() === true);
 
+// ---- 手感深化：屏震/粒子 只读计数钩子 ----
+t.newGame();
+H.eq('bubble: 新局 fxShakes=0', t.fxShakes(), 0);
+H.eq('bubble: 新局 fxBursts=0', t.fxBursts(), 0);
+// 驱动：大簇消除(≥6 同色) → 屏震 + 粒子
+t.newGame();
+var g = blankGrid();
+for (var c = 0; c < 6; c++) put(g, 0, c, 0);   // 顶部一行 6 连
+t.setGrid(g);
+var sh0 = t.fxShakes(), bu0 = t.fxBursts();
+t.resolveAt(0, 6, 0);                          // 落第 7 颗，触发 ≥6 簇消除
+var gg2 = t.getGrid();
+H.ok('bubble: 大簇消除清空 7 连', gg2[0][0] === -1 && gg2[0][6] === -1, '0,0=' + gg2[0][0] + ' 0,6=' + gg2[0][6]);
+H.ok('bubble: 大簇消除触发屏震 fxShakes>0', t.fxShakes() > sh0, 'fxShakes=' + t.fxShakes());
+H.ok('bubble: 大簇消除触发粒子 fxBursts>0', t.fxBursts() > bu0, 'fxBursts=' + t.fxBursts());
+// 重开归零
+t.newGame();
+H.eq('bubble: 重开 fxShakes=0', t.fxShakes(), 0);
+H.eq('bubble: 重开 fxBursts=0', t.fxBursts(), 0);
+
 module.exports = {};

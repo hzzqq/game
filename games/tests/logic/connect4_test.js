@@ -19,3 +19,19 @@ const { t } = H.loadGame('../connect4.html');
   const n = empty.map(x => x.slice()); n[5][0] = 1; n[5][1] = 1; n[5][2] = 1;
   t.setBoard(n); H.ok('四子棋 三连非胜', t.checkWin(5, 2, 1) === null);
 })();
+
+// ---------- 胜利 confetti 标记（竖直四连，确定性驱动）----------
+(() => {
+  t.reset();
+  H.ok('confettiFired 初始 false', t.confettiFired === false);
+  const b = t.getBoard();
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 7; c++) b[r][c] = 0;
+  b[5][0] = 1; b[4][0] = 1; b[3][0] = 1; // 底部三红，待落第4子
+  t.setBoard(b);
+  t.current = 1; // 红方
+  t.dropAt(0);   // 落下动画（不依赖 rAF 循环）
+  t.commitDrop(); // 提交 → checkWin 四连 → endGame
+  H.ok('竖直四连胜利后 confettiFired 置 true', t.confettiFired === true);
+  t.reset();
+  H.ok('reset 后 confettiFired 恢复 false', t.confettiFired === false);
+})();

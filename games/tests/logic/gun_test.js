@@ -339,6 +339,28 @@ ok('击败 Boss → confettiFired 为 true', t.confettiFired() === true);
 t.reset();
 ok('重开后 confettiFired 复位为 false', t.confettiFired() === false);
 
+// ===== 手感深化（P-juice）：_fxShakes / _fxBursts 钩子 =====
+t.reset();
+eq('gun: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('gun: 初始 fxBursts=0', t.fxBursts(), 0);
+
+// 新波开始（波次清空）→ burst 触发
+t.reset();
+t.setEnemies([]); t.setWave(0);
+t.nextWave();
+ok('gun: 新波开始触发 fxBursts>0', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+
+// Boss 出现 → shake + burst 触发
+t.reset(); t.setEnemies([]); t.setWave(3);
+t.spawnBoss();
+ok('gun: Boss 出现触发 fxShakes>0', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+ok('gun: Boss 出现触发 fxBursts>0', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+
+// newGame(reset) 后归零
+t.reset();
+eq('gun: reset 后 fxShakes=0', t.fxShakes(), 0);
+eq('gun: reset 后 fxBursts=0', t.fxBursts(), 0);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

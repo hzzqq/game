@@ -62,3 +62,16 @@ const W = t.W;
   H.eq('回弹后贴右界 x=W-50', c.x, W-50);
   H.eq('回弹后方向反转', c.dir, -1);
 })();
+
+// ===== confetti 完成特效标记（叠塔达标）=====
+(function () {
+  t.reset();
+  t.setTarget(2);
+  t.setBlocks([{x:0, w:200}]);
+  t.setCurrent({x:0, w:200, dir:1});
+  H.ok('towerstack: 达标前未标记 confettiFired', t.confettiFired() === false);
+  t.drop(); // 叠到 2 层 → 胜利
+  H.ok('towerstack: 叠塔达标后标记 confettiFired', t.confettiFired() === true);
+  t.reset();
+  H.ok('towerstack: 重开后 confettiFired 复位 false', t.confettiFired() === false);
+})();

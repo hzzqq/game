@@ -106,7 +106,10 @@
   // 核心状态（普通 JS 变量，逻辑脱离 DOM）
   let player, platforms, cam, score, maxClimbY, gameOver, pickups, spawnTimer;
   let confettiFx = 0;       // 成就命中次数（只读钩子 confettiFired）
-  function milestoneFire(){ confettiFx++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+  let _fxShakes = 0, _fxBursts = 0;   // Juice 手感计数（只读钩子）
+  function milestoneFire(){ confettiFx++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.25);
+    _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#f0b90b', n:16, speed:240}); }
   let boss = null;                      // 生存型 Boss：{x,y,w,h,hp,maxHp,phase,dir,vx,fireT,climbRef}
   let wave = 0;                         // 当前高度里程碑（=Boss 波计数）
   let bossWaveMark = -1;                // 已为哪个里程碑生成过 Boss（避免重复触发）
@@ -127,7 +130,8 @@
   }
   function applyPickup(type){
     if(type && typeof type==='object') type = type.type;   // 兼容对象式调用
-    if(type==='spring'){ player.vy = SPRING_V; if(J) J.sfx&&J.sfx('pickup'); }
+    if(type==='spring'){ player.vy = SPRING_V; if(J) J.sfx&&J.sfx('pickup');
+      _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(player.x, player.y - cam, {color:'#02c076', n:14, speed:260}); }
     else if(type==='rocket'){ player.rocketTimer = ROCKET_DUR; if(J) J.sfx&&J.sfx('pickup'); }
     else if(type==='shield'){ player.shield = (player.shield||0)+1; if(J) J.sfx&&J.sfx('pickup'); }
     else if(type==='star'){ score += STAR_VALUE; if(J) J.sfx&&J.sfx('pickup'); }
@@ -216,6 +220,7 @@
       gameOver = true;
       if(J) J.sfx && J.sfx('lose');
       if(J) J.best && J.best('doodlejump', score);
+      _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
     }
   }
 
@@ -248,7 +253,7 @@
     pickups = [];
     spawnTimer = 0;
     score = 0; maxClimbY = START_Y; gameOver = false;
-    confettiFx = 0;
+    confettiFx = 0; _fxShakes = 0; _fxBursts = 0;
     boss = null; bossRocks = []; wave = 0; bossWaveMark = -1;   // Boss 状态复位
     player = { x: W/2, y: START_Y, vy: JUMP_V, r: R, shield: 0, rocketTimer: 0 };
     cam = player.y - H*0.7;
@@ -309,6 +314,7 @@
                 gameOver = true;
                 if(J) J.sfx&&J.sfx('lose');
                 if(J) J.best&&J.best('doodlejump', score);
+                _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
               }
               break;
             }
@@ -353,6 +359,7 @@
         gameOver = true;
         if(J) J.sfx&&J.sfx('lose');
         if(J) J.best&&J.best('doodlejump', score);
+        _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
       }
     }
   }
@@ -536,6 +543,7 @@
       getRocks:()=>bossRocks.length,
       takeBossHit,
       confettiFired:()=>confettiFx,
+      fxShakes:()=>_fxShakes, fxBursts:()=>_fxBursts,
     };
   }
 })();

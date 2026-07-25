@@ -133,3 +133,33 @@ const total = results.length;
 const pass = results.filter(r => r.pass).length;
 console.log(`\nmemory: ${pass}/${total} 通过`);
 if (pass !== total) process.exit(1);
+
+// ===== _confettiFired 只读钩子范式：胜利彩带标记（纯视觉，不改玩法） =====
+(function () {
+  // 1) 初始未触发
+  t.newGame(4);
+  eq('memory: 初始 confettiFired=false', t.confettiFired(), false);
+
+  // 2) 驱动到胜利（全部配对）→ 触发
+  const cs = t.getCards();
+  const byKey = {};
+  cs.forEach((c, i) => { (byKey[c.key] = byKey[c.key] || []).push(i); });
+  Object.keys(byKey).forEach(k => { const [a, b] = byKey[k]; t.flip(a); t.flip(b); t.resolvePair(); });
+  eq('memory: 全部配对后 isWon=true', t.isWon(), true);
+  eq('memory: 胜利后 confettiFired=true', t.confettiFired(), true);
+  // 重复 celebrate 不应二次置位（被 _confettiFired 守卫）
+  t.triggerWinEffect();
+  eq('memory: 重复庆祝仍 confettiFired=true', t.confettiFired(), true);
+
+  // 3) 重开新局 → 重置为 false
+  t.newGame(4);
+  eq('memory: 重开后 confettiFired=false', t.confettiFired(), false);
+})();
+
+// ===== confetti 钩子汇总（覆盖旧断言，确保 exit 0） =====
+{
+  const allTotal = results.length;
+  const allPass = results.filter(r => r.pass).length;
+  console.log(`memory(confetti-hook): ${allPass}/${allTotal} 通过`);
+  if (allPass !== allTotal) process.exit(1);
+}

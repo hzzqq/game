@@ -215,6 +215,15 @@ ok('makePickup+applyPickup energy +50', fe2.energy === 80, 'energy='+fe2.energy)
 var threwF=false; try { t.forceWin(); } catch(e){ threwF=true; }
 ok('forceWin 不抛错', !threwF);
 
+// --- confetti 庆祝标记（旁路视觉，独立于 Juice 桩）---
+t.beginMatch();
+ok('fight 初始未庆祝', t.confettiFired() === false);
+t.forceWin();                   // 触发胜利彩带
+ok('fight 胜利后标记庆祝', t.confettiFired() === true);
+t.beginMatch();
+ok('fight 重开对局重置标记', t.confettiFired() === false);
+
+
 // 手感 spawnParticle 不抛错 + 不消耗 Math.random
 var _o=Math.random, _c=0; Math.random=function(){_c++;return _o();};
 var threwP=false;

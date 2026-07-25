@@ -252,3 +252,27 @@ const defeated = t.updateBoss(0.016);
 ok('Boss 击败返回 true', defeated === true);
 ok('Boss 击败 → confettiFired 为真', t.confettiFired() === true);
 
+// ===== Juice 手感钩子测试（追加，不改旧断言）=====
+(function(){
+  // 1) 新局归零
+  t.reset();
+  eq('[fx] asteroids 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] asteroids 新局 fxBursts=0', t.fxBursts(), 0);
+  // 2) 大陨石分裂 → shake
+  t.setAsteroids([{x:100,y:100,vx:0,vy:0,r:40}]);
+  t.setBullets([{x:100,y:100,vx:0,vy:0}]);
+  t.step(0.016);
+  ok('[fx] asteroids 大陨石分裂 → fxShakes>0', t.fxShakes() > 0);
+  // 3) 玩家被击中 → shake
+  t.reset(); t.setLives(3); t.takeHit();
+  ok('[fx] asteroids 玩家被击中 → fxShakes>0', t.fxShakes() > 0);
+  // 4) 波次清空 → burst
+  t.reset(); t.setAsteroids([]); t.step(0.016);
+  ok('[fx] asteroids 波次清空 → fxBursts>0', t.fxBursts() > 0);
+  // 5) 重开归零
+  t.reset();
+  eq('[fx] asteroids 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('[fx] asteroids 重开 fxBursts=0', t.fxBursts(), 0);
+  console.log('\nasteroids[fx]: 全部断言通过');
+})();
+

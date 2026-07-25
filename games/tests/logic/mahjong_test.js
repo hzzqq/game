@@ -108,6 +108,14 @@ let mthrew2=false;
 try { t.winGame(0,'自摸'); } catch(e){ mthrew2=true; }
 ok('mahjong winGame 胜利路径不抛错', mthrew2 === false);
 
+// 11. 胜利 confetti 标记（P4：纯视觉，整局仅一次，绝不改玩法/判定）
+t.newGame();
+ok('mahjong: 新局未标记 confetti', t.confettiFired === false);
+t.winGame(0, '自摸');
+ok('mahjong: 胜利后标记 confetti', t.confettiFired === true);
+t.newGame();
+ok('mahjong: 重开后 confetti 复位', t.confettiFired === false);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

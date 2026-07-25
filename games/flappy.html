@@ -98,6 +98,7 @@
 
     var state, bird, pipes, score, best, spawnX, flashMsg, groundHit;
     var confettiFiredFlag = false;   // 成就反馈：破最高分时置真（跳变防重复）
+    var _fxShakes = 0, _fxBursts = 0;
     best = (typeof Juice !== 'undefined') ? (Juice.load('best_flappy', 0) || 0) : 0;
 
     // 局部种子 PRNG（mulberry32）：注入掉落随机必须走它，禁止 Math.random
@@ -123,6 +124,7 @@
       groundHit = false;
       lives = 1; boostUntil = 0; shieldUntil = 0; pickups = []; pickupTimer = 0;
       confettiFiredFlag = false;
+      _fxShakes = 0; _fxBursts = 0;
       GAP = Math.round(BASE_GAP * diffCfg().gapMult);
       PIPE_SPD = BASE_PIPE_SPD * diffCfg().spdMult;
       reseed(0xF1A9B0B & 0xFFFFFFFF);
@@ -219,6 +221,11 @@
         if (!p.scored && p.x + PIPE_W < bird.x) {
           p.scored = true; score++;
           if (typeof Juice !== 'undefined') { Juice.sfx('pickup'); Juice.popup(bird.x, bird.y - 24, '+1', COL.gold, { size: 18 }); }
+          // 手感：连续过 10 根管道里程碑 → 屏震 + 粒子爆发
+          if (score > 0 && score % 10 === 0) {
+            _fxShakes++; if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.15);
+            _fxBursts++; if (typeof Juice !== 'undefined' && Juice.burst) Juice.burst(bird.x, bird.y, { n: 14, color: COL.gold });
+          }
         }
       }
       // 回收越界管道并补新
@@ -243,6 +250,7 @@
             confettiFiredFlag = true;
             if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
             if (typeof Juice !== 'undefined') Juice.burst(bird.x, bird.y, { color: '#f0b90b', n: 14, speed: 200 });
+            _fxShakes++; if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.3);   // 手感：破纪录达成 → 屏震
           }
         }
       }
@@ -386,7 +394,8 @@
         pipes: pipes.map(function (p) { return { x: p.x, gapY: p.gapY, scored: p.scored }; }),
         pickups: pickups.map(function (p) { return { x: p.x, y: p.y, type: p.type }; }) }; },
       // —— 成就反馈只读钩子（破最高分置真，跳变防重复）——
-      confettiFired: function () { return confettiFiredFlag; }
+      confettiFired: function () { return confettiFiredFlag; },
+      fxShakes: function () { return _fxShakes; }, fxBursts: function () { return _fxBursts; }
     };
 
     reset();

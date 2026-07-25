@@ -192,3 +192,16 @@ t.setRand(Math.random);
   H.ok('bossHpMult 地狱 Boss 血量 > 简单', hHp > eHp);
   t.setDifficulty('normal');
 }
+
+// ===== 胜利/里程碑 confetti 标记 =====
+{
+  t.reset();
+  H.ok('confettiFired 初始 false', t.confettiFired === false);
+  // 驱动到首次击破 Boss（里程碑胜利态）
+  t.start(); t.setLives(9); t.setWave(3); t.spawnBoss();
+  t.setBossHp(30); t.update(1.0);
+  H.ok('击败 Boss 后 confettiFired 置 true', t.confettiFired === true);
+  // 重开新局恢复 false
+  t.reset();
+  H.ok('reset 后 confettiFired 恢复 false', t.confettiFired === false);
+}

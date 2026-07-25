@@ -77,6 +77,7 @@
     const G=8; // 网格 8x8
     const DIR={right:[1,0],left:[-1,0],up:[0,-1],down:[0,1]};
     let S=null;
+    let _confettiFired = false;
     function fresh(){
       return {
         grid:G, start:{x:0,y:0,dir:'right'}, target:{x:0,y:0},
@@ -98,7 +99,7 @@
 
     function key(x,y){return x+','+y;}
 
-    function reset(){ S=fresh(); syncHud(); }
+    function reset(){ S=fresh(); _confettiFired=false; syncHud(); }
     function start(){
       reset();
       if(typeof document!=='undefined'){const o=document.getElementById('overlay');if(o)o.style.display='none';}
@@ -139,6 +140,7 @@
         if(m){ const [ndx,ndy]=reflect(dx,dy,m); dx=ndx; dy=ndy; }
       }
       S.beam=path; S.won=won;
+      if(won && !_confettiFired){ _confettiFired=true; if(J && J.confetti) J.confetti(W/2, H/2, {n:120, life:2.4}); }
     }
 
     function update(){ recompute(); syncHud(); }
@@ -169,7 +171,8 @@
       getBoost(){ return S.boostTimer; }, setBoost(v){ S.boostTimer=v; },
       getLives(){ return S.lives; }, setLives(n){ S.lives=n; },
       getScore(){ return S.score; },
-      setRand(seed){ pickupRng=mk(seed>>>0); }
+      setRand(seed){ pickupRng=mk(seed>>>0); },
+      get confettiFired() { return _confettiFired; },
     };
 
     // 渲染

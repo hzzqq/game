@@ -110,3 +110,15 @@ t.update();
 H.eq('回归: 布阵仍命中目标', t.getState().won, true);
 // 还原掉落 PRNG 为默认随机流（确定性块结束）
 t.setRand(Math.random);
+
+// ===== confetti：激光命中后完成特效标记（纯追加，不改上方旧断言）=====
+(() => {
+  const { t: lt } = H.loadGame('../lazermaze.html');
+  H.ok('lazermaze confetti: 初始未标记', lt.confettiFired === false);
+  lt.setStart(0, 0, 'right');
+  lt.setTarget(7, 0); // 直线向右，无镜面 → 命中
+  H.ok('lazermaze confetti: 直线激光命中目标', lt.getState().won === true);
+  H.ok('lazermaze confetti: 命中后标记完成特效', lt.confettiFired === true);
+  lt.reset();
+  H.ok('lazermaze confetti: 重置恢复未标记', lt.confettiFired === false);
+})();

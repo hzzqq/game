@@ -58,7 +58,7 @@
   function shuffleArr(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rand()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
 
   let grid; // grid[r][c] = symbol id (1..SYMS) or 0
-  let score, sel, combo, gameOver, celebrated=false;
+  let score, sel, combo, gameOver, celebrated=false, _confettiFired = false;
 
   function initGrid(){
     const total = ROWS*COLS; // 72
@@ -70,7 +70,7 @@
     grid = [];
     for(let r=0;r<ROWS;r++){ grid.push(cells.slice(r*COLS, r*COLS+COLS)); }
   }
-  function reset(){ initGrid(); score=0; sel=null; combo=0; gameOver=false; celebrated=false; }
+  function reset(){ initGrid(); score=0; sel=null; combo=0; gameOver=false; celebrated=false; _confettiFired=false; }
   function countLeft(){ let n=0; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(grid[r][c]!==0) n++; return n; }
   function isWin(){ return countLeft()===0; }
 
@@ -188,7 +188,7 @@
 
   function celebrate(){
     celebrated = true;
-    if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
   }
   function spawnParticle(x,y,color){
     if(typeof Juice==='undefined') return;
@@ -208,6 +208,7 @@
       triggerWinEffect:function(){ celebrate(); },
       celebrateOnWin:function(){ if(isWin()){ gameOver=true; celebrate(); } },
       wasCelebrated:function(){ return celebrated; },
+      get confettiFired() { return _confettiFired; },
     };
   }
 })();

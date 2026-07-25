@@ -142,3 +142,19 @@ eq('SYM_CHARS 9 种', t.SYM_CHARS.length, 9);
 }
 
 console.log('lianliankan: 全部断言通过');
+
+// ===== confetti：清盘后完成特效标记（纯追加，不改上方旧断言）=====
+(() => {
+  const { t: ll } = loadGame('../lianliankan.html');
+  ok('lianliankan confetti: 初始未标记', ll.confettiFired === false);
+  for (let r = 0; r < ll.ROWS; r++) for (let c = 0; c < ll.COLS; c++) ll.setCell(r, c, 0);
+  ll.setCell(0, 0, 5); ll.setCell(0, 1, 5);
+  ok('lianliankan confetti: 尚余一对未消除', ll.isWin() === false);
+  const rm = ll.tryRemove({ r: 0, c: 0 }, { r: 0, c: 1 });
+  ok('lianliankan confetti: 相邻同符可消除', rm === true);
+  ok('lianliankan confetti: 全部消除即胜', ll.isWin() === true);
+  ll.celebrateOnWin();
+  ok('lianliankan confetti: 通关后标记完成特效', ll.confettiFired === true);
+  ll.reset();
+  ok('lianliankan confetti: 重置恢复未标记', ll.confettiFired === false);
+})();

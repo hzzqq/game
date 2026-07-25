@@ -79,6 +79,7 @@
   // 核心状态（普通 JS 变量，逻辑脱离 DOM）
   let player, aliens, pbullets, ebullets, score, lives, over, win, cooldown, diveEnabled, pickups, wave, boss;
   let _confettiFired = false; // 过关/胜利 confetti 钩子（独立于 Juice，只读暴露）
+  let _fxShakes = 0, _fxBursts = 0;
 
   // ---------- 掉落道具系统（击落敌机随机掉落，下坠拾取增益）----------
   const DROP_PROB = 0.22;          // 敌机被击落时掉落道具概率
@@ -180,6 +181,9 @@
       score += 100 * wave;
       pickups.push(makePickup('rocket', boss.x + boss.w/2, boss.y + boss.h));
       if(J){ J.sfx && J.sfx('win'); J.flash && J.flash('#02c076', .4); }
+      // 手感：击毁 Boss / 一波清空 → 屏震 + 粒子爆发
+      _fxShakes++; if(typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.3);
+      _fxBursts++; if(typeof Juice !== 'undefined' && Juice.burst) Juice.burst(boss.x + boss.w/2, boss.y + boss.h, {n:14});
       boss = null;
       if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
       return true;
@@ -192,6 +196,7 @@
     aliens = []; pbullets = []; ebullets = []; pickups = [];
     score = 0; lives = START_LIVES; over = false; win = false; cooldown = 0;
     _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
     diveEnabled = true;
     wave = 1; boss = null;
     buildAliens();
@@ -233,6 +238,9 @@
     if(player.shield>0){ player.shield=0; if(J){ J.flash&&J.flash('#02c076',.3); J.sfx&&J.sfx('hit'); } return; }
     lives--;
     if(J) J.flash('#f6465d');
+    // 手感：玩家被击中 → 强屏震 + 粒子爆发
+    _fxShakes++; if(typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.5);
+    _fxBursts++; if(typeof Juice !== 'undefined' && Juice.burst) Juice.burst(player.x, PLAYER_Y, {n:14});
     if(lives <= 0){ lives = 0; over = true; if(J) J.best('galaga', score); }
   }
 
@@ -443,6 +451,7 @@
       setDiveEnabled:(v)=>{ diveEnabled=!!v; },
       getOver:()=>over, getWin:()=>win,
       confettiFired:()=>_confettiFired,
+      fxShakes:()=>_fxShakes, fxBursts:()=>_fxBursts,
       // ---- 掉落道具系统钩子 ----
       DROP_PROB, PICKUP_TYPES,
       spawnPickup:(type,x,y)=>dropPickup(x!==undefined?x:player.x, y!==undefined?y:0, type),

@@ -107,3 +107,20 @@ console.log('breakthrough: 全部断言通过');
   eq('红子抵达底线 → 红胜', t.winnerOf(), RED);
   ok('玩家(红)获胜触发 confettiFired', t.confettiFired() >= 1);
 }
+
+// ---------- 手感深化：屏震/粒子 只读计数钩子 ----------
+{
+  t.newGame();
+  eq('breakthrough: 新局 fxShakes=0', t.fxShakes(), 0);
+  eq('breakthrough: 新局 fxBursts=0', t.fxBursts(), 0);
+  // 驱动：吃子(斜前) → 屏震 +0.25
+  boardWith([[3,3,RED],[4,2,BLACK],[4,4,BLACK]], RED);
+  const r2 = t.applyMove({from:[3,3],to:[4,2]});
+  ok('吃子落子成功', r2.ok===true);
+  ok('breakthrough: 吃子触发屏震 fxShakes>0', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+  eq('breakthrough: 吃子不触发粒子 fxBursts=0', t.fxBursts(), 0);
+  // 重开归零
+  t.newGame();
+  eq('breakthrough: 重开 fxShakes=0', t.fxShakes(), 0);
+  eq('breakthrough: 重开 fxBursts=0', t.fxBursts(), 0);
+}

@@ -82,3 +82,28 @@ function OWNsum(b,p){ return (p===0?[0,1,2,3,4,5]:[7,8,9,10,11,12]).reduce((s,i)
   eq('玩家(绿)获胜', t.getWinner(), 0);
   eq('胜利 confetti 触发', t.confettiFired(), true);
 }
+
+// ============ 手感深化：Juice.shake / Juice.burst 反馈钩子 ============
+// A) 初始 fxShakes / fxBursts 均为 0
+t.newGame();
+eq('mancala: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('mancala: 初始 fxBursts=0', t.fxBursts(), 0);
+
+// B) 末子落进自己大库（获再走一次）→ 粒子爆发（fxBursts 递增，纯反馈不改额外回合逻辑）
+t.newGame();
+t.setBoard([0,2,0,0,0,1, 0, 4,4,4,4,4,4, 0], 0);  // pit5=1 末子落己方大库；另留 pit1=2 与对方有子，避免终局
+ok('mancala: 末子进粮仓→额外回合', t.sow(0,5) === true && t.getCurrent() === 0);
+ok('mancala: 末子进粮仓触发 burst', t.fxBursts() > 0, 'fxBursts=' + t.fxBursts());
+eq('mancala: 大库收到 1 子', t.getStore(0), 1);
+
+// C) 大量捕获（≥4 子）→ 屏震（fxShakes 递增，纯反馈不改吃子逻辑）
+t.newGame();
+t.setBoard([0,0,0,0,1,0, 0, 3,0,0,0,0,0, 0], 0);  // pit4=1 末子落 pit5(己方空格) 吃对面 pit7=3 → 共 4 子
+t.sow(0,4);
+ok('mancala: 大量捕获触发 shake', t.fxShakes() > 0, 'fxShakes=' + t.fxShakes());
+eq('mancala: 捕获后大库=4', t.getStore(0), 4);
+
+// D) 新局归零
+t.newGame();
+eq('mancala: 新局 fxShakes=0', t.fxShakes(), 0);
+eq('mancala: 新局 fxBursts=0', t.fxBursts(), 0);

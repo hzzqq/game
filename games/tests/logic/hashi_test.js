@@ -74,3 +74,14 @@ t.setRand(()=>{ s=(s*1664525+1013904223)>>>0; return (s&0x7fffffff)/0x7fffffff; 
 }
 
 t.setRand(Math.random);
+
+// ===== 7. confetti 标记：应用解通关时触发、reset 复位 =====
+{
+  t.newPuzzle(12345);
+  ok('初始未标记 confetti', t.confettiFired===false);
+  ok('applySolution → 胜利', t.applySolution()===true && t.isWin()===true);
+  ok('通关后标记 confetti', t.confettiFired===true);
+  t.reset();
+  ok('reset 后未胜', t.isWin()===false);
+  ok('reset 后重置 confetti 标记', t.confettiFired===false);
+}
