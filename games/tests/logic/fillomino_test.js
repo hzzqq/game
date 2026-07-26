@@ -79,3 +79,17 @@ ok('fillomino 胜利后标记庆祝', t.confettiFired() === true);
 t.reset();
 ok('fillomino 重置后标记清除', t.confettiFired() === false);
 
+// --- 手感 fx 计数钩子（只读，纯追加）---
+t.newPuzzle(12345);               // 重置 fx 计数
+eq('fillomino 初始 fxShakes=0', t.fxShakes(), 0);
+eq('fillomino 初始 fxBursts=0', t.fxBursts(), 0);
+const _st = t.getState();
+// 网格初始全0，找第一个空格填 1 → 孤立单格区域 size=1=val=1，触发手感 fx（确定性、不依赖解结构）
+let _fxHit=false;
+for(let r=0;r<5&&!_fxHit;r++) for(let c=0;c<5&&!_fxHit;c++){ if(_st.clue[r][c]===0){ t.setCell(r,c,1); _fxHit=true; } }
+ok('fillomino 填对区域后 fxShakes>0', t.fxShakes() > 0);
+ok('fillomino 填对区域后 fxBursts>0', t.fxBursts() > 0);
+t.reset();
+eq('fillomino 重置后 fxShakes=0', t.fxShakes(), 0);
+eq('fillomino 重置后 fxBursts=0', t.fxBursts(), 0);
+

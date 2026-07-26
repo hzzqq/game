@@ -180,6 +180,7 @@
   // ============ 状态 ============
   var state = 'menu'; // menu | play | win | over
   var _confettiFired = false;
+  var _fxShakes = 0, _fxBursts = 0;   // 手感计数钩子（只读，测试用）
   var hero, enemies, projectiles, particles, boss, pickups = [], heroRage = 0;
   var cameraX = 0;
   var score = 0;
@@ -234,6 +235,7 @@
     boss.y = groundY() - boss.h;
     state = 'play';
     _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('bosswrap').style.display = 'none';
     updateHUD();
@@ -348,8 +350,7 @@
       score += en.score;
       spawnParticles(en.x + en.w/2, en.y + en.h/2, 14, '#02c076');
       if(typeof Juice!=='undefined'){
-        Juice.sfx('boom'); Juice.addTrauma(0.18);
-        Juice.burst(en.x + en.w/2, en.y + en.h/2, { color:'#02c076', n:12, speed:200 });
+        Juice.sfx('boom'); _fxShakes++; Juice.addTrauma(0.18); _fxBursts++; Juice.burst(en.x + en.w/2, en.y + en.h/2, { color:'#02c076', n:12, speed:200 });
         Juice.popup(en.x + en.w/2, en.y - 6, '+'+en.score, '#02c076', { size:14 });
       }
       // 击杀掉落道具
@@ -365,13 +366,13 @@
     boss.hp -= amount;
     boss.flash = 0.16;
     spawnParticles(boss.x + boss.w/2, boss.y + boss.h/2, 10, '#f0b90b');
-    if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.burst(boss.x + boss.w/2, boss.y + boss.h/2, { color:'#f0b90b', n:6, speed:140 }); }
+    if(typeof Juice!=='undefined'){ Juice.sfx('hit'); _fxBursts++; Juice.burst(boss.x + boss.w/2, boss.y + boss.h/2, { color:'#f0b90b', n:6, speed:140 }); }
     if(boss.hp <= 0){ boss.hp = 0; win(); }
   }
 
   function gameOver(){
     state = 'over';
-    if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.addTrauma(0.6); Juice.flash('#f6465d',0.45); }
+    if(typeof Juice!=='undefined'){ Juice.sfx('lose'); _fxShakes++; Juice.addTrauma(0.6); Juice.flash('#f6465d',0.45); }
     showOverlay('征战失败', '英雄陨落于妖魔之手。分数 ' + score, '重新 征战');
     if(typeof Juice!=='undefined'){ var b=Juice.best('dream',score); var rk=Juice.rank(score); if(score>0 && b.isNew) Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk); }
   }
@@ -804,7 +805,9 @@
     start(){ initGame(); },
     win(){ win(); },
     getState(){ return state; },
-    confettiFired(){ return _confettiFired; }
+    confettiFired(){ return _confettiFired; },
+    fxShakes(){ return _fxShakes; }, fxBursts(){ return _fxBursts; },
+    damageEnemy: damageEnemy
   };
 })();
 </script>

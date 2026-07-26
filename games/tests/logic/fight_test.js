@@ -233,6 +233,19 @@ ok('手感 spawnParticle/applyDamage 不抛错', !threwP);
 ok('手感不消耗 Math.random', _c===0, 'calls='+_c);
 ok('命中产生粒子', t.getParticles() > 0);
 
+// --- 手感 fx 计数钩子（只读，纯追加；段首先 reset 再断言初始=0）---
+t.beginMatch();
+eq('fight 初始 fxShakes=0', t.fxShakes(), 0);
+eq('fight 初始 fxBursts=0', t.fxBursts(), 0);
+var af = t.makeFighter('p'); af.x=100; af.y=0;
+var df = t.makeFighter('c'); df.x=120; df.y=0; df.health=100;
+t.applyDamage(af, df, 10, { knock:100 });   // 命中 → shake + burst
+ok('fight 命中后 fxShakes>0', t.fxShakes() > 0);
+ok('fight 命中后 fxBursts>0', t.fxBursts() > 0);
+t.beginMatch();
+eq('fight 重开后 fxShakes=0', t.fxShakes(), 0);
+eq('fight 重开后 fxBursts=0', t.fxBursts(), 0);
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

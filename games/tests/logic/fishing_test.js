@@ -88,3 +88,16 @@ ok('钓鱼: 钓满3条触发庆祝特效', t.confettiFired === true);
 // 重开后恢复
 t.reset();
 ok('钓鱼: 重开后庆祝特效标记恢复 false', t.confettiFired === false);
+
+// --- 手感 fx 计数钩子（只读，纯追加；段首先 reset 再断言初始=0）---
+t.reset();
+eq('钓鱼 初始 fxShakes=0', t.fxShakes(), 0);
+eq('钓鱼 初始 fxBursts=0', t.fxBursts(), 0);
+t.setFish([{id:1,x:50,y:50}]);
+t.castAt(50,50);
+t.reel();                         // 钓上鱼 → shake + burst
+ok('钓鱼 钓上鱼后 fxShakes>0', t.fxShakes() > 0);
+ok('钓鱼 钓上鱼后 fxBursts>0', t.fxBursts() > 0);
+t.reset();
+eq('钓鱼 重置后 fxShakes=0', t.fxShakes(), 0);
+eq('钓鱼 重置后 fxBursts=0', t.fxBursts(), 0);

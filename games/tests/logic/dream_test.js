@@ -45,3 +45,13 @@ if (passed !== total) {
   process.exit(1);
 }
 module.exports = {};
+
+// --- 手感 fx 计数钩子（只读，纯追加）---
+T.start();                        // 重置 fx 计数
+H.ok(T.fxShakes() === 0 && T.fxBursts() === 0, 'dream: 初始 fx 计数为 0');
+var fakeEnemy = { x:100, y:100, w:34, h:48, hp:10, dead:false, score:10 };
+T.damageEnemy(fakeEnemy, 100, 1);  // 击杀敌人 → shake + burst
+H.ok(T.fxShakes() > 0, 'dream: 击杀敌人后 fxShakes>0 (得到 ' + T.fxShakes() + ')');
+H.ok(T.fxBursts() > 0, 'dream: 击杀敌人后 fxBursts>0 (得到 ' + T.fxBursts() + ')');
+T.start();                        // 重置
+H.ok(T.fxShakes() === 0 && T.fxBursts() === 0, 'dream: start() 重置后 fx 计数为 0');

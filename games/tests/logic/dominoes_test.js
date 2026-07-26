@@ -63,3 +63,15 @@ ok('dominoes 胜利后标记庆祝', t.confettiFired() === true);
 t.newGame();
 ok('dominoes 新局重置庆祝标记', t.confettiFired() === false);
 
+// --- 手感 fx 计数钩子（只读，纯追加）---
+t.newGame();
+eq('dominoes 初始 fxShakes=0', t.fxShakes(), 0);
+eq('dominoes 初始 fxBursts=0', t.fxBursts(), 0);
+t.setHands([[1,2]],[[3,3]], []);
+ok('dominoes 出牌(接龙)触发反馈', t.place([1,2],'right') === true);
+ok('dominoes 出牌后 fxShakes>0', t.fxShakes() > 0);
+ok('dominoes 出牌后 fxBursts>0', t.fxBursts() > 0);
+t.newGame();
+eq('dominoes 重开后 fxShakes=0', t.fxShakes(), 0);
+eq('dominoes 重开后 fxBursts=0', t.fxBursts(), 0);
+

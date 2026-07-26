@@ -186,6 +186,7 @@
     var bannerTimer = 0, bannerText = '';
     var startTapped = false;
     var _confettiFired = false;
+    var _fxShakes = 0, _fxBursts = 0;   // 手感计数钩子（只读，测试用）
 
     var player, cpu, projectiles, floats, items, itemTimer;
 
@@ -314,7 +315,7 @@
         blocked ? '#6b7785' : (att === player ? '#f6465d' : '#02c076'));
       if (att.combo > 1 && !blocked) addFloat(att.x, att.y - 132, 'COMBO ×' + att.combo, '#f0b90b');
       sfxHit(blocked);
-      if (typeof Juice !== 'undefined') { Juice.sfx('hit'); Juice.addTrauma(blocked ? 0.15 : 0.35); Juice.burst(def.x, def.y - 46, { color: blocked ? '#6b7785' : (att === player ? '#f6465d' : '#02c076'), n: blocked ? 6 : 12, speed: 180 }); }
+      if (typeof Juice !== 'undefined') { Juice.sfx('hit'); _fxShakes++; Juice.addTrauma(blocked ? 0.15 : 0.35); _fxBursts++; Juice.burst(def.x, def.y - 46, { color: blocked ? '#6b7785' : (att === player ? '#f6465d' : '#02c076'), n: blocked ? 6 : 12, speed: 180 }); }
       addShake(blocked ? 0.15 : 0.35); spawnParticle(def.x, def.y - 46, blocked ? '#6b7785' : (att === player ? '#f6465d' : '#02c076'), { n: blocked ? 6 : 12, speed: 180 });
     }
 
@@ -483,6 +484,7 @@
     // ---- round / match flow ----
     function beginMatch() {
       _confettiFired = false;
+      _fxShakes = 0; _fxBursts = 0;
       pips = { p: 0, c: 0 }; roundNum = 1;
       hide(startOv); hide(matchOv); hide(pauseOv);
       initAudio();
@@ -821,7 +823,8 @@
       getShake: function(){ return shake; },
       setShake: function(v){ shake=v; },
       forceWin: winConfetti,
-      confettiFired: () => _confettiFired
+      confettiFired: () => _confettiFired,
+      fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
     };
 
     requestAnimationFrame(loop);
