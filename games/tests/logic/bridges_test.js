@@ -98,3 +98,20 @@ const { t } = loadGame('../bridges.html');
   ok('B-C 建桥合法', t.addBridge(1,2,1)===true);
   ok('通关后标记完成特效', t.confettiFired===true);
 }
+
+// ===== 9. 手感反馈计数钩子（建桥→小 burst）=====
+t.newGame();
+eq('手感: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('手感: 初始 fxBursts=0', t.fxBursts(), 0);
+t.setBoard([
+  {r:0,c:0,deg:1},
+  {r:0,c:2,deg:2},
+  {r:0,c:4,deg:1},
+]);
+t.addBridge(0,1,1);
+t.addBridge(1,2,1);
+ok('手感: 建桥触发 burst>0', t.fxBursts() > 0);
+eq('手感: 建桥未触发 shake(仍=0)', t.fxShakes(), 0);
+t.newGame();
+eq('手感: newGame 后 fxBursts 归零', t.fxBursts(), 0);
+eq('手感: newGame 后 fxShakes 归零', t.fxShakes(), 0);

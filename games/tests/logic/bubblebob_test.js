@@ -145,3 +145,21 @@ bb.players.forEach(p => { if (p.id !== 0) p.alive = false; });
 bb.update(0.05);
 H.ok('P0 获胜 → state=roundover', bb.state === 'roundover');
 H.ok('P0 获胜 → confettiFired 为真', bb.confettiFired === true);
+
+// ===== [11] 手感反馈计数钩子（爆炸/击杀→shake+burst）=====
+bb.startGame('1v1');
+bb.players.forEach(p => { p.isAI = false; });
+bb.players.forEach(align);
+bb.setKey('Space', true);
+bb.placeBomb(P(0));
+bb.setKey('Space', false);
+bb.gridSet(2, 1, bb.SOFT); bb.gridSet(1, 2, bb.SOFT);
+const _origR = Math.random; Math.random = () => 0.1;
+bb.killBombsSoon();
+drive(40, 0.05);
+Math.random = _origR;
+H.ok('手感: 爆炸+击杀触发 shake>0', bb.fxShakes() > 0);
+H.ok('手感: 爆炸+击杀触发 burst>0', bb.fxBursts() > 0);
+bb.startGame('1v1');
+H.ok('手感: 新对局 shake 归零', bb.fxShakes() === 0);
+H.ok('手感: 新对局 burst 归零', bb.fxBursts() === 0);

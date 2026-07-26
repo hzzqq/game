@@ -56,6 +56,7 @@
   let sol = [];       // 生成时的解：[{i,j,count}]
   let won = false;
   let confettiFired = false;
+  let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子（建桥→小 burst）
 
   function key(i,j){ return i<j ? i+'-'+j : j+'-'+i; }
   function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
@@ -136,7 +137,14 @@
       if(target>2) return false;
     }
     if(target===0) delete bridges[key(i,j)];
-    else bridges[key(i,j)]=target;
+    else {
+      bridges[key(i,j)]=target;
+      _fxBursts++;
+      if(typeof Juice!=='undefined' && Juice.burst){
+        const a=islands[i], b=islands[j];
+        Juice.burst((a.c+b.c+1)*15, (a.r+b.r+1)*15, {color:'#6b7785',n:4,speed:120,life:0.3});
+      }
+    }
     won=isWin();
     if(won){ fireWin(); if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('bridges', islands.length); } }
     return true;
@@ -168,7 +176,7 @@
     islands = islandList.map(p=>({r:p.r,c:p.c,deg:p.deg,used:0}));
     bridges = {};
     sol = [];
-    won=false; confettiFired=false;
+    won=false; confettiFired=false; _fxShakes=0; _fxBursts=0;
     return {islands:islands.length, won:isWin()};
   }
 
@@ -241,7 +249,7 @@
   function newGame(){
     let ok=false, guard=0;
     do { ok = buildSolution(); guard++; } while(!ok && guard<10);
-    won=false; confettiFired=false;
+    won=false; confettiFired=false; _fxShakes=0; _fxBursts=0;
   }
   function reset(){ newGame(); }
 
@@ -316,7 +324,7 @@
       render();
     });
     if(nb) nb.onclick=()=>{ newGame(); sel=null; render(); };
-    if(rb) rb.onclick=()=>{ bridges={}; won=false; confettiFired=false; sel=null; render(); };
+    if(rb) rb.onclick=()=>{ bridges={}; won=false; confettiFired=false; _fxShakes=0; _fxBursts=0; sel=null; render(); };
   }
   newGame();
   if(typeof document!=='undefined'){
@@ -328,6 +336,8 @@
       N, setRand, newGame, reset, setBoard, addBridge, removeBridge, isWin, solve,
       getState, update, alignedClear, usedOf, bridgeCount, connected, allSatisfied, islandAt,
       get confettiFired(){ return confettiFired; },
+      fxShakes: () => _fxShakes,
+      fxBursts: () => _fxBursts,
     };
   }
 })();

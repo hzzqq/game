@@ -205,3 +205,13 @@ t.setRand(Math.random);
   t.reset();
   H.ok('reset 后 confettiFired 恢复 false', t.confettiFired === false);
 }
+
+// ===== 手感反馈计数钩子（命中→shake+burst）=====
+t.reset(); t.start(); t.setSpawnEnabled(false); t.clearBullets(); t.setPlayer(400,500); t.setInvuln(0);
+t.spawnBullet(400,500,0,0);
+t.update(0.02);
+H.ok('手感: 命中触发 shake>0', t.fxShakes() > 0);
+H.ok('手感: 命中触发 burst>0', t.fxBursts() > 0);
+t.reset();
+H.ok('手感: reset 后 shake 归零', t.fxShakes() === 0);
+H.ok('手感: reset 后 burst 归零', t.fxBursts() === 0);

@@ -141,6 +141,7 @@ let state='menu';       // menu | playing | roundover
 let aliveCount=0;
 let lastWinner=null;
 let _confettiFired=false; // 玩家(P0)获胜 confetti 已触发（独立于 Juice 的只读测试锁）
+let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子（爆炸/击杀→shake+burst）
 let keys=new Set();
 let mode='1v3';
 let roundNo=1;
@@ -245,6 +246,7 @@ function startGame(m){
   for(const p of players) p.bombsActive=0;
   aliveCount=players.length;
   _confettiFired=false; // 新对局重置获胜反馈锁（仅视觉状态）
+  _fxShakes=0; _fxBursts=0;
   hideOverlay('menu'); hideOverlay('roundover');
   updateHud();
 }
@@ -256,8 +258,9 @@ function nextRound(){
   players=cfg.map((np,i)=>{ np.score=players[i]?players[i].score:0; return np; });
   bombs=[]; explosions=[]; powerups=[];
   capPickups=[]; capBoost=0; capShield=false; capLives=3; capDead=false; capSpawn=12; capBombCleared=0;
-  state='playing'; aliveCount=players.length;
+  state='playing';   aliveCount=players.length;
   _confettiFired=false; // 新回合重置获胜反馈锁（仅视觉状态）
+  _fxShakes=0; _fxBursts=0;
   roundNo++;
   hideOverlay('roundover');
   updateHud();
@@ -309,8 +312,8 @@ function explodeBomb(bomb){
   // 爆炸反馈（手感）
   const cx=bomb.gx*TILE+TILE/2, cy=bomb.gy*TILE+TILE/2;
   Juice.sfx('boom');
-  Juice.addTrauma(0.3);
-  Juice.burst(cx,cy,{color:'#f0b90b',n:14,speed:240});
+  _fxShakes++; Juice.addTrauma(0.3);
+  _fxBursts++; Juice.burst(cx,cy,{color:'#f0b90b',n:14,speed:240});
   for(const c of cells) Juice.burst(c.x*TILE+TILE/2, c.y*TILE+TILE/2, {color:'#f6465d',n:3,speed:120,life:0.3});
 }
 
@@ -503,8 +506,8 @@ function update(dt){
     const gx=Math.floor(p.px/TILE), gy=Math.floor(p.py/TILE);
     if(explosionAt(gx,gy)){
       p.alive=false;
-      Juice.sfx('hit'); Juice.addTrauma(0.4);
-      Juice.burst(p.px,p.py,{color:p.color,n:16,speed:200});
+      Juice.sfx('hit'); _fxShakes++; Juice.addTrauma(0.4);
+      _fxBursts++; Juice.burst(p.px,p.py,{color:p.color,n:16,speed:200});
       Juice.popup(p.px,p.py-16,'💥','#f6465d',{size:18});
     }
   }
@@ -766,6 +769,8 @@ const __bb={
   setBoost:(v)=>{ capBoost=v; },
   takeHit:(i)=>takeHit(i),
   get confettiFired(){ return _confettiFired; },
+  fxShakes: () => _fxShakes,
+  fxBursts: () => _fxBursts,
 };
 if(typeof window!=='undefined') window.__bb=__bb;
 

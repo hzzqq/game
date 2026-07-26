@@ -224,6 +224,7 @@
   const occupied = new Set();
   const state = {};
   let _confettiFired = false;
+  let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子（击杀敌人→burst+shake）
   function resetState(){
     state.coins = 120;
     state.lives = 10;
@@ -244,6 +245,7 @@
     state.won = false;
     state.running = true;
     _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
     occupied.clear();
     hideOverlay();
     updatePalette();
@@ -378,8 +380,8 @@
       state.coins += e.reward;
       state.score += e.reward;
       beep(300, 0.05, 'square', 0.03);
-      if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.burst(e.x, e.y, {color:e.color, n:10, speed:180}); Juice.popup(e.x, e.y-10, '+'+e.reward, '#f0b90b', {size:13}); }
-      spawnParticle(e.x, e.y, e.color, {n:10, speed:180}); addShake(0.3);
+      if(typeof Juice!=='undefined'){ Juice.sfx('boom'); _fxBursts++; Juice.burst(e.x, e.y, {color:e.color, n:10, speed:180}); Juice.popup(e.x, e.y-10, '+'+e.reward, '#f0b90b', {size:13}); }
+      spawnParticle(e.x, e.y, e.color, {n:10, speed:180}); _fxShakes++; addShake(0.3);
       // 击杀掉落道具
       if(Math.random() < 0.32){
         const r = Math.random();
@@ -877,11 +879,14 @@
     getParticles: function(){ return particles.length; },
     spawnParticle: spawnParticle,
     addParticle: addParticle,
+    damageEnemy: damageEnemy,
     getShake: function(){ return shake; },
     setShake: function(v){ shake=v; },
     forceWin: winConfetti,
     reset: resetState,
-    get confettiFired(){ return _confettiFired; }
+    get confettiFired(){ return _confettiFired; },
+    fxShakes: () => _fxShakes,
+    fxBursts: () => _fxBursts,
   };
 })();
 </script>

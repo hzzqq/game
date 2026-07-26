@@ -85,3 +85,15 @@ console.log('bullscow: 全部断言通过');
   t.guess([5,6,7,8]); // 未中
   ok('未中不置位', t.getConfettiFired()===false);
 }
+
+// ===== 手感反馈计数钩子（命中一位→burst；全错→shake）=====
+t.reset(); t.setSecret([1,2,3,4]);
+eq('手感: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('手感: 初始 fxBursts=0', t.fxBursts(), 0);
+t.guess([1,5,6,7]); // A=1 命中一位
+ok('手感: 命中一位触发 burst>0', t.fxBursts() > 0);
+t.guess([5,6,7,8]); // A=0 B=0 全错
+ok('手感: 全错触发 shake>0', t.fxShakes() > 0);
+t.reset();
+eq('手感: reset 后 fxBursts 归零', t.fxBursts(), 0);
+eq('手感: reset 后 fxShakes 归零', t.fxShakes(), 0);

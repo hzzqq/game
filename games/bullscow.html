@@ -78,9 +78,10 @@
   }
 
   let secret, history, tries, won, over, confettiFired;
+  let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子（命中一位→burst；全错→shake）
   function reset(){
     secret = generateSecret();
-    history = []; tries = 0; won = false; over = false; confettiFired = false;
+    history = []; tries = 0; won = false; over = false; confettiFired = false; _fxShakes = 0; _fxBursts = 0;
   }
   // 提交一次猜测（guess: number[] 长度 4，每位 0..9，互不重复）
   function guess(g){
@@ -90,6 +91,13 @@
     const seen=new Set();
     if(g.some(v=>{ if(seen.has(v)) return true; seen.add(v); return false; })) return null; // 必须互不相同
     const fb = feedback(secret, g);
+    if(fb.A>0){
+      _fxBursts++;
+      if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(400, 300, {color:'#3aa0ff',n:6,speed:160});
+    } else if(fb.A===0 && fb.B===0){
+      _fxShakes++;
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.2);
+    }
     history.push({guess:g.slice(), A:fb.A, B:fb.B});
     tries++;
     if(fb.A===LEN){ won=true; over=true; confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
@@ -152,6 +160,8 @@
       setRand, generateSecret, feedback, reset, guess, isWin, isOver, getState,
       setSecret:(s)=>{ secret=s; }, getSecret:()=>secret,
       getConfettiFired:()=>confettiFired,
+      fxShakes: () => _fxShakes,
+      fxBursts: () => _fxBursts,
     };
   }
 })();
