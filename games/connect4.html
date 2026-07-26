@@ -78,6 +78,7 @@
 
   let board, current, gameOver, lastWin;
   let _confettiFired = false;
+  let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子
   let cssW = 0, MARGIN = 0, CELL = 0, RADIUS = 0;
   let dropAnim = null; // {col,row,color,t}
   let animating = false;
@@ -86,6 +87,7 @@
     board = [];
     for(let r=0;r<ROWS;r++){ const row=[]; for(let c=0;c<COLS;c++) row.push(EMPTY); board.push(row); }
     current = R; gameOver = false; lastWin = null; dropAnim = null; animating = false; _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
     setTurn(); hideOverlay(); draw();
   }
 
@@ -188,10 +190,13 @@
     const {col,row,color} = dropAnim;
     board[row][col] = color;
     const p = cellCenter(row,col);
+    _fxBursts++;
     if(typeof Juice!=='undefined') Juice.burst(p.x, p.y, {color: color===R?RED:GREEN, n:7, speed:150});
     dropAnim = null; animating = false;
     const line = checkWin(row,col,color);
     if(line){
+      _fxShakes++;
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
       gameOver = true; lastWin = line; draw();
       const redWin = (color===R);
       endGame(redWin ? '红方胜利！' : '绿方胜利！',
@@ -274,7 +279,8 @@
     set current(v){ current = v; },
     get animating(){ return animating; },
     cellCenter,
-    get confettiFired(){ return _confettiFired; }
+    get confettiFired(){ return _confettiFired; },
+    fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
   };
 })();
 </script>

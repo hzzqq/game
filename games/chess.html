@@ -88,6 +88,7 @@
 
   let board, turn, gameOver, mode, selected, legalCache, lastMove, history;
   let _confettiFired = false;
+  let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子
   let cssW=0, MARGIN=0, CW=0, CH=0;
 
   /* ---------- 棋盘规则 ---------- */
@@ -206,7 +207,8 @@
     return b;
   }
   function reset(){
-    board=initialBoard(); turn='r'; gameOver=false; mode='pvp'; selected=null; legalCache=[]; lastMove=null;     history=[]; _confettiFired = false;
+    board=initialBoard(); turn='r'; gameOver=false; mode='pvp'; selected=null; legalCache=[]; lastMove=null;     history=[];     _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
     document.getElementById('modeBtn').textContent='对手: 双人'; document.getElementById('modeBtn').classList.remove('on');
     setTurn(); hideOverlay(); draw();
   }
@@ -276,10 +278,16 @@
     board[tr][tc]=moving; board[fr][fc]=null;
     lastMove=[[fr,fc],[tr,tc]];
     if(typeof Juice!=='undefined'){ const x=px(tc),y=py(tr); if(captured){ Juice.sfx('hit'); Juice.burst(x,y,{color:GOLD,n:12,speed:170}); Juice.addTrauma(0.2); } else { Juice.sfx('click'); } }
+    if(captured){ _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(px(tc),py(tr),{color:GOLD,n:12,speed:170}); }
     selected=null; legalCache=[];
     turn = (turn==='r')?'b':'r'; setTurn();
     // 终局判定
     if(allLegal(board,turn).length===0){ endGame(); return; }
+    // 手感：落子后将对方置于「将军」状态 → 屏震
+    if(!gameOver && inCheck(board, turn)){
+      _fxShakes++;
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3);
+    }
     draw();
     if(!gameOver && mode==='ai' && turn==='b'){ setTimeout(aiMove, 420); }
   }
@@ -374,7 +382,8 @@
     get mode(){ return mode; }, set mode(v){ mode=v; },
     get selected(){ return selected; },
     get legalCache(){ return legalCache; },
-    get confettiFired(){ return _confettiFired; }
+    get confettiFired(){ return _confettiFired; },
+    fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
   };
 })();
 </script>

@@ -44,3 +44,16 @@ ok('dice 胜利后标记庆祝', t.confettiFired() === true);
 t.reset();
 ok('dice 新局重置庆祝标记', t.confettiFired() === false);
 
+// ---------- 手感反馈只读计数钩子 ----------
+t.reset();
+eq('fxShakes 初始 0', t.fxShakes(), 0);
+eq('fxBursts 初始 0', t.fxBursts(), 0);
+t.setRand(() => 0.4); // 1+floor(0.4*6)=3（非1）
+t.reset();
+t.roll(); // 掷骰 → 屏震；非1落定 → 爆发
+ok('掷骰后 fxShakes > 0', t.fxShakes() > 0);
+ok('非1落定后 fxBursts > 0', t.fxBursts() > 0);
+t.reset();
+eq('reset 后 fxShakes 归零', t.fxShakes(), 0);
+eq('reset 后 fxBursts 归零', t.fxBursts(), 0);
+

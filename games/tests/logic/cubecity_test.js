@@ -336,6 +336,20 @@ ok('cubecity 建造5栋里程碑触发庆祝', t.confettiFired() === true);
 t.reset();
 ok('cubecity 重置后标记清除', t.confettiFired() === false);
 
+// ===== 14. 手感反馈只读计数钩子 =====
+t.reset();
+eq('fxShakes 初始 0', t.fxShakes(), 0);
+eq('fxBursts 初始 0', t.fxBursts(), 0);
+t.setSelected('residential');
+t.handleClick({ i: 0, j: 0 }); // 建造 → shake
+ok('建造后 fxShakes > 0', t.fxShakes() > 0);
+t.setSelected('demolish');
+t.handleClick({ i: 0, j: 0 }); // 拆除 → burst
+ok('拆除后 fxBursts > 0', t.fxBursts() > 0);
+t.reset();
+eq('reset 后 fxShakes 归零', t.fxShakes(), 0);
+eq('reset 后 fxBursts 归零', t.fxBursts(), 0);
+
 
 const pass = results.filter(r => r.pass).length;
 const total = results.length;

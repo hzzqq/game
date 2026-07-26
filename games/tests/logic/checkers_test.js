@@ -154,3 +154,20 @@ console.log('checkers: 全部断言通过');
   t.newGame();
   ok('newGame 后 confettiFired 恢复 false', t.confettiFired === false);
 }
+
+// ---------- 手感反馈只读计数钩子 ----------
+{
+  t.newGame();
+  eq('fxShakes 初始为 0', t.fxShakes(), 0);
+  eq('fxBursts 初始为 0', t.fxBursts(), 0);
+  const board = Array.from({length:8},()=>new Array(8).fill(0));
+  board[5][2]=t.REDman; board[4][3]=t.BLACKman; board[3][4]=0;
+  t.setBoard(board); t.setTurn('red'); t.setPending(null);
+  const mv=t.legalMoves();
+  t.applyMove(mv[0]); // 吃子 → 触发 shake + burst
+  ok('吃子后 fxBursts > 0', t.fxBursts() > 0);
+  ok('吃子后 fxShakes > 0', t.fxShakes() > 0);
+  t.newGame();
+  eq('newGame 后 fxShakes 归零', t.fxShakes(), 0);
+  eq('newGame 后 fxBursts 归零', t.fxBursts(), 0);
+}

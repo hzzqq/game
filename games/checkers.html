@@ -80,6 +80,7 @@
 
   let board, turn, pending; // pending=[r,c] 必须继续连吃的棋子，或 null
   let _confettiFired = false;
+  let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子
 
   function inBoard(r,c){ return r>=0 && r<SIZE && c>=0 && c<SIZE; }
   function isDark(r,c){ return ((r+c) % 2) === 1; }
@@ -101,6 +102,7 @@
     }
     turn = 'red'; pending = null;
     _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
   }
 
   function capturesFrom(r,c){
@@ -153,7 +155,14 @@
     if(p===REDman && tr===0) np=REDking;
     else if(p===BLACKman && tr===SIZE-1) np=BLACKking;
     board[tr][tc]=np;
-    if(typeof Juice!=='undefined' && m.capture){ Juice.sfx('click'); }
+    if(m.capture){
+      _fxShakes++; _fxBursts++;
+      if(typeof Juice!=='undefined'){
+        Juice.sfx('click');
+        if(Juice.burst) Juice.burst(tr*40+20, tc*40+20, {color:'#f6465d', n:12, speed:170});
+        if(Juice.shake) Juice.shake(0.3);
+      }
+    }
     if(m.capture){
       const more=capturesFrom(tr,tc);
       if(more.length){ pending=[tr,tc]; return; } // 连吃
@@ -301,7 +310,8 @@
       countPieces, winner, pieceAt, getBoard, getTurn, getPending,
       setBoard, setTurn, setPending, aiMove, scoreMoveAI,
       setRand, DIFFICULTY, setDifficulty, getDifficulty,
-      get confettiFired(){ return _confettiFired; }
+      get confettiFired(){ return _confettiFired; },
+      fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
     };
   }
 })();

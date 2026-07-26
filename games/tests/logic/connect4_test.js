@@ -35,3 +35,37 @@ const { t } = H.loadGame('../connect4.html');
   t.reset();
   H.ok('reset 后 confettiFired 恢复 false', t.confettiFired === false);
 })();
+
+// ---------- 手感反馈只读计数钩子 ----------
+H.ok('connect4 暴露 fxShakes', typeof t.fxShakes === 'function');
+H.ok('connect4 暴露 fxBursts', typeof t.fxBursts === 'function');
+t.reset();
+H.eq('fxShakes 初始 0', t.fxShakes(), 0);
+H.eq('fxBursts 初始 0', t.fxBursts(), 0);
+
+// 普通落子 → fxBursts++
+(() => {
+  t.reset();
+  const b = t.getBoard();
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 7; c++) b[r][c] = 0;
+  t.setBoard(b); t.current = 1;
+  t.dropAt(3); t.commitDrop();
+  H.ok('落子后 fxBursts > 0', t.fxBursts() > 0);
+  H.eq('普通落子未连成 → fxShakes 仍 0', t.fxShakes(), 0);
+})();
+
+// 连成四子 → fxShakes++（同时 fxBursts++）
+(() => {
+  t.reset();
+  const b = t.getBoard();
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 7; c++) b[r][c] = 0;
+  b[5][0] = 1; b[4][0] = 1; b[3][0] = 1;
+  t.setBoard(b); t.current = 1;
+  t.dropAt(0); t.commitDrop();
+  H.ok('连成四子后 fxShakes > 0', t.fxShakes() > 0);
+  H.ok('连成四子后 fxBursts > 0', t.fxBursts() > 0);
+})();
+
+t.reset();
+H.eq('reset 后 fxShakes 归零', t.fxShakes(), 0);
+H.eq('reset 后 fxBursts 归零', t.fxBursts(), 0);

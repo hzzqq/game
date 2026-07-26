@@ -76,3 +76,41 @@ const { t } = H.loadGame('../chess.html');
   t.reset();
   H.ok('reset 后 confettiFired 恢复 false', t.confettiFired === false);
 })();
+
+// ---------- 手感反馈只读计数钩子 ----------
+H.ok('chess 暴露 fxShakes', typeof t.fxShakes === 'function');
+H.ok('chess 暴露 fxBursts', typeof t.fxBursts === 'function');
+t.reset();
+H.eq('fxShakes 初始 0', t.fxShakes(), 0);
+H.eq('fxBursts 初始 0', t.fxBursts(), 0);
+
+// 吃子 → fxBursts++
+(() => {
+  const b = t.initialBoard();
+  for (let r = 0; r < 10; r++) for (let c = 0; c < 9; c++) b[r][c] = null;
+  b[9][3] = { side: 'r', type: 'G' };
+  b[0][5] = { side: 'b', type: 'G' };
+  b[5][0] = { side: 'r', type: 'R' };
+  b[5][3] = { side: 'b', type: 'H' };
+  t.setBoard(b); t.turn = 'r';
+  t.doMove(5, 0, 5, 3); // 红车吃黑马（不将军）
+  H.ok('吃子后 fxBursts > 0', t.fxBursts() > 0);
+  H.eq('吃子未将军 → fxShakes 仍 0', t.fxShakes(), 0);
+})();
+
+// 将军（非吃子）→ fxShakes++
+(() => {
+  t.reset();
+  const b = t.initialBoard();
+  for (let r = 0; r < 10; r++) for (let c = 0; c < 9; c++) b[r][c] = null;
+  b[9][4] = { side: 'r', type: 'G' };
+  b[0][3] = { side: 'b', type: 'G' };
+  b[5][0] = { side: 'r', type: 'R' };
+  t.setBoard(b); t.turn = 'r';
+  t.doMove(5, 0, 5, 3); // 红车到第3列 → 将军黑将(0,3)
+  H.ok('将军后 fxShakes > 0', t.fxShakes() > 0);
+})();
+
+t.reset();
+H.eq('reset 后 fxShakes 归零', t.fxShakes(), 0);
+H.eq('reset 后 fxBursts 归零', t.fxBursts(), 0);

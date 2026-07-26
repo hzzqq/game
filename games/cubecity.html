@@ -97,6 +97,7 @@
     const cells=Array.from({length:GRID},()=>Array(GRID).fill(null));
     let selected='residential';
     let _confettiFired=false, _built=0;
+    let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子
 
     const stage=document.getElementById('stage');
     const renderer=new THREE.WebGLRenderer({antialias:true});
@@ -202,7 +203,11 @@
     function handleClick(c){
       const cur=cells[c.i][c.j];
       if(selected==='demolish'){
-        if(cur){ scene.remove(cur.mesh); money+=Math.floor(TYPES[cur.type].cost*0.5); cells[c.i][c.j]=null; updateHUD(); if(typeof Juice!=='undefined') Juice.sfx('click'); }
+        if(cur){
+          scene.remove(cur.mesh); money+=Math.floor(TYPES[cur.type].cost*0.5); cells[c.i][c.j]=null; updateHUD();
+          _fxBursts++;
+          if(typeof Juice!=='undefined'){ Juice.sfx('click'); if(Juice.burst) Juice.burst((c.i+0.5)*40, (c.j+0.5)*40, {color:'#ff5f56', n:12, speed:170}); }
+        }
         return;
       }
       if(selected==='upgrade'){
@@ -234,6 +239,8 @@
       scene.add(mesh);
       cells[c.i][c.j]={type:selected, level:1, h:t.h, mesh};
       _built++;
+      _fxShakes++;
+      if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.15);
       if(_built>=5 && !_confettiFired){
         _confettiFired=true;
         if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
@@ -307,7 +314,7 @@
     el('resetBtn').onclick=()=>{
       for(let i=0;i<GRID;i++) for(let j=0;j<GRID;j++){ if(cells[i][j]){ scene.remove(cells[i][j].mesh); cells[i][j]=null; } }
       money=1000; population=0; happiness=60; incomePerSec=0; score=0; updateHUD();
-      _built=0; _confettiFired=false;
+      _built=0; _confettiFired=false; _fxShakes=0; _fxBursts=0;
       if(typeof Juice!=='undefined') Juice.sfx('click');
     };
 
@@ -343,13 +350,14 @@
       getCells: ()=>cells,
       getSelected: ()=>selected, setSelected: v=>{selected=v;},
       confettiFired: () => _confettiFired,
+      fxShakes: () => _fxShakes, fxBursts: () => _fxBursts,
       reset: ()=>{
         for(let i=0;i<GRID;i++) for(let j=0;j<GRID;j++){
           if(cells[i][j] && cells[i][j].mesh) { try{scene.remove(cells[i][j].mesh);}catch(e){} }
           cells[i][j]=null;
         }
         money=1000; population=0; happiness=60; incomePerSec=0; score=0;
-        _built=0; _confettiFired=false;
+        _built=0; _confettiFired=false; _fxShakes=0; _fxBursts=0;
         updateHUD();
       },
     };
