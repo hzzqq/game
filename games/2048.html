@@ -303,6 +303,7 @@
   let mergedAway;     // 本回合被合并、待移除的 tile
   let score, best, won, keepPlaying, over, paused;
   let _confettiFired = false;
+  let _fxShakes = 0, _fxBursts = 0;
 
   // 背景格子
   for (let i = 0; i < SIZE * SIZE; i++) {
@@ -358,6 +359,7 @@
     score = 0;
     won = false;
     _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
     keepPlaying = false;
     over = false;
     paused = false;
@@ -493,6 +495,12 @@
           nextTile.justMerged = true;
           nextTile.mergedThisMove = true;
           score += nextTile.value;
+          if (nextTile.value >= 512) {
+            const _bx = GAP + next.c * (CELL + GAP) + CELL / 2;
+            const _by = GAP + next.r * (CELL + GAP) + CELL / 2;
+            _fxBursts++;
+            if (typeof Juice !== 'undefined' && Juice.burst) Juice.burst(_bx, _by, { n: 14 });
+          }
           if (typeof Juice !== 'undefined') Juice.sfx('pickup');
           // 合并飘字（纯视觉，不改逻辑）
           const fx = document.createElement('div');
@@ -571,6 +579,8 @@
   function hideOverlay() { overlay.classList.remove("show"); }
 
   function triggerWin() {
+    _fxShakes++;
+    if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.3);
     if (typeof Juice !== 'undefined') { Juice.sfx('win'); Juice.achievement('达成 2048！'); const b = Juice.best('2048', score); Juice.rank(score); if (b.isNew) Juice.achievement('新纪录 ' + score + '！'); }
     showOverlay("你赢了！", "已合成 2048 · 可继续挑战更高分", [
       { label: "继续", onClick: () => { keepPlaying = true; hideOverlay(); } },
@@ -659,6 +669,8 @@
       get over() { return over; },
       get won() { return won; },
       confettiFired: function () { return _confettiFired; },
+      fxShakes: function () { return _fxShakes; },
+      fxBursts: function () { return _fxBursts; },
       freezeSpawn(v) { addRandomTile = v ? function () {} : _origAdd; }
     };
   })();

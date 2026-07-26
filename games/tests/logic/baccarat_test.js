@@ -107,3 +107,17 @@ t.reset(); t.placeBet('player', 100); t.deal();
 ok('baccarat 赢下首局后庆祝标记置位', t.confettiFired() === true);
 t.reset();
 ok('baccarat 重开后庆祝标记复位', t.confettiFired() === false);
+
+// === 手感反馈标准化钩子（fxShakes / fxBursts，纯旁路，不改玩法）===
+t.setRand(() => 0);
+t.reset();
+ok('baccarat 初始 fxShakes=0', t.fxShakes() === 0);
+ok('baccarat 初始 fxBursts=0', t.fxBursts() === 0);
+t.setRand(seq([rk(9), rk(10), rk(9), rk(13)])); // P9 B10 P9 BK → 闲胜（非和）
+t.reset(); t.placeBet('player', 100); t.deal();
+ok('baccarat 分出胜负触发 shake>0', t.fxShakes() > 0);
+ok('baccarat 赢局触发 burst>0', t.fxBursts() > 0);
+t.reset();
+ok('baccarat 重置后 fxShakes 归零', t.fxShakes() === 0);
+ok('baccarat 重置后 fxBursts 归零', t.fxBursts() === 0);
+

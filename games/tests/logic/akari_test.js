@@ -73,3 +73,24 @@ t.applySolution();
 ok('akari 应用规范解(胜利)后庆祝标记置位', t.confettiFired() === true);
 t.newPuzzle(12345);
 ok('akari 重开新谜题后庆祝标记复位', t.confettiFired() === false);
+
+// === 手感反馈标准化钩子（fxShakes / fxBursts，纯旁路，不改玩法）===
+t.newPuzzle(12345);
+ok('akari 初始 fxShakes=0', t.fxShakes() === 0);
+ok('akari 初始 fxBursts=0', t.fxBursts() === 0);
+{
+  const st = t.getState();
+  let placed = false;
+  outer: for (let r = 0; r < 7; r++) for (let c = 0; c < 7; c++) {
+    if (st.board[r][c] === -1 && !st.lamps[r][c]) { t.setLamp(r, c, true); placed = true; break outer; }
+  }
+  ok('akari 点亮灯泡触发 burst>0', placed && t.fxBursts() > 0);
+  ok('akari 未胜时 shake 仍为 0', t.fxShakes() === 0);
+}
+t.newPuzzle(12345);
+ok('akari 重开 fxBursts 归零', t.fxBursts() === 0);
+t.applySolution(); // 胜利 → shake
+ok('akari 胜利触发 shake>0', t.fxShakes() > 0);
+t.newPuzzle(12345);
+ok('akari 重开 fxShakes 归零', t.fxShakes() === 0);
+

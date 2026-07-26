@@ -69,4 +69,20 @@ H.ok('basketball 首次进球后庆祝标记置位', T.confettiFired() === true)
 T.reset();
 H.ok('basketball 重开后庆祝标记复位', T.confettiFired() === false);
 
+// === 手感反馈标准化钩子（fxShakes / fxBursts，纯旁路，不改玩法）===
+T.reset();
+H.ok('basketball 初始 fxShakes=0', T.fxShakes() === 0);
+H.ok('basketball 初始 fxBursts=0', T.fxBursts() === 0);
+// 命中（落点即篮筐）→ burst + shake
+T.setHoop(330,110); T.setBall(330,110); T.shoot(0,0);
+H.ok('basketball 命中触发 burst>0', T.fxBursts() > 0);
+H.ok('basketball 命中触发 shake>0', T.fxShakes() > 0);
+// 打铁（球不动，必不进）→ 仅 shake
+T.reset(); T.setScore(0); T.setBall(40,200); T.shoot(0,0);
+H.ok('basketball 打铁触发 shake>0', T.fxShakes() > 0);
+H.ok('basketball 打铁未触发 burst', T.fxBursts() === 0);
+T.reset();
+H.ok('basketball 重置后 fxShakes 归零', T.fxShakes() === 0);
+H.ok('basketball 重置后 fxBursts 归零', T.fxBursts() === 0);
+
 module.exports = {};

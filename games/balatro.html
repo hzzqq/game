@@ -111,8 +111,10 @@
   // ---- run state ----
   let S=null;
   let _confettiFired = false;
+  let _fxShakes = 0, _fxBursts = 0;
   function newRun(){
     _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
     S={
       ante:1, blindIdx:0, target:0, bossDebuff:null,
       deck:buildDeck(), hand:[], discard:[], selected:[],
@@ -173,7 +175,14 @@
     const cards=sel.map(i=>S.hand[i]);
     const res=scoreHand(cards);
     S.chips+=res.score;
+    _fxShakes++;
     if(J){ J.sfx('hit'); J.addTrauma(.25); }
+    if (res.score >= 50) {
+      const _bx = (typeof window!=='undefined' ? window.innerWidth : 800) / 2;
+      const _by = (typeof window!=='undefined' ? window.innerHeight : 600) / 2;
+      _fxBursts++;
+      if (typeof Juice!=='undefined' && Juice.burst) Juice.burst(_bx, _by, { n: 16 });
+    }
     // remove played from hand (high->low to keep indices valid)
     for(let k=sel.length-1;k>=0;k--) S.hand.splice(sel[k],1);
     for(const c of cards) S.discard.push(c);
@@ -287,6 +296,8 @@
       chooseReward, skipReward,
       isOver:()=>S.over, isWin:()=>S.won,
       confettiFired:()=>_confettiFired,
+      fxShakes:()=>_fxShakes,
+      fxBursts:()=>_fxBursts,
       // debug hooks
       debugSetHand:(cards)=>{ S.hand=cards.slice(); S.selected=[]; },
       debugSetTarget:(t)=>{ S.target=t; },

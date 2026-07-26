@@ -60,3 +60,16 @@ t.move(3); // 左移合并出 2048
 H.ok('2048 合成 2048 后庆祝标记置位', t.confettiFired() === true && t.won === true);
 t.newGame(); t.freezeSpawn(true);
 H.ok('2048 重开后庆祝标记复位', t.confettiFired() === false);
+
+// === 手感反馈标准化钩子（fxShakes / fxBursts，纯旁路，不改玩法）===
+t.newGame(); t.freezeSpawn(true);
+H.ok('2048 初始 fxShakes=0', t.fxShakes() === 0);
+H.ok('2048 初始 fxBursts=0', t.fxBursts() === 0);
+t.setBoard([[1024,1024,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]);
+t.move(3); // 左移合并出 2048 → 大数合并 burst + 胜利 shake
+H.ok('2048 大数合并触发 burst>0', t.fxBursts() > 0);
+H.ok('2048 胜利触发 shake>0', t.fxShakes() > 0);
+t.newGame();
+H.ok('2048 新局后 fxShakes 归零', t.fxShakes() === 0);
+H.ok('2048 新局后 fxBursts 归零', t.fxBursts() === 0);
+

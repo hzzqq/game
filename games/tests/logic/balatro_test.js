@@ -76,3 +76,23 @@ t.playSelected();
 ok('balatro 赢下盲注后庆祝标记置位', t.confettiFired() === true);
 t.newRun();
 ok('balatro 重开后庆祝标记复位', t.confettiFired() === false);
+
+// === 手感反馈标准化钩子（fxShakes / fxBursts，纯旁路，不改玩法）===
+t.newRun();
+ok('balatro 初始 fxShakes=0', t.fxShakes() === 0);
+ok('balatro 初始 fxBursts=0', t.fxBursts() === 0);
+// 打出任意牌型 → 既有 addTrauma 计为 shake（本条 score<50 不触发 burst）
+t.debugSetHand([C(2,'spade'),C(2,'heart')]); t.debugSetTarget(1e9);
+t.toggleSelect(0); t.toggleSelect(1); t.playSelected();
+ok('balatro 出牌触发 shake>0', t.fxShakes() > 0);
+// 打出高分牌型（四条）→ burst
+t.newRun();
+const _quads=[C(7,'spade'),C(7,'heart'),C(7,'diamond'),C(7,'club'),C(2,'spade')];
+t.debugSetHand(_quads); t.debugSetTarget(1e9);
+t.toggleSelect(0);t.toggleSelect(1);t.toggleSelect(2);t.toggleSelect(3);t.toggleSelect(4);
+t.playSelected();
+ok('balatro 高分牌型触发 burst>0', t.fxBursts() > 0);
+t.newRun();
+ok('balatro 新局后 fxShakes 归零', t.fxShakes() === 0);
+ok('balatro 新局后 fxBursts 归零', t.fxBursts() === 0);
+
