@@ -39,3 +39,11 @@ t.step(1); t.step(2); t.step(3);
 ok('floodfill: 满盘同色触发庆祝特效', t.confettiFired === true);
 t.setBoard(board);
 ok('floodfill: 重摆后庆祝特效标记恢复 false', t.confettiFired === false);
+
+// ============ 手感反馈计数钩子：_fxShakes / _fxBursts ============
+t.setBoard(board); // 重摆=重置计数
+eq('floodfill: 初始 fxBursts=0', t.fxBursts(), 0);
+eq('floodfill: 初始 fxShakes=0', t.fxShakes(), 0);
+ok('floodfill: 一次填充触发 burst', t.step(1) === true && t.fxBursts() > 0);
+t.setBoard(board);
+eq('floodfill: 重摆后 fxBursts 归零', t.fxBursts(), 0);

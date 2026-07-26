@@ -27,3 +27,11 @@ t.moveFreeToFoundation(0); t.moveFreeToFoundation(1); t.moveFreeToFoundation(2);
 ok('freecell: 四座收齐触发庆祝特效', t.confettiFired === true);
 t.setTableau([],[0,0,0,0],[null,null,null,null]);
 ok('freecell: 重开后庆祝特效标记恢复 false', t.confettiFired === false);
+
+// ============ 手感反馈计数钩子：_fxShakes / _fxBursts ============
+t.setTableau([],[0,0,0,0],[{s:0,r:1},null,null,null]); // 自由格有黑桃A，重开=重置
+eq('freecell: 初始 fxBursts=0', t.fxBursts(), 0);
+eq('freecell: 初始 fxShakes=0', t.fxShakes(), 0);
+ok('freecell: 一叠牌归位(收A)触发 burst', t.moveFreeToFoundation(0) === true && t.fxBursts() > 0);
+t.setTableau([],[0,0,0,0],[null,null,null,null]);
+eq('freecell: 重开后 fxBursts 归零', t.fxBursts(), 0);

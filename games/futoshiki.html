@@ -68,6 +68,7 @@
   let won = false;
   let _wonPrev = false;
   let _confettiCount = 0;
+  let _fxShakes = 0, _fxBursts = 0;
   function _fireConfetti(){
     _confettiCount++;
     if(typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
@@ -108,6 +109,7 @@
     won = isWin();
     _checkWinFx();
     if(won && typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('futoshiki', N_local); }
+    else if(typeof Juice!=='undefined'){ _fxBursts++; if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.6, {color:'#02c076', n:12}); }
     return true;
   }
 
@@ -116,6 +118,7 @@
     grid = givensGrid.map(row=>row.slice());
     givens = givensGrid.map(row=>row.map(v=>v!==0));
     constraints = (cts||[]).map(ct=>({r1:ct.r1,c1:ct.c1,r2:ct.r2,c2:ct.c2,op:ct.op}));
+    _fxShakes=0; _fxBursts=0;
     won = isWin();
     return {N:N_local, givens:givensGrid.flat().filter(v=>v!==0).length, constraints:constraints.length};
   }
@@ -157,7 +160,7 @@
     if(givens.flat().every(g=>!g)){ givens[0][0]=true; givens[N-1][N-1]=true; }
     // 当前 grid 含全部解→以此为“已解”展示？不：仅保留给定，其余清空
     for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(!givens[r][c]) grid[r][c]=0;
-    won=false; _wonPrev=false;
+    won=false; _wonPrev=false; _fxShakes=0; _fxBursts=0;
   }
   function reset(){ newGame(); }
 
@@ -245,7 +248,8 @@
     window.__t = {
       N, setRand, newGame, reset, setBoard, setValue, isWin, getState, update,
       latinOK, constraintsOK,
-      get confettiFired(){ return _confettiCount; }
+      get confettiFired(){ return _confettiCount; },
+      fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
     };
   }
 })();

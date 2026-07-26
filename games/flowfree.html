@@ -61,6 +61,7 @@
   let won = false;
   let _confettiFired = false;
   let N_local = N;
+  let _fxShakes = 0, _fxBursts = 0;
 
   function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
   function key(r,c){ return r*N_local+c; }
@@ -108,6 +109,7 @@
   function setPath(color, cells){
     if(!validatePath(color, cells)) return false;
     paths[color] = cells.map(p=>p.slice());
+    _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst){ const last=cells[cells.length-1]; Juice.burst(last[1]*50, last[0]*50, {color:PALETTE[(color-1)%PALETTE.length], n:8}); }
     if(isWin()){ won=true; if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('flowfree', countColors()); if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } }
     return true;
   }
@@ -130,6 +132,7 @@
     endpoints = ep.map(e=>({color:e.color, a:e.a.slice(), b:e.b.slice()}));
     paths = {};
     _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
     for(const e of endpoints){
       const path = [];
       const visited = new Set();
@@ -190,7 +193,7 @@
       if(cuts.every(x=>Math.abs(x-c)>=2)) cuts.push(c);
     }
     cuts.sort((a,b)=>a-b);
-    endpoints=[]; paths={}; won=false; _confettiFired=false;
+    endpoints=[]; paths={}; won=false; _confettiFired=false; _fxShakes=0; _fxBursts=0;
     let prev=0;
     for(let i=0;i<k;i++){
       const end = (i===k-1) ? order.length : cuts[i];
@@ -287,6 +290,7 @@
       N, setRand, newGame, reset, setBoard, setPath, clearPath,
       isWin, getState, update, colorAt, isEndpoint, validatePath, filledCount, countColors,
       get confettiFired(){ return _confettiFired; },
+      fxShakes: () => _fxShakes, fxBursts: () => _fxBursts,
     };
   }
 })();

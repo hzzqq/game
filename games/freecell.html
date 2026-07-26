@@ -60,6 +60,7 @@
   "use strict";
   const SUITS=['♠','♥','♦','♣'];
   let tableau, free, foundations, over, won, _confettiFired, _rand;
+  let _fxShakes = 0, _fxBursts = 0;
   function setRand(fn){ _rand=fn; }
   function color(s){ return (s===1||s===2)?'red':'black'; }
   function newDeck(){ const d=[]; for(let s=0;s<4;s++) for(let r=1;r<=13;r++) d.push({s,r}); return d; }
@@ -68,20 +69,20 @@
     const deck=shuffle(newDeck());
     tableau=[[],[],[],[],[],[],[],[]];
     for(let c=0;c<8;c++){ const n=(c<4)?7:6; for(let k=0;k<n;k++) tableau[c].push(deck.pop()); }
-    free=[null,null,null,null]; foundations=[0,0,0,0]; over=false; won=false; _confettiFired=false;
+    free=[null,null,null,null]; foundations=[0,0,0,0]; over=false; won=false; _confettiFired=false; _fxShakes=0; _fxBursts=0;
   }
   function canFoundation(card){ const f=foundations[card.s]; return f===0? card.r===1 : card.r===f+1; }
   function canTableau(card, col){ const t=tableau[col]; if(t.length===0) return card.r===13; const top=t[t.length-1]; return color(card.s)!==color(top.s) && card.r===top.r-1; }
-  function moveFreeToFoundation(i){ if(!free[i]) return false; const c=free[i]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; free[i]=null; checkWin(); Juice.sfx('hit'); Juice.addTrauma(.2); won && (Juice.sfx('win'), Juice.flash('#02c076',.5)); return true; }
+  function moveFreeToFoundation(i){ if(!free[i]) return false; const c=free[i]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; free[i]=null; _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.6, {color:'#02c076', n:8}); checkWin(); Juice.sfx('hit'); Juice.addTrauma(.2); won && (Juice.sfx('win'), Juice.flash('#02c076',.5)); return true; }
   function moveFreeToTableau(i, col){ if(!free[i]) return false; const c=free[i]; if(!canTableau(c,col)) return false; tableau[col].push(c); free[i]=null; Juice.sfx('pickup'); return true; }
   function moveTableauToFree(col){ if(free.every(x=>x!==null)) return false; if(!tableau[col].length) return false; const c=tableau[col].pop(); const i=free.indexOf(null); free[i]=c; Juice.sfx('pickup'); return true; }
-  function moveTableauToFoundation(col){ if(!tableau[col].length) return false; const c=tableau[col][tableau[col].length-1]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; tableau[col].pop(); checkWin(); Juice.sfx('hit'); Juice.addTrauma(.2); won && (Juice.sfx('win'), Juice.flash('#02c076',.5)); return true; }
+  function moveTableauToFoundation(col){ if(!tableau[col].length) return false; const c=tableau[col][tableau[col].length-1]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; tableau[col].pop(); _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.6, {color:'#02c076', n:8}); checkWin(); Juice.sfx('hit'); Juice.addTrauma(.2); won && (Juice.sfx('win'), Juice.flash('#02c076',.5)); return true; }
   function moveTableauToTableau(from,to){ if(!tableau[from].length) return false; const c=tableau[from][tableau[from].length-1]; if(!canTableau(c,to)) return false; tableau[to].push(c); tableau[from].pop(); Juice.sfx('click'); return true; }
   function checkWin(){ won = foundations.every(f=>f===13); if(won) over=true; if(won && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
   function isWin(){ return won || foundations.every(f=>f===13); }
   function foundationsCount(){ return foundations.reduce((a,b)=>a+b,0); }
   function getState(){ return { tableau:tableau.map(t=>t.map(c=>({...c}))), free:free.map(x=>x?{...x}:null), foundations:foundations.slice(), over, won }; }
-  function setTableau(t,f,fr){ const COLS=8; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f.slice(); free=(fr||[null,null,null,null]).slice(); over=false; won=false; _confettiFired=false; }
+  function setTableau(t,f,fr){ const COLS=8; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f.slice(); free=(fr||[null,null,null,null]).slice(); over=false; won=false; _confettiFired=false; _fxShakes=0; _fxBursts=0; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function cardHTML(c){ if(!c) return '<div class="slot empty">·</div>'; const nm=c.r===1?'A':c.r===11?'J':c.r===12?'Q':c.r===13?'K':c.r; return '<div class="slot '+(color(c.s)==='red'?'red':'black')+'">'+nm+SUITS[c.s]+'</div>'; }
   function build(){
@@ -111,7 +112,7 @@
     else { build(); bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ SUITS, color, newGame, newDeck, canFoundation, canTableau, moveFreeToFoundation, moveFreeToTableau, moveTableauToFree, moveTableauToFoundation, moveTableauToTableau, isWin, foundationsCount, getState, setTableau, setRand, get confettiFired(){ return _confettiFired; } };
+    window.__t={ SUITS, color, newGame, newDeck, canFoundation, canTableau, moveFreeToFoundation, moveFreeToTableau, moveTableauToFree, moveTableauToFoundation, moveTableauToTableau, isWin, foundationsCount, getState, setTableau, setRand, get confettiFired(){ return _confettiFired; }, fxShakes: () => _fxShakes, fxBursts: () => _fxBursts };
   }
 })();
 </script>

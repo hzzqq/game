@@ -97,3 +97,12 @@ const EP = [
   t.setBoard(SOL, EP);
   ok('flowfree: 重开(重新加载)后庆祝特效标记恢复 false', t.confettiFired === false);
 }
+
+// ============ 手感反馈计数钩子：_fxShakes / _fxBursts ============
+t.setBoard(SOL, EP); // 重置计数
+eq('flowfree: 初始 fxBursts=0', t.fxBursts(), 0);
+eq('flowfree: 初始 fxShakes=0', t.fxShakes(), 0);
+t.clearPath(1);
+ok('flowfree: 连通一条线触发 burst', t.setPath(1, [[0,0],[0,1],[0,2]]) === true && t.fxBursts() > 0);
+t.setBoard(SOL, EP);
+eq('flowfree: 重开(重新加载)后 fxBursts 归零', t.fxBursts(), 0);

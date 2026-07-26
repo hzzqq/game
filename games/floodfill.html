@@ -47,12 +47,12 @@
 (function(){
   "use strict";
   const PALETTE=['#f6465d','#02c076','#f0b90b','#3b82f6','#a855f7','#ec4899'];
-  let rows=12, cols=12, numColors=6, board, region, moves, over, celebrated=false, _confettiFired=false;
+  let rows=12, cols=12, numColors=6, board, region, moves, over, celebrated=false, _confettiFired=false, _fxShakes=0, _fxBursts=0;
   let _rand=Math.random;
   function setRand(fn){ _rand=fn; }
   function gen(){
     board=[]; for(let r=0;r<rows;r++){ const row=[]; for(let c=0;c<cols;c++) row.push(Math.floor(_rand()*numColors)); board.push(row); }
-    moves=0; over=false; celebrated=false; _confettiFired=false; computeRegion();
+    moves=0; over=false; celebrated=false; _confettiFired=false; _fxShakes=0; _fxBursts=0; computeRegion();
   }
   function inb(r,c){ return r>=0&&c>=0&&r<rows&&c<cols; }
   function neighbors(r,c){ const out=[]; if(inb(r-1,c))out.push([r-1,c]); if(inb(r+1,c))out.push([r+1,c]); if(inb(r,c-1))out.push([r,c-1]); if(inb(r,c+1))out.push([r,c+1]); return out; }
@@ -68,6 +68,7 @@
     while(q.length){ const [r,c]=q.pop(); for(const [nr,nc] of neighbors(r,c)){ const k=nr+','+nc; if(seen.has(k)) continue; if(board[nr][nc]===color){ seen.add(k); region.push([nr,nc]); q.push([nr,nc]); } } }
     moves++;
     over = region.length===rows*cols; Juice.sfx('hit'); Juice.addTrauma(.2); over && (Juice.sfx('win'), Juice.flash('#02c076',.5));
+    _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight/2, {color:PALETTE[color]||'#02c076', n:10});
     if(over) celebrate();
     else spawnParticle(window.innerWidth/2, window.innerHeight/2, PALETTE[color]||'#02c076');
     return true;
@@ -86,7 +87,7 @@
   function getMoves(){ return moves; }
   function isSolved(){ return over; }
   function getBoard(){ return board.map(r=>r.slice()); }
-  function setBoard(b){ board=b.map(r=>r.slice()); rows=b.length; cols=b[0].length; moves=0; over=false; celebrated=false; _confettiFired=false; computeRegion(); }
+  function setBoard(b){ board=b.map(r=>r.slice()); rows=b.length; cols=b[0].length; moves=0; over=false; celebrated=false; _confettiFired=false; _fxShakes=0; _fxBursts=0; computeRegion(); }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
@@ -101,7 +102,7 @@
   }
   newGame();
   if(typeof document!=='undefined'){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
-  if(typeof window!=='undefined'){ window.__t={ step, getFlooded, getMoves, isSolved, getBoard, setBoard, setRand, gen, celebrate, spawnParticle, triggerWinEffect:function(){ celebrate(); }, wasCelebrated:function(){ return celebrated; }, get confettiFired(){ return _confettiFired; } }; }
+  if(typeof window!=='undefined'){ window.__t={ step, getFlooded, getMoves, isSolved, getBoard, setBoard, setRand, gen, celebrate, spawnParticle, triggerWinEffect:function(){ celebrate(); }, wasCelebrated:function(){ return celebrated; }, get confettiFired(){ return _confettiFired; }, fxShakes: () => _fxShakes, fxBursts: () => _fxBursts }; }
 })();
 </script>
 </body>

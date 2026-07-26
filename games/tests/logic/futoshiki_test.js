@@ -119,3 +119,11 @@ const SOL = [
   t.setValue(2,0,3); t.setValue(2,1,1);
   ok('解出谜题→confettiFired 增加', t.confettiFired > before);
 }
+
+// ============ 手感反馈计数钩子：_fxShakes / _fxBursts ============
+t.setBoard([[1,0,0],[0,3,0],[0,0,2]], [{r1:0,c1:0,r2:0,c2:1,op:'<'}]); // 重摆=重置
+eq('futoshiki: 初始 fxBursts=0', t.fxBursts(), 0);
+eq('futoshiki: 初始 fxShakes=0', t.fxShakes(), 0);
+ok('futoshiki: 填对满足约束触发 burst', t.setValue(0,1,2) === true && t.fxBursts() > 0);
+t.newGame();
+eq('futoshiki: 新局后 fxBursts 归零', t.fxBursts(), 0);

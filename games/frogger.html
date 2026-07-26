@@ -66,6 +66,7 @@
   "use strict";
   const ROWS=13, COLS=11;
   let frog, rows, dead, goal, _confettiFired;
+  let _fxShakes = 0, _fxBursts = 0;
   let pickups, shield, boostTimer, lives, score, _dropTimer;
   let wave=1, boss=null, bossShots=[];
   // ---- 难度系统（倍率法；normal=1.0 保持现有行为，不影响既有单测） ----
@@ -105,7 +106,7 @@
       row.speed = 1 * cfg.speedMult;
     }
   }
-  function reset(){ frog={row:ROWS-1,col:Math.floor(COLS/2)}; defaultRows(); dead=false; goal=false; _confettiFired=false; pickups=[]; shield=0; boostTimer=0; lives=1; score=0; _dropTimer=4; wave=1; boss=null; bossShots=[]; }
+  function reset(){ frog={row:ROWS-1,col:Math.floor(COLS/2)}; defaultRows(); dead=false; goal=false; _confettiFired=false; _fxShakes=0; _fxBursts=0; pickups=[]; shield=0; boostTimer=0; lives=1; score=0; _dropTimer=4; wave=1; boss=null; bossShots=[]; }
   function setFrog(r,c){ frog.row=r; frog.col=c; }
   function setRow(r,type){ rows[r].type=type; }
   function setObstacles(r,cols){ rows[r].obstacles=cols.slice(); }
@@ -118,7 +119,7 @@
     else if(d==='down') frog.row=Math.min(ROWS-1,frog.row+1);
     else if(d==='left') frog.col=Math.max(0,frog.col-1);
     else if(d==='right') frog.col=Math.min(COLS-1,frog.col+1);
-    if(frog.row===0){ goal=true; if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } }
+    if(frog.row===0){ goal=true; _fxShakes++; if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); if(Juice.shake) Juice.shake(.3); if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } }
     if(!dead && !goal){
       _dropTimer -= 1;
       if(_dropTimer<=0){ spawnPickupAtRandom(); _dropTimer = 4; }
@@ -184,7 +185,7 @@
       const reward = 100*wave;
       score += reward;
       pickups.push(makePickup('shield', Math.round(boss.row), Math.round(boss.col)));
-      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#f0b90b',.5); if(Juice.burst) Juice.burst(boss.col*30, boss.row*24, {color:'#f6465d', n:20}); }
+      if(typeof Juice!=='undefined'){ _fxBursts++; Juice.sfx('win'); Juice.flash('#f0b90b',.5); if(Juice.burst) Juice.burst(boss.col*30, boss.row*24, {color:'#f6465d', n:20}); }
       boss = null;
       return true;
     }
@@ -255,7 +256,7 @@
   function updatePickups(dt){ collectPickups(); }
   function takeHit(){
     if(shield>0){ shield--; if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); Juice.flash('#3aa0ff',.25); } }
-    else { dead=true; lives=0; if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.flash('#f6465d',.5); } }
+    else { dead=true; lives=0; _fxShakes++; if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.flash('#f6465d',.5); if(Juice.shake) Juice.shake(.5); } }
   }
   function update(dt){
     if(boostTimer>0) boostTimer-=dt;
@@ -329,7 +330,7 @@
     setShots(v){ bossShots=v||[]; },
     setWave(v){ wave=v; },
     getWave(){ return wave; },
-    get confettiFired(){ return _confettiFired; } }; }
+    get confettiFired(){ return _confettiFired; }, fxShakes: () => _fxShakes, fxBursts: () => _fxBursts }; }
 })();
 </script>
 </body>

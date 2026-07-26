@@ -282,6 +282,39 @@ const pkBefore = t.getPickups();
 t.setFrog(0,5); t.updateBoss(1);
 ok('青蛙Boss: 击败掉落道具', t.getPickups() > pkBefore, 'pickups '+pkBefore+'->'+t.getPickups());
 
+// ============ 手感反馈计数钩子：_fxShakes / _fxBursts ============
+t.reset();
+eq('frogger: 初始 fxShakes=0', t.fxShakes(), 0);
+eq('frogger: 初始 fxBursts=0', t.fxBursts(), 0);
+
+// 触发点1：被撞死 → shake
+t.setRow(5,'road');
+t.setObstacles(5,[3]);
+t.setFrog(5,3);
+t.setRowSpeed(5,0);
+t.tick(1);
+ok('frogger: 被撞死触发 shake', t.isDead() === true && t.fxShakes() > 0);
+
+// 触发点2：成功到岸(到达第0行) → shake
+t.reset();
+t.setFrog(1,5);
+t.move('up');
+ok('frogger: 到达对岸触发 shake', t.isGoal() === true && t.fxShakes() > 0);
+
+// 触发点3：Boss 被击溃 → burst
+t.reset();
+t.setFrog(1,5);
+t.spawnBoss();
+t.setBossHp(1);
+t.move('up');   // 抵达第0行：goal + shake
+t.tick(1);      // updateBoss：hp<=0 → 击溃 → burst
+ok('frogger: Boss 被击溃触发 burst', t.fxBursts() > 0);
+
+// 归零：reset 后计数清空
+t.reset();
+eq('frogger: reset 后 fxShakes 归零', t.fxShakes(), 0);
+eq('frogger: reset 后 fxBursts 归零', t.fxBursts(), 0);
+
 // ============ 汇总 ============
 const { results } = require('./harness');
 const pass = results.filter(r=>r.pass).length;
