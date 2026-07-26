@@ -85,3 +85,22 @@ const { t } = H.loadGame('../hexcells.html');
   t.checkWin();
   H.ok('六边形 通关后 confettiFired 增加', t.confettiFired > before);
 })();
+
+// 9) 手感反馈钩子：_fxShakes / _fxBursts 只读计数
+(() => {
+  t.setDim(3, 3);
+  t.setGrid(new Array(9).fill(0)); // 无雷，全可翻开
+  H.eq('六边形 fx 初始 burst=0', t.fxBursts(), 0);
+  H.eq('六边形 fx 初始 shake=0', t.fxShakes(), 0);
+  // 正确翻开一格 → 触发 burst（过程时刻）
+  t.openCell(4);
+  H.ok('六边形 正确标记触发 burst', t.fxBursts() > 0);
+  // 踩雷 → 触发 shake（addTrauma）
+  t.setGrid([1,0,0, 0,0,0, 0,0,0]); // 仅 (0) 为雷
+  t.openCell(0);
+  H.ok('六边形 踩雷触发 shake', t.fxShakes() > 0);
+  // 重开归零
+  t.setGrid(new Array(9).fill(0));
+  H.eq('六边形 重开 burst 归零', t.fxBursts(), 0);
+  H.eq('六边形 重开 shake 归零', t.fxShakes(), 0);
+})();

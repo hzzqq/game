@@ -60,3 +60,24 @@ const { t } = loadGame('../hanoi.html');
   ok('重开重置 confetti 标记', t.confettiFired===false);
   ok('重开未胜', t.isWin()===false);
 }
+
+// ===== 7. 手感反馈钩子：_fxShakes / _fxBursts =====
+{
+  t.newGame(3);
+  eq('初始 burst=0', t.fxBursts(), 0);
+  eq('初始 shake=0', t.fxShakes(), 0);
+  t.move(0, 2); // 移动一个盘 → 触发 burst
+  ok('移动触发 burst', t.fxBursts() > 0);
+  t.newGame(3); // 重开归零
+  eq('重开 burst 归零', t.fxBursts(), 0);
+  eq('重开 shake 归零', t.fxShakes(), 0);
+}
+
+// ===== 8. 通关时刻触发 shake =====
+{
+  t.newGame(3);
+  const sol=[[0,2],[0,1],[2,1],[0,2],[1,0],[1,2],[0,2]];
+  for(const [f,tt] of sol){ t.move(f,tt); }
+  ok('通关后 isWin', t.isWin()===true);
+  ok('通关触发 shake', t.fxShakes() > 0);
+}

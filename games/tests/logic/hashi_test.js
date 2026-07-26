@@ -85,3 +85,30 @@ t.setRand(Math.random);
   ok('reset 后未胜', t.isWin()===false);
   ok('reset 后重置 confetti 标记', t.confettiFired===false);
 }
+
+// ===== 8. 手感反馈钩子：_fxShakes / _fxBursts =====
+{
+  t.newPuzzle(12345);
+  eq('初始 burst=0', t.fxBursts(), 0);
+  eq('初始 shake=0', t.fxShakes(), 0);
+  // 连通第一座桥 → 触发 burst
+  const sol = t.getSolution();
+  const b0 = sol[0];
+  ok('找到规范解桥', !!b0);
+  const okSet = t.setBridge(b0.i, b0.j, b0.count);
+  ok('建桥成功', okSet === true);
+  ok('建桥触发 burst', t.fxBursts() > 0);
+  // 重开归零
+  t.newPuzzle(12345);
+  eq('重开 burst 归零', t.fxBursts(), 0);
+  eq('重开 shake 归零', t.fxShakes(), 0);
+}
+
+// ===== 9. 解出谜题时刻触发 shake =====
+{
+  t.newPuzzle(12345);
+  const sol = t.getSolution();
+  for(const b of sol){ t.setBridge(b.i, b.j, b.count); }
+  ok('解出谜题 isWin', t.isWin()===true);
+  ok('解出谜题触发 shake', t.fxShakes() > 0);
+}

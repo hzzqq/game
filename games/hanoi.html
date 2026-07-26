@@ -54,11 +54,12 @@
   const COLORS = ['#f6465d','#f0b90b','#02c076','#3aa0ff','#b073ff','#ff8a3a','#27c93f','#ff5f56'];
 
   let N, pegs, moves, won, over, sel, _confettiFired;
+  let _fxShakes = 0, _fxBursts = 0;
   function newGame(n){
     N = (n && n>=1 && n<=8) ? n : 3;
     pegs = [[],[],[]];
     for(let d=N; d>=1; d--) pegs[0].push(d); // 底大顶小
-    moves=0; won=false; over=false; sel=null; _confettiFired=false;
+    moves=0; won=false; over=false; sel=null; _confettiFired=false; _fxShakes=0; _fxBursts=0;
   }
   function reset(){ newGame(N); }
   function top(p){ return pegs[p].length ? pegs[p][pegs[p].length-1] : null; }
@@ -73,9 +74,17 @@
     pegs[t].push(pegs[f].pop());
     moves++;
     sel=null;
+    _fxBursts++;
+    if(typeof Juice!=='undefined'){
+      const moved = pegs[t][pegs[t].length-1];
+      const px = (t+1)*120, py = 200 - pegs[t].length*22;
+      Juice.burst(px, py, {color: COLORS[(moved-1)%COLORS.length] || '#f0b90b', n:8, speed:120});
+    }
     if(pegs[TARGET].length===N){ won=true; over=true; }
     if(typeof Juice!=='undefined'){
       if(won){
+        _fxShakes++;
+        if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
         Juice.sfx('levelup'); Juice.best('hanoi', moves);
         if(!_confettiFired){
           _confettiFired = true;
@@ -153,6 +162,8 @@
       newGame, reset, move, canMove, isWin, isOver, getMoves, getMinMoves,
       getPegs, getN, getSel, select, setPegs, top,
       get confettiFired() { return _confettiFired; },
+      fxShakes: () => _fxShakes,
+      fxBursts: () => _fxBursts
     };
   }
 })();

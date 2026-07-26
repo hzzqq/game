@@ -38,3 +38,22 @@ ok('通关后标记 confetti', t.confettiFired === true);
 t.puzzle(); // 重开
 ok('重开重置 confetti 标记', t.confettiFired === false);
 ok('重开未解', t.isSolved() === false);
+
+// ===== 手感反馈钩子：_fxShakes / _fxBursts =====
+{
+  t.puzzle(); // 重置
+  eq('初始 burst=0', t.fxBursts(), 0);
+  eq('初始 shake=0', t.fxShakes(), 0);
+  const p = { rows:2, cols:2, board:[[0,0],[0,0]],
+    runs:[ {dir:'h',cells:[[0,0],[0,1]],sum:3}, {dir:'h',cells:[[1,0],[1,1]],sum:7},
+           {dir:'v',cells:[[0,0],[1,0]],sum:4}, {dir:'v',cells:[[0,1],[1,1]],sum:6} ] };
+  t.setPuzzle(p);
+  t.setCell(0,0,1); // 只填一格，整块未满足
+  ok('填一格触发 shake', t.fxShakes() > 0);
+  eq('未满足整块不触发 burst', t.fxBursts(), 0);
+  t.setCell(0,1,2); // 横块 [0,0][0,1] 合计=3 满足 → 触发 burst
+  ok('满足数块触发 burst', t.fxBursts() > 0);
+  t.puzzle(); // 重开归零
+  eq('重开 burst 归零', t.fxBursts(), 0);
+  eq('重开 shake 归零', t.fxShakes(), 0);
+}

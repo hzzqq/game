@@ -139,3 +139,29 @@ function get(r, c) { return t.getBoard()[r * N + c]; }
   H.ok('五子棋 AI 胜利不标记玩家 confetti', t.confettiFired === false);
 })();
 
+// 12) 手感反馈钩子：_fxShakes / _fxBursts 只读计数
+(() => {
+  // 段首重置，确保从 0 开始（前面测试已驱动过落子/胜利）
+  t.reset();
+  H.eq('五子棋 fx 初始 burst=0', t.fxBursts(), 0);
+  H.eq('五子棋 fx 初始 shake=0', t.fxShakes(), 0);
+
+  // 单子落子（无连四/无胜利）→ 触发 burst，不触发 shake
+  t.doMove(7, 7, P);
+  H.ok('五子棋 落子触发 burst', t.fxBursts() > 0);
+  H.eq('五子棋 单子未触发 shake', t.fxShakes(), 0);
+
+  // 形成活四（非五连）→ 触发 shake
+  t.reset();
+  const b = Array(N * N).fill(EMPTY);
+  b[0 * N + 0] = P; b[0 * N + 1] = P; b[0 * N + 2] = P;
+  t.setBoard(b);
+  t.doMove(0, 3, P); // 第4子补全活四（右端空）
+  H.ok('五子棋 活四触发 shake', t.fxShakes() > 0);
+
+  // 重开归零
+  t.reset();
+  H.eq('五子棋 重开 burst 归零', t.fxBursts(), 0);
+  H.eq('五子棋 重开 shake 归零', t.fxShakes(), 0);
+})();
+

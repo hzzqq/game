@@ -90,6 +90,7 @@
   const wrap = document.getElementById('wrap');
 
   let board, history, current, gameOver, lastWin, _confettiFired;
+  let _fxShakes = 0, _fxBursts = 0;
   let cssSize = 0, MARGIN = 0, STEP = 0;
   const RED = '#f6465d', GREEN = '#02c076';
 
@@ -119,6 +120,7 @@
     gameOver = false;
     lastWin = null;
     _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
     setTurn();
     hideOverlay();
     draw();
@@ -218,6 +220,7 @@
   function doMove(r,c,who){
     board[idx(r,c)] = who;
     history.push({r,c,who});
+    _fxBursts++;
     if(typeof Juice!=='undefined'){ Juice.sfx('click'); const sx=MARGIN+c*STEP, sy=MARGIN+r*STEP; Juice.burst(sx,sy,{color:who===P?RED:GREEN,n:6,speed:120}); }
     const line = checkWin(r,c,who);
     if(line){
@@ -233,6 +236,9 @@
                youWin ? '红方连珠五子，终端判定胜利。' : '绿方连成五子，再接再厉。');
       return;
     }
+    // 形成活四/冲四 → 小震动（手感反馈，零视觉新增）
+    const ev = evalPoint(r,c,who);
+    if(ev && ev.threat){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.3); }
     if(history.length === N*N){
       gameOver = true;
       endGame('平局', '棋盘已满，势均力敌。');
@@ -360,10 +366,14 @@
     document.getElementById('ovTitle').textContent = title;
     document.getElementById('ovTitle').style.color = (title.indexOf('你赢')>=0) ? GREEN : (title.indexOf('平')>=0 ? '#f0b90b' : RED);
     document.getElementById('ovText').textContent = text;
-    if(typeof Juice!=='undefined'){
-      if(title.indexOf('你赢')>=0){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('gomoku',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
-      else if(title.indexOf('平')>=0){ Juice.sfx('click'); }
-      else { Juice.sfx('lose'); Juice.flash(RED,0.3); Juice.addTrauma(0.5); }
+    if(title.indexOf('你赢')>=0){
+      _fxShakes++;
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('gomoku',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
+    }
+    else if(title.indexOf('平')>=0){ if(typeof Juice!=='undefined') Juice.sfx('click'); }
+    else {
+      _fxShakes++;
+      if(typeof Juice!=='undefined'){ Juice.sfx('lose'); Juice.flash(RED,0.3); Juice.addTrauma(0.5); }
     }
     ov.style.display = 'flex';
   }
@@ -425,7 +435,9 @@
     get lastWin() { return lastWin; },
     get confettiFired() { return _confettiFired; },
     get current() { return current; },
-    set current(v) { current = v; }
+    set current(v) { current = v; },
+    fxShakes: () => _fxShakes,
+    fxBursts: () => _fxBursts
   };
 })();
 </script>

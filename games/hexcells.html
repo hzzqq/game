@@ -83,9 +83,11 @@
   let flagMode=false;
   let _wonPrev = false;
   let _confettiCount = 0;
+  let _fxShakes = 0, _fxBursts = 0;
   function _fireConfetti(){
     _confettiCount++;
     if(typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
+    _fxBursts++;
     if(typeof Juice !== 'undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.4, {color:'#f0b90b', n:40});
   }
 
@@ -120,7 +122,7 @@
     let placed=0;
     while(placed<M){ const i=Math.floor(_rng()*R*C); if(cells[i].mine) continue; cells[i].mine=true; placed++; }
     computeAdj();
-    started=false; dead=false; won=false; revealed=0; flags=0; _wonPrev=false;
+    started=false; dead=false; won=false; revealed=0; flags=0; _wonPrev=false; _fxShakes=0; _fxBursts=0;
   }
 
   // 直接以雷图（0/1 数组，长度 R*C）摆盘，便于确定性测试
@@ -129,7 +131,7 @@
     cells = mines.map(m=>({mine:!!m,adj:0,open:false,flag:false}));
     computeAdj();
     M = cells.filter(c=>c.mine).length;
-    started=true; dead=false; won=false; revealed=0; flags=0; _wonPrev=false;
+    started=true; dead=false; won=false; revealed=0; flags=0; _wonPrev=false; _fxShakes=0; _fxBursts=0;
   }
 
   function revealAllMines(){ for(let i=0;i<R*C;i++) if(cells[i].mine) cells[i].open=true; }
@@ -150,10 +152,13 @@
     started=true;
     if(typeof Juice!=='undefined') Juice.sfx('click');
     if(cells[i].mine){ cells[i].open=true; dead=true; revealAllMines();
+      _fxShakes++;
       if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(.5); }
       render(); showOverlay('💥 踩雷了','六边形地雷爆炸！'); return;
     }
     flood(i);
+    _fxBursts++;
+    if(typeof Juice!=='undefined'){ const r=Math.floor(i/C), c=i%C; Juice.burst(30 + c*28, 30 + r*24, {color:'#02c076', n:6, speed:120}); }
     render(); checkWin();
   }
 
@@ -250,7 +255,9 @@
       getCells(){ return cells.map(c=>({mine:c.mine,adj:c.adj,open:c.open,flag:c.flag})); },
       getState(){ return { open:cells.map(c=>c.open), flag:cells.map(c=>c.flag), mine:cells.map(c=>c.mine), adj:cells.map(c=>c.adj), revealed, flags, mines:M, dead, won, started, R, C }; },
       isWin(){ return won || revealed===(R*C-M); },
-      get confettiFired(){ return _confettiCount; }
+      get confettiFired(){ return _confettiCount; },
+      fxShakes: () => _fxShakes,
+      fxBursts: () => _fxBursts
     };
   }
 })();
