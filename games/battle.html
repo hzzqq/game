@@ -243,6 +243,7 @@
     // 胜利彩带（受控：Juice 未定义或不含 confetti 时直接跳过，绝不抛错）
     // _confettiFired：确保一场比赛仅触发一次（纯旁路视觉标记，不改胜负逻辑）
     let _confettiFired = false;
+    let _fxShakes = 0, _fxBursts = 0;
     function winConfetti() {
       if (_confettiFired) return;
       _confettiFired = true;
@@ -344,8 +345,8 @@
         b.x+=b.vx; b.y+=b.vy;
         if(b.x<0||b.x>W||b.y<0||b.y>H){ b.dead=true; continue; }
         for(const o of obstacles){ if(b.x>o.x&&b.x<o.x+o.w&&b.y>o.y&&b.y<o.y+o.h){ b.dead=true; } }
-        if(b.owner==='A'){ if(hitTank(b,tankB)){ tankB.hp-=DMG; b.dead=true; if(mode==='online'&&role==='host') sendState(); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.3); Juice.burst(b.x,b.y,{color:'#02c076',n:10,speed:180}); } addShake(0.35); spawnParticle(b.x,b.y,'#02c076',{n:10,speed:200}); } }
-        else { if(hitTank(b,tankA)){ tankA.hp-=DMG; b.dead=true; if(mode==='online'&&role==='guest') sendState(); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.3); Juice.burst(b.x,b.y,{color:'#f6465d',n:10,speed:180}); } addShake(0.35); spawnParticle(b.x,b.y,'#f6465d',{n:10,speed:200}); } }
+        if(b.owner==='A'){ if(hitTank(b,tankB)){ tankB.hp-=DMG; b.dead=true; if(mode==='online'&&role==='host') sendState(); _fxShakes++; _fxBursts++; if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.3); Juice.burst(b.x,b.y,{color:'#02c076',n:10,speed:180}); } addShake(0.35); spawnParticle(b.x,b.y,'#02c076',{n:10,speed:200}); } }
+        else { if(hitTank(b,tankA)){ tankA.hp-=DMG; b.dead=true; if(mode==='online'&&role==='guest') sendState(); _fxShakes++; _fxBursts++; if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(0.3); Juice.burst(b.x,b.y,{color:'#f6465d',n:10,speed:180}); } addShake(0.35); spawnParticle(b.x,b.y,'#f6465d',{n:10,speed:200}); } }
       }
       bullets=bullets.filter(b=>!b.dead);
       if(mode==='online'){ myBullets=myBullets.filter(b=>!b.dead); remoteBullets=remoteBullets.filter(b=>!b.dead); }
@@ -364,7 +365,7 @@
     if(over) return;
     if(winner==='A') scoreA++; else scoreB++;
     setStatus((winner==='A'?'红方 P1':'绿方 P2')+' 获胜本回合！');
-    if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.5); Juice.flash(winner==='A'?'#f6465d':'#02c076',0.25); }
+    _fxShakes++; if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.5); Juice.flash(winner==='A'?'#f6465d':'#02c076',0.25); }
     over=true; setTimeout(()=>{
       if(scoreA>=3||scoreB>=3){ winConfetti(); setStatus((scoreA>scoreB?'红方 P1':'绿方 P2')+' 赢得比赛！点击返回大厅再战。'); if(typeof Juice!=='undefined'){ if(scoreA>scoreB){ Juice.sfx('win'); Juice.flash('#02c076',0.3); } else { Juice.sfx('lose'); Juice.flash('#f6465d',0.3); } Juice.addTrauma(0.7); } return; }
       resetPositions(); over=false; setStatus('');
@@ -375,6 +376,7 @@
       tankB.x=W*0.75;tankB.y=H*0.5;tankB.a=Math.PI/2;tankB.hp=MAXHP;
       bullets=[]; myBullets=[]; remoteBullets=[]; tankA.fireCd=0; tankB.fireCd=0; fireCd=0;
       _confettiFired=false;
+      _fxShakes = 0; _fxBursts = 0;
     }
 
     // ============ 渲染 ============
@@ -570,6 +572,8 @@
       getShake: function(){ return shake; },
       setShake: function(v){ shake = v; },
       forceWin: winConfetti,
+      fxShakes: function(){ return _fxShakes; },
+      fxBursts: function(){ return _fxBursts; },
       confettiFired: function(){ return _confettiFired; }
     };
   })();

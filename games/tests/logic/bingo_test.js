@@ -35,3 +35,14 @@ ok('triggerWinEffect 在 Juice 无 confetti 时不抛错', bthrew === false);
 // 重开新局（setCard 复位）后恢复 false
 t.setCard(card);
 ok('重开新局后 confettiFired=false', t.confettiFired() === false);
+
+// ===== 手感计数钩子（只读 _fxShakes/_fxBursts）=====
+t.setCard(card);
+eq('fx 初始 shake=0', t.fxShakes(), 0);
+eq('fx 初始 burst=0', t.fxBursts(), 0);
+for(let c=0;c<5;c++) t.call(c+1); // 整行命中 → 每次命中 shake，连成一线 burst
+ok('命中触发 shake>0', t.fxShakes()>0);
+ok('连成一线触发 burst>0', t.fxBursts()>0);
+t.setCard(card); // newGame 归零
+eq('newGame 后 shake 归零', t.fxShakes(), 0);
+eq('newGame 后 burst 归零', t.fxBursts(), 0);

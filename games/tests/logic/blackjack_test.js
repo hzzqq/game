@@ -61,4 +61,24 @@ T.setChips(1000);
 T.runRound([Ten, N7], [Ten, N8], 100); // 普通负，不触发彩带
 H.ok(T.confettiFired() === false, 'bj: 新局重置后 confettiFired=false');
 
+// ===== 手感计数钩子（只读 _fxShakes/_fxBursts）=====
+// 干净基线：runRound 内部归零；平局(push)不触发任何 fx
+T.setChips(1000);
+T.runRound([Ten, N9], [Ten, N9], 100);
+H.eq('fx 初始 shake=0', T.fxShakes(), 0);
+H.eq('fx 初始 burst=0', T.fxBursts(), 0);
+T.setChips(1000);
+T.runRound([A, K], [Ten, N7], 100);   // 黑杰克 → burst
+H.ok('黑杰克触发 burst>0', T.fxBursts() > 0);
+H.eq('黑杰克不触发 shake', T.fxShakes(), 0);
+T.setChips(1000);
+T.runRound([Ten, N6, N8], [Ten, N8], 100); // 玩家爆牌 → shake
+H.ok('爆牌触发 shake>0', T.fxShakes() > 0);
+H.eq('爆牌不触发 burst', T.fxBursts(), 0);
+// newGame 归零（runRound 复位 → 平局不触发 fx）
+T.setChips(1000);
+T.runRound([Ten, N9], [Ten, N9], 100);
+H.eq('newGame 后 shake 归零', T.fxShakes(), 0);
+H.eq('newGame 后 burst 归零', T.fxBursts(), 0);
+
 module.exports = {};

@@ -75,9 +75,11 @@
   function getDifficulty(){ return difficulty; }
 
   let board, ships, shots, hits, sunkCount, over, won, _confettiFired;
+  let _fxShakes = 0, _fxBursts = 0;
   function reset(){
     board = []; for(let r=0;r<SIZE;r++) board.push(new Array(SIZE).fill(0)); // 0空 1舰 2命中
     ships = []; shots = new Set(); hits = 0; sunkCount = 0; over = false; won = false; _confettiFired = false;
+    _fxShakes = 0; _fxBursts = 0;
     placeShips();
   }
   function key(r,c){ return r+','+c; }
@@ -139,8 +141,8 @@
     }
     if(!won && shots.size>=SIZE*SIZE) over=true; // 极端：全射完未胜（理论上不会，因舰必被击中）
     if(typeof Juice!=='undefined'){
-      if(res.sunk){ Juice.sfx('boom'); Juice.addTrauma(0.3); }
-      else if(res.hit){ Juice.sfx('click'); }
+      if(res.sunk){ _fxShakes++; Juice.sfx('boom'); Juice.addTrauma(0.5); Juice.burst(40*c+20, 40*r+20, {color:'#f6465d', n:14, speed:200}); }
+      else if(res.hit){ _fxShakes++; _fxBursts++; Juice.sfx('click'); Juice.addTrauma(0.3); Juice.burst(40*c+20, 40*r+20, {color:'#02c076', n:12, speed:200}); }
       else Juice.sfx('miss');
       if(won){ Juice.sfx('levelup'); Juice.best('battleship', shots.size); }
     }
@@ -212,6 +214,8 @@
       setBoard:(b)=>{ board=b; }, addShot:(r,c)=>shots.add(key(r,c)),
       DIFFICULTY, setDifficulty, getDifficulty,
       confettiFired:()=>_confettiFired,
+      fxShakes:()=>_fxShakes,
+      fxBursts:()=>_fxBursts,
     };
   }
 })();

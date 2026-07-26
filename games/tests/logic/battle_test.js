@@ -323,6 +323,24 @@ try { t.step(1); t.spawnParticle(t.getTankA().x, t.getTankA().y, '#f6465d', {n:5
 ok('手感 spawnParticle/step 不抛错', !threwFeel);
 ok('手感 生成粒子', t.getParticles() > 0);
 
+// ===== 手感计数钩子（只读 _fxShakes/_fxBursts）=====
+t.resetPositions(); // 新局归零基线
+eq('fx 初始 shake=0', t.fxShakes(), 0);
+eq('fx 初始 burst=0', t.fxBursts(), 0);
+
+// 驱动一次命中：在 tankB 处放置 owner=A 的子弹并 step（local 模式无输入 → 坦克不移动）
+t.setMode('local'); t.setOver(false); t.setRunning(true);
+const _tb = t.getTankB();
+t.setBullets([{ x: _tb.x, y: _tb.y, vx: 0, vy: 0, owner: 'A' }]);
+t.step(16);
+ok('命中触发 shake>0', t.fxShakes() > 0);
+ok('命中触发 burst>0', t.fxBursts() > 0);
+
+// newGame 归零
+t.resetPositions();
+eq('newGame 后 shake 归零', t.fxShakes(), 0);
+eq('newGame 后 burst 归零', t.fxBursts(), 0);
+
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;

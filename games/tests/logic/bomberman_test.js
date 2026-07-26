@@ -172,3 +172,16 @@ ok('新局重置后 confettiFired=false', t.confettiFired() === false);
 // forceWin 钩子直接驱动
 t.forceWin();
 ok('forceWin 钩子触发 confettiFired=true', t.confettiFired() === true);
+
+// ===== 手感计数钩子（只读 _fxShakes/_fxBursts）=====
+t.setup(5,5,[]);
+t.setRange(2);
+t.setBomb(2,2);
+eq('fx 初始 shake=0', t.fxShakes(), 0);
+eq('fx 初始 burst=0', t.fxBursts(), 0);
+t.explode(); // 引爆 → shake + burst
+ok('引爆触发 shake>0', t.fxShakes() > 0);
+ok('引爆触发 burst>0', t.fxBursts() > 0);
+t.setup(5,5,[]); // newGame 归零
+eq('newGame 后 shake 归零', t.fxShakes(), 0);
+eq('newGame 后 burst 归零', t.fxBursts(), 0);

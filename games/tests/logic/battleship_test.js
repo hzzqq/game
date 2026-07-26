@@ -127,3 +127,16 @@ console.log('battleship: 全部断言通过');
   eq('getDifficulty 返回 hell', t.getDifficulty(), 'hell');
   eq('setDifficulty(非法) 返回 false', t.setDifficulty('x'), false);
 }
+
+// ===== 手感计数钩子（只读 _fxShakes/_fxBursts）=====
+t.setRand(_rng); t.reset();
+eq('fx 初始 shake=0', t.fxShakes(), 0);
+eq('fx 初始 burst=0', t.fxBursts(), 0);
+const _b3=t.getBoard(); let _sr=-1,_sc=-1;
+for(let r=0;r<10;r++) for(let c=0;c<10;c++) if(_b3[r][c]===1){ _sr=r; _sc=c; break; }
+t.shoot(_sr,_sc); // 命中（非击沉）→ shake + burst
+ok('命中触发 shake>0', t.fxShakes()>0);
+ok('命中触发 burst>0', t.fxBursts()>0);
+t.setRand(_rng); t.reset(); // newGame 归零
+eq('newGame 后 shake 归零', t.fxShakes(), 0);
+eq('newGame 后 burst 归零', t.fxBursts(), 0);

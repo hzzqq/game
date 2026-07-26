@@ -51,9 +51,11 @@
 (function(){
   "use strict";
   let W,H, blocks, walls, bombs, players, range, pickups, score, shield, bombCap, fire, blastSet, _confettiFired;
+  let _fxShakes = 0, _fxBursts = 0;
   function setup(w,h,blockList){
     W=w; H=h; blocks=new Set((blockList||[]).map(b=>b[0]+','+b[1])); walls=new Set(); bombs=[]; players=[]; range=2; pickups=[]; score=0;
     shield=0; bombCap=1; fire=0; blastSet=new Set(); _confettiFired=false;
+    _fxShakes=0; _fxBursts=0;
   }
   // 胜利彩带（纯旁路视觉，受 Juice 守卫，仅触发一次）；逻辑层无原生胜负，以「全清场」里程碑 + forceWin 钩子驱动
   function winConfetti(){
@@ -125,7 +127,8 @@
         else { p.dead=true; }
       }
     }
-    if(typeof Juice!=='undefined'){ if(Juice.sfx) Juice.sfx('boom'); if(Juice.addTrauma) Juice.addTrauma(.4); }
+    _fxShakes++;
+    if(typeof Juice!=='undefined'){ if(Juice.sfx) Juice.sfx('boom'); if(Juice.addTrauma) Juice.addTrauma(.4); if(Juice.burst){ var _bx=(bombs.length?bombs[0].x:0)*26+13, _by=(bombs.length?bombs[0].y:0)*26+13; _fxBursts++; Juice.burst(_bx,_by,{color:'#f0b90b',n:14,speed:200}); } }
     // 全清场里程碑：所有角色被炸死 → 触发一次胜利彩带（仅视觉，不改玩法）
     if(players.length && players.every(function(p){return p.dead;}) && !_confettiFired) winConfetti();
     bombs.length=0;
@@ -188,6 +191,8 @@
     getBombCount(){ return bombs.length; },
     getPlayers(){ return players.map(function(p){return {x:p.x,y:p.y,dead:p.dead};}); },
     forceWin: winConfetti,
+    fxShakes: function(){ return _fxShakes; },
+    fxBursts: function(){ return _fxBursts; },
     confettiFired: function(){ return _confettiFired; }
   }; }
 })();
