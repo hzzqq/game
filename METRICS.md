@@ -1,13 +1,13 @@
 # 项目度量报告
 
-> 生成时间：2026-07-28T03:43:12.448Z（由 `node metrics-report.js` 自动生成，勿手改）
+> 生成时间：2026-07-28T07:28:37.952Z（由 `node metrics-report.js` 自动生成，勿手改）
 
 ## 总览
 
 | 指标 | 数值 |
 | --- | --- |
 | 游戏数 | 165 |
-| HTML 总行数 | 55,120 |
+| HTML 总行数 | 55,138 |
 | 平均行数/款 | 334 |
 | 测试文件 | 167 |
 | 断言通过 | 5688/5688（全绿） |
@@ -16,11 +16,11 @@
 
 | 指标 | 数值 |
 | --- | --- |
-| 已用 Common.* | 19/165（11.5%） |
-| 逻辑裸 Math.random | 75 款 |
-| 内联主题（待收口 injectTheme） | 165 款 |
+| 已用 Common.* | 165/165（100%） |
+| 逻辑裸 Math.random | 0 款 |
+| 内联主题（待收口 injectTheme） | 0 款 |
 | 手写 diffbar（待收口 buildDiffBar） | 55 款 |
-| 手写 rAF 循环（待收口 Loop） | 64 款 |
+| 手写 rAF 循环（待收口 Loop） | 0 款 |
 
 ## 可测性
 
@@ -39,7 +39,7 @@
 | 1000–2000 行 | 0 |
 | > 2000 行 | 0 |
 
-**最大 5 款**：tetris.html（926 行）、carrot.html（895 行）、rhythm.html（891 行）、bubble.html（884 行）、runner.html（840 行）
+**最大 5 款**：tetris.html（919 行）、carrot.html（893 行）、rhythm.html（883 行）、bubble.html（877 行）、runner.html（838 行）
 
 ## 配套命令
 

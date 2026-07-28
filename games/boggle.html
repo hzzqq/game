@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // 文字矩阵 BOGGLE</title>
 <style>
-  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
@@ -41,6 +41,8 @@
   </div>
   <div class="foot">Boggle（文字矩阵）：4×4 字母盘，由加权分布生成（多元音/常见字母）。相邻格（含对角）连成至少 3 字母的英文词，同格不可重复使用。计分：3=1,4=1,5=2,6=3,7+=5。</div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script src="input.js"></script>
 <script>

@@ -5,12 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // TEMP PRUN</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --dim:#7f8b97;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b; --blue:#3aa0ff;
-    --leaf:#5ad17a;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden}
   body{background:var(--bg);color:var(--text);
@@ -78,6 +73,8 @@
     </div>
   </div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="input.js"></script>
 <script src="juice.js"></script>
 <script>
@@ -497,8 +494,8 @@
   }
 
   var loopPrevT = 0;
-  function loop(ts){
-    var fdt = loopPrevT ? Math.min(0.05, (ts - loopPrevT)/1000) : 0.016;
+  var loop = Common.Loop(function (ts) {
+  var fdt = loopPrevT ? Math.min(0.05, (ts - loopPrevT)/1000) : 0.016;
     loopPrevT = ts;
     if (J) J.update(fdt);
     if (typeof Input !== 'undefined'){
@@ -518,8 +515,8 @@
     spdEl.textContent = (boostTimer > 0 ? (speed/baseSpeed*2).toFixed(1) : (speed/baseSpeed).toFixed(1)) + 'x';
     coinEl.textContent = coins;
     renderBuff();
-    requestAnimationFrame(loop);
-  }
+    ;
+});
 
   function renderBuff(){
     if (!buffEl) return;
@@ -614,7 +611,7 @@
 
   reset();
   state = 'menu';
-  requestAnimationFrame(loop);
+  loop.start();
 })();
 </script>
 </body>

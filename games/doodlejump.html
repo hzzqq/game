@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // 涂鸦跳跃 DOODLE JUMP</title>
 <style>
-  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
@@ -46,6 +46,8 @@
   </div>
   <div class="foot">Doodle Jump（涂鸦跳跃）：自动跳跃穿越平台，向上攀登刷新高度分；收集增益道具助你飞得更高。</div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 (function(){
@@ -507,14 +509,14 @@
       bar.appendChild(b);
     });
   }
-  function loop(){
-    step(0.016); render(); uiTick();
-    if(typeof document!=='undefined') requestAnimationFrame(loop);
-  }
+  var loop = Common.Loop(function () {
+  step(0.016); render(); uiTick();
+    if(typeof document!=='undefined') ;
+});
   function uiTick(){ /* HUD 已在 render 内更新，占位保持结构一致 */ }
 
   reset();
-  if(typeof document!=='undefined'){ bindUI(); buildDiffBar(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render(); loop(); }
+  if(typeof document!=='undefined'){ bindUI(); buildDiffBar(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render(); loop.start(); }
   if(typeof window!=='undefined'){
     window.__t = {
       W, H, R, START_Y, PLAT_W, JUMP_V, SPRING_V, ROCKET_V, ROCKET_DUR, STAR_VALUE, GRAVITY,

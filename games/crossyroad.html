@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // 过马路 CROSSY ROAD</title>
 <style>
-  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:radial-gradient(1200px 700px at 50% -10%, rgba(2,192,118,.05), transparent 60%),var(--bg);
@@ -47,6 +47,8 @@
   </div>
   <div class="foot">Crossy Road（过马路）：操纵角色向前跳跃，躲避横向车流、踩着浮木过河。越靠前行号越高分。</div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 (function(){
@@ -434,12 +436,12 @@
   if(typeof document!=='undefined'){ bindUI(); buildDiffBar(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render();
     // 动画循环：驱动障碍移动 / Boss 俯冲（harness 中 requestAnimationFrame 为 no-op，不会自走）
     let lastT = 0;
-    function frame(ts){
-      const dt = Math.min(0.05, (ts - lastT)/1000 || 0.016); lastT = ts;
+    var frame = Common.Loop(function (ts) {
+  const dt = Math.min(0.05, (ts - lastT)/1000 || 0.016); lastT = ts;
       step(dt); render();
-      if(typeof requestAnimationFrame!=='undefined') requestAnimationFrame(frame);
-    }
-    if(typeof requestAnimationFrame!=='undefined') requestAnimationFrame(frame);
+      if(typeof requestAnimationFrame!=='undefined') ;
+});
+    if(typeof requestAnimationFrame!=='undefined') frame.start();
   }
   if(typeof window!=='undefined'){
     window.__t = { setRand, reset, newGame, hop, step, isGameOver, getScore, getState,

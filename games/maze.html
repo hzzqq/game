@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // 迷宫</title>
 <style>
-  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
@@ -45,6 +45,8 @@
   </div>
   <div class="foot">迷宫（Maze）：基于随机深度优先的递归回溯算法生成保证连通的完美迷宫，BFS 自动求解路径。</div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 (function(){

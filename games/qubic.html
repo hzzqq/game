@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // 立体四子棋</title>
 <style>
-  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
@@ -50,6 +50,8 @@
   </div>
   <div class="foot">立体四子棋（Qubic）：4×4×4 立方棋盘，共 76 条四连直线（三轴/面对角/体对角）。红绿轮流自由落子，连成四子即胜，填满无连子则平。暗色终端风。</div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 (function(){

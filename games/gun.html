@@ -4,14 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>枪战 · Gun Strike</title>
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="input.js"></script>
 <script src="juice.js"></script>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#0f141c; --panel2:#131a24; --line:rgba(31,42,56,.8);
-    --red:#f6465d; --green:#02c076; --blue:#3aa0ff; --gold:#f0b90b;
-    --txt:#d7e0ea; --dim:#7d8a99;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:var(--bg);color:var(--txt);font-family:"Cascadia Code",Consolas,Menlo,monospace;
@@ -560,8 +558,8 @@
   }
 
   var last=performance.now();
-  function frame(ts){
-    var dt=Math.min(0.05,(ts-last)/1000); last=ts;
+  var frame = Common.Loop(function (ts) {
+  var dt=Math.min(0.05,(ts-last)/1000); last=ts;
     if(Input.pressed('pause')){ if(state==='play'||state==='paused') togglePause(); }
     if(state==='play'){
       update(dt);
@@ -570,8 +568,8 @@
     Juice.update(dt);
     if(state!=='menu') render();
     Input.update();
-    requestAnimationFrame(frame);
-  }
+    ;
+});
   function buildDiffBar(){
     if(typeof document==='undefined') return;
     var bar=document.getElementById('diffbar'); if(!bar) return;
@@ -628,7 +626,7 @@
     takeHit: function(dmg){ hurtPlayer(dmg); }
   };
 
-  requestAnimationFrame(frame);
+  frame.start();
 })();
 </script>
 </body>

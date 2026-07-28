@@ -4,13 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>飞行棋 · Aero Chess</title>
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="input.js"></script>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#0f141c; --panel2:#131a24; --line:rgba(31,42,56,.8);
-    --red:#f6465d; --green:#02c076; --blue:#3aa0ff; --gold:#f0b90b;
-    --txt:#d7e0ea; --dim:#7d8a99;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{
@@ -330,15 +328,15 @@
   }
 
   // 输入：骰子 / 开始
-  function loop(){
-    var now=performance.now(); var dt=(now-(loop._last||now))/1000; loop._last=now; if(dt>0.05)dt=0.05; if(typeof Juice!=='undefined') Juice.update(dt);
+  var loop = Common.Loop(function () {
+  var now=performance.now(); var dt=(now-(loop._last||now))/1000; loop._last=now; if(dt>0.05)dt=0.05; if(typeof Juice!=='undefined') Juice.update(dt);
     if(phase==='menu'){ if(Input.consume('start')) newGame(); }
     else if(phase!=='over'){ if(Input.consume('start')) rollDice(); }
     if(toastT>0){ toastT-=0.016; if(toastT<=0) document.getElementById('toast').classList.remove('show'); }
     render(); refresh();
     Input.update();
-    requestAnimationFrame(loop);
-  }
+    ;
+});
   document.getElementById('diceBtn').addEventListener('click',function(){ if(phase==='menu')newGame(); else rollDice(); });
   document.getElementById('restartBtn').addEventListener('click',newGame);
   document.getElementById('startBtn').addEventListener('click',newGame);
@@ -368,7 +366,7 @@
     getDifficultyName: function(){ return difficulty; },
   };
 
-  loop();
+  loop.start();
 })();
 </script>
 </body>

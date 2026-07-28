@@ -5,10 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>格斗 // FIGHT</title>
 <style>
-:root{
-  --bg:#0a0e14; --panel:#121821; --border:#1f2a38; --text:#e6edf3;
-  --dim:#6b7785; --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-}
+
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#05070b;color:var(--text);
   font-family:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;}
@@ -64,6 +61,8 @@ canvas{display:block;width:100%;height:auto;touch-action:none;image-rendering:pi
   </div>
   <div class="hint">A/D 或 ←/→ 移动 · J 拳 · K 腿 · L 必杀(耗气) · S/↓ 防御 · 三局两胜</div>
 </div>
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 (function(){
@@ -426,14 +425,14 @@ function draw(){
 }
 
 var last=performance.now();
-function loop(now){
+var loop = Common.Loop(function (now) {
   var realDt=now-last; last=now;
   if(realDt>50)realDt=50;
   if(typeof Juice!=='undefined') Juice.update(realDt/1000);
   update(realDt);
   draw();
-  requestAnimationFrame(loop);
-}
+  ;
+});
 
 function showOverlay(){
   var o=document.getElementById('overlay');
@@ -539,7 +538,7 @@ document.getElementById('restart').addEventListener('click',restart);
   };
 
 resetFighter(player,200); resetFighter(ai,600);
-requestAnimationFrame(loop);
+loop.start();
 })();
 </script>
 </body>

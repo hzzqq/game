@@ -5,17 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>TERMINAL // RHYTHM</title>
 <style>
-  :root{
-    --bg:#0a0e14;
-    --panel:#121821;
-    --border:#1f2a38;
-    --text:#e6edf3;
-    --sub:#6b7785;
-    --red:#f6465d;
-    --green:#02c076;
-    --gold:#f0b90b;
-    --font:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{height:100%;}
   body{
@@ -246,6 +236,8 @@
     <div class="footer">D F J K 对应四条轨道 · 触屏可点按对应轨道 · 音符到判定线时按键/点按 · 点开始解锁音频</div>
   </div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 "use strict";
@@ -750,7 +742,7 @@ function draw(now){
 
 /* ============== 主循环 ============== */
 let lastPerf = 0;
-function loop(){
+var loop = Common.Loop(function () {
   const pnow = performance.now();
   const dt = lastPerf ? Math.min(0.05, (pnow - lastPerf)/1000) : 0.016;
   lastPerf = pnow;
@@ -758,9 +750,9 @@ function loop(){
   const now = audioCtx ? audioCtx.currentTime : 0;
   if(G.playing) update(now);
   draw(now);
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
+  ;
+});
+loop.start();
 
 /* ============== 输入 ============== */
 /* 键盘与触屏共享高亮状态：最终 G.laneActive = 键盘按下 或 触摸占用 */

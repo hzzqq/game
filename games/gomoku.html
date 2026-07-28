@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // GOMOKU</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:
@@ -79,6 +75,7 @@
 
 <script src="juice.js"></script>
 <script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script>
 (function(){
   "use strict";
@@ -410,13 +407,13 @@
 
   // 持续驱动 juice 特效（落子/胜利后的粒子与震屏需要逐帧更新）
   let _gLast = 0;
-  function fxLoop(ts){
-    const dt = Math.min(0.05, (ts - (_gLast||ts))/1000); _gLast = ts;
+  var fxLoop = Common.Loop(function (ts) {
+  const dt = Math.min(0.05, (ts - (_gLast||ts))/1000); _gLast = ts;
     if(typeof Juice!=='undefined') Juice.update(dt);
     draw();
-    requestAnimationFrame(fxLoop);
-  }
-  requestAnimationFrame(fxLoop);
+    ;
+});
+  fxLoop.start();
 
   // 测试钩子（不影响正常玩法）
   window.__t = {

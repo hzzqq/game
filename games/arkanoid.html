@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>TERMINAL // ARKANOID</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --sub:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{ box-sizing:border-box; margin:0; padding:0; }
   html,body{ height:100%; }
   body{
@@ -99,6 +95,8 @@
     </div>
   </div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="input.js"></script>
 <script src="juice.js"></script>
 <script>
@@ -577,8 +575,8 @@
 
   // ---- 主循环（固定步长）----
   let last = (typeof performance!=='undefined') ? performance.now() : Date.now(), acc=0;
-  function frame(t){
-    now = t;
+  var frame = Common.Loop(function (t) {
+  now = t;
     let f = t - last; last = t;
     if(f>200) f=200;
     if (typeof Juice !== 'undefined') Juice.update(f/1000);
@@ -591,8 +589,8 @@
     let steps=0;
     while(acc>=STEP && steps<5){ update(); acc-=STEP; steps++; }
     render();
-    requestAnimationFrame(frame);
-  }
+    ;
+});
 
   // ---- 输入 ----
   canvas.addEventListener('mousemove', function(e){
@@ -649,7 +647,7 @@
   // ---- 启动 ----
   buildLevel(); // 仅为初始化（菜单态不显示）
   setState('menu');
-  requestAnimationFrame(frame);
+  frame.start();
 
   // ---- 测试钩子 ----
   window.__t = {

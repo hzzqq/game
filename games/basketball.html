@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // 投篮</title>
 <style>
-  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
@@ -42,6 +42,8 @@
   </div>
   <div class="foot">Basketball（投篮）：设定出手角度与力度，球受重力呈抛物线飞行，落入篮筐捕获范围即得分。</div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 (function(){
@@ -138,17 +140,17 @@
     if(msg)msg.textContent='调整出手角度与力度投出抛物线，让球落入篮筐即得分。'+(boostTimer>0?' 🚀强化':'');
   }
   let _lastT=0;
-  function loop(now){
-    if(typeof requestAnimationFrame==='undefined') return;
+  var loop = Common.Loop(function (now) {
+  if(typeof requestAnimationFrame==='undefined') return;
     if(IN_BROWSER){
       const t = (typeof performance!=='undefined' && performance.now) ? performance.now() : Date.now();
       const dt = _lastT ? Math.min(0.05, (t-_lastT)/1000) : 0; _lastT=t;
       updatePickups(dt);
     }
-    render(); requestAnimationFrame(loop);
-  }
+    render(); ;
+});
   reset();
-  if(typeof document!=='undefined'){ const sb=$('shoot'),nb=$('new'),ai=$('ang'),pi=$('pow'); if(sb)sb.onclick=()=>{ shoot(+ai.value||0,+pi.value||0); render(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
+  if(typeof document!=='undefined'){ const sb=$('shoot'),nb=$('new'),ai=$('ang'),pi=$('pow'); if(sb)sb.onclick=()=>{ shoot(+ai.value||0,+pi.value||0); render(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop.start(); }); else { render(); loop.start(); } }
   if(typeof window!=='undefined'){ window.__t={
     reset, setBall, setHoop, shoot, getScore, isMade, getBall, setScore:(v)=>{score=v;}, PICKUPS,
     confettiFired:()=>_confettiFired,

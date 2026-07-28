@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // FIGHT</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#0f141c; --panel2:#131a24; --border:rgba(31,42,56,.8);
-    --text:#d7e0ea; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden}
   body{background:var(--bg);color:var(--text);
@@ -158,7 +154,9 @@
     </div>
   </div>
 
-  <script src="input.js"></script>
+  <script src="common.js"></script>
+<script>Common.injectTheme();</script>
+<script src="input.js"></script>
   <script src="juice.js"></script>
   <script>
   (function () {
@@ -768,8 +766,8 @@
 
     // ---- loop ----
     var last = 0;
-    function loop(ts) {
-      if (!last) last = ts;
+    var loop = Common.Loop(function (ts) {
+  if (!last) last = ts;
       var dt = (ts - last) / 1000; last = ts;
       if (dt > 0.05) dt = 0.05;
       if (dt < 0) dt = 0;
@@ -778,8 +776,8 @@
       if (shake>0) shake=Math.max(0, shake - dt*1.5);
       draw();
       Input.update();
-      requestAnimationFrame(loop);
-    }
+      ;
+});
 
     // ---- boot ----
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0 || (window.matchMedia && matchMedia('(pointer:coarse)').matches)) {
@@ -827,7 +825,7 @@
       fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
     };
 
-    requestAnimationFrame(loop);
+    loop.start();
   })();
   </script>
 </body>

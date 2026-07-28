@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>保卫萝卜 // CARROT_FANTASY_TD</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{
@@ -148,6 +144,8 @@
     </div>
   </div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 (function(){
@@ -834,8 +832,8 @@
 
   // ---------- 主循环 ----------
   let lastTime = performance.now();
-  function loop(now){
-    let dt = (now - lastTime) / 1000;
+  var loop = Common.Loop(function (now) {
+  let dt = (now - lastTime) / 1000;
     lastTime = now;
     if(dt > 0.05) dt = 0.05;
     if(typeof Juice!=='undefined') Juice.update(dt);
@@ -843,11 +841,11 @@
     render();
     if (shake>0) shake=Math.max(0, shake - dt*1.5);
     refreshTowerInfoBtn();
-    requestAnimationFrame(loop);
-  }
+    ;
+});
 
   resetState();
-  requestAnimationFrame(loop);
+  loop.start();
 
   // 测试钩子（不影响正常玩法）
   window.__t = {

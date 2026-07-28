@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // CUBECITY</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden}
   body{background:var(--bg);color:var(--text);
@@ -77,7 +73,9 @@
   <div id="err"><div class="box"><h2>无法加载 Three.js</h2>
     <p>本游戏通过 CDN 加载 Three.js 3D 引擎，需要联网才能运行。<br/>请确认网络连接后刷新页面。（其余小游戏为纯离线，不受影响）</p></div></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"></script>
+  <script src="common.js"></script>
+<script>Common.injectTheme();</script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"></script>
   <script src="juice.js"></script>
   <script>
   (function(){
@@ -319,8 +317,8 @@
     };
 
     const clock=new THREE.Clock();
-    function animate(){
-      requestAnimationFrame(animate);
+    var animate = Common.Loop(function () {
+  ;
       const dt=clock.getDelta();
       if(typeof Juice!=='undefined') Juice.update(dt);
       acc+=dt;
@@ -330,8 +328,8 @@
         if(m.scale.y<0.999){ m.scale.y+=(1-m.scale.y)*0.18; if(m.scale.y>0.999)m.scale.y=1; m.position.y=(m.userData.h*m.scale.y)/2; }
       }
       renderer.render(scene,camera);
-    }
-    updateHUD(); animate();
+});
+    updateHUD(); animate.start();
 
     window.addEventListener('resize',()=>{
       camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();

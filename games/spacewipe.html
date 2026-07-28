@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // SPACEWIPE</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden}
   body{background:var(--bg);color:var(--text);
@@ -69,7 +65,9 @@
     </div>
   </div>
 
-  <script src="juice.js"></script>
+  <script src="common.js"></script>
+<script>Common.injectTheme();</script>
+<script src="juice.js"></script>
   <script>
   (function(){
     if('ontouchstart' in window) document.body.classList.add('touch');
@@ -377,12 +375,12 @@
     reset();
     // 主循环（沙箱 requestAnimationFrame 为 no-op，不会自走）
     let last=0;
-    function frame(t){
-      const dt=Math.min(0.05,(t-last)/1000||0.016); last=t;
+    var frame = Common.Loop(function (t) {
+  const dt=Math.min(0.05,(t-last)/1000||0.016); last=t;
       update(dt); render();
-      if(typeof requestAnimationFrame!=='undefined')requestAnimationFrame(frame);
-    }
-    if(typeof requestAnimationFrame!=='undefined')requestAnimationFrame(frame);
+      if(typeof requestAnimationFrame!=='undefined');
+});
+    if(typeof requestAnimationFrame!=='undefined')frame.start();
   })();
   </script>
 </body>

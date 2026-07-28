@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // PLANE</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden}
   body{background:var(--bg);color:var(--text);
@@ -86,7 +82,9 @@
     </div>
   </div>
 
-  <script src="juice.js"></script>
+  <script src="common.js"></script>
+<script>Common.injectTheme();</script>
+<script src="juice.js"></script>
   <script src="input.js"></script>
   <script>
   (function(){
@@ -449,16 +447,15 @@
 
     // ===== 循环 =====
     let raf=null, last=0;
-    function loop(ts){
-      if(!running) return;
+    var loop = Common.Loop(function (ts) {
+  if(!running) return;
       const dt=Math.min(0.05,(ts-last)||0.016); last=ts;
       Juice.update(dt);
       if(I && I.pressed('pause')) togglePause();
       if(!paused && !over) update(dt);
       render();
       if(I) I.update();
-      raf=requestAnimationFrame(loop);
-    }
+});
 
     function start(){
       // 重置
@@ -472,7 +469,7 @@
       document.getElementById('overlay').style.display='none';
       document.getElementById('pauseBtn').textContent='暂停';
       if(raf) cancelAnimationFrame(raf);
-      last=0; raf=requestAnimationFrame(loop);
+      last=0; raf=loop.start();
     }
 
     document.getElementById('startBtn').onclick=start;

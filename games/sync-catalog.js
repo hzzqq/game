@@ -70,7 +70,8 @@ function auditRandom() {
     usesCommon = /Common\s*\.\s*(mulberry32|mk|lcg|range|Loop|buildDiffBar|injectTheme|confetti|shuffle|clamp|lerp|DIFFICULTY)/.test(raw);
     const hasInlineTheme = THEME_RE.test(raw) && /<style[\s\S]*:root/.test(raw);
     const hasDiffbar = DIFFBAR_RE.test(raw);
-    const hasRAF = /requestAnimationFrame/.test(clean);
+    // 只统计真实调用 requestAnimationFrame(...)；排除 typeof 环境守卫（harness 兼容写法）
+    const hasRAF = /(?<!typeof\s)requestAnimationFrame\s*\(/.test(clean);
     const logicNaked = mathCount > 0 && !usesCommon;
     // 本地 PRNG / 随机助手：扩宽名表，逐一定性（auto / wrapper / overload / review）
     const HELPER_RE = /(?:function|const|let|var)\s*(rng|rand|randInt|rngInt|prng|seedRng|lcg|mk)\s*=\s*(?:function|\(|[^;]+=>)|function\s*(rng|rand|lcg)\s*\(/g;

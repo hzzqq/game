@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // 狼人杀 WEREWOLF</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#0f141c; --panel2:#131a24; --border:rgba(31,42,56,.8);
-    --text:#d7e0ea; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{
@@ -157,6 +153,8 @@
   </div>
 </div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="input.js"></script>
 <script src="juice.js"></script>
 <script>
@@ -165,7 +163,7 @@
 
   // ---------- 共享输入层（断触修复）----------
   if(window.Input && typeof window.Input.init==='function'){ Input.init({}); }
-  (function loop(){ if(window.Input && Input.update) Input.update(); requestAnimationFrame(loop); })();
+  var loop = Common.Loop(function (){ if(window.Input && Input.update) Input.update(); }); loop.start();
 
   // ---------- 常量 ----------
   var ROLES = ['wolf','villager','villager','seer','witch','hunter'];

@@ -30,11 +30,17 @@
        * 两者指向同一值，保证「迁移到 injectTheme」的旧游戏无论引用哪套都不丢配色。
        * 红色取游戏主流值 #f6465d（旧 Common 用 #ff5a6a，已对齐）。 */
       ':root{',
-      '--bg:#0a0e14;--panel:#10151f;--panel2:#121821;',
-      '--line:#1f2a38;--border:#1f2a38;',
-      '--txt:#d7e0ea;--text:#d7e0ea;',
-      '--dim:#7a8aa0;--gold:#ffcf5a;--green:#39d98a;--red:#f6465d;',
-      '--blue:#4aa8ff;--accent:#f0b90b;}',
+      '--bg:#0a0e14;--panel:#121821;--panel2:#131a24;',
+      '--line:rgba(31,42,56,.8);--border:#1f2a38;',
+      '--txt:#d7e0ea;--text:#e6edf3;',
+      '--dim:#6b7785;',
+      '--sub:#6b7785;--text-dim:#6b7785;--text2:#6b7785;',
+      '--gold:#f0b90b;--accent:#f0b90b;--yellow:#f0b90b;',
+      '--green:#02c076;--red:#f6465d;',
+      '--blue:#3aa0ff;',
+      '--purple:#9b6bff;--cyan:#2ee6d6;--white:#d8dee9;--leaf:#5ad17a;',
+      '--cell:90px;--gap:12px;--size:calc(var(--cell)*4 + var(--gap)*5);',
+      "--font:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;}",
       'body{margin:0;background:var(--bg);color:var(--text);',
       "font-family:'Cascadia Code',Consolas,Menlo,monospace;}",
       'canvas{display:block;background:#070a0f;border:1px solid var(--border);border-radius:8px;}',
@@ -80,7 +86,7 @@
       if (!running) return;
       var dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016;
       last = t;
-      try { step(dt); } catch (e) { console.error(e); }
+      try { step(t, dt); } catch (e) { console.error(e); }
       raf = requestAnimationFrame(frame);
     }
     function start() { if (running) return self; running = true; last = 0; raf = requestAnimationFrame(frame); return self; }

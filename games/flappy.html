@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>TERMINAL // FLAPPY</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --sub:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{ box-sizing:border-box; margin:0; padding:0; }
   html,body{ height:100%; }
   body{
@@ -63,7 +59,9 @@
     <div class="diffbar" id="diffbar"></div>
   </div>
 
-  <script src="juice.js"></script>
+  <script src="common.js"></script>
+<script>Common.injectTheme();</script>
+<script src="juice.js"></script>
   <script>
   // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
   var _randFn = Math.random;
@@ -317,23 +315,17 @@
       }
     }
 
-    function loop(t) {
-      var last = 0;
-      function frame(ts) {
-        var dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts;
-        if (typeof Juice !== 'undefined') Juice.update(dt);
-        // 自动掉落（仅真实循环触发；测试直接调 update 不受影响）
-        pickupTimer += dt;
-        if (pickupTimer >= 5) { pickupTimer = 0; if (pickups.length < 2) spawnPickupAtRandom(); }
-        update(dt);
-        if (typeof Juice !== 'undefined') Juice.begin(ctx);
-        draw();
-        if (typeof Juice !== 'undefined') Juice.mid(ctx);
-        if (typeof Juice !== 'undefined') Juice.end(ctx);
-        requestAnimationFrame(frame);
-      }
-      requestAnimationFrame(frame);
-    }
+    var loop = Common.Loop(function (t, dt) {
+      if (typeof Juice !== 'undefined') Juice.update(dt);
+      // 自动掉落（仅真实循环触发；测试直接调 update 不受影响）
+      pickupTimer += dt;
+      if (pickupTimer >= 5) { pickupTimer = 0; if (pickups.length < 2) spawnPickupAtRandom(); }
+      update(dt);
+      if (typeof Juice !== 'undefined') Juice.begin(ctx);
+      draw();
+      if (typeof Juice !== 'undefined') Juice.mid(ctx);
+      if (typeof Juice !== 'undefined') Juice.end(ctx);
+    });
 
     // 输入
     function onFlap(e) { if (e) e.preventDefault(); flap(); }
@@ -404,7 +396,7 @@
 
     reset();
     draw();
-    requestAnimationFrame(loop);
+    loop.start();
   })();
   </script>
 </body>

@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // HEXCELLS</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.06), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
@@ -65,6 +61,8 @@
   <div id="tip">左键翻开六边形 · 右键/标雷模式插旗 · 数字=周围 6 格的雷数 · 翻开全部非雷格即胜</div>
   <div id="overlay"><div class="box"><h2 id="ovTitle"></h2><p id="ovText"></p><button class="act" id="ovBtn">再来一局</button></div></div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 (function(){

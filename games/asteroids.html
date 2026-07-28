@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // 小行星</title>
 <style>
-  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
@@ -40,6 +40,8 @@
   </div>
   <div class="foot">Asteroids（小行星）：驾驶飞船射击来袭的小行星，大块被击碎会分裂成更小的块，清空全部即过关。</div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
   // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
@@ -223,9 +225,11 @@
     if(shield>0){ ctx.strokeStyle='rgba(80,180,255,.85)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(ship.x,ship.y,14,0,Math.PI*2); ctx.stroke(); } // 护盾环（仅绘制层）
     const sc=$('sc'),rem=$('rem'),bf=$('buff'); if(sc)sc.textContent=score; if(rem)rem.textContent=asteroids.length; if(bf){ let s=''; if(shield>0)s+='🛡'+shield+' '; if(rapid>0)s+='⚡'+Math.ceil(rapid)+'s '; if(spread>0)s+='✳'+Math.ceil(spread)+'s'; if(boostTimer>0)s+='🚀'+Math.ceil(boostTimer)+'s'; bf.textContent=s; }
   }
-  function loop(){ if(typeof requestAnimationFrame==='undefined') return; step(0.016); render(); requestAnimationFrame(loop); }
+  var loop = Common.Loop(function () {
+  if(typeof requestAnimationFrame==='undefined') return; step(0.016); render(); ;
+});
   reset();
-  if(typeof document!=='undefined'){ const sh=$('shoot'),nb=$('new'); if(sh)sh.onclick=()=>{ shoot(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
+  if(typeof document!=='undefined'){ const sh=$('shoot'),nb=$('new'); if(sh)sh.onclick=()=>{ shoot(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop.start(); }); else { render(); loop.start(); } }
   if(typeof window!=='undefined'){ window.__t={ reset, setAsteroids, setBullets, getAsteroids, getBullets, getScore, shoot, step,
     getState(){ return {score, shield, boostTimer, rapid, spread, lives, over, pickups:pickups.length, spawnTimer, wave, boss:!!boss, ebullets:ebullets.length}; },
     spawnPickup(type,x,y){ pickups.push(makePickup(type||'coin', x, y)); },

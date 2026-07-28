@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // ICE &amp; FIRE</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{
@@ -120,6 +116,8 @@
     <button class="act" id="ovBtn">下一关 ▸</button>
   </div></div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 (function(){
@@ -684,18 +682,18 @@
 
   /* ---------- main loop ---------- */
   let last=performance.now(), acc=0;
-  function loop(now){
-    const fdt=(now-last)/1000 || 0.016;
+  var loop = Common.Loop(function (now) {
+  const fdt=(now-last)/1000 || 0.016;
     acc+=now-last; last=now;
     if(acc>200) acc=200;
     if(typeof Juice!=='undefined') Juice.update(fdt);
     while(acc>=STEP){ step(); acc-=STEP; }
     render();
-    requestAnimationFrame(loop);
-  }
+    ;
+});
 
   loadLevel(0,true);
-  requestAnimationFrame(loop);
+  loop.start();
 
   // 测试钩子（不影响正常玩法）
   window.__t = {

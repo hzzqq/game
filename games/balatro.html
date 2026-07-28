@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // 巴尔牌 BALATRO</title>
 <style>
-  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono','Fira Code',Consolas,monospace;display:flex;flex-direction:column;align-items:center;user-select:none}
@@ -50,6 +50,7 @@
   <div class="foot">Balatro（巴尔牌）：扑克构筑 roguelike。用手牌凑成德州牌型（对子/顺子/同花/四条…），基础筹码×倍率，再吃小丑牌的加成，在有限出手次数内凑够目标分数通关。</div>
 
 <script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>var _randFn=Math.random;function setRand(fn){_randFn=fn||Math.random;}
 
@@ -275,11 +276,13 @@
   function renderWin(){ screenEl.innerHTML='<div class="center"><h1 class="win">通关！</h1><p>你击穿了全部 '+MAXANTE+' 轮盲注，成为巴尔牌大师。</p><button class="btn" id="rs">再来一局</button></div>'; if(typeof document!=='undefined'){const b=screenEl.querySelector('#rs');if(b)b.onclick=()=>{newRun();render();};} }
   function renderOver(){ screenEl.innerHTML='<div class="center"><h1 class="lose">GAME OVER</h1><p>出手次数用尽仍未达到目标 '+S.target+'（得 '+S.chips+'）。</p><button class="btn" id="rs">重新开始</button></div>'; if(typeof document!=='undefined'){const b=screenEl.querySelector('#rs');if(b)b.onclick=()=>{newRun();render();};} }
 
-  function loop(){ if(typeof document!=='undefined'){ render(); requestAnimationFrame(loop); } }
+  var loop = Common.Loop(function () {
+  if(typeof document!=='undefined'){ render(); ; }
+});
 
   // ---------- boot ----------
   newRun();
-  if(typeof document!=='undefined'){ render(); requestAnimationFrame(loop); }
+  if(typeof document!=='undefined'){ render(); loop.start(); }
 
   // ---------- test hooks ----------
   if(typeof window!=='undefined'){

@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // BATTLE</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden}
   body{background:var(--bg);color:var(--text);
@@ -125,7 +121,9 @@
 
   <div id="err"><div class="box"><h2>无法加载 PeerJS</h2><p>在线对战模式需要通过 CDN 加载 PeerJS 信令库，请确认网络连接后刷新。<br/>你仍可改用「本地双人」模式（纯离线）。</p></div></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="common.js"></script>
+<script>Common.injectTheme();</script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="juice.js"></script>
   <script>
   (function(){
@@ -437,16 +435,15 @@
 
     // ============ 循环 ============
     let raf=null, last=0;
-  function loop(ts){
-    if(!running) return;
+  var loop = Common.Loop(function (ts) {
+  if(!running) return;
     const dt=Math.min(40, ts-last)||16; last=ts;
     if(typeof Juice!=='undefined') Juice.update(dt/1000);
     if(!over) step(dt);
     if(shake>0) shake=Math.max(0, shake - (dt/1000)*1.5);
     render();
       if(mode==='online' && role==='host') sendState();
-      raf=requestAnimationFrame(loop);
-    }
+});
 
     // ============ 在线（PeerJS）============
     function setStatus(s){ document.getElementById('status').textContent=s; }
@@ -504,7 +501,7 @@
     function beginGame(){
       lobby.style.display='none'; resetPositions(); scoreA=0;scoreB=0; over=false; running=true; last=0;
       if(raf) cancelAnimationFrame(raf);
-      raf=requestAnimationFrame(loop);
+      raf=loop.start();
     }
 
     window.addEventListener('resize', ()=>{ /* 简单处理：不重排，仅更新画布尺寸上限 */

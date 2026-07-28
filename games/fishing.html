@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>TERMINAL // 钓鱼</title>
 <style>
-  :root{--bg:#0a0e14;--panel:#121821;--border:#1f2a38;--text:#e6edf3;--dim:#6b7785;--red:#f6465d;--green:#02c076;--gold:#f0b90b;}
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:radial-gradient(1200px 700px at 50% -10%, rgba(246,70,93,.05), transparent 60%),linear-gradient(0deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/100% 3px,var(--bg);
@@ -43,6 +43,8 @@
   </div>
   <div class="foot">Fishing（钓鱼）：在池塘抛竿，鱼钩附近出现鱼即咬钩，及时收线钓起，比拼渔获数量。</div>
 
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script>
 (function(){
@@ -138,9 +140,11 @@
     if(st)st.textContent=hook?(getBiting()?'有鱼咬钩!':'抛竿中'):'抛竿中';
     if(buff){ let b=[]; if(shield>0)b.push('🛡'+shield); if(boostTimer>0)b.push('🚀'+Math.ceil(boostTimer)+'s'); if(luckTimer>0)b.push('⏱'+Math.ceil(luckTimer)+'s'); buff.textContent=b.length?b.join(' '):'-'; }
   }
-  function loop(){ if(typeof requestAnimationFrame==='undefined') return; update(0.016); render(); requestAnimationFrame(loop); }
+  var loop = Common.Loop(function () {
+  if(typeof requestAnimationFrame==='undefined') return; update(0.016); render(); ;
+});
   reset();
-  if(typeof document!=='undefined'){ const cb=$('cast'),rb=$('reel'),nb=$('new'),xi=$('x'),yi=$('y'); if(cb)cb.onclick=()=>{ castAt(+xi.value||0,+yi.value||0); render(); }; if(rb)rb.onclick=()=>{ reel(); render(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop(); }); else { render(); loop(); } }
+  if(typeof document!=='undefined'){ const cb=$('cast'),rb=$('reel'),nb=$('new'),xi=$('x'),yi=$('y'); if(cb)cb.onclick=()=>{ castAt(+xi.value||0,+yi.value||0); render(); }; if(rb)rb.onclick=()=>{ reel(); render(); }; if(nb)nb.onclick=()=>{ reset(); render(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ render(); loop.start(); }); else { render(); loop.start(); } }
   if(typeof window!=='undefined'){ window.__t={ reset, setFish, castAt, getBiting, reel, getScore, getFish, update, takeHit,
     fxShakes:()=>_fxShakes, fxBursts:()=>_fxBursts,
     getState(){ return {score,shield,boostTimer,luckTimer,lives,pickups:pickups.length}; },

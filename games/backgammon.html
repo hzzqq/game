@@ -5,12 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>西洋双陆 Backgammon</title>
 <style>
-  :root{
-    --bg:#0a0e14; --panel:#121821; --border:#1f2a38;
-    --text:#e6edf3; --dim:#6b7785;
-    --red:#f6465d; --green:#02c076; --gold:#f0b90b;
-    --white:#d8dee9;
-  }
+  
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{
@@ -70,6 +65,8 @@
       <div class="foot">WORKBUDDY · 软件工程实训 · 暗色金融终端风</div>
     </div>
   </div>
+<script src="common.js"></script>
+<script>Common.injectTheme();</script>
 <script src="juice.js"></script>
 <script src="input.js"></script>
 <script>
@@ -273,12 +270,11 @@ function updateHud(){
   const d=document.getElementById('dice'); if(d){ d.innerHTML=''; for(const v of dice){ const e=document.createElement('span'); e.className='die'; e.textContent=v||'·'; d.appendChild(e); } }
 }
 let lastT=0;
-function loop(ts){
+var loop = Common.Loop(function (ts) {
   const dt=Math.min(0.05,(ts-lastT)/1000||0); lastT=ts;
   if(typeof Juice!=='undefined') Juice.update(dt);
   draw(); updateHud();
-  rafId=requestAnimationFrame(loop);
-}
+});
 
 // ============ 测试钩子 ============
 const __bg = {
@@ -306,7 +302,7 @@ function bindUI(){
   canvas=document.getElementById('cv'); if(canvas) ctx=canvas.getContext('2d');
   const rb=document.getElementById('roll'); if(rb) rb.addEventListener('click',()=>{ if(turn==='red'&&!winner&&turnDice.length===0){ rollDice(); if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.addTrauma(.12);} } });
   const eb=document.getElementById('end'); if(eb) eb.addEventListener('click',()=>{ if(turn==='red'){ endTurn(false); if(winner&&typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5);} } });
-  if(typeof requestAnimationFrame!=='undefined') rafId=requestAnimationFrame(loop);
+  if(typeof requestAnimationFrame!=='undefined') rafId=loop.start();
 }
 function buildDiffBar(){
   if(typeof document==='undefined') return;
