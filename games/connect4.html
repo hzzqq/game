@@ -64,6 +64,7 @@
   </div></div>
 
 <script src="juice.js"></script>
+<script src="common.js"></script>
 <script>
 (function(){
   "use strict";
@@ -256,18 +257,15 @@
 
   reset(); fit();
 
-  let _gLast = 0;
-  function fxLoop(ts){
-    const dt = Math.min(0.05, (ts - (_gLast||ts))/1000); _gLast = ts;
+  // 主循环已收口到共享核心 Common.Loop（统一 rAF + dt，避免 66 份重复实现）
+  Common.Loop(function(dt){
     if(typeof Juice!=='undefined') Juice.update(dt);
     if(animating && dropAnim){
       dropAnim.t += dt/0.22;
       if(dropAnim.t >= 1){ dropAnim.t = 1; commitDrop(); }
     }
     draw();
-    requestAnimationFrame(fxLoop);
-  }
-  requestAnimationFrame(fxLoop);
+  }).start();
 
   window.__t = {
     COLS, ROWS, EMPTY, R, G,

@@ -118,8 +118,10 @@
       <div class="foot">WORKBUDDY · 软件工程实训 · 暗色金融终端风</div>
     </div>
   </div>
+<script src="common.js"></script>
 <script src="juice.js"></script>
-<script>
+<script>var _randFn=Math.random;function setRand(fn){_randFn=fn||Math.random;}
+
 (function(){
 "use strict";
 // ===================== 常量 =====================
@@ -157,9 +159,9 @@ const COLORS=[
 
 // ===================== 工具 =====================
 function inBounds(x,y){ return x>=0&&y>=0&&x<COLS&&y<ROWS; }
-function lerp(a,b,t){ return a+(b-a)*t; }
-function rand(a,b){ return a+Math.random()*(b-a); }
-function choice(arr){ return arr[(Math.random()*arr.length)|0]; }
+function lerp(a,b,t){ return Common.lerp(a,b,t); }
+function rand(a,b){ return Common.range(a,b,_randFn); }
+function choice(arr){ return arr[(_randFn()*arr.length)|0]; }
 
 function bombAt(x,y){ return bombs.find(b=>!b.exploded && b.gx===x && b.gy===y); }
 function explosionAt(x,y){ return explosions.find(e=>e.gx===x && e.gy===y); }
@@ -205,7 +207,7 @@ function genMap(){
     for(let x=1;x<COLS-1;x++){
       if(grid[y][x]!==EMPTY) continue;
       if(safe.has(x+','+y)) continue;
-      if(Math.random()<0.78) grid[y][x]=SOFT;
+      if(_randFn()<0.78) grid[y][x]=SOFT;
     }
   }
 }
@@ -279,7 +281,7 @@ function placeBomb(p){
 }
 
 function maybeSpawnPowerup(x,y){
-  if(Math.random()<POWER_CHANCE){
+  if(_randFn()<POWER_CHANCE){
     powerups.push({gx:x, gy:y, type:choice(['B','F','S'])});
   }
 }
@@ -467,13 +469,13 @@ function aiThink(p){
     if(step) return {dx:step.x,dy:step.y,bomb:false};
   }
   // 游走
-  if(Math.random()<0.15){
+  if(_randFn()<0.15){
     const dirs=shuffle([[1,0],[-1,0],[0,1],[0,-1]]);
     for(const [dx,dy] of dirs){ if(walkable(p,p.gx+dx,p.gy+dy)) return {dx,dy,bomb:false}; }
   }
   return {dx:0,dy:0,bomb:false};
 }
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(_randFn()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 // ===================== 主更新 =====================
 function update(dt){

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TERMINAL // 种子竞速（common.js 参考实现）</title>
+<!-- 注意：本文件是 common.js 的「示范/参考实现」，刻意放在 games/demo/ 下，
+     不会被 sync-catalog.js 当成大厅游戏（它只扫 games/*.html 顶层）。
+     它完整演示 Common.injectTheme / mulberry32 / buildDiffBar / Loop / confetti。 -->
+<style>
+  body{font-family:'Cascadia Code',Consolas,monospace;padding:16px}
+  #app{width:min(420px,96vw);margin:0 auto}
+  h1{color:var(--gold, #f0b90b);font-size:18px;letter-spacing:.05em}
+  .row{display:flex;gap:8px;align-items:center;margin:8px 0}
+  input{background:#0e141d;color:var(--txt,#d7e0ea);border:1px solid var(--line,#1f2a38);border-radius:6px;padding:6px 8px;width:90px;font-family:inherit}
+  button{background:var(--red,#ff5a6a);color:#0a0e14;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  #hud{color:var(--dim,#7a8aa0);font-size:13px;margin:6px 0}
+  #hud b{color:var(--gold,#f0b90b)}
+  #msg{min-height:18px;font-size:13px;color:var(--dim,#7a8aa0)}
+  #msg.win{color:var(--green,#39d98a);font-weight:700}
+</style>
+</head>
+<body>
+  <div id="app">
+    <h1>TERMINAL // 种子竞速</h1>
+    <div id="hud">分数 <b id="sc">0</b> ｜ 连击 <b id="st">0</b> ｜ 剩余 <b id="tm">20.0</b>s ｜ 目标 <b id="tg">?</b>（0–<span id="rg">50</span>）</div>
+    <div class="row">
+      <span>种子</span><input id="seed" type="number" value="1" />
+      <button id="go">开始</button>
+    </div>
+    <div class="row">
+      <span>猜</span><input id="gv" type="number" value="0" />
+      <button id="guess">提交</button>
+    </div>
+    <div id="diffbar"></div>
+    <div id="msg">难度决定上限；开始后用 Common.mulberry32(seed) 确定性出数，猜中连击+1，每 5 连击放彩带。</div>
+  </div>
+
+  <script src="../common.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    // 1) 共享终端主题（幂等，替代各游戏内联的一份 <style>）
+    Common.injectTheme();
+
+    var DIFF = Common.DIFFICULTY;
+    var state = null, loop = null, rng = null;
+
+    function fresh() {
+      return { running: false, over: false, score: 0, streak: 0, best: 0,
+               target: 0, range: 50, timeLeft: 20, guesses: 0 };
+    }
+    function setDifficulty(d) {
+      if (!state || !DIFF[d]) return false;
+      state.diff = d;
+      state.range = Math.max(10, Math.round(50 * DIFF[d].speedMult));
+      state.target = Math.floor(rng() * state.range);
+      return true;
+    }
+    function reset(seed) {
+      state = fresh();
+      state.diff = 'normal'; state.range = 50;
+      // 2) 共享 PRNG：同种子 → 同序列（确定性，可被单测驱动）
+      rng = Common.mulberry32((seed >>> 0) || 1);
+      state.target = Math.floor(rng() * state.range);
+      return state;
+    }
+    function guess(n) {
+      if (!state || !state.running) return { ok: false };
+      state.guesses++;
+      var hit = (n === state.target);
+      if (hit) {
+        state.score += 10; state.streak++;
+        if (state.streak > state.best) state.best = state.streak;
+        // 5 连击里程碑：放彩带（Common.confetti 兜底）
+        if (state.streak % 5 === 0 && typeof document !== 'undefined') {
+          var c = document.createElement('canvas');
+          Common.confetti(c.getContext('2d'), 100, 100);
+        }
+      } else { state.streak = 0; }
+      // 出新目标，仍在同一个 rng 流上（确定性）
+      state.target = Math.floor(rng() * state.range);
+      return { ok: true, hit: hit, score: state.score, streak: state.streak };
+    }
+    function start(seed) {
+      reset(seed);
+      state.running = true; state.over = false; state.timeLeft = 20;
+      // 3) 共享 rAF 循环（统一替代各游戏手写的循环）
+      if (!loop) loop = Common.Loop(tick);
+      loop.start();
+    }
+    function tick(dt) {
+      if (!state || !state.running) return;
+      state.timeLeft -= dt;
+      if (state.timeLeft <= 0) { state.running = false; state.over = true; if (loop) loop.stop(); }
+    }
+    function $(id) { return (typeof document !== 'undefined') ? document.getElementById(id) : null; }
+    function render() {
+      if (typeof document === 'undefined' || !state) return;
+      var sc = $('sc'), st = $('st'), tm = $('tm'), tg = $('tg'), rg = $('rg'), msg = $('msg');
+      if (sc) sc.textContent = state.score;
+      if (st) st.textContent = state.streak;
+      if (tm) tm.textContent = Math.max(0, state.timeLeft).toFixed(1);
+      if (tg) tg.textContent = state.running ? state.target : '?';
+      if (rg) rg.textContent = state.range;
+      if (msg && state.over) { msg.className = 'win'; msg.textContent = '⏱ 时间到！最终 ' + state.score + ' 分，最佳连击 ' + state.best + '。'; }
+    }
+    function bindUI() {
+      if (typeof document === 'undefined') return;
+      // 4) 共享四档难度条（替代各游戏手写的难度 UI）
+      Common.buildDiffBar($('diffbar'), function (d) { if (state) setDifficulty(d); render(); });
+      var go = $('go'), gs = $('guess');
+      if (go) go.onclick = function () { var v = parseInt($('seed').value, 10) || 1; start(v); render(); };
+      if (gs) gs.onclick = function () { var v = parseInt($('gv').value, 10); var r = guess(v); render(); if (r.ok && r.hit && msg) { msg.className = 'win'; msg.textContent = '✅ 猜中！连击 ' + r.streak; } };
+    }
+    if (typeof document !== 'undefined') {
+      bindUI();
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render); else render();
+    }
+    // 5) 暴露 __t 钩子，让逻辑单测驱动纯逻辑（不依赖 DOM / 不依赖真实 rAF）
+    if (typeof window !== 'undefined') {
+      window.__t = {
+        reset: reset, guess: guess, start: start, setDifficulty: setDifficulty, tick: tick,
+        getState: function () { return state; },
+        getTarget: function () { return state ? state.target : null; },
+        confettiStreak: function () { return state ? state.streak >= 5 : false; }
+      };
+    }
+  })();
+  </script>
+</body>
+</html>

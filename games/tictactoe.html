@@ -46,6 +46,7 @@
   <div class="foot">经典井字棋：你执 ✕ 先手，AI 执 ◯ 用 minimax 永不落败（至少平局）。红涨绿跌，暗色终端风。</div>
 
 <script src="juice.js"></script>
+<script src="common.js"></script>
 <script>
 (function(){
   "use strict";
@@ -168,21 +169,14 @@
     }
   }
   function onCell(i){ if(over||cur!==HUMAN) return; humanMove(i); render(); }
-  function buildDiffBar(){
-    if(typeof document==='undefined') return;
-    const bar=$('diffbar'); if(!bar) return; bar.innerHTML='';
-    for(const k of DIFF_ORDER){
-      const btn=document.createElement('button');
-      btn.textContent=DIFFICULTY[k].label;
-      if(k===difficulty) btn.className='active';
-      btn.onclick=()=>{
-        setDifficulty(k); reset();
-        [...bar.children].forEach((c,i)=>c.className=(DIFF_ORDER[i]===difficulty)?'active':'');
-        if(typeof Juice!=='undefined') Juice.sfx('click');
-        render();
-      };
-      bar.appendChild(btn);
-    }
+  // 难度条已收口到共享核心 Common.buildDiffBar（四档 easy/normal/hard/hell，
+  // 键与本项目 DIFFICULTY 一致；切换时回调注入本地 setDifficulty/reset/render）。
+  function bindDiffBar(){
+    Common.buildDiffBar($('diffbar'), function(d){
+      setDifficulty(d); reset();
+      if(typeof Juice!=='undefined') Juice.sfx('click');
+      render();
+    });
   }
   function bindUI(){
     if(typeof document==='undefined') return;
@@ -190,8 +184,8 @@
   }
   reset();
   if(typeof document!=='undefined'){
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); buildDiffBar(); bindUI(); render(); });
-    else { buildBoard(); buildDiffBar(); bindUI(); render(); }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{ buildBoard(); bindDiffBar(); bindUI(); render(); });
+    else { buildBoard(); bindDiffBar(); bindUI(); render(); }
   }
 
   if(typeof window!=='undefined'){

@@ -42,6 +42,10 @@
 
 <script src="juice.js"></script>
 <script>
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
+
 (function(){
   "use strict";
   const W=400, H=300, BR=2, SH=8;
@@ -51,7 +55,7 @@
   let _confettiFired=false; // Boss 击败 confetti 已触发（独立于 Juice 的只读测试锁）
   let _fxShakes=0, _fxBursts=0; // Juice 手感只读计数（测试钩子，纯反馈层）
   function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; rapid=0; spread=0; lives=3; over=false; spawnTimer=4; fireCd=0; wave=1; boss=null; ebullets=[]; _confettiFired=false; _fxShakes=0; _fxBursts=0; spawnWave(); }
-  function spawnWave(){ asteroids=[]; for(let i=0;i<4;i++) asteroids.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()*2-1)*30,vy:(Math.random()*2-1)*30,r:30}); }
+  function spawnWave(){ asteroids=[]; for(let i=0;i<4;i++) asteroids.push({x:_randFn()*W,y:_randFn()*H,vx:(_randFn()*2-1)*30,vy:(_randFn()*2-1)*30,r:30}); }
   // ---------- Boss 系统（每 BOSS_EVERY 波出现：巨大多边形母体，多阶段 + 击败奖励）----------
   const BOSS_EVERY = 3;
   function isBossWave(w){ return w>0 && w % BOSS_EVERY === 0; }
@@ -65,7 +69,7 @@
     if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.flash('#9b6bff'); }
   }
   function spawnBossChildren(){
-    for(let k=0;k<3;k++) asteroids.push({ x: boss.x + (Math.random()*40-20), y: boss.y + boss.r, vx:(Math.random()*2-1)*40, vy:(Math.random()*2-1)*40, r:14 });
+    for(let k=0;k<3;k++) asteroids.push({ x: boss.x + (_randFn()*40-20), y: boss.y + boss.r, vx:(_randFn()*2-1)*40, vy:(_randFn()*2-1)*40, r:14 });
   }
   // 返回 true 表示本帧击败 Boss
   function updateBoss(dt){
@@ -172,7 +176,7 @@
     const hit=[];
     for(let i=0;i<asteroids.length;i++){ for(let j=0;j<bullets.length;j++){ const a=asteroids[i],b=bullets[j]; const dx=a.x-b.x,dy=a.y-b.y; if(dx*dx+dy*dy<(a.r+BR)*(a.r+BR)){ hit.push([i,j]); break; } } }
     const deadA=new Set(),deadB=new Set();
-    for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= (a.r>20?20:10)*(boostTimer>0?2:1); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(a.x, a.y, {color:'#f0b90b'}); } if(a.r>20){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.2); for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(Math.random()*2-1)*60,vy:(Math.random()*2-1)*60,r:20}); } if(pickupRng()<DROP_PROB){ const PT=['rapid','spread','shield']; pickups.push(makePickup(PT[(pickupRng()*PT.length)|0], a.x, a.y)); } } // 击碎按概率掉落增益
+    for(const [i,j] of hit){ deadA.add(i); deadB.add(j); const a=asteroids[i]; score+= (a.r>20?20:10)*(boostTimer>0?2:1); if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(.25); Juice.burst(a.x, a.y, {color:'#f0b90b'}); } if(a.r>20){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.2); for(let k=0;k<2;k++) asteroids.push({x:a.x,y:a.y,vx:(_randFn()*2-1)*60,vy:(_randFn()*2-1)*60,r:20}); } if(pickupRng()<DROP_PROB){ const PT=['rapid','spread','shield']; pickups.push(makePickup(PT[(pickupRng()*PT.length)|0], a.x, a.y)); } } // 击碎按概率掉落增益
     asteroids=asteroids.filter((_,i)=>!deadA.has(i));
     bullets=bullets.filter((_,j)=>!deadB.has(j));
   }

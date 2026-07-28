@@ -54,8 +54,10 @@
   <div class="wrap" id="screen"></div>
   <div class="foot">SlaySpire（尖塔）：回合制卡牌构筑 roguelike。沿地图节点推进，战斗中以能量打出攻击/技能/能力牌，击杀敌人后三选一扩充牌组，挑战最终 Boss。</div>
 
+<script src="common.js"></script>
 <script src="juice.js"></script>
-<script>
+<script>var _randFn=Math.random;function setRand(fn){_randFn=fn||Math.random;}
+
 (function(){
   "use strict";
   const J = (typeof Juice!=='undefined')?Juice:null;
@@ -94,11 +96,11 @@
     dragon:{name:'巨龙',hp:130,moves:[{t:'attack',v:18},{t:'attack',v:10},{t:'buff',v:3}]},
   };
 
-  function rand(a,b){return a+Math.random()*(b-a);}
+  function rand(a,b){ return Common.range(a,b,_randFn); }
   function randi(a,b){return Math.floor(rand(a,b+1));}
-  function choice(a){return a[Math.floor(Math.random()*a.length)];}
-  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
-  function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+  function choice(a){return a[Math.floor(_randFn()*a.length)];}
+  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(_randFn()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+  function clamp(v,a,b){ return Common.clamp(v,a,b); }
 
   // ---------- run state ----------
   let S=null, C=null;
@@ -123,7 +125,7 @@
       const cnt=2+randi(0,2); const nodes=[];
       for(let i=0;i<cnt;i++){
         let type='battle';
-        const r=Math.random();
+        const r=_randFn();
         if(f>=3 && r<0.14) type='elite';
         else if(f>=2 && r<0.34) type='event';
         else if(f>=4 && r<0.52) type='rest';
@@ -140,7 +142,7 @@
     for(let f=0;f<NF-1;f++){
       const cur=floors[f], nxt=floors[f+1];
       for(let i=0;i<cur.length;i++){
-        const k=1+(Math.random()<0.5?1:0);
+        const k=1+(_randFn()<0.5?1:0);
         const picks=new Set();
         for(let j=0;j<k;j++) picks.add(randi(0,nxt.length-1));
         cur[i].next=[...picks];
@@ -211,7 +213,7 @@
     if(C.kind==='boss'){ S.won=true; S.screen='win'; C=null; return; }
     const cards=shuffle(POOL.slice()).slice(0,3);
     let relic=null;
-    if(Math.random()<0.4 && S.relics.length<4){ const avail=Object.keys(RELICS).filter(r=>!S.relics.includes(r)); if(avail.length) relic=choice(avail); }
+    if(_randFn()<0.4 && S.relics.length<4){ const avail=Object.keys(RELICS).filter(r=>!S.relics.includes(r)); if(avail.length) relic=choice(avail); }
     S.reward={cards,relic}; S.screen='reward';
   }
   function playerTake(d){
@@ -293,13 +295,13 @@
     else if(cur.type==='boss'){ startCombat(['dragon'],'boss'); }
     else if(cur.type==='rest'){ S.hp=Math.min(S.maxhp,S.hp+Math.floor(S.maxhp*0.3)); S.screen='map'; }
     else if(cur.type==='shop'){ S.shop={card:choice(POOL),cost:50}; S.screen='shop'; }
-    else if(cur.type==='event'){ const r=Math.random(); if(r<0.4)S.hp=Math.min(S.maxhp,S.hp+10); else if(r<0.7)S.gold+=randi(15,30); else S.hp=Math.max(1,S.hp-randi(4,9)); S.screen='map'; }
+    else if(cur.type==='event'){ const r=_randFn(); if(r<0.4)S.hp=Math.min(S.maxhp,S.hp+10); else if(r<0.7)S.gold+=randi(15,30); else S.hp=Math.max(1,S.hp-randi(4,9)); S.screen='map'; }
     return true;
   }
   function pickTeam(kind){
-    if(kind==='elite') return Math.random()<0.5?['guardian']:['hexer','goblin'];
+    if(kind==='elite') return _randFn()<0.5?['guardian']:['hexer','goblin'];
     const normals=['slime','goblin','bat','brute'];
-    const n=Math.random()<0.4?2:1;
+    const n=_randFn()<0.4?2:1;
     const t=[]; for(let i=0;i<n;i++) t.push(choice(normals)); return t;
   }
   function shopBuy(){

@@ -1,0 +1,827 @@
+window.GAME_CATALOG = [
+  {
+    "file": "2048.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">A · 极简解压</span>\r\n          <h2>2048 数字合成</h2>\r\n          <div class=\"desc\">滑动合并相同数字，凑出 2048。带撤销、最佳分与暗色终端皮肤。</div>\r\n          <div class=\"key\">▸ 方向键 / WASD 移动</div>"
+  },
+  {
+    "file": "tetris.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">B · 经典推荐</span>\r\n          <h2>俄罗斯方块</h2>\r\n          <div class=\"desc\">七种方块下落消行，含 Hold / Ghost / 粒子特效与本地排行榜。</div>\r\n          <div class=\"key\">▸ ←→ 移动 · ↑ 旋转 · 空格 硬降</div>"
+  },
+  {
+    "file": "rhythm.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">C · 视觉最炸</span>\r\n          <h2>节奏大师</h2>\r\n          <div class=\"desc\">osu!mania 风格 4 键下落节奏，内置合成音乐，可导入本地 mp3。</div>\r\n          <div class=\"key\">▸ D F J K 对应四条轨道</div>"
+  },
+  {
+    "file": "breakout.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">D · 街机手感</span>\r\n          <h2>打砖块 Breakout</h2>\r\n          <div class=\"desc\">挡板接球打砖块，爆炸粒子、掉落道具与多关卡推进。</div>\r\n          <div class=\"key\">▸ 鼠标 / ←→ 移动挡板</div>"
+  },
+  {
+    "file": "cubecity.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">E · 3D 进阶</span>\r\n          <h2>像素城市 CubeCity</h2>\r\n          <div class=\"desc\">Three.js 3D 城市建设：网格放楼、经济系统、人口与幸福度。</div>\r\n          <div class=\"key\">▸ 点击放楼 · 拖拽旋转 · 滚轮缩放（需联网加载 Three.js）</div>"
+  },
+  {
+    "file": "battle.html",
+    "cat": "multi",
+    "html": "<span class=\"tag multi\">F · 联机对战</span>\r\n          <h2>坦克对战 Battle</h2>\r\n          <div class=\"desc\">WebRTC 真·联网双人坦克对战，也支持本地双人同键盘。</div>\r\n          <div class=\"key\">▸ 在线建房/加入 · 或本地双人（需联网加载 PeerJS）</div>"
+  },
+  {
+    "file": "plane.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">G · 弹幕射击</span>\r\n          <h2>飞机大战 Plane</h2>\r\n          <div class=\"desc\">纵向卷轴弹幕射击，自动开火、道具升级、BOSS 战。</div>\r\n          <div class=\"key\">▸ 方向键/WASD 移动 · 手机拖拽 · 自动开火</div>"
+  },
+  {
+    "file": "sudoku.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">H · 逻辑烧脑</span>\r\n          <h2>数独 Sudoku</h2>\r\n          <div class=\"desc\">唯一解生成，三档难度，笔记模式、冲突高亮、提示与计时。</div>\r\n          <div class=\"key\">▸ 1-9 填入 · 退格擦除 · H 提示</div>"
+  },
+  {
+    "file": "minesweeper.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">I · 经典解谜</span>\r\n          <h2>扫雷 Minesweeper</h2>\r\n          <div class=\"desc\">首点必安全，三档难度（9×9 / 16×16 / 16×30），插旗、双击速开、计时。</div>\r\n          <div class=\"key\">▸ 左键翻开 · 右击/标雷模式插旗</div>"
+  },
+  {
+    "file": "doudizhu.html",
+    "cat": "multi",
+    "html": "<span class=\"tag multi\">J · 棋牌博弈</span>\r\n          <h2>斗地主 Dou Dizhu</h2>\r\n          <div class=\"desc\">54 张标准牌，你 vs 2 AI，叫地主、出牌/不出/提示，炸弹王炸判定。</div>\r\n          <div class=\"key\">▸ 点选手牌 → 「出牌」· 无法大过则「不出」</div>"
+  },
+  {
+    "file": "mahjong.html",
+    "cat": "multi",
+    "html": "<span class=\"tag multi\">K · 棋牌博弈</span>\r\n          <h2>麻将 Mahjong</h2>\r\n          <div class=\"desc\">108 张精简麻将，你 vs 3 AI，碰/自摸/点炮，递归胡牌判定。</div>\r\n          <div class=\"key\">▸ 点选手牌 → 「出」 · 可「碰/胡」时按钮亮起</div>"
+  },
+  {
+    "file": "dream.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">L · 横版动作</span>\r\n          <h2>造梦西游 Dream</h2>\r\n          <div class=\"desc\">横版动作 RPG：移动/二段跳/挥剑近战/火球技能，小妖·飞怪·重甲 + 牛魔王 BOSS 战。</div>\r\n          <div class=\"key\">▸ ←→/AD 移动 · ↑/W/空格 跳 · J 挥剑 · K 火球</div>"
+  },
+  {
+    "file": "carrot.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">M · 塔防策略</span>\r\n          <h2>保卫萝卜 Carrot</h2>\r\n          <div class=\"desc\">路径塔防：炮塔 / 冰冻 / 群攻三类塔，≥5 波怪物沿路进攻，守住萝卜生命。</div>\r\n          <div class=\"key\">▸ 选塔 → 点空地建造 · 可升级 / 出售</div>"
+  },
+  {
+    "file": "icefire.html",
+    "cat": "multi",
+    "html": "<span class=\"tag multi\">N · 双人协作</span>\r\n          <h2>冰火人 Ice &amp; Fire</h2>\r\n          <div class=\"desc\">双人协作解谜平台：冰人免疫水、火人免疫火，双人齐到出口才过关（2 关）。</div>\r\n          <div class=\"key\">▸ 冰人 方向键 · 火人 WASD · 手机双虚拟摇杆</div>"
+  },
+  {
+    "file": "snake.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">O · 街机走位</span>\r\n          <h2>贪吃蛇 Snake</h2>\r\n          <div class=\"desc\">经典街机：吃豆变长、撞墙或撞自己即结束，速度随分数递增。</div>\r\n          <div class=\"key\">▸ 方向键 / WASD 转向 · 手机滑动 · 空格暂停</div>"
+  },
+  {
+    "file": "parkour.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">R · 跑酷敏捷</span>\r\n          <h2>跑酷 Parkour</h2>\r\n          <div class=\"desc\">横版无尽跑酷：自动前进、跳跃躲障碍，速度与密度随时间提升。</div>\r\n          <div class=\"key\">▸ 空格 / ↑ / W 跳 · 手机点按 · 距离计分</div>"
+  },
+  {
+    "file": "match3.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">Q · 三消休闲</span>\r\n          <h2>消消乐 Match-3</h2>\r\n          <div class=\"desc\">8×8 六色宝石，相邻交换凑三消，重力下落连锁连击，30 步限定。</div>\r\n          <div class=\"key\">▸ 点选宝石 → 点相邻交换 · 手机滑动</div>"
+  },
+  {
+    "file": "racing.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">V · 竞速驾驶</span>\r\n          <h2>赛车 Racing</h2>\r\n          <div class=\"desc\">俯视 5 车道竞速：平滑变道躲车流，速度渐增、三命容错。</div>\r\n          <div class=\"key\">▸ ←→ / A·D 变道 · 手机左右按钮 · 空格暂停</div>"
+  },
+  {
+    "file": "bubble.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">T · 弹射消除</span>\r\n          <h2>泡泡龙 Bubble</h2>\r\n          <div class=\"desc\">六色泡泡错位网格，瞄准发射、三连同色爆破、断连掉落，清盘即胜。</div>\r\n          <div class=\"key\">▸ ←→ 调角 · 空格/点击发射 · 手机点按瞄准</div>"
+  },
+  {
+    "file": "fighting.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">U · 1v1 格斗</span>\r\n          <h2>格斗 Fighting</h2>\r\n          <div class=\"desc\">你（红）vs AI（绿）三局两胜：拳/腿/必杀/防御，血量归零判负。</div>\r\n          <div class=\"key\">▸ A/D 移动 · J 拳 K 腿 L 必杀 S 防 · 手机触屏按钮</div>"
+  },
+  {
+    "file": "pacman.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">S · 迷宫收集</span>\r\n          <h2>吃豆人 Pac-Man</h2>\r\n          <div class=\"desc\">19×21 迷宫，4 幽灵（追击/随机/埋伏），能量豆反吃，吃光豆胜。</div>\r\n          <div class=\"key\">▸ 方向键 / WASD 转向 · 手机滑动 · 空格暂停</div>"
+  },
+  {
+    "file": "gomoku.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">P · 棋类策略</span>\r\n          <h2>五子棋 Gomoku</h2>\r\n          <div class=\"desc\">15×15 标准棋盘，你执红先手 vs 启发式 AI（绿），任意方向连五即胜。</div>\r\n          <div class=\"key\">▸ 点交叉点落子 · 含悔棋/新局 · 手机轻触</div>"
+  },
+  {
+    "file": "bubblebob.html",
+    "cat": "multi",
+    "html": "<span class=\"tag multi\">W · 多人竞技</span>\r\n          <h2>泡泡堂 BubbleBob</h2>\r\n          <div class=\"desc\">炸弹人玩法：放炸弹炸开砖块、抢道具（炸弹数/火力/速度），把对手全部炸飞，最后存活者获胜。本地多人 + AI。</div>\r\n          <div class=\"key\">▸ P1 WASD+空格 · P2 方向键+回车 · 手机虚拟按键</div>"
+  },
+  {
+    "file": "royale.html",
+    "cat": "multi",
+    "html": "<span class=\"tag multi\">X · 即时对战</span>\r\n          <h2>皇室战争 Royale</h2>\r\n          <div class=\"desc\">圣水经济 + 手牌出兵 + 三路推进，摧毁敌方国王塔获胜。含火球法术与简易 AI 对手，最后 1 分钟双倍圣水。</div>\r\n          <div class=\"key\">▸ 选卡 → 点己方半场部署 · 法术点任意位置</div>"
+  },
+  {
+    "file": "words.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">Y · 文字游戏</span>\r\n          <h2>成语大作战 Words</h2>\r\n          <div class=\"desc\">成语接龙：尾字接首字，连击倍率、黄金成语暴击、段位晋升（青铜→宗师）、每日挑战与错题本。合成音效 + 粒子反馈。</div>\r\n          <div class=\"key\">▸ 输入四字成语接龙 · Enter 提交 · 提示/跳过道具</div>"
+  },
+  {
+    "file": "fight.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">Z · 格斗</span>\r\n          <h2>拳皇格斗 Fight</h2>\r\n          <div class=\"desc\">1v1 横版格斗：拳/腿/必杀/格挡/连招，三局两胜。场上随机掉落回血/能量/攻击 Buff 道具。</div>\r\n          <div class=\"key\">▸ A/D 移动 · W 跳 · J 拳 K 腿 L 必杀 S 防 · 手机触屏按钮</div>"
+  },
+  {
+    "file": "sgs.html",
+    "cat": "multi",
+    "html": "<span class=\"tag multi\">AA · 卡牌</span>\r\n          <h2>三国杀 SGS</h2>\r\n          <div class=\"desc\">身份局：主公/忠臣/反贼/内奸，杀/闪/桃/装备/锦囊（决斗·拆桥·闪电·万箭·桃园）。你 vs 3 AI。</div>\r\n          <div class=\"key\">▸ 点手牌选中 → 点头像选目标 → 出牌/结束</div>"
+  },
+  {
+    "file": "werewolf.html",
+    "cat": "multi",
+    "html": "<span class=\"tag multi\">AB · 社交推理</span>\r\n          <h2>狼人杀 Werewolf</h2>\r\n          <div class=\"desc\">6 人局：狼人/村民/预言家/女巫/猎人。黑夜行动 + 白天投票，含女巫解药毒药、猎人开枪道具。</div>\r\n          <div class=\"key\">▸ 按阶段按钮操作 · 跟随日志推理投票</div>"
+  },
+  {
+    "file": "poker.html",
+    "cat": "multi",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag multi\">AE · 卡牌</span>\r\n          <h2>德州扑克 Texas Hold'em</h2>\r\n          <div class=\"desc\">你 + 3 AI 四人桌，盲注 5/10：翻牌/转牌/河牌 + 底池。7 选 5 手牌评估器自动判定胜负，连击/加注带 juice 反馈。</div>\r\n          <div class=\"key\">▸ 弃牌 / 过牌 / 跟注 / 加注 · 比牌比大小</div>"
+  },
+  {
+    "file": "slots.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AG · 休闲</span>\r\n          <h2>老虎机 Slots</h2>\r\n          <div class=\"desc\">三轴老虎机：6 种符号按权重随机，三连即大奖（💎×100 / 7×50 / BAR×20）。两樱桃 ×5、任意两同 ×2，契合金融终端的红涨绿跌。</div>\r\n          <div class=\"key\">▸ 调注 / SPIN 转动 · 余额归零结束</div>"
+  },
+  {
+    "file": "lianliankan.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AG · 休闲</span>\r\n          <h2>连连看 Lianliankan</h2>\r\n          <div class=\"desc\">8×9 经典连连看：相同图案且可用不超过两个拐角的路径（含外圈通道）连通即消除。提示 / 重排 / 连击加分，全清即胜。</div>\r\n          <div class=\"key\">▸ 点选两图案 · 提示 / 重排 / 重开</div>"
+  },
+  {
+    "file": "mastermind.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AG · 推理</span>\r\n          <h2>猜数字 Mastermind</h2>\r\n          <div class=\"desc\">计算机生成 4 位密码（0-5 可重复）。每次猜测返回黑 peg（位值全对）+ 白 peg（值对位错），10 步内推理破解即胜。</div>\r\n          <div class=\"key\">▸ 输入 4 位数字 · 回车提交 · 看反馈推理</div>"
+  },
+  {
+    "file": "battleship.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AG · 策略</span>\r\n          <h2>战舰 Battleship</h2>\r\n          <div class=\"desc\">10×10 海域，计算机布下 5 艘舰（长 5/4/3/3/2）。点击坐标轰炸，反馈命中/未中/击沉，击沉全舰队即胜。</div>\r\n          <div class=\"key\">▸ 点格轰炸 · 看舰队状态 · 全击沉获胜</div>"
+  },
+  {
+    "file": "tictactoe.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AG · 棋类</span>\r\n          <h2>井字棋 Tic-Tac-Toe</h2>\r\n          <div class=\"desc\">你执 ✕ 先手 vs AI 执 ◯。AI 用 minimax 搜索永不落败（至少平局）。3×3 经典对弈，胜负连线高亮。</div>\r\n          <div class=\"key\">▸ 点空格落子 · AI 自动回应 · 重开</div>"
+  },
+  {
+    "file": "pinball.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AG · 街机</span>\r\n          <h2>弹珠台 Pinball</h2>\r\n          <div class=\"desc\">重力下落的 ball 撞 3 根发光柱（bumper）反弹加分，用左右挡板（←/A、→/D 或按钮）击球。3 条命耗尽即结束。</div>\r\n          <div class=\"key\">▸ ←/A · →/D 击球 · 撞柱加分</div>"
+  },
+  {
+    "file": "invaders.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AP · 街机射击</span>\r\n          <h2>太空入侵 Invaders</h2>\r\n          <div class=\"desc\">经典太空射击：←/→ 移动、空格发射，击落编队外星人得分，被击中或外星人触底即结束。每清一波编队加速。</div>\r\n          <div class=\"key\">▸ ←/→ 移动 · 空格射击 · 清波加速</div>"
+  },
+  {
+    "file": "airchess.html",
+    "cat": "multi",
+    "html": "<span class=\"tag multi\">AC · 棋类</span>\r\n          <h2>飞行棋 Aero Chess</h2>\r\n          <div class=\"desc\">你 + 3 AI 四色飞行棋：掷 6 起飞、撞子回营、进港即胜。轨道道具格触发前进/后退/交换/护盾/再掷。</div>\r\n          <div class=\"key\">▸ 🎲 掷骰子 / A · 可动点飞机点击移动</div>"
+  },
+  {
+    "file": "monopoly.html",
+    "cat": "multi",
+    "html": "<span class=\"tag multi\">AD · 策略桌游</span>\r\n          <h2>大富翁 Monopoly</h2>\r\n          <div class=\"desc\">你 + 3 AI 地产大亨：买地收租、建屋升级、入狱、破产出局。机会/命运卡含出狱/免租/分红等道具。</div>\r\n          <div class=\"key\">▸ 🎲 掷骰子 / A · 落点买地/升级按钮</div>"
+  },
+  {
+    "file": "gun.html",
+    "cat": "solo",
+    "html": "<span class=\"tag\">AE · 枪战</span>\r\n          <h2>枪战突袭 Gun Strike</h2>\r\n          <div class=\"desc\">俯视波次射击：WASD 走位、鼠标/方向键射击、Shift 冲刺闪避。刷医疗/弹药/护盾/加速/清屏雷/武器箱等道具，4 类敌兵成波进攻。</div>\r\n          <div class=\"key\">▸ WASD 移动 · 鼠标/点击/ A 射击 · Shift 冲刺 · 手机虚拟键</div>"
+  },
+  {
+    "file": "chess.html",
+    "cat": "multi",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag multi\">AF · 棋类策略</span>\r\n          <h2>中国象棋 Chinese Chess</h2>\r\n          <div class=\"desc\">9×10 标准棋盘，车马炮帅仕相兵全规则，将军提示。双人热座 + 简易 AI 对手。</div>\r\n          <div class=\"key\">▸ 点棋子选中 → 点高亮格落子 · 手机轻触</div>"
+  },
+  {
+    "file": "reversi.html",
+    "cat": "multi",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag multi\">AG · 棋类策略</span>\r\n          <h2>黑白棋 Reversi</h2>\r\n          <div class=\"desc\">8×8 翻转棋，夹吃翻子。双人热座 + 启发式 AI，合法步高亮、终局计子。</div>\r\n          <div class=\"key\">▸ 点高亮交叉点落子 · 含新局 / 悔棋</div>"
+  },
+  {
+    "file": "connect4.html",
+    "cat": "multi",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag multi\">AH · 双人竞技</span>\r\n          <h2>四子棋 Connect-4</h2>\r\n          <div class=\"desc\">7 列落子，横/竖/斜任意方向连成 4 子即胜。双人热座，落子下落动画 + 连珠高亮。</div>\r\n          <div class=\"key\">▸ 点列顶端落子 · 红先手 vs 绿</div>"
+  },
+  {
+    "file": "snakebattle.html",
+    "cat": "multi",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag multi\">AI · 双人竞技</span>\r\n          <h2>贪吃蛇对战 Snake Battle</h2>\r\n          <div class=\"desc\">双人同键盘：P1 红(WASD) / P2 绿(方向键)，吃豆变长，撞墙·撞身·互撞即淘汰，最后存活者胜。</div>\r\n          <div class=\"key\">▸ P1 WASD · P2 ←↑↓→ · 空格开始 / 暂停</div>"
+  },
+  {
+    "file": "uno.html",
+    "cat": "multi",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag multi\">AJ · 卡牌派对</span>\r\n          <h2>UNO 卡牌</h2>\r\n          <div class=\"desc\">108 张标准牌，颜色/数字匹配，+2/反转/跳过/变色/变色+4。2-4 人热座 + AI，剩 1 张喊 UNO！</div>\r\n          <div class=\"key\">▸ 点合法手牌出牌 · 「抽牌」补牌 · 手机轻触</div>"
+  },
+  {
+    "file": "flappy.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag\">AK · 极简解压</span>\r\n          <h2>像素小鸟 Flappy</h2>\r\n          <div class=\"desc\">经典 Flappy：拍翅穿越管道，重力渐感、连过计分，撞管或落地即结束，暗色终端皮肤 + 粒子反馈。</div>\r\n          <div class=\"key\">▸ 空格 / ↑ / W / 点按 拍翅</div>"
+  },
+  {
+    "file": "blackjack.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag\">AL · 赌场博弈</span>\r\n          <h2>21点 Blackjack</h2>\r\n          <div class=\"desc\">你 vs 庄家 AI：要牌/停牌，A 软硬算点，黑杰克 3:2 赔付，筹码下注。暗色赌桌 + 发牌/胜负粒子反馈。</div>\r\n          <div class=\"key\">▸ H 要牌 · S 停牌 · 先下注再发牌</div>"
+  },
+  {
+    "file": "sokoban.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag\">AM · 推理解谜</span>\r\n          <h2>推箱子 Sokoban</h2>\r\n          <div class=\"desc\">3 关网格推箱：把所有箱子推上目标点，支持撤销/重置/关卡切换，箱子入位锁定绿光反馈。</div>\r\n          <div class=\"key\">▸ 方向键 / WASD 移动 · 手机滑动 · Z 撤销</div>"
+  },
+  {
+    "file": "memory.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag\">AN · 休闲配对</span>\r\n          <h2>记忆翻牌 Memory</h2>\r\n          <div class=\"desc\">4×4 / 6×6 翻牌配对：3D 翻牌动画，翻两张找同符号配对，越少步数越好。配对粒子 + 失配闪烁反馈。</div>\r\n          <div class=\"key\">▸ 点击翻牌 · 4×4 / 6×6 切换 · 重开</div>"
+  },
+  {
+    "file": "whack.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag\">AO · 反应挑战</span>\r\n          <h2>打地鼠 Whack</h2>\r\n          <div class=\"desc\">30 秒打地鼠挑战：普通鼠/金鼠/炸弹三种，连击加倍、难度递增。打中粒子爆发 + 飘字 + 屏幕震动。</div>\r\n          <div class=\"key\">▸ 点击 / 触摸打地鼠 · 连击加分 · 躲避炸弹</div>"
+  },
+  {
+    "file": "hangman.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AQ · 单词解谜</span>\r\n          <h2>猜单词 Hangman</h2>\r\n          <div class=\"desc\">计算机随机选英文词（附中文提示），每次猜一个字母，猜中亮绿、猜错亮红，错误 6 次小人被吊死。标准 QWERTY 键盘 + 字母按钮。</div>\r\n          <div class=\"key\">▸ 输入字母 / 点按钮 · 看提示 HINT · 6 次错误结束</div>"
+  },
+  {
+    "file": "checkers.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AR · 棋类策略</span>\r\n          <h2>西洋跳棋 Checkers</h2>\r\n          <div class=\"desc\">8×8 英式跳棋：你执红在下、向上走，AI 执黑在上、向下走。可吃子必须吃、连吃到底，到底线升王♔ 双向走。点选棋子看高亮落点。</div>\r\n          <div class=\"key\">▸ 点红子选中 · 点高亮格落子 · 连吃 · 升王</div>"
+  },
+  {
+    "file": "towerdefense.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AS · 策略塔防</span>\r\n          <h2>塔防 Tower Defense</h2>\r\n          <div class=\"desc\">敌人沿固定路线进攻，你在路旁建塔自动拦截。击杀赚金、漏怪掉血，撑过 8 波即胜。极简 canvas 路线 + 建塔点击。</div>\r\n          <div class=\"key\">▸ 点空白格建塔(30金) · 开始波次 · 别漏怪</div>"
+  },
+  {
+    "file": "lightsout.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AT · 逻辑烧脑</span>\r\n          <h2>关灯 Lights Out</h2>\r\n          <div class=\"desc\">5×5 灯阵，点击一处会把它与上下左右邻居一起反转。把全部灯按灭即过关，存在数学解。</div>\r\n          <div class=\"key\">▸ 点格子翻转邻灯 · 全灭通关 · 最少步数</div>"
+  },
+  {
+    "file": "puzzle15.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AU · 逻辑烧脑</span>\r\n          <h2>数字华容道 15-Puzzle</h2>\r\n          <div class=\"desc\">4×4 滑块拼图：点击空格邻块把它滑入，把 1→15 按顺序拼好、空格回到右下角即胜。随机生成保证可解。</div>\r\n          <div class=\"key\">▸ 点邻块滑入空格 · 拼回顺序 · 最少步数</div>"
+  },
+  {
+    "file": "mancala.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AV · 棋类策略</span>\r\n          <h2>播棋 Mancala</h2>\r\n          <div class=\"desc\">Kalah 规则：每侧 6 坑各 4 子 + 各自大库，逆时针播种。落进己方大库可再走、落进空格可吃对面子，坑空即终局比大库。</div>\r\n          <div class=\"key\">▸ 点己方坑播种 · 抢大库 · 吃子</div>"
+  },
+  {
+    "file": "hanoi.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AW · 逻辑烧脑</span>\r\n          <h2>汉诺塔 Tower of Hanoi</h2>\r\n          <div class=\"desc\">3 根柱 N 个盘，每次移顶部一盘且大盘不能压小盘。把整座塔从左柱移到右柱即过关（最少 2^N−1 步）。</div>\r\n          <div class=\"key\">▸ 点来源柱→目标柱 · 大盘不压小盘 · 最少步数</div>"
+  },
+  {
+    "file": "dotsboxes.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AX · 棋类策略</span>\r\n          <h2>围点成线 Dots &amp; Boxes</h2>\r\n          <div class=\"desc\">点阵间连线段，围出方格即得分并可连走。N×N 点阵对应 (N−1)² 格，全部分完占格多者胜。双人轮流。</div>\r\n          <div class=\"key\">▸ 点线段连线 · 围方格得分 · 占格多胜</div>"
+  },
+  {
+    "file": "simon.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AY · 反应记忆</span>\r\n          <h2>记忆灯 Simon</h2>\r\n          <div class=\"desc\">机器亮一段彩色灯序，你按记忆依次点回去。每轮末尾追加一盏灯，复现正确进下一轮，点错即终局。</div>\r\n          <div class=\"key\">▸ 看灯序 · 依次点回 · 比拼记忆长度</div>"
+  },
+  {
+    "file": "pegsolitaire.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">AZ · 逻辑烧脑</span>\r\n          <h2>孔明棋 Peg Solitaire</h2>\r\n          <div class=\"desc\">英式十字 33 孔：横竖跳吃相邻棋子落入空位、移除被跳子。把 32 子吃到只剩 1 子即胜（理想落在中心）。</div>\r\n          <div class=\"key\">▸ 选棋子→点对面空格跳吃 · 剩 1 子通关</div>"
+  },
+  {
+    "file": "nonogram.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BA · 逻辑烧脑</span>\r\n          <h2>数织 Nonogram</h2>\r\n          <div class=\"desc\">Picross 推理：行列数字表示连续填充块长度，按提示点格填色，完全还原隐藏 5×5 图案即过关。</div>\r\n          <div class=\"key\">▸ 看行列提示 · 点格填色 · 还原图案</div>"
+  },
+  {
+    "file": "klotski.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BB · 逻辑烧脑</span>\r\n          <h2>华容道 Klotski</h2>\r\n          <div class=\"desc\">滑块解谜：曹操（红 2×2）被众将围困，滑动各方块腾通道，让曹操从底部中央出口逃脱即胜。从已解局面打乱生成，保证可解。</div>\r\n          <div class=\"key\">▸ 选棋子→方向键滑动 · 曹操逃出底部</div>"
+  },
+  {
+    "file": "yahtzee.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BC · 桌游策略</span>\r\n          <h2>快艇骰子 Yahtzee</h2>\r\n          <div class=\"desc\">5 骰 13 回合：每回合投最多 3 次（可保留骰子），选一类记分（顺子/葫芦/快艇/各类点数等），13 类全分完比总分。</div>\r\n          <div class=\"key\">▸ 投骰(可保留) · 选 13 类记分 · 比总分</div>"
+  },
+  {
+    "file": "go.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BD · 逻辑烧脑</span>\r\n          <h2>围棋 Go</h2>\r\n          <div class=\"desc\">9 路围棋：点空格落子，自动结算无气提子，含禁自杀与基础劫争。连续两手停则按目数判胜。</div>\r\n          <div class=\"key\">▸ 点格落子 · 吃子/提子 · 比目数</div>"
+  },
+  {
+    "file": "morris.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BE · 逻辑烧脑</span>\r\n          <h2>直棋 Morris</h2>\r\n          <div class=\"desc\">三子棋（Three Men's Morris）：3×3 棋盘各 3 子，先布子后上下左右滑动，先连成一线（横/竖/斜）者胜。</div>\r\n          <div class=\"key\">▸ 布子→走子 · 连成一线</div>"
+  },
+  {
+    "file": "nim.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BF · 数学策略</span>\r\n          <h2>尼姆 Nim</h2>\r\n          <div class=\"desc\">多堆石子，轮流从一堆取任意数量，取走最后一颗者胜（正常规则）。nim-sum 异或算制胜步。</div>\r\n          <div class=\"key\">▸ 选堆取子 · 取最后一颗胜</div>"
+  },
+  {
+    "file": "jungle.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BG · 桌游策略</span>\r\n          <h2>斗兽棋 Jungle</h2>\r\n          <div class=\"desc\">动物棋：象>狮>虎>豹>狼>狗>猫>鼠，大吃小、鼠克象；入水、陷阱、踏入敌穴获胜。</div>\r\n          <div class=\"key\">▸ 点子移动/吃子 · 进敌穴胜</div>"
+  },
+  {
+    "file": "plumber.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BH · 逻辑烧脑</span>\r\n          <h2>接水管 Plumber</h2>\r\n          <div class=\"desc\">旋转方格里的管道，把左侧水源接到右侧出水口。每局随机打乱，连通即过关。</div>\r\n          <div class=\"key\">▸ 点格子旋转 · 连通左右</div>"
+  },
+  {
+    "file": "dominoes.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BI · 桌游策略</span>\r\n          <h2>多米诺 Dominoes</h2>\r\n          <div class=\"desc\">双六骨牌接龙：把牌接在棋链两端（点数匹配），先出完或终局点数少者胜。</div>\r\n          <div class=\"key\">▸ 出牌接龙 · 比点数</div>"
+  },
+  {
+    "file": "quarto.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BJ · 逻辑烧脑</span>\r\n          <h2>夸托 Quarto</h2>\r\n          <div class=\"desc\">16 枚棋子各有 4 个二值属性；放下对方给的棋子，形成共属性连线（行/列/斜）者胜。</div>\r\n          <div class=\"key\">▸ 选子给对手 · 连线共属性</div>"
+  },
+  {
+    "file": "hex.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BK · 逻辑烧脑</span>\r\n          <h2>六角棋 Hex</h2>\r\n          <div class=\"desc\">菱形棋盘抢连两岸：红连上下、绿连左右，先连通对向两岸者胜（无平局连线游戏）。</div>\r\n          <div class=\"key\">▸ 点格落子 · 连通两岸</div>"
+  },
+  {
+    "file": "klondike.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BL · 桌游策略</span>\r\n          <h2>纸牌接龙 Klondike</h2>\r\n          <div class=\"desc\">7 列牌桌、4 座收牌：红黑交替降序接龙，把整副牌 A→K 同花色收齐即通关。</div>\r\n          <div class=\"key\">▸ 发牌 · 接龙 · 收 A→K</div>"
+  },
+  {
+    "file": "freecell.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BM · 桌游策略</span>\r\n          <h2>空当接龙 FreeCell</h2>\r\n          <div class=\"desc\">4 自由格 + 8 列牌桌：靠临时格周转，红黑交替降序接龙，收齐 4 座即胜（理论上必可解）。</div>\r\n          <div class=\"key\">▸ 用自由格 · 收 A→K</div>"
+  },
+  {
+    "file": "spider.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BN · 桌游策略</span>\r\n          <h2>蜘蛛纸牌 Spider</h2>\r\n          <div class=\"desc\">104 张 10 列：降序接龙（花色不限），同花色 K→A 整列自动收走，集满 8 套通关。</div>\r\n          <div class=\"key\">▸ 移牌接龙 · 收 8 套</div>"
+  },
+  {
+    "file": "bigtwo.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BO · 桌游策略</span>\r\n          <h2>大老二 Big Two</h2>\r\n          <div class=\"desc\">4 人各 13 张：出单张或一对，跟同型更大牌（黑桃 2 最大）；先出光手牌者胜。</div>\r\n          <div class=\"key\">▸ 出单/对 · 跟大牌 · 出完胜</div>"
+  },
+  {
+    "file": "scopa.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BP · 桌游策略</span>\r\n          <h2>斯卡帕 Scopa</h2>\r\n          <div class=\"desc\">出牌凑点数收桌：出的牌等于桌上若干张之和即收走，清台得「斯科普」加分。</div>\r\n          <div class=\"key\">▸ 出牌凑和 · 收桌/清台</div>"
+  },
+  {
+    "file": "war.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BQ · 桌游策略</span>\r\n          <h2>比大小 War</h2>\r\n          <div class=\"desc\">双方翻牌比大小，大者收双牌入底；平局开战压注再比。耗光对手牌堆者胜。</div>\r\n          <div class=\"key\">▸ 翻牌比大小 · 平局开战</div>"
+  },
+  {
+    "file": "wordle.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BR · 逻辑烧脑</span>\r\n          <h2>猜词 Wordle</h2>\r\n          <div class=\"desc\">猜 5 字母单词：绿=位对、黄=有此字母位错、灰=无。6 次内猜中即胜。</div>\r\n          <div class=\"key\">▸ 猜5字母 · 颜色反馈</div>"
+  },
+  {
+    "file": "twentyfour.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BS · 数学策略</span>\r\n          <h2>24点 24 Game</h2>\r\n          <div class=\"desc\">用 + - * / 和括号把 4 个数凑成 24。可验证算式、可求解是否可解。</div>\r\n          <div class=\"key\">▸ 四则凑24 · 验证/求解</div>"
+  },
+  {
+    "file": "floodfill.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BT · 逻辑烧脑</span>\r\n          <h2>洪水填充 Flood Fill</h2>\r\n          <div class=\"desc\">点色块把左上角区域漫染同色，用最少步数把整盘染成同色即胜。</div>\r\n          <div class=\"key\">▸ 漫染扩散 · 最少步通关</div>"
+  },
+  {
+    "file": "rushhour.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BU · 滑块解谜</span>\r\n          <h2>华容道车 Rush Hour</h2>\r\n          <div class=\"desc\">滑动车辆让红色车从右侧出口驶出，规划车辆移动顺序破解堵车。</div>\r\n          <div class=\"key\">▸ 滑块移动 · 让红车出关</div>"
+  },
+  {
+    "file": "samegame.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BV · 消除策略</span>\r\n          <h2>同色消除 SameGame</h2>\r\n          <div class=\"desc\">点 2+ 相连同色块消除，方块下落、空列左移，剩越少分越高。</div>\r\n          <div class=\"key\">▸ 同色群消除 · 重力收拢</div>"
+  },
+  {
+    "file": "maze.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BW · 迷宫寻路</span>\r\n          <h2>迷宫 Maze</h2>\r\n          <div class=\"desc\">递归回溯生成的连通迷宫，BFS 自动寻路从起点到终点。</div>\r\n          <div class=\"key\">▸ 随机迷宫 · 自动求解</div>"
+  },
+  {
+    "file": "kakuro.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BX · 填数解谜</span>\r\n          <h2>数和 Kakuro</h2>\r\n          <div class=\"desc\">把 1-9 填入白格，使每条横/竖连续块合计等于线索且不重复。</div>\r\n          <div class=\"key\">▸ 数块凑和 · 不重复</div>"
+  },
+  {
+    "file": "liarsdice.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BY · 心理博弈</span>\r\n          <h2>吹牛 Liar's Dice</h2>\r\n          <div class=\"desc\">叫注「至少 N 个某点数」，下家加注或开吹牛，开牌验真。</div>\r\n          <div class=\"key\">▸ 叫注博弈 · 开牌验真</div>"
+  },
+  {
+    "file": "rps.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">BZ · 休闲博弈</span>\r\n          <h2>石头剪刀布 RPS</h2>\r\n          <div class=\"desc\">经典零和博弈，三局两胜，与内置 AI 对战比拼心理。</div>\r\n          <div class=\"key\">▸ 出拳对战 · 三局两胜</div>"
+  },
+  {
+    "file": "bingo.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CA · 幸运抽奖</span>\r\n          <h2>宾果 Bingo</h2>\r\n          <div class=\"desc\">随机喊号标记卡片，任一行/列/对角线全中即宾果获胜。</div>\r\n          <div class=\"key\">▸ 喊号标记 · 连线获胜</div>"
+  },
+  {
+    "file": "dice.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CB · 概率博弈</span>\r\n          <h2>掷骰 Pig</h2>\r\n          <div class=\"desc\">掷骰累加本回合点数，掷到 1 清零换人，可收手存分，先到 100 胜。</div>\r\n          <div class=\"key\">▸ 掷骰累加 · 风险博弈</div>"
+  },
+  {
+    "file": "pong.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CC · 反应对抗</span>\r\n          <h2>弹球 Pong</h2>\r\n          <div class=\"desc\">控制挡板反弹小球，漏球对方得分，先到 11 分获胜。</div>\r\n          <div class=\"key\">▸ 挡板反弹 · 先到11分</div>"
+  },
+  {
+    "file": "asteroids.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CD · 射击生存</span>\r\n          <h2>小行星 Asteroids</h2>\r\n          <div class=\"desc\">驾驶飞船射击小行星，大块裂成两块，清空全部即过关。</div>\r\n          <div class=\"key\">▸ 射击碎裂 · 清场过关</div>"
+  },
+  {
+    "file": "frogger.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CE · 走位躲避</span>\r\n          <h2>青蛙过河 Frogger</h2>\r\n          <div class=\"desc\">躲车流、踩浮木过河，抵达顶部终点即胜，被撞或落水失败。</div>\r\n          <div class=\"key\">▸ 穿越障碍 · 抵达对岸</div>"
+  },
+  {
+    "file": "tron.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CF · 轨迹对抗</span>\r\n          <h2>光轮对战 Tron</h2>\r\n          <div class=\"desc\">双光轮行驶留轨迹，撞墙/撞迹/对撞即出局，存活者胜。</div>\r\n          <div class=\"key\">▸ 留迹竞速 · 存活获胜</div>"
+  },
+  {
+    "file": "bomberman.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CG · 爆破策略</span>\r\n          <h2>炸弹人 Bomberman</h2>\r\n          <div class=\"desc\">放置炸弹十字爆破，炸毁砖块、击杀爆炸范围内角色。</div>\r\n          <div class=\"key\">▸ 定时爆破 · 清场开路</div>"
+  },
+  {
+    "file": "bowling.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CH · 技巧计分</span>\r\n          <h2>保龄球 Bowling</h2>\r\n          <div class=\"desc\">十瓶制计分，全中/补中带奖励分，满 10 格结算总分。</div>\r\n          <div class=\"key\">▸ 击瓶计分 · 满分300</div>"
+  },
+  {
+    "file": "golf.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CI · 物理精度</span>\r\n          <h2>迷你高尔夫 Golf</h2>\r\n          <div class=\"desc\">设定角度力度击球，避障滚入球洞，比拼最少杆数。</div>\r\n          <div class=\"key\">▸ 角度力度 · 进洞杆数</div>"
+  },
+  {
+    "file": "darts.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CJ · 技巧计分</span>\r\n          <h2>飞镖 Darts</h2>\r\n          <div class=\"desc\">501 规则从高分递减，恰好减到 0 获胜，减成负数爆镖作废。</div>\r\n          <div class=\"key\">▸ 投镖递减 · 减到0胜</div>"
+  },
+  {
+    "file": "pool.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CK · 物理碰撞</span>\r\n          <h2>台球 Pool</h2>\r\n          <div class=\"desc\">调整角度力度击打母球，撞目标球入袋，弹性传递动量。</div>\r\n          <div class=\"key\">▸ 母球击打 · 撞球入袋</div>"
+  },
+  {
+    "file": "basketball.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CL · 抛物线</span>\r\n          <h2>投篮 Basketball</h2>\r\n          <div class=\"desc\">设定角度力度投抛物线，让球落入篮筐捕获范围即得分。</div>\r\n          <div class=\"key\">▸ 抛物线 · 入筐得分</div>"
+  },
+  {
+    "file": "fishing.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CM · 耐心时机</span>\r\n          <h2>钓鱼 Fishing</h2>\r\n          <div class=\"desc\">抛竿入水，鱼钩附近有鱼咬钩时收线钓起，比拼渔获。</div>\r\n          <div class=\"key\">▸ 抛竿收线 · 钓起渔获</div>"
+  },
+  {
+    "file": "dodge.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CN · 走位闪避</span>\r\n          <h2>闪避 Dodge</h2>\r\n          <div class=\"desc\">操控光标小人左右移动，躲开不断下落的障碍，活得越久分越高。</div>\r\n          <div class=\"key\">▸ 左右闪避 · 坚持生存</div>"
+  },
+  {
+    "file": "trivia.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CO · 知识竞答</span>\r\n          <h2>知识问答 Trivia</h2>\r\n          <div class=\"desc\">四选一选择题竞答，答对累积得分，全部作答后结算总分。</div>\r\n          <div class=\"key\">▸ 四选一 · 答对得分</div>"
+  },
+  {
+    "file": "survivor.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CP · 子弹天堂</span>\r\n          <h2>幸存者 Survivor</h2>\r\n          <div class=\"desc\">类吸血鬼幸存者的自动开火生存：走位躲怪潮，拾取经验升级，三选一构筑武器组合。</div>\r\n          <div class=\"key\">▸ WASD 走位 · 自动开火 · 升级构筑</div>"
+  },
+  {
+    "file": "spire.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CQ · 卡牌构筑</span>\r\n          <h2>尖塔 Spire</h2>\r\n          <div class=\"desc\">类杀戮尖塔的回合制卡牌 roguelike：沿地图推进，能量打牌，击杀后三选一扩充牌组。</div>\r\n          <div class=\"key\">▸ 能量打牌 · 敌人意图 · 构筑流派</div>"
+  },
+  {
+    "file": "balatro.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CR · 扑克构筑</span>\r\n          <h2>巴尔牌 Balatro</h2>\r\n          <div class=\"desc\">类小丑牌的扑克构筑 roguelike：凑德州牌型，基础筹码×倍率，再吃小丑牌加成，限次内凑够目标分。</div>\r\n          <div class=\"key\">▸ 凑牌型 · 吃小丑 · 冲目标分</div>"
+  },
+  {
+    "file": "baccarat.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CS · 赌场博弈</span>\r\n          <h2>百家乐 Baccarat</h2>\r\n          <div class=\"desc\">8 副牌靴对庄闲：天牌 8/9 即终、闲 0-5 补牌、庄按规则表补停，闲/庄 1:1（庄抽水5%）、和 8:1。</div>\r\n          <div class=\"key\">▸ 下注(闲/庄/和) · 发牌结算 · 红涨绿跌</div>"
+  },
+  {
+    "file": "kenken.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CT · 数学解谜</span>\r\n          <h2>肯肯 KenKen</h2>\r\n          <div class=\"desc\">n×n 拉丁方：每行每列 1..n 不重复，按笼内加减乘除目标值填数，解出即胜。</div>\r\n          <div class=\"key\">▸ 点格填数 · 满足笼运算 · 最少步</div>"
+  },
+  {
+    "file": "backgammon.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CU · 棋类策略</span>\r\n          <h2>西洋双陆 Backgammon</h2>\r\n          <div class=\"desc\">掷两骰按点数移子，击中对方单子将其击落中线，全部进入内盘并移出棋盘即胜，白方 AI 对战。</div>\r\n          <div class=\"key\">▸ 点子选中→点目标点移动 · 骰子即步数</div>"
+  },
+  {
+    "file": "bullscow.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DJ · 逻辑烧脑</span>\r\n          <h2>猜数字 1A2B</h2>\r\n          <div class=\"desc\">计算机生成 4 位不重复数字，每次猜测返回 A（位值全对）+ B（数字对位错），10 步内破解即胜。</div>\r\n          <div class=\"key\">▸ 键入 4 位数字 → 回车提交 · 推理密码</div>"
+  },
+  {
+    "file": "typing.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DK · 文字挑战</span>\r\n          <h2>打字速度挑战 Typing</h2>\r\n          <div class=\"desc\">系统给出词序列，逐词键入，完成后统计 WPM 与准确率，计时从首个词开始。</div>\r\n          <div class=\"key\">▸ 键入显示单词 → 回车提交 · 比拼手速</div>"
+  },
+  {
+    "file": "wordchain.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DL · 单词接龙</span>\r\n          <h2>单词接龙 WordChain</h2>\r\n          <div class=\"desc\">你与 AI 轮流，每个新词须以上一词末字母开头，且在词库中、未被使用过，谁无词可接即负。</div>\r\n          <div class=\"key\">▸ 键入英文单词 → 回车提交 · 首尾接龙</div>"
+  },
+  {
+    "file": "mini2048.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DM · 数字合成</span>\r\n          <h2>迷你 2048 3×3</h2>\r\n          <div class=\"desc\">3×3 棋盘 2048 变体，规则同经典（相邻相同翻倍），但胜利目标降为 128，节奏更紧凑。</div>\r\n          <div class=\"key\">▸ 方向键 / WASD / 滑动 · 合成 128</div>"
+  },
+  {
+    "file": "spacewipe.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CV · 动作街机</span>\r\n          <h2>太空清屏 SpaceWipe</h2>\r\n          <div class=\"desc\">驾驶绿色战机清剿一波波来犯敌机，清空整波即进入下一关，敌机越往后越快越硬。</div>\r\n          <div class=\"key\">▸ 方向键 / WASD 移动 · 自动开火 · 清屏进阶</div>"
+  },
+  {
+    "file": "lazermaze.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CW · 动作街机</span>\r\n          <h2>激光迷宫 LazerMaze</h2>\r\n          <div class=\"desc\">激光从红点射出，点击格子旋转镜面（/ 与 \\）让光束经反射命中绿色目标格即通关。</div>\r\n          <div class=\"key\">▸ 点击格子旋转镜面 · 命中目标通关</div>"
+  },
+  {
+    "file": "bullethell.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CX · 动作街机</span>\r\n          <h2>弹幕躲避 BulletHell</h2>\r\n          <div class=\"desc\">红色弹幕从四面来袭，操控机体灵活走位，每生存 8 秒进入更密的下一波，被击中损失余机。</div>\r\n          <div class=\"key\">▸ 方向键 / WASD 走位 · 生存满 8 秒进阶</div>"
+  },
+  {
+    "file": "lanesprint.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CY · 动作街机</span>\r\n          <h2>极简竞速 LaneSprint</h2>\r\n          <div class=\"desc\">在车道间左右走位躲开红色障碍，疾驰得越远分越高，每撞一次损失余机，越往后车速越快。</div>\r\n          <div class=\"key\">▸ ← → / A D 切换车道 · 躲障竞速</div>"
+  },
+  {
+    "file": "rhythmclick.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">CZ · 动作街机</span>\r\n          <h2>双键节奏 RhythmClick</h2>\r\n          <div class=\"desc\">金色音符顺两轨下落，落到判定线时按对应键，正中 100 / 接近 50，错键或漏接断连击。</div>\r\n          <div class=\"key\">▸ ← / A 绿键 · → / D 红键 · 踩点连击</div>"
+  },
+  {
+    "file": "ultimatettoe.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DA · 棋类策略</span>\r\n          <h2>终极井字棋 Ultimate TTT</h2>\r\n          <div class=\"desc\">9 个小棋盘套成大棋盘，赢下一格即占领。AI 用极小化极大（alpha-beta）+ 启发式评估，落子必争、非随机。</div>\r\n          <div class=\"key\">▸ 点小棋盘空格 → 对方须走你指的位置 · 先连大线者胜</div>"
+  },
+  {
+    "file": "qubic.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DB · 棋类策略</span>\r\n          <h2>立体四子棋 Qubic</h2>\r\n          <div class=\"desc\">4×4×4 立方棋盘、共 76 条四连直线，自由落子连成四子即胜。AI 含极小化极大 + alpha-beta 搜索。</div>\r\n          <div class=\"key\">▸ 四层棋盘任意空格落子 · 三维四连即胜</div>"
+  },
+  {
+    "file": "breakthrough.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DC · 棋类策略</span>\r\n          <h2>突破棋 Breakthrough</h2>\r\n          <div class=\"desc\">8×8 双方各 16 子，向前一格或斜前吃子，先突破对方底线或吃光对手者胜。AI 用极小化极大评估推进与吃子。</div>\r\n          <div class=\"key\">▸ 点子选中→点高亮格前进/吃子 · 抵底线即胜</div>"
+  },
+  {
+    "file": "ataxx.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DD · 棋类策略</span>\r\n          <h2>传染棋 Ataxx</h2>\r\n          <div class=\"desc\">7×7 克隆扩张或跳跃突进，落点周围八格的敌子被同化。棋盘填满时子多者胜，AI 评估同化收益。</div>\r\n          <div class=\"key\">▸ 点子→相邻克隆/隔格跳跃 · 落点同化邻敌</div>"
+  },
+  {
+    "file": "flowfree.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DE · 逻辑烧脑</span>\r\n          <h2>流水连线 Flow Free</h2>\r\n          <div class=\"desc\">每对同色圆点间拉出一条不交叉的管道，铺满整个棋盘即过关。由哈密顿路径切分保证必可解。</div>\r\n          <div class=\"key\">▸ 点端点拉线 · 铺满全格</div>"
+  },
+  {
+    "file": "tangram.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DF · 休闲拼图</span>\r\n          <h2>七巧板拼板 Tangram</h2>\r\n          <div class=\"desc\">给定一组多连块碎片，旋转后摆进目标轮廓，恰好铺满且不重叠即过关。</div>\r\n          <div class=\"key\">▸ 选碎片→点棋盘放置 · 旋转调整</div>"
+  },
+  {
+    "file": "futoshiki.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DG · 推理解谜</span>\r\n          <h2>不等号数独 Futoshiki</h2>\r\n          <div class=\"desc\">在 N×N 填入 1..N，行列不重复，且相邻格的 &lt; / &gt; 约束全部成立。由拉丁方派生。</div>\r\n          <div class=\"key\">▸ 点格子填数 · 满足不等式</div>"
+  },
+  {
+    "file": "towers.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DH · 逻辑烧脑</span>\r\n          <h2>摩天楼 Towers</h2>\r\n          <div class=\"desc\">在 N×N 填入 1..N，行列不重复，且四边给出的“可见高楼数”全部成立。由拉丁方派生可见数。</div>\r\n          <div class=\"key\">▸ 点格子填数 · 满足可见数</div>"
+  },
+  {
+    "file": "bridges.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">DI · 休闲解谜</span>\r\n          <h2>连桥 Hashi</h2>\r\n          <div class=\"desc\">在岛屿间建 1~2 座桥，桥不可交叉或斜穿，每岛连出的桥数必须等于标注数字且全岛连通。</div>\r\n          <div class=\"key\">▸ 点岛→点同行/同列岛建桥</div>"
+  },
+  {
+    "file": "slitherlink.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EA · 逻辑谜题</span>\r\n          <h2>数回 Slitherlink</h2>\r\n          <div class=\"desc\">用线连成一条单环，每格数字=相邻边数。</div>\r\n          <div class=\"key\">▸ 点边画线/擦除</div>"
+  },
+  {
+    "file": "masyu.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EB · 逻辑谜题</span>\r\n          <h2>珍珠 Masyu</h2>\r\n          <div class=\"desc\">连出贯穿所有珍珠的线，白珠直进转弯、黑珠转弯直行。</div>\r\n          <div class=\"key\">▸ 点格画线/擦除</div>"
+  },
+  {
+    "file": "hashi.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EC · 逻辑谜题</span>\r\n          <h2>建桥 Hashi</h2>\r\n          <div class=\"desc\">岛屿间建 1~2 座桥，桥不可交叉，桥数=数字且全岛连通。</div>\r\n          <div class=\"key\">▸ 点岛→点岛建桥</div>"
+  },
+  {
+    "file": "akari.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">ED · 逻辑谜题</span>\r\n          <h2>数灯 Akari</h2>\r\n          <div class=\"desc\">放灯照亮所有空格，每格数字=相邻灯数，灯互不照射。</div>\r\n          <div class=\"key\">▸ 点格放灯/取消</div>"
+  },
+  {
+    "file": "shikaku.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EE · 逻辑谜题</span>\r\n          <h2>四角 Shikaku</h2>\r\n          <div class=\"desc\">把网格切成矩形，每矩形恰含一个等于其面积的编号格。</div>\r\n          <div class=\"key\">▸ 拖拽框选矩形</div>"
+  },
+  {
+    "file": "fillomino.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EF · 逻辑谜题</span>\r\n          <h2>多连块 Fillomino</h2>\r\n          <div class=\"desc\">相邻同数连成块，每块大小=该数，同数块不相邻。</div>\r\n          <div class=\"key\">▸ 点格填数</div>"
+  },
+  {
+    "file": "kakurasu.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EG · 逻辑谜题</span>\r\n          <h2>累加 Kakurasu</h2>\r\n          <div class=\"desc\">选格使每行/列所选权重和等于右侧/底部目标数。</div>\r\n          <div class=\"key\">▸ 点格选中/取消</div>"
+  },
+  {
+    "file": "nurikabe.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EH · 逻辑谜题</span>\r\n          <h2>涂黑 Nurikabe</h2>\r\n          <div class=\"desc\">白块各含数字且大小匹配、互不相邻，黑格连通无 2×2。</div>\r\n          <div class=\"key\">▸ 点格涂黑/留白</div>"
+  },
+  {
+    "file": "hexcells.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EI · 逻辑推理</span>\r\n          <h2>六边扫雷 Hexcells</h2>\r\n          <div class=\"desc\">hex 格标数字=周围雷数，左键开、右键标雷，全非雷格开完胜。</div>\r\n          <div class=\"key\">▸ 左键开 · 右键标雷</div>"
+  },
+  {
+    "file": "wordsearch.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EJ · 文字游戏</span>\r\n          <h2>单词搜索 Word Search</h2>\r\n          <div class=\"desc\">网格藏单词（横/竖/斜），连成直线消除，全找到胜。</div>\r\n          <div class=\"key\">▸ 点起点→点终点连词</div>"
+  },
+  {
+    "file": "lunarlander.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EK · 街机动作</span>\r\n          <h2>登月舱 Lunar Lander</h2>\r\n          <div class=\"desc\">控制推力软着陆，落速/落角达标即胜，撞毁出界负。</div>\r\n          <div class=\"key\">▸ ↑/空格 推力 · ←→ 微调</div>"
+  },
+  {
+    "file": "missilecommand.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EL · 街机动作</span>\r\n          <h2>导弹指挥官 Missile Command</h2>\r\n          <div class=\"desc\">发射拦截弹防卫城市，在来袭导弹附近引爆摧毁之。</div>\r\n          <div class=\"key\">▸ 点击发射拦截</div>"
+  },
+  {
+    "file": "towerstack.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EM · 街机动作</span>\r\n          <h2>叠塔 Tower Stack</h2>\r\n          <div class=\"desc\">方块滑入点击落下堆叠，超出部分切掉，叠到目标层数胜。</div>\r\n          <div class=\"key\">▸ 点击落下</div>"
+  },
+  {
+    "file": "pipes.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EN · 休闲解谜</span>\r\n          <h2>管道 Pipes</h2>\r\n          <div class=\"desc\">旋转管道使起点到终点全连通即胜。</div>\r\n          <div class=\"key\">▸ 点击旋转管道</div>"
+  },
+  {
+    "file": "pyramid.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EO · 纸牌</span>\r\n          <h2>金字塔纸牌 Pyramid</h2>\r\n          <div class=\"desc\">底层可消牌与基准牌差1，消除后顶替新基准，清空金字塔胜。</div>\r\n          <div class=\"key\">▸ 点可消牌消除</div>"
+  },
+  {
+    "file": "binairo.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EP · 逻辑谜题</span>\r\n          <h2>二进制数独 Binairo</h2>\r\n          <div class=\"desc\">在网格填 0/1，每行每列 0/1 数量相等、无三个连续相同、且行列组合不重复。</div>\r\n          <div class=\"key\">▸ 点击格切换 0/1</div>"
+  },
+  {
+    "file": "hitori.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EQ · 逻辑谜题</span>\r\n          <h2>独占数字 Hitori</h2>\r\n          <div class=\"desc\">涂黑部分格子，使每行每列数字唯一、黑格互不相邻、亮格全部连通。</div>\r\n          <div class=\"key\">▸ 点击格子涂黑/留白</div>"
+  },
+  {
+    "file": "yajilin.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">ER · 逻辑谜题</span>\r\n          <h2>夜光照明 Yajilin</h2>\r\n          <div class=\"desc\">放置黑格与箭头，箭头指示该方向黑格数，亮格须连成唯一回路。</div>\r\n          <div class=\"key\">▸ 点击放置箭头/黑格</div>"
+  },
+  {
+    "file": "starbattle.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">ES · 逻辑谜题</span>\r\n          <h2>星战 StarBattle</h2>\r\n          <div class=\"desc\">每个区域放 1 颗星，星相互不相邻（含斜角），每行每列星数相等。</div>\r\n          <div class=\"key\">▸ 点击格放星</div>"
+  },
+  {
+    "file": "tents.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">ET · 逻辑谜题</span>\r\n          <h2>帐篷 Tents</h2>\r\n          <div class=\"desc\">每棵树旁恰放 1 顶帐篷，帐篷互不相邻，行列帐篷数符合边栏提示。</div>\r\n          <div class=\"key\">▸ 点击格放帐篷</div>"
+  },
+  {
+    "file": "killersudoku.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EU · 逻辑谜题</span>\r\n          <h2>杀手数独 Killer Sudoku</h2>\r\n          <div class=\"desc\">标准数独规则叠加「笼」：同笼数字不重复且和等于角标。</div>\r\n          <div class=\"key\">▸ 点格填 1-9</div>"
+  },
+  {
+    "file": "xiangqi.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EV · 棋类策略</span>\r\n          <h2>中国象棋 Xiangqi</h2>\r\n          <div class=\"desc\">九宫将帅对弈，含飞将、蹩马腿、塞象眼、炮架，支持人机对战。</div>\r\n          <div class=\"key\">▸ 点选棋子再点目标格</div>"
+  },
+  {
+    "file": "boggle.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EW · 文字游戏</span>\r\n          <h2>文字矩阵 Boggle</h2>\r\n          <div class=\"desc\">4×4 字母盘，连接相邻字母拼出词典单词，限时计分。</div>\r\n          <div class=\"key\">▸ 拖拽/点击连字母拼词</div>"
+  },
+  {
+    "file": "hearts.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EX · 纸牌</span>\r\n          <h2>红心 Hearts</h2>\r\n          <div class=\"desc\">四人纸牌避吃红心，设法甩出黑桃 Q，最低分者胜。</div>\r\n          <div class=\"key\">▸ 点选要出的牌</div>"
+  },
+  {
+    "file": "spades.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EY · 纸牌</span>\r\n          <h2>黑桃 Spades</h2>\r\n          <div class=\"desc\">叫墩竞标，完成定约得分、宕墩扣分，先达目标分者胜。</div>\r\n          <div class=\"key\">▸ 点选要出的牌</div>"
+  },
+  {
+    "file": "cribbage.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">EZ · 纸牌</span>\r\n          <h2>克里比奇 Cribbage</h2>\r\n          <div class=\"desc\">组牌凑 15、对子、顺子计分，先到 121 分者胜。</div>\r\n          <div class=\"key\">▸ 点选要出的牌</div>"
+  },
+  {
+    "file": "galaga.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FA · 街机动作</span>\r\n          <h2>大蜜蜂 Galaga</h2>\r\n          <div class=\"desc\">左右移动射击，躲避敌机弹幕，清屏进入下一波。</div>\r\n          <div class=\"key\">▸ ←→ 移动 · 空格 射击</div>"
+  },
+  {
+    "file": "columns.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FB · 街机动作</span>\r\n          <h2>宝石 Columns</h2>\r\n          <div class=\"desc\">三色竖块下落旋转，三同色相连即消，连击加分。</div>\r\n          <div class=\"key\">▸ ←→ 移动 · ↑ 旋转 · 空格 速降</div>"
+  },
+  {
+    "file": "crossyroad.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FC · 街机动作</span>\r\n          <h2>过河 Crossy Road</h2>\r\n          <div class=\"desc\">不断前冲躲避车流与河流，撞车落水即结束，比拼距离。</div>\r\n          <div class=\"key\">▸ ↑ 前进 · ←→ 转向</div>"
+  },
+  {
+    "file": "centipede.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FD · 街机动作</span>\r\n          <h2>蜈蚣 Centipede</h2>\r\n          <div class=\"desc\">射击分段蜈蚣，利用蘑菇阵地清场，漏接即损命。</div>\r\n          <div class=\"key\">▸ ←→ 移动 · 空格 射击</div>"
+  },
+  {
+    "file": "life.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FE · 仿真演化</span>\r\n          <h2>生命游戏 Life</h2>\r\n          <div class=\"desc\">康威元胞自动机，按邻域规则演化，可绘制初始种群观察兴衰。</div>\r\n          <div class=\"key\">▸ 点击放置细胞 · 空格 演化</div>"
+  },
+  {
+    "file": "arkanoid.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FF · 街机弹球</span>\r\n          <h2>弹球破砖 Arkanoid</h2>\r\n          <div class=\"desc\">打砖块进阶版，弹球破砖、掉落道具与多关卡推进。</div>\r\n          <div class=\"key\">▸ 鼠标 / ←→ 移动挡板</div>"
+  },
+  {
+    "file": "climb.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FG · 敏捷攀爬</span>\r\n          <h2>攀爬 Climb</h2>\r\n          <div class=\"desc\">不断向上攀爬跳跃，躲避坠落，爬得越高分越高。</div>\r\n          <div class=\"key\">▸ ←→ 移动 · 空格 跳跃</div>"
+  },
+  {
+    "file": "doodlejump.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FH · 弹跳向上</span>\r\n          <h2>涂鸦跳跃 Doodle Jump</h2>\r\n          <div class=\"desc\">踩平台自动弹跳向上，别掉下去，收集道具冲高度。</div>\r\n          <div class=\"key\">▸ ←→ 左右移动</div>"
+  },
+  {
+    "file": "geometrydash.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FI · 节奏跳跃</span>\r\n          <h2>几何冲刺 Geometry Dash</h2>\r\n          <div class=\"desc\">跟着节奏跳跃冲刺，精准躲避尖刺与障碍。</div>\r\n          <div class=\"key\">▸ 空格 / 点击 跳跃</div>"
+  },
+  {
+    "file": "jetpack.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FJ · 飞行闯关</span>\r\n          <h2>喷气背包 Jetpack</h2>\r\n          <div class=\"desc\">按住上升穿越激光与障碍，吃金币冲距离。</div>\r\n          <div class=\"key\">▸ 按住 上升 · 松开 下落</div>"
+  },
+  {
+    "file": "jumpjump.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FK · 蓄力弹跳</span>\r\n          <h2>跳一跳 Jump Jump</h2>\r\n          <div class=\"desc\">蓄力控制距离，精准落到下一个平台，连跳得高分。</div>\r\n          <div class=\"key\">▸ 按住蓄力 · 松开起跳</div>"
+  },
+  {
+    "file": "memory-cards.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FL · 记忆配对</span>\r\n          <h2>翻牌记忆 Memory Cards</h2>\r\n          <div class=\"desc\">翻开卡片两两配对，考验记忆力，限时挑战关卡。</div>\r\n          <div class=\"key\">▸ 点击翻牌</div>"
+  },
+  {
+    "file": "runner.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FM · 无尽跑酷</span>\r\n          <h2>跑酷 Runner</h2>\r\n          <div class=\"desc\">自动向前奔跑，跳跃滑铲躲避障碍冲刺距离。</div>\r\n          <div class=\"key\">▸ 空格 跳 · ↓ 滑铲</div>"
+  },
+  {
+    "file": "subwaysuroffers.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FN · 三轨跑酷</span>\r\n          <h2>地铁跑酷 Subway</h2>\r\n          <div class=\"desc\">三轨道左右闪避，跳跃翻滚躲避列车与障碍。</div>\r\n          <div class=\"key\">▸ ←→ 变道 · ↑↓ 跳/滑</div>"
+  },
+  {
+    "file": "tempprun.html",
+    "cat": "solo",
+    "html": "<span class=\"newflag\">NEW</span>\r\n          <span class=\"tag solo\">FO · 转弯逃亡</span>\r\n          <h2>神庙逃亡 Temp Run</h2>\r\n          <div class=\"desc\">边跑边转弯躲障碍，收集金币逃离追逐。</div>\r\n          <div class=\"key\">▸ ←→ 转弯 · ↑↓ 跳/滑</div>"
+  }
+];

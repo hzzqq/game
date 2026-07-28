@@ -119,9 +119,11 @@
   </div>
   <div class="overlay" id="overlay"></div>
 
+<script src="common.js"></script>
 <script src="input.js"></script>
 <script src="juice.js"></script>
-<script>
+<script>var _randFn=Math.random;function setRand(fn){_randFn=fn||Math.random;}
+
 (function(){
   "use strict";
 
@@ -156,7 +158,7 @@
   var cardSeq = 0;
 
   /* ===================== 工具函数 ===================== */
-  function rand(n){ return Math.floor(Math.random()*n); }
+  function rand(n){ return Math.floor(Common.range(0,n,_randFn)); }
   function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=rand(i+1); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
   function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function log(msg){ logLines.push(msg); if(logLines.length>240) logLines.shift(); }

@@ -82,6 +82,7 @@
   </div>
 
 <script src="juice.js"></script>
+<script src="common.js"></script>
 <script>
 (function(){
   "use strict";
@@ -156,7 +157,7 @@
     resetHoles();
     updateHUD();
     startGame();
-    loop();
+    Common.Loop(function(dt){ update(dt); render(); }).start();
   }
 
   function resize(){
@@ -452,15 +453,8 @@
     if(hint){ if(pickups.length) hint.textContent = '拾取掉落物 💰加高分 / ⏱加时间！'; }
   }
 
-  let lastT = performance.now();
-  function loop(now){
-    now = now || performance.now();
-    const dt = Math.min(0.05, (now - lastT) / 1000);
-    lastT = now;
-    update(dt);
-    render();
-    requestAnimationFrame(loop);
-  }
+  // 主循环已收口到共享核心 Common.Loop（统一 rAF + dt 计算，避免 66 份重复实现）
+  // start() 后即持续逐帧调用 update(dt)/render()
 
   init();
 

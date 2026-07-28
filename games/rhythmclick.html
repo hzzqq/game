@@ -45,6 +45,7 @@
   .rb.l{border-color:var(--green)} .rb.r{border-color:var(--red)}
   .rb:active{transform:scale(.96)}
 </style>
+  <script src="common.js"></script>
 </head>
 <body>
   <div id="stage"></div>
@@ -87,21 +88,19 @@
     const HIT=H-100, PERFECT=20, GOOD=50, PASS=60, MAXMISS=10;
     let S=null;
     let _confettiFired = false;
-    function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
     function fresh(){
       return {
         notes:[], score:0, combo:0, maxCombo:0, misses:0,
         speed:240, running:false, paused:false, over:false,
-        hitLineY:HIT, spawnTimer:0, spawnEnabled:true, rng:mulberry32(3),
+        hitLineY:HIT, spawnTimer:0, spawnEnabled:true, rng:Common.mulberry32(3),
         pickups:[], coins:0, shield:0, boostTimer:0
       };
     }
 
     // ---- 注入式掉落/增益系统（局部 PRNG，禁止 Math.random）----
-    function mk(seed){let s=seed>>>0;return ()=>{s=(s*1664525+1013904223)>>>0;return (s&0x7fffffff)/0x7fffffff;};}
-    let pickupRng = mk(0x5f005);
+    let pickupRng = Common.lcg(0x5f005);
     function makePickup(type,x,y){ return {type:type,x:x,y:y,vy:60,r:11,life:14}; }
-    function spawnPickupAtRandom(seed){ const r=(seed!==undefined)?mk(seed>>>0):pickupRng; const types=['coin','shield','boost','heal']; const type=types[Math.floor(r()*types.length)%types.length]; S.pickups.push(makePickup(type, r()*W, -20)); return S.pickups.length-1; }
+    function spawnPickupAtRandom(seed){ const r=(seed!==undefined)?Common.lcg(seed>>>0):pickupRng; const types=['coin','shield','boost','heal']; const type=types[Math.floor(r()*types.length)%types.length]; S.pickups.push(makePickup(type, r()*W, -20)); return S.pickups.length-1; }
     function applyPickup(p){ if(!p) return; if(p.type==='coin'){ S.coins++; S.score+=10; if(J)J.popup&&J.popup('+💰'); } else if(p.type==='shield'){ S.shield=Math.min(S.shield+1,3); if(J)J.popup&&J.popup('🛡'); } else if(p.type==='boost'){ S.boostTimer=8; if(J)J.popup&&J.popup('🚀'); } else if(p.type==='heal'){ S.misses=Math.max(0,S.misses-1); if(J)J.popup&&J.popup('❤'); } const idx=S.pickups.indexOf(p); if(idx>=0) S.pickups.splice(idx,1); }
     function updatePickups(dt){ for(let i=S.pickups.length-1;i>=0;i--){ const pk=S.pickups[i]; pk.y+=pk.vy*dt; pk.life-=dt; if(pk.life<=0 || pk.y>H+30) S.pickups.splice(i,1); } if(S.boostTimer>0) S.boostTimer=Math.max(0,S.boostTimer-dt); }
     function drawPickups(ctx){ for(const pk of S.pickups){ const sym=pk.type==='coin'?'💰':pk.type==='shield'?'🛡':pk.type==='boost'?'🚀':'❤'; ctx.save(); ctx.beginPath();ctx.arc(pk.x,pk.y,pk.r+4,0,7);ctx.fillStyle='rgba(240,185,11,.15)';ctx.fill();ctx.strokeStyle='rgba(240,185,11,.6)';ctx.stroke();ctx.fillStyle='#fff';ctx.font='14px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(sym,pk.x,pk.y);ctx.restore(); } }
@@ -110,7 +109,7 @@
 
     function reset(){ S=fresh(); _confettiFired=false; syncHud(); }
     function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; if(typeof Juice!=='undefined') Juice.sfx('click'); syncHud(); }
-    function setRand(seed){ S.rng=mulberry32(seed>>>0); pickupRng=mk(seed>>>0); }
+    function setRand(seed){ S.rng=Common.mulberry32(seed>>>0); pickupRng=Common.lcg(seed>>>0); }
     function spawnNote(lane,y){ S.notes.push({lane:lane?1:0,y:y,hit:false,missed:false}); }
     function setSpeed(v){ S.speed=v; }
 

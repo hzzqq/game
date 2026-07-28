@@ -98,6 +98,10 @@
 
 <script src="juice.js"></script>
 <script>
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
+
 (function(){
   const boardEl=document.getElementById('board');
   const DIFFS={
@@ -132,7 +136,7 @@
         if(nr>=0&&nr<R&&nc>=0&&nc<C) banned.add(nr*C+nc); } }
     let placed=0;
     while(placed<M){
-      const idx=Math.floor(Math.random()*R*C);
+      const idx=Math.floor(_randFn()*R*C);
       if(banned.has(idx)||grid[idx]===-1) continue;
       grid[idx]=-1; placed++;
     }

@@ -133,8 +133,10 @@
     </div>
   </div>
 
+<script src="common.js"></script>
 <script src="juice.js"></script>
-<script>
+<script>var _randFn=Math.random;function setRand(fn){_randFn=fn||Math.random;}
+
 (function(){
   "use strict";
   // ============ 基础设置 ============
@@ -156,8 +158,8 @@
   resize();
 
   // ============ 工具函数 ============
-  function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
-  function rand(a, b){ return a + Math.random() * (b - a); }
+  function clamp(v, a, b){ return Common.clamp(v, a, b); }
+  function rand(a,b){ return Common.range(a,b,_randFn); }
   function aabb(a, b){
     return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   }
@@ -354,8 +356,8 @@
         Juice.popup(en.x + en.w/2, en.y - 6, '+'+en.score, '#02c076', { size:14 });
       }
       // 击杀掉落道具
-      if(Math.random() < 0.35){
-        var pr = Math.random();
+      if(_randFn() < 0.35){
+        var pr = _randFn();
         var ptype = pr < 0.45 ? 'heal' : (pr < 0.8 ? 'mana' : 'rage');
         pickups.push({ type:ptype, x:en.x + en.w/2, y:en.y + en.h/2, vy:-60, life:9, dead:false });
       }

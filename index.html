@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TERMINAL // Game Hub</title>
+<style>
+  :root{--bg:#0a0e14;--gold:#ffcf5a;--txt:#d7e0ea;--dim:#7a8aa0;--line:#1f2a38;}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(1200px 600px at 50% -10%,#10151f,#0a0e14);
+    color:var(--txt);font-family:'Cascadia Code',Consolas,Menlo,monospace;}
+  .box{text-align:center;padding:36px 44px;border:1px solid var(--line);border-radius:14px;
+    background:#10151f;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  h1{margin:0 0 6px;color:var(--gold);letter-spacing:.06em;font-size:26px;}
+  p{color:var(--dim);margin:8px 0 20px;font-size:14px;}
+  a.btn{display:inline-block;padding:12px 26px;border:1px solid var(--gold);border-radius:8px;
+    color:var(--gold);text-decoration:none;font-weight:700;letter-spacing:.05em;transition:.15s;}
+  a.btn:hover{background:var(--gold);color:#0a0e14;}
+  .meta{margin-top:18px;color:#56657a;font-size:12px;}
+</style>
+</head>
+<body>
+  <div class="box">
+    <h1>🎮 HTML5 游戏大厅</h1>
+    <p>166 款暗色终端风游戏 · 双击进入即玩</p>
+    <a class="btn" href="games/index.html">进入大厅 →</a>
+    <div class="meta">单文件离线 · 原生 HTML/CSS/JS</div>
+  </div>
+  <script>
+    // 自动跳转（保留手动点击兜底）
+    setTimeout(function(){ location.href = 'games/index.html'; }, 600);
+  </script>
+</body>
+</html>

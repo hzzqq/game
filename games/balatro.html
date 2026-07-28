@@ -49,8 +49,10 @@
   <div class="wrap" id="screen"></div>
   <div class="foot">Balatro（巴尔牌）：扑克构筑 roguelike。用手牌凑成德州牌型（对子/顺子/同花/四条…），基础筹码×倍率，再吃小丑牌的加成，在有限出手次数内凑够目标分数通关。</div>
 
+<script src="common.js"></script>
 <script src="juice.js"></script>
-<script>
+<script>var _randFn=Math.random;function setRand(fn){_randFn=fn||Math.random;}
+
 (function(){
   "use strict";
   const J = (typeof Juice!=='undefined')?Juice:null;
@@ -60,10 +62,10 @@
   const SUIT_RED={spade:false,heart:true,diamond:true,club:false};
   const MAXANTE=8;
 
-  function rand(a,b){return a+Math.random()*(b-a);}
+  function rand(a,b){ return Common.range(a,b,_randFn); }
   function randi(a,b){return Math.floor(rand(a,b+1));}
-  function choice(a){return a[Math.floor(Math.random()*a.length)];}
-  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+  function choice(a){return a[Math.floor(_randFn()*a.length)];}
+  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(_randFn()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
 
   function buildDeck(){ const d=[]; for(const s of SUITS) for(let r=2;r<=14;r++) d.push({rank:r,suit:s}); return d; }
   function cardChip(rank){ if(rank<=10) return rank; if(rank===14) return 11; return 10; }

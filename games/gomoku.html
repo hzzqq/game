@@ -78,6 +78,7 @@
   </div></div>
 
 <script src="juice.js"></script>
+<script src="common.js"></script>
 <script>
 (function(){
   "use strict";
@@ -390,19 +391,12 @@
     placePlayer(r,c);
   });
 
-  function buildDiffBar(){
-    const bar=document.getElementById('diffbar'); if(!bar) return; bar.innerHTML='';
-    for(const k of DIFF_ORDER){
-      const btn=document.createElement('button');
-      btn.textContent=DIFFICULTY[k].label;
-      if(k===difficulty) btn.className='active';
-      btn.onclick=()=>{
-        setDifficulty(k); reset();
-        [...bar.children].forEach((c,i)=>c.className=(DIFF_ORDER[i]===difficulty)?'active':'');
-        if(typeof Juice!=='undefined') Juice.sfx('click');
-      };
-      bar.appendChild(btn);
-    }
+  // 难度条已收口到共享核心 Common.buildDiffBar（四档键与本项目 DIFFICULTY 一致）
+  function bindDiffBar(){
+    Common.buildDiffBar(document.getElementById('diffbar'), function(d){
+      setDifficulty(d); reset();
+      if(typeof Juice!=='undefined') Juice.sfx('click');
+    });
   }
 
   document.getElementById('newBtn').onclick = reset;
@@ -410,7 +404,7 @@
   document.getElementById('undoBtn').onclick = undo;
   window.addEventListener('resize', fit);
 
-  buildDiffBar();
+  bindDiffBar();
   reset();
   fit();
 

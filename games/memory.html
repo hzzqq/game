@@ -80,7 +80,12 @@
   </div>
 
   <script src="juice.js"></script>
+  <script src="common.js"></script>
   <script>
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
+
   (function () {
     var COL = { red:'#f6465d', green:'#02c076', gold:'#f0b90b', dim:'#6b7785' };
     var SYMS = ['◆','▲','●','■','★','✦','◐','◑','▼','◇','○','□','☆','✧','◍','◒','▼','◭'];
@@ -93,7 +98,7 @@
     function resize() { W = (window.innerWidth || 520); H = (window.innerHeight || 600); if (fx.width !== W) { fx.width = W; fx.height = H; } }
     resize();
 
-    function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var r = (Math.random() * (i + 1)) | 0; var t = a[i]; a[i] = a[r]; a[r] = t; } return a; }
+    function shuffle(a) { return Common.shuffle(a, _randFn); }
 
     function newGame(n) {
       size = n; cards = []; openIdx = []; moves = 0; matched = 0; won = false; celebrated = false; _confettiFired = false; started = Date.now();

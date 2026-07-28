@@ -39,6 +39,10 @@
 
 <script src="juice.js"></script>
 <script>
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
+
 (function(){
   "use strict";
   const W=400, H=300, PW=8, PH=60, R=7, WIN=11;
@@ -112,7 +116,7 @@
     }
     updatePickups(dt);
   }
-  function resetBall(dir){ ball.x=W/2; ball.y=H/2; ball.vx=dir*3; ball.vy=(Math.random()*2-1)*1.5; }
+  function resetBall(dir){ ball.x=W/2; ball.y=H/2; ball.vx=dir*3; ball.vy=(_randFn()*2-1)*1.5; }
   function getScore(){ return score.slice(); }
   function getBall(){ return {x:ball.x,y:ball.y,vx:ball.vx,vy:ball.vy}; }
   function isOver(){ return over; }

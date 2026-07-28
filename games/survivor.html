@@ -57,8 +57,10 @@
   </div>
   <div class="foot">Survivor（幸存者）：自动开火的"子弹天堂"。走位躲怪潮，拾取经验宝石升级，三选一构筑你的武器组合，活到最后一刻。</div>
 
+<script src="common.js"></script>
 <script src="juice.js"></script>
-<script>
+<script>var _randFn=Math.random;function setRand(fn){_randFn=fn||Math.random;}
+
 (function(){
   "use strict";
   const cv = (typeof document!=='undefined')?document.getElementById('cv'):null;
@@ -68,12 +70,12 @@
   const J = (typeof Juice!=='undefined')?Juice:null;
 
   // ---------- helpers ----------
-  function rand(a,b){ return a+Math.random()*(b-a); }
+  function rand(a,b){ return Common.range(a,b,_randFn); }
   function randi(a,b){ return Math.floor(rand(a,b+1)); }
-  function choice(a){ return a[Math.floor(Math.random()*a.length)]; }
+  function choice(a){ return a[Math.floor(_randFn()*a.length)]; }
   function dist(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); }
-  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function clamp(v,a,b){ return Common.clamp(v,a,b); }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_randFn()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
 
   // ---------- config ----------
   const WEAPONS = {
@@ -187,7 +189,7 @@
   function updateOrbit(w,dt){
     const p=S.player, def=WEAPONS.orbit;
     const n = wAmount(w.level);
-    while(w.sats.length<n) w.sats.push({ang:Math.random()*6.28, hitT:0});
+    while(w.sats.length<n) w.sats.push({ang:_randFn()*6.28, hitT:0});
     while(w.sats.length>n) w.sats.pop();
     const rad = def.rad*wArea(def,w.level);
     const spd = 2.4;
@@ -215,7 +217,7 @@
     S.enemies.push({type, x, y, hp:d.hp, maxhp:d.hp, speed:d.speed, dmg:d.dmg, r:d.r, color:d.color, xp:d.xp, hitT:0, kx:0, ky:0});
   }
   function spawnAround(type){
-    const a=Math.random()*6.28, R=Math.max(W,H)/2+70;
+    const a=_randFn()*6.28, R=Math.max(W,H)/2+70;
     spawnEnemy(type, S.player.x+Math.cos(a)*R, S.player.y+Math.sin(a)*R);
   }
   function moveEnemy(e,dt){
@@ -247,7 +249,7 @@
     const batch = 1 + Math.floor(t/22);
     for(let i=0;i<batch && S.enemies.length<MAXE;i++){
       let type='bat';
-      const r=Math.random();
+      const r=_randFn();
       if(t>120){ type = r<0.32?'brute':(r<0.66?'ghost':'slime'); }
       else if(t>40){ type = r<0.45?'slime':(r<0.75?'ghost':'bat'); }
       else { type = r<0.8?'bat':'slime'; }
@@ -256,7 +258,7 @@
   }
   function bossLogic(){
     if(S.bossDone<3 && S.time>=S.bossT){
-      spawnEnemy('boss', S.player.x+Math.cos(Math.random()*6.28)*(W/2+80), S.player.y+Math.sin(Math.random()*6.28)*(H/2+80));
+      spawnEnemy('boss', S.player.x+Math.cos(_randFn()*6.28)*(W/2+80), S.player.y+Math.sin(_randFn()*6.28)*(H/2+80));
       S.bossDone++; S.bossT += 90;
     }
   }
@@ -366,7 +368,7 @@
   function render(){
     if(!ctx) return;
     const p=S.player;
-    const shx=(Math.random()-0.5)*S.trauma*14, shy=(Math.random()-0.5)*S.trauma*14;
+    const shx=(_randFn()-0.5)*S.trauma*14, shy=(_randFn()-0.5)*S.trauma*14;
     ctx.clearRect(0,0,W,H);
     ctx.save();
     ctx.translate(W/2 - p.x + shx, H/2 - p.y + shy);

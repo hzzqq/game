@@ -52,6 +52,7 @@
   <div class="foot">Memory Cards（翻牌记忆配对）：记住翻开的牌面，用最少步数找出所有配对。难度越高网格越大、步数越紧。</div>
 
 <script src="juice.js"></script>
+<script src="common.js"></script>
 <script>
 (function(){
   "use strict";
@@ -90,13 +91,7 @@
     return p ? Math.max(p, Math.round(p * diffCfg().maxMovesMult)) : 0;
   }
 
-  function shuffle(arr){
-    for(let i=arr.length-1;i>0;i--){
-      const j = Math.floor(_rng() * (i+1));
-      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
-    }
-    return arr;
-  }
+  function shuffle(arr){ return Common.shuffle(arr, _rng); }
 
   function buildDeck(){
     const total = rows * cols;          // 必为偶数

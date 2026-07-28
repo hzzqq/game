@@ -107,6 +107,10 @@
 <script src="input.js"></script>
 <script src="juice.js"></script>
 <script>
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
+
 (function(){
   "use strict";
 
@@ -269,7 +273,7 @@
       g.frightened = false; g.eaten = false; g.eatTimer = 0;
       // initial scatter directions
       var opts = validDirs(g);
-      if (opts.length) g.dir = opts[Math.floor(Math.random()*opts.length)];
+      if (opts.length) g.dir = opts[Math.floor(_randFn()*opts.length)];
     }
     frightTimer = 0;
   }
@@ -448,7 +452,7 @@
       return b2;
     }
     // random
-    return filtered[Math.floor(Math.random()*filtered.length)];
+    return filtered[Math.floor(_randFn()*filtered.length)];
   }
 
   function moveGhost(g, pacTile){

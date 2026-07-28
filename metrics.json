@@ -1,0 +1,53 @@
+{
+  "generatedAt": "2026-07-28T03:43:12.448Z",
+  "games": 165,
+  "totalHtmlLoc": 55120,
+  "avgLocPerGame": 334,
+  "locBuckets": {
+    "<500": 135,
+    "500-1000": 30,
+    "1000-2000": 0,
+    ">2000": 0
+  },
+  "top5Largest": [
+    {
+      "file": "tetris.html",
+      "loc": 926
+    },
+    {
+      "file": "carrot.html",
+      "loc": 895
+    },
+    {
+      "file": "rhythm.html",
+      "loc": 891
+    },
+    {
+      "file": "bubble.html",
+      "loc": 884
+    },
+    {
+      "file": "runner.html",
+      "loc": 840
+    }
+  ],
+  "tests": {
+    "files": 167,
+    "passed": 5688,
+    "total": 5688,
+    "green": true
+  },
+  "commonAdoption": {
+    "usingCommon": 19,
+    "adoptionPct": 11.5,
+    "logicNakedRandom": 75,
+    "inlineTheme": 165,
+    "diffbar": 55,
+    "rafLoop": 64
+  },
+  "testability": {
+    "withHooks": 164,
+    "withLogicTest": 165,
+    "avgHookFns": 8.2
+  }
+}

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TERMINAL // 种子发牌台（common.js 工具箱参考实现）</title>
+<!-- 注意：本文件是 common.js「数值/洗牌工具」的示范/参考实现，放在 games/demo/ 下，
+     不会被 sync-catalog.js 当成大厅游戏。它完整演示：
+     Common.shuffle（种子化 Fisher-Yates）/ Common.clamp / Common.lerp / Common.range。
+     配套逻辑单测：games/tests/logic/demo_toolkit_test.js -->
+<style>
+  body{font-family:'Cascadia Code',Consolas,monospace;padding:16px}
+  #app{width:min(460px,96vw);margin:0 auto}
+  h1{color:var(--gold,#f0b90b);font-size:18px;letter-spacing:.05em}
+  .row{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+  input{background:#0e141d;color:var(--txt,#d7e0ea);border:1px solid var(--line,#1f2a38);border-radius:6px;padding:6px 8px;width:90px;font-family:inherit}
+  button{background:var(--red,#ff5a6a);color:#0a0e14;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+  #hand{display:flex;gap:6px;flex-wrap:wrap;min-height:44px;margin:8px 0}
+  .card{border:1px solid var(--line,#1f2a38);border-radius:8px;padding:8px 10px;background:#0e141d;color:var(--txt,#d7e0ea);font-weight:700}
+  .card.red{color:var(--red,#ff5a6a)}
+  #hud{color:var(--dim,#7a8aa0);font-size:13px;margin:6px 0}
+  #hud b{color:var(--gold,#f0b90b)}
+  #meter{height:8px;border:1px solid var(--line,#1f2a38);border-radius:6px;overflow:hidden;background:#0e141d}
+  #meterFill{height:100%;width:0%;background:var(--green,#39d98a);transition:width .1s linear}
+</style>
+</head>
+<body>
+  <div id="app">
+    <h1>TERMINAL // 种子发牌台</h1>
+    <div id="hud">种子 <b id="sd">1</b> ｜ 押注 <b id="bt">10</b>（钳位 1–100）｜ 已发 <b id="ct">0</b>/52</div>
+    <div class="row">
+      <span>种子</span><input id="seed" type="number" value="1" />
+      <button id="deal">洗牌发 5 张</button>
+      <span>押注</span><input id="bet" type="number" value="10" />
+      <button id="setBet">下注</button>
+    </div>
+    <div id="hand"></div>
+    <div id="meter"><div id="meterFill"></div></div>
+    <div id="hud">进度条用 Common.lerp 平滑推进；押注用 Common.clamp 钳位；发牌用 Common.shuffle(种子化)。</div>
+  </div>
+
+  <script src="../common.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    Common.injectTheme();
+
+    var SUITS = ["♠", "♥", "♦", "♣"], RANKS = "A23456789TJQK";
+    var state = null;
+
+    function fresh() {
+      return { seed: 1, deck: [], dealt: 0, hand: [], bet: 10, progress: 0 };
+    }
+    function newDeck() {
+      var d = [];
+      for (var s = 0; s < 4; s++) for (var r = 0; r < 13; r++) d.push({ s: s, r: r });
+      return d;
+    }
+    function reset(seed) {
+      state = fresh();
+      state.seed = (seed | 0) || 1;
+      // 种子化洗牌：同种子 → 同牌序（确定性，可复现对局）
+      state.deck = Common.shuffle(newDeck(), Common.mulberry32(state.seed));
+      render();
+      return true;
+    }
+    function deal(n) {
+      n = Common.clamp(n | 0, 1, 52 - state.dealt);
+      var out = [];
+      for (var i = 0; i < n && state.dealt < 52; i++) out.push(state.deck[state.dealt++]);
+      state.hand = out;
+      // 进度平滑：lerp 从当前值逼近目标值（演示用，不依赖 rAF）
+      state.progress = Common.lerp(state.progress, state.dealt / 52, 1);
+      render();
+      return out;
+    }
+    function setBet(v) {
+      state.bet = Common.clamp(v | 0, 1, 100);
+      render();
+      return state.bet;
+    }
+    function cardName(c) { return RANKS[c.r] + SUITS[c.s]; }
+
+    function render() {
+      if (typeof document === "undefined") return;
+      var sd = document.getElementById("sd"), bt = document.getElementById("bt"),
+          ct = document.getElementById("ct"), hd = document.getElementById("hand"),
+          mf = document.getElementById("meterFill");
+      if (!sd) return;
+      sd.textContent = state.seed; bt.textContent = state.bet; ct.textContent = state.dealt;
+      hd.innerHTML = "";
+      state.hand.forEach(function (c) {
+        var el = document.createElement("div");
+        el.className = "card" + (c.s === 1 || c.s === 2 ? " red" : "");
+        el.textContent = cardName(c);
+        hd.appendChild(el);
+      });
+      mf.style.width = (state.progress * 100).toFixed(1) + "%";
+    }
+
+    function bind() {
+      var dealBtn = document.getElementById("deal"), betBtn = document.getElementById("setBet");
+      if (!dealBtn) return;
+      dealBtn.onclick = function () {
+        reset(+document.getElementById("seed").value || 1);
+        deal(5);
+      };
+      betBtn.onclick = function () { setBet(+document.getElementById("bet").value || 10); };
+    }
+
+    reset(1);
+    bind();
+
+    // 测试钩子（与全站 window.__t 约定一致）
+    window.__t = {
+      reset: reset,
+      deal: deal,
+      setBet: setBet,
+      getState: function () {
+        return { seed: state.seed, dealt: state.dealt, bet: state.bet,
+                 progress: state.progress, handSize: state.hand.length };
+      },
+      getDeck: function () { return state.deck.map(cardName); },
+      getHand: function () { return state.hand.map(cardName); },
+      clamp: Common.clamp,
+      lerp: Common.lerp
+    };
+  })();
+  </script>
+</body>
+</html>

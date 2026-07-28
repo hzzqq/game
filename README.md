@@ -13,7 +13,9 @@
 - **大厅体验**：分类筛选 / 名称·标签排序 / ★收藏 / 🎲随机一局 / 🔊全局静音 / ↑回到顶部，移动端 sticky 搜索栏
 - **留存设计**：连击倍率、黄金可变奖励、段位晋升（青铜→宗师）、每日挑战、错题本，套用成熟「即时反馈 + 可变奖励 + 心流」留存框架（合规版，不含诱导沉迷的幼年暗模式）
 - **移动端适配**：viewport + 触控事件 + 虚拟按键，手机可玩
-- **自动化测试**：CLI 静态检测（953 项）+ node 逻辑单测（5443 项），全套全绿
+- **自动化测试**：CLI 静态检测（953 项）+ node 逻辑单测（5688 项 · 167 文件），全套全绿
+- **共享核心 `common.js`**：种子化 PRNG（mulberry32/lcg）、`range` 区间随机、`shuffle` 洗牌、`clamp/lerp` 数值工具、`Loop` 帧循环、`buildDiffBar` 难度条、`injectTheme` 主题——正在渐进收口 165 款游戏的复制粘贴
+- **catalog 单一事实源**：大厅卡片由 `games/catalog.js` 驱动，`sync-catalog.js` 校验大厅与磁盘一致性（孤儿/缺失/测试孤儿三向防线）
 
 ## 🚀 快速开始
 
@@ -94,6 +96,16 @@ cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
   node games/tests/logic/battery.js
   ```
 - **浏览器内运行测试**：用浏览器打开 `games/tests/runner.html`，自动加载各游戏并模拟输入做断言。
+- **一键质量门禁**（一致性 + 审计 + 全量回归，CI 可直接用）：
+  ```
+  node ci-check.js
+  ```
+- **大厅一致性 / 随机数审计 / 度量报告**：
+  ```
+  node games/sync-catalog.js            # catalog ↔ 磁盘 ↔ 测试 三向校验
+  node games/sync-catalog.js --audit    # 裸随机/复制量/可测性审计 → games/audit-random.json
+  node metrics-report.js                # 生成 METRICS.md + metrics.json
+  ```
 
 ## 🛠 技术说明
 
@@ -107,16 +119,23 @@ cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
 
 ```
 .
+├── index.html                 # 根跳转页（重定向到 games/index.html）
+├── ci-check.js                # 一键质量门禁（一致性 + 审计 + 全量回归）
+├── metrics-report.js          # 度量报告生成器（METRICS.md + metrics.json）
 ├── games/
-│   ├── index.html            # 游戏大厅入口
+│   ├── index.html            # 游戏大厅入口（由 catalog.js 驱动渲染）
+│   ├── catalog.js            # 大厅卡片单一事实源（165 条）
+│   ├── sync-catalog.js       # 一致性校验 + --audit 审计 + --scaffold 补齐
 │   ├── 启动游戏大厅.bat        # 一键启动（双击）
 │   ├── 2048.html … gun.html   # 165 款游戏
+│   ├── common.js              # 共享核心（PRNG/shuffle/clamp/lerp/Loop/diffbar/theme）
 │   ├── juice.js                # 可复用手感/留存引擎（sfx/trauma/burst/flash/confetti/achievement…）
 │   ├── input.js                # 统一输入层（修复断触，fight/sgs/werewolf/airchess/monopoly 等引用）
+│   ├── demo/                  # common.js 参考实现（demo_common / demo_toolkit）
 │   └── tests/                # 自动化测试套件
 │       ├── test-runner.js    # CLI 静态检测
 │       ├── runner.html       # 浏览器运行测试
-│       └── _bbtest.js        # 泡泡堂 node 逻辑单测
+│       └── logic/            # node 逻辑单测（harness + run.js + 167 个 *_test.js）
 ├── .gitignore
 └── README.md
 ```

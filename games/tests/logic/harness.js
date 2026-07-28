@@ -151,6 +151,10 @@ function makeSandbox() {
     // THREE 桩：cubecity 等 3D 游戏 boot 时调 new THREE.WebGLRenderer/Scene/Mesh...，
     // 无 typeof 守卫（只有 'undefined' 守卫）。提供最小可用构造器，让 IIFE 能跑通。
     THREE: fakeTHREE(),
+    // Common：不在此处 require（node 模块的方法会闭包引用 node 全局 document，
+    // 而 vm 沙箱里的游戏脚本需要的是沙箱内的 document 桩）。正确做法是
+    // 在 loadGame 里把 common.js 源码直接跑进同一个 vm 上下文，让 Common
+    // 活在沙箱内、其 document/requestAnimationFrame 解析到沙箱桩。见 loadGame。
     Math, JSON, Date, parseInt, parseFloat, isNaN, Array, Object, String, Number, Boolean,
     Audio: function () { return { play() {}, pause() {}, addEventListener() {} }; },
     AudioContext: function () { return { createOscillator: () => ({ connect() {}, start() {}, stop() {}, frequency: {} }), createGain: () => ({ connect() {}, gain: {} }), destination: {}, currentTime: 0 }; },
@@ -174,6 +178,19 @@ function loadGame(relPath) {
   const html = fs.readFileSync(file, 'utf8');
   const script = extractInlineScript(html);
   const sandbox = makeSandbox();
+  // 把 common.js 源码跑进同一 vm 上下文：Common 即成为沙箱内的全局，
+  // 迁移后的游戏可在内联脚本里直接用 Common.mulberry32/Loop/buildDiffBar/…，
+  // 且这些方法的 document/requestAnimationFrame 解析到沙箱桩，逻辑单测不崩。
+  const commonSrc = fs.readFileSync(path.resolve(__dirname, '..', '..', 'common.js'), 'utf8');
+  vm.runInNewContext(commonSrc, sandbox, { filename: 'common.js' });
+  // 关键 shim：浏览器里 window 即全局，common.js 把 Common 挂到 window 上后
+  // 裸 Common 可解析；但 vm 沙箱里 window 是独立桩，不是全局对象，
+  // 故 window.Common 设了、裸 Common 仍 undefined。这里把它别名回全局，
+  // 使迁移后的游戏（Common.mulberry32 / Common.lcg / Common.injectTheme …）可解析。
+  vm.runInNewContext(
+    'if (typeof window!=="undefined" && window.Common && typeof Common=="undefined"){ var Common = window.Common; }',
+    sandbox, { filename: 'common-shim.js' }
+  );
   vm.runInNewContext(script, sandbox, { filename: path.basename(file) });
   const hook = sandbox.window.__t || sandbox.window.__bb;
   if (!hook) throw new Error(path.basename(file) + ' 未暴露 window.__t / __bb 钩子');

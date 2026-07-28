@@ -65,6 +65,10 @@
 
   <script src="juice.js"></script>
   <script>
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
+
   (function () {
     var COL = { red:'#f6465d', green:'#02c076', gold:'#f0b90b', dim:'#6b7785' };
     var W = 400, H = 600;
@@ -135,7 +139,7 @@
 
     function spawnPipe(x) {
       var margin = 70;
-      var gapY = margin + Math.random() * (GROUND - GAP - margin * 2);
+      var gapY = margin + _randFn() * (GROUND - GAP - margin * 2);
       pipes.push({ x: x == null ? spawnX : x, gapY: gapY, scored: false });
       spawnX += SPAWN_DX;
     }
