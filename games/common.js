@@ -13,6 +13,18 @@
  *   Common.Loop(function(dt){ ... });     // 统一 rAF 循环
  *   var bar = Common.buildDiffBar(el, function(d){ ... }); // 四档难度条
  *   Common.confetti(ctx, x, y);           // 轻量彩带（juice 缺省时的兜底）
+ *
+ * 几何/碰撞/数值 toolkit（替代各游戏手写副本，纯函数、node 可测）：
+ *   Common.dist(x1,y1,x2,y2) / Common.dist2(...)     // 欧氏/平方距离
+ *   Common.hitAABB(a,b) / Common.hitCircle(c1,c2)   // 矩形/圆形重叠
+ *   Common.pointInRect(px,py,r) / Common.angle(...)  // 点在矩形内 / 夹角
+ *   Common.roundRect(ctx,x,y,w,h,r)                 // 圆角矩形路径
+ *   Common.clamp01(v) / Common.invLerp(a,b,v)       // 数值便捷
+ *   Common.fmtTime(sec) / Common.fmtNum(n)          // 时间/千分位格式化
+ *   Common.text(ctx,str,x,y,opt) / Common.panel(...) // 统一文本/面板绘制
+ *   Common.sign/mod/randInt/choices/approach/lerpAngle
+ *   Common.Storage / Common.fitCanvas / Common.pick / Common.chance
+ *   Common.Sound(懒AudioContext) / Common.Input(键盘) / Common.Timer / Common.State
  */
 (function (global) {
   'use strict';
@@ -231,6 +243,190 @@
       },
       apply: function (ctx) { ctx.translate(x, y); },
       active: function () { return t > 0.1; }
+    };
+  };
+
+  /* ================= 几何 / 碰撞 / 数值 工具簇 =================
+   * 替代各游戏手写的 distance / AABB / circle / point-in-rect / 角度 / roundRect，
+   * 全部纯函数，node 直接可测；迁移时行为逐字节等价，不改动玩法。 */
+
+  Common.TAU = Math.PI * 2;
+  Common.deg2rad = function (d) { return d * Math.PI / 180; };
+  Common.rad2deg = function (r) { return r * 180 / Math.PI; };
+
+  // 平方距离（碰撞预筛用，避免频繁开根）
+  Common.dist2 = function (x1, y1, x2, y2) { var dx = x2 - x1, dy = y2 - y1; return dx * dx + dy * dy; };
+  // 欧氏距离（替代 Math.hypot(x1-x2, y1-y2) 与 sqrt(dx*dx+dy*dy)）
+  Common.dist = function (x1, y1, x2, y2) { return Math.sqrt(Common.dist2(x1, y1, x2, y2)); };
+
+  Common.clamp01 = function (v) { return v < 0 ? 0 : (v > 1 ? 1 : v); };
+  // 反向 lerp：已知区间 [a,b] 与值 v，返回归一化位置 t（a===b 时返回 0）
+  Common.invLerp = function (a, b, v) { return a === b ? 0 : (v - a) / (b - a); };
+
+  // 轴对齐矩形重叠（rect = {x,y,w,h}）
+  Common.hitAABB = function (a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  };
+  // 圆形重叠（c = {x,y,r}）；与 hitAABB 一致采用严格 <（相切不算重叠）
+  Common.hitCircle = function (c1, c2) {
+    var dx = c1.x - c2.x, dy = c1.y - c2.y, r = c1.r + c2.r;
+    return dx * dx + dy * dy < r * r;
+  };
+  // 点是否在矩形内（含边界）
+  Common.pointInRect = function (px, py, r) {
+    return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+  };
+  // 两点的夹角（弧度，替代 atan2(by-ay, bx-ax)）
+  Common.angle = function (ax, ay, bx, by) { return Math.atan2(by - ay, bx - ax); };
+
+  /* 圆角矩形路径（替代各游戏手写的 arcTo / quadratic 圆角实现）
+   * r 可为数字（四角同值）或 {tl,tr,br,bl}。调用后需自行 fill/stroke。
+   * 与标准 CanvasRenderingContext2D.roundRect 行为一致。 */
+  Common.roundRect = function (ctx, x, y, w, h, r) {
+    var c = (typeof r === 'number') ? { tl: r, tr: r, br: r, bl: r } : (r || { tl: 0, tr: 0, br: 0, bl: 0 });
+    ctx.beginPath();
+    ctx.moveTo(x + c.tl, y);
+    ctx.lineTo(x + w - c.tr, y);
+    ctx.arcTo(x + w, y, x + w, y + c.tr, c.tr);
+    ctx.lineTo(x + w, y + h - c.br);
+    ctx.arcTo(x + w, y + h, x + w - c.br, y + h, c.br);
+    ctx.lineTo(x + c.bl, y + h);
+    ctx.arcTo(x, y + h, x, y + h - c.bl, c.bl);
+    ctx.lineTo(x, y + c.tl);
+    ctx.arcTo(x, y, x + c.tl, y, c.tl);
+    ctx.closePath();
+  };
+
+  /* ================= 格式化 / 数值便捷 / 绘制 / 基础设施 ================= */
+
+  // 秒 → "M:SS"（替代各游戏手写的 m+':'+(s<10?'0':'')+s）
+  Common.fmtTime = function (sec) {
+    sec = Math.max(0, Math.floor(sec == null ? 0 : sec));
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  };
+  // 千分位（替代各游戏手写的 toLocaleString / 正则）
+  Common.fmtNum = function (n) {
+    var s = String(Math.floor(n == null ? 0 : n));
+    return s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  // 统一文本绘制（render 层；替代散落的 ctx.font/fillStyle/fillText 样板）
+  Common.text = function (ctx, str, x, y, opt) {
+    opt = opt || {};
+    ctx.save();
+    if (opt.font) ctx.font = opt.font;
+    ctx.fillStyle = opt.color || '#d7e0ea';
+    ctx.textAlign = opt.align || 'left';
+    ctx.textBaseline = opt.baseline || 'alphabetic';
+    ctx.fillText(str, x, y);
+    ctx.restore();
+  };
+  // 圆角面板背景（render 层）
+  Common.panel = function (ctx, x, y, w, h, opt) {
+    opt = opt || {};
+    var r = opt.radius == null ? 8 : opt.radius;
+    Common.roundRect(ctx, x, y, w, h, r);
+    ctx.fillStyle = opt.fill || 'rgba(18,24,33,.92)';
+    ctx.fill();
+    if (opt.stroke) { ctx.strokeStyle = opt.stroke; ctx.lineWidth = opt.lineWidth || 1; ctx.stroke(); }
+  };
+
+  // 符号 / 取模（正模）/ 整数随机 / 不重复抽样 / 逼近 / 角度插值
+  Common.sign = function (v) { return v < 0 ? -1 : (v > 0 ? 1 : 0); };
+  Common.mod = function (a, n) { return ((a % n) + n) % n; };
+  Common.randInt = function (a, b, rnd) {
+    var fn = rnd || Common.mulberry32(((Date.now() ^ (a * 2654435761)) >>> 0) || 1);
+    return a + Math.floor(fn() * (b - a + 1));
+  };
+  Common.choices = function (arr, n, rnd) {
+    var pool = arr.slice(); Common.shuffle(pool, rnd);
+    return pool.slice(0, Math.min(n == null ? pool.length : n, pool.length));
+  };
+  Common.approach = function (cur, target, step) {
+    if (cur < target) return Math.min(cur + step, target);
+    if (cur > target) return Math.max(cur - step, target);
+    return target;
+  };
+  Common.lerpAngle = function (a, b, t) {
+    var d = Common.mod(b - a + Math.PI, Common.TAU) - Math.PI;
+    return a + d * t;
+  };
+
+  /* ---- 音频（懒加载 AudioContext，无环境安全兜底，render/交互层） ---- */
+  Common.Sound = (function () {
+    var ctx = null, muted = false;
+    function ac() {
+      if (muted) return null;
+      if (ctx) return ctx;
+      try {
+        var AC = (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext));
+        if (!AC) return null;
+        ctx = new AC();
+      } catch (e) { ctx = null; }
+      return ctx;
+    }
+    return {
+      setMuted: function (m) { muted = !!m; },
+      isMuted: function () { return muted; },
+      // 播放单音；type 波形，dur 秒，vol 0..1
+      beep: function (freq, dur, type, vol) {
+        var c = ac(); if (!c) return;
+        try {
+          var o = c.createOscillator(), g = c.createGain();
+          o.type = type || 'square'; o.frequency.value = freq || 440;
+          g.gain.value = (vol == null ? 0.15 : vol);
+          o.connect(g); g.connect(c.destination);
+          o.start();
+          g.gain.setValueAtTime(g.gain.value, c.currentTime || 0);
+          g.gain.exponentialRampToValueAtTime(0.0001, (c.currentTime || 0) + (dur || 0.1));
+          o.stop((c.currentTime || 0) + (dur || 0.1));
+        } catch (e) {}
+      }
+    };
+  })();
+
+  /* ---- 键盘输入（懒绑定，无环境安全兜底，交互层） ---- */
+  Common.Input = (function () {
+    var down = {}, pressed = {}, bound = false;
+    function ensure() {
+      if (bound || typeof window === 'undefined') return;
+      bound = true;
+      window.addEventListener('keydown', function (e) { down[e.key] = true; pressed[e.key] = true; });
+      window.addEventListener('keyup', function (e) { down[e.key] = false; });
+    }
+    return {
+      init: function () { ensure(); },
+      down: function (k) { ensure(); return !!down[k]; },
+      pressed: function (k) { ensure(); var v = !!pressed[k]; pressed[k] = false; return v; },
+      clear: function () { down = {}; pressed = {}; }
+    };
+  })();
+
+  /* ---- 计时器（可暂停） ---- */
+  Common.Timer = function (opt) {
+    var total = (opt && opt.total) || 0, remain = total, running = false, acc = 0;
+    return {
+      start: function () { running = true; },
+      pause: function () { running = false; },
+      reset: function (t) { total = (t == null) ? total : t; remain = total; acc = 0; running = false; },
+      update: function (dt) { if (running) { remain = Math.max(0, remain - dt); acc += dt; } },
+      remain: function () { return remain; },
+      elapsed: function () { return acc; },
+      done: function () { return remain <= 0; }
+    };
+  };
+
+  /* ---- 轻量场景机（menu/play/over 等状态切换） ---- */
+  Common.State = function (initial) {
+    var cur = initial || 'menu', defs = {}, enters = {};
+    return {
+      get: function () { return cur; },
+      set: function (s, data) { if (cur === s) return; cur = s; if (enters[s]) enters[s](data); },
+      is: function (s) { return cur === s; },
+      on: function (s, fn) { enters[s] = fn; },
+      def: function (s, fn) { defs[s] = fn; },
+      run: function (dt) { if (defs[cur]) defs[cur](dt); }
     };
   };
 
