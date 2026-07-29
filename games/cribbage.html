@@ -204,7 +204,7 @@
     const lm=legalMoves(player);
     if(!lm.length) return null;
     const cfg=DIFFICULTY[difficulty]||DIFFICULTY.normal;
-    if(cfg.aiRandom>0 && _rng()<cfg.aiRandom) return lm[Math.floor(_rng()*lm.length)];
+    if(cfg.aiRandom>0 && _rng()<cfg.aiRandom) return Common.pick(lm, _rng);
     return lm.slice().sort((a,b)=> cardValue(a)-cardValue(b))[0]; // 出最小，留大牌
   }
 

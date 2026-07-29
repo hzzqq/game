@@ -214,7 +214,7 @@
       const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
       let pick;
       if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
-        pick = mv[Math.floor(_rand()*mv.length)];
+        pick = Common.pick(mv, _rand);
       } else {
         let best=-Infinity; pick=mv[0];
         for(const m of mv){ const sc=scoreMoveAI(m); if(sc>best){ best=sc; pick=m; } }

@@ -194,7 +194,7 @@
   function setProg(c,i,v){ var pl=players[c].planes[i]; pl.prog=v; if(v<0)pl.state='base'; else if(v<=50)pl.state='track'; else if(v<WIN)pl.state='home'; else {pl.state='done';players[c].done++;} }
   function doMoveRaw(c,i,d){ var pl=players[c].planes[i]; if(pl.state==='base')return; var np=pl.prog+d; if(np>WIN)np=WIN-(np-WIN); pl.prog=np; if(np>50)pl.state='home'; if(np===WIN){pl.state='done';players[c].done++;} }
   function findRivalOnTrack(c){ for(var o=0;o<4;o++){ if(o===c)continue; for(var j=0;j<4;j++){ if(players[o].planes[j].state==='track') return {c:o,i:j}; } } return null; }
-  function drawItem(c,i){ var it=ITEMS[Math.floor(_rand()*ITEMS.length)]; toast(it.e); log(NAME[c]+' 触发道具：'+it.e,'i'); if(typeof Juice!=='undefined'){ var pp=planeXY(c, players[c].planes[i].prog); Juice.sfx('pickup'); Juice.popup(pp[0],pp[1],it.e,COL[c],{size:14}); } it.fn(c,i); }
+  function drawItem(c,i){ var it=Common.pick(ITEMS, _rand); toast(it.e); log(NAME[c]+' 触发道具：'+it.e,'i'); if(typeof Juice!=='undefined'){ var pp=planeXY(c, players[c].planes[i].prog); Juice.sfx('pickup'); Juice.popup(pp[0],pp[1],it.e,COL[c],{size:14}); } it.fn(c,i); }
 
   function rollDice(){
     if(phase!=='idle') return;
@@ -233,7 +233,7 @@
     var chosen;
     if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
       // 难度弱化：走随机合法着法
-      chosen = mv[Math.floor(_rand()*mv.length)];
+      chosen = Common.pick(mv, _rand);
     } else {
       // 现有最优策略（启发式贪心）
       var best=-1, score=-1;

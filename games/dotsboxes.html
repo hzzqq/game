@@ -170,12 +170,12 @@
     for(let r=0;r<R-1;r++) for(let c=0;c<C;c++) if(!v[r][c]) lines.push({t:'V',r,c});
     if(!lines.length) return null;
     const cfg=DIFFICULTY[difficulty]||DIFFICULTY.normal;
-    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) return lines[Math.floor(_rand()*lines.length)];
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) return Common.pick(lines, _rand);
     // 地狱/困难：优先抢能成格的线（得额外回合），再避免落下三边格送对手
     for(const ln of lines) if(wouldComplete(ln.t,ln.r,ln.c)) return ln;
     const safe=lines.filter(ln=>!makesThree(ln.t,ln.r,ln.c));
-    if(safe.length) return safe[Math.floor(_rand()*safe.length)];
-    return lines[Math.floor(_rand()*lines.length)];
+    if(safe.length) return Common.pick(safe, _rand);
+    return Common.pick(lines, _rand);
   }
   function aiPlay(){
     let guard=0;

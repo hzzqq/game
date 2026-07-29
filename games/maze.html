@@ -114,7 +114,7 @@
       if(c>0 && !maze[r][c-1].vis) dirs.push('W');
       if(c<W-1 && !maze[r][c+1].vis) dirs.push('E');
       if(dirs.length===0){ stack.pop(); continue; }
-      const d=dirs[Math.floor(_rand()*dirs.length)];
+      const d=Common.pick(dirs, _rand);
       const [nr,nc]=neighbor(r,c,d);
       maze[r][c][d]=false; maze[nr][nc][opp(d)]=false; maze[nr][nc].vis=true;
       stack.push([nr,nc]);

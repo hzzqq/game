@@ -178,7 +178,7 @@
     const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
     // 随机弱化：低难度概率直接走随机合法步
     if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
-      return moves[Math.floor(_rand()*moves.length)];
+      return Common.pick(moves, _rand);
     }
     let best=null, bestVal=-1e18;
     for(let i=0;i<moves.length;i++){

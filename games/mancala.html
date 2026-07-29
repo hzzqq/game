@@ -168,7 +168,7 @@
     const legal=OWN[1].filter(p=>board[p]>0);
     if(!legal.length) return -1;
     const cfg=DIFFICULTY[difficulty]||DIFFICULTY.normal;
-    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) return legal[Math.floor(_rand()*legal.length)];
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) return Common.pick(legal, _rand);
     let best=-1, bestScore=-1;
     for(const p of legal){ const sc=scoreMove(1,p); if(sc>bestScore){ bestScore=sc; best=p; } }
     return best;

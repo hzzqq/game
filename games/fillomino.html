@@ -64,7 +64,7 @@
   let _fxShakes = 0, _fxBursts = 0;   // 手感计数钩子（只读，测试用）
 
   function inb(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+  function shuffle(a, r){ return Common.shuffle(a, r || _rng); }
 
   function genBase(){
     const owner=Array.from({length:N},()=>new Array(N).fill(-1));
@@ -84,7 +84,7 @@
           for(const [nr,nc] of nb){ if(inb(nr,nc) && owner[nr][nc]===-1) frontier.push([nr,nc]); }
         }
         if(frontier.length===0) break;
-        const pick=frontier[Math.floor(_rng()*frontier.length)];
+        const pick=Common.pick(frontier, _rng);
         owner[pick[0]][pick[1]]=myId; added++;
       }
     }

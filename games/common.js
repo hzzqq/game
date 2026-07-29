@@ -168,6 +168,72 @@
     }
   };
 
+  /* ---------- 高分/状态持久化（替代各游戏散落的 localStorage 调用） ----------
+   * 命名空间化键 game:<name>:<key>，避免 bubble_best" 这类键名 bug 与 _best/_high 不一致。
+   * private mode / 配额超限时 try/catch 兜底，不影响游戏运行。 */
+  Common.Storage = (function () {
+    function k(name, key) { return 'game:' + name + ':' + (key || 'best'); }
+    function get(name, key, def) {
+      try { var v = localStorage.getItem(k(name, key)); return v == null ? def : JSON.parse(v); }
+      catch (e) { return def; }
+    }
+    function set(name, key, val) {
+      try { localStorage.setItem(k(name, key), JSON.stringify(val)); return true; }
+      catch (e) { return false; }
+    }
+    // 记录历史极值；cmp(cur,score) 返回 true 表示 score 更优（默认取较大值=高分游戏）
+    function best(name, score, cmp) {
+      var cur = get(name, 'best', null);
+      var better = cur == null || (cmp ? cmp(cur, score) : score > cur);
+      if (better) { set(name, 'best', score); return score; }
+      return cur;
+    }
+    return { key: k, get: get, set: set, best: best };
+  })();
+
+  /* ---------- DPR 自适应画布（替代 17 份 devicePixelRatio 样板） ----------
+   * 按 devicePixelRatio 放大 backing store，ctx 以 CSS 像素坐标作画（setTransform）。
+   * opts.clampDpr: 钳制上限（如 2，匹配 9 款做法）；opts.setStyle: 是否写 style.width/height
+   * （默认 true；迁移旧游戏且原样未设 style 时传 false 以零视觉变化）。返回 { ctx, W, H, dpr }。 */
+  Common.fitCanvas = function (canvas, w, h, opts) {
+    opts = opts || {};
+    var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    if (opts.clampDpr) dpr = Math.min(dpr, opts.clampDpr);
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    if (opts.setStyle !== false) { canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; }
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx: ctx, W: w, H: h, dpr: dpr };
+  };
+
+  /* ---------- 数组工具（替代各游戏手写的 arr[floor(rnd()*len)]） ----------
+   * 默认以时间播种的 mulberry32 产出，逻辑路径可注入 rnd 复现。 */
+  Common.pick = function (arr, rnd) {
+    var fn = rnd || Common.mulberry32((Date.now() >>> 0) || 1);
+    return arr[Math.floor(fn() * arr.length)];
+  };
+  Common.chance = function (p, rnd) {
+    var fn = rnd || Common.mulberry32((Date.now() >>> 0) || 1);
+    return fn() < p;
+  };
+
+  /* ---------- 轻量屏幕抖动（juice 缺省时的兜底，render-only） ----------
+   * add(m) 触发，update(dt) 衰减，apply(ctx) 平移。render 用 Math.random，属视觉层。 */
+  Common.ScreenShake = function (opt) {
+    var mag = (opt && opt.mag) || 6, decay = (opt && opt.decay) || 0.9;
+    var x = 0, y = 0, t = 0;
+    return {
+      add: function (m) { t = Math.max(t, m || mag); },
+      update: function (dt) {
+        if (t > 0.1) { x = (Math.random() * 2 - 1) * t; y = (Math.random() * 2 - 1) * t; t *= decay; }
+        else { x = 0; y = 0; t = 0; }
+      },
+      apply: function (ctx) { ctx.translate(x, y); },
+      active: function () { return t > 0.1; }
+    };
+  };
+
   global.Common = Common;
   if (typeof module !== 'undefined' && module.exports) module.exports = Common;
 })(typeof window !== 'undefined' ? window : globalThis);

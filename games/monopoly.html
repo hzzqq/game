@@ -478,7 +478,7 @@
   function sendToJail(p){ p.pos=10; p.displayPos=10; p.inJail=true; p.jailTurns=0; }
 
   function drawCard(p){
-    const type=CARD_TYPES[Math.floor(_rng()*CARD_TYPES.length)];
+    const type=Common.pick(CARD_TYPES, _rng);
     log(p.name+' 抽到 '+CARD_INFO[type].emoji+' '+CARD_INFO[type].name);
     applyCard(p,type);
   }
@@ -590,9 +590,7 @@
 
   function fit(){
     const w=boardWrap.clientWidth; cssSize=w;
-    const dpr=window.devicePixelRatio||1;
-    canvas.width=Math.round(w*dpr); canvas.height=Math.round(w*dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
+    Common.fitCanvas(canvas, w, w, { setStyle: false });
     drawBoard();
   }
 

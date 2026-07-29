@@ -107,7 +107,6 @@
   var goSub   = document.getElementById('goSub');
   var goBtn   = document.getElementById('goBtn');
 
-  var BEST_KEY = 'term_snake_best';
 
   // 局部种子 PRNG（mulberry32）：注入代码里的随机必须走它，禁止 Math.random，
   // 以免污染 node 测试 harness 跨游戏共享的 Math.random 流。
@@ -138,7 +137,7 @@
 
   function nowMs(){ return (typeof performance!=='undefined' && performance.now) ? performance.now() : 0; }
 
-  try { best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; } catch(e) { best = 0; }
+  try { best = parseInt(Common.Storage.get('snake','best',0) || '0', 10) || 0; } catch(e) { best = 0; }
   bestEl.textContent = best;
 
   function reset(){
@@ -182,7 +181,7 @@
       }
     }
     if(free.length===0){ food=null; return; }   // win-ish: board full
-    food = free[Math.floor(_rng()*free.length)];
+    food = Common.pick(free, _rng);
     if(_rng() < 0.18) spawnPowerup();
   }
 
@@ -196,9 +195,9 @@
       }
     }
     if(free.length===0) return;
-    var cell = free[Math.floor(_rng()*free.length)];
+    var cell = Common.pick(free, _rng);
     var types = ['speed','shield','gem'];
-    powerups.push({ x:cell.x, y:cell.y, type:types[Math.floor(_rng()*types.length)] });
+    powerups.push({ x:cell.x, y:cell.y, type:Common.pick(types, _rng) });
   }
 
   // 标准掉落构造器（供 hook 直接投放）
@@ -218,7 +217,7 @@
       return false;
     } else { // gem：大幅加分并增长
       score += 5;
-      if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
+      if(score > best){ best = score; try { Common.Storage.set('snake','best',best); } catch(e){} }
       if(typeof Juice!=='undefined') Juice.popup(px, py, '+5', '#f0b90b', {size:16});
       updateHud();
       return true;
@@ -271,7 +270,7 @@
         Juice.sfx('levelup');
         Juice.achievement('加速 → '+(140/stepMs).toFixed(1)+'x');
       }
-      if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
+      if(score > best){ best = score; try { Common.Storage.set('snake','best',best); } catch(e){} }
       spawnFood();
       updateHud();
       if(score>=10 && !_confettiFired){ _confettiFired = true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
@@ -281,7 +280,7 @@
 
   function gameOver(){
     alive = false;
-    if(score > best){ best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){} }
+    if(score > best){ best = score; try { Common.Storage.set('snake','best',best); } catch(e){} }
     var rk = Juice.rank(score);
     Juice.sfx('lose');
     Juice.addTrauma(0.5);

@@ -66,7 +66,7 @@
   function makePickup(type,r,c){ return { type, r, c, age:0, id:pkid++ }; }
   function spawnPickup(type,r,c){ const p=makePickup(type,r,c); pickups.push(p); return p; }
   function spawnPickupAtRandom(){
-    const types=[PICK.COIN,PICK.BOOST,PICK.SHIELD]; const t=types[Math.floor(_prng()*types.length)];
+    const types=[PICK.COIN,PICK.BOOST,PICK.SHIELD]; const t=Common.pick(types, _prng);
     const r=Math.floor(_prng()*N), c=Math.floor(_prng()*N); return spawnPickup(t,r,c);
   }
   function applyPickup(type){

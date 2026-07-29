@@ -213,10 +213,7 @@
   // ---------- 画布 ----------
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  ctx.scale(dpr, dpr);
+  Common.fitCanvas(canvas, W, H, { setStyle: false });
 
   // ---------- 游戏状态 ----------
   const occupied = new Set();

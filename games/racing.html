@@ -112,7 +112,6 @@
 
   // ---- constants ----
   var LANES = 5;
-  var BEST_KEY = 'terminal_racing_best';
 
   // ---- responsive canvas ----
   var W = 0, H = 0, DPR = 1;
@@ -149,7 +148,7 @@
 
   // ---- game state ----
   var state = 'menu'; // menu | playing | paused | over
-  var best = 0; try { best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; } catch(e){}
+  var best = 0; try { best = parseInt(Common.Storage.get('racing','best',0) || '0', 10) || 0; } catch(e){}
   hBest.textContent = best;
 
   var player, enemies, worldSpeed, distance, lives, spawnTimer, lastTime, dashOffset, invuln, shake, pickups, boostTimer, shield, pickupTimer;
@@ -216,7 +215,7 @@
     var dist = Math.floor(distance);
     if (dist > best){
       best = dist;
-      try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){}
+      try { Common.Storage.set('racing','best',best); } catch(e){}
       hBest.textContent = best;
     }
     ovTitle.textContent = 'GAME OVER';

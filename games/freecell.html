@@ -66,7 +66,7 @@
   function setRand(fn){ _rand=fn; }
   function color(s){ return (s===1||s===2)?'red':'black'; }
   function newDeck(){ const d=[]; for(let s=0;s<4;s++) for(let r=1;r<=13;r++) d.push({s,r}); return d; }
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor((_rand||Math.random)()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function shuffle(a, r){ return Common.shuffle(a, r || (_rand||Math.random)); }
   function newGame(){
     const deck=shuffle(newDeck());
     tableau=[[],[],[],[],[],[],[],[]];

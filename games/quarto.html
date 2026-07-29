@@ -117,7 +117,7 @@
     const cells=legalMoves();
     if(!cells.length) return null;
     let cell;
-    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) cell=cells[Math.floor(_rand()*cells.length)];
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) cell=Common.pick(cells, _rand);
     else {
       let best=null, bestScore=-1e9;
       for(const [r,c] of cells){

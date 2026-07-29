@@ -57,7 +57,7 @@
 
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
-  function shuffleArr(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rand()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function shuffleArr(a){ return Common.shuffle(a, _rand); }
 
   let grid; // grid[r][c] = symbol id (1..SYMS) or 0
   let score, sel, combo, gameOver, celebrated=false, _confettiFired = false;

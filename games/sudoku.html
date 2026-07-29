@@ -98,7 +98,7 @@
 
   const CLUES={easy:42, medium:34, hard:28};
 
-  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(_randFn()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+  function shuffle(a, r){ return Common.shuffle(a, r || _randFn); }
   function valid(g,r,c,v){
     for(let i=0;i<9;i++){ if(g[r*9+i]===v) return false; if(g[i*9+c]===v) return false; }
     const br=Math.floor(r/3)*3, bc=Math.floor(c/3)*3;

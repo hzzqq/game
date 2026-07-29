@@ -192,11 +192,7 @@
   }
 
   /* ---- 随机可解布局 ---- */
-  function shuffled(arr, rand){
-    const a=arr.slice();
-    for(let i=a.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; }
-    return a;
-  }
+  function shuffled(arr, rand){ var _a=arr.slice(); Common.shuffle(_a, rand); return _a; }
   function buildSolution(){
     const K = 5 + Math.floor(_rand()*3); // 5~7 岛
     for(let attempt=0;attempt<200;attempt++){

@@ -222,7 +222,7 @@ function aiTurn(){
     let pick;
     if(cfg.aiRandom>0 && _rand()<cfg.aiRandom){
       // 简单档：随机合法步
-      pick = moves[Math.floor(_rand()*moves.length)];
+      pick = Common.pick(moves, _rand);
     } else {
       // 困难/地狱：启发式（优先吃子，其次安全落点）
       pick = moves.find(m => m.to!=='off' && points[m.to][opp('white')]===1);

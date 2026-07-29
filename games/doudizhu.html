@@ -151,7 +151,7 @@
     deck.push({id:id++, rank:17, suit:'', red:false, joker:'big'});
     return deck;
   }
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rand()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function shuffle(a, r){ return Common.shuffle(a, r || _rand); }
   function sortHandDesc(h){ return h.slice().sort((a,b)=> b.rank-a.rank || suitVal(b.suit)-suitVal(a.suit)); }
   function cardsByRank(hand){ const m={}; for(const c of hand){ (m[c.rank]=m[c.rank]||[]).push(c); } return m; }
 
@@ -582,7 +582,7 @@
     let cards;
     if(!legal.length){ trickPlay[idx]='pass'; passes++; proceed(); return; }
     if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
-      cards = legal[Math.floor(_rand()*legal.length)].cards;
+      cards = Common.pick(legal, _rand).cards;
     } else if(!lastPlay){
       cards = chooseLead(hands[idx]);
     } else {

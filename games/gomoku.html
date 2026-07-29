@@ -135,10 +135,7 @@
   function fit(){
     const w = wrap.clientWidth;
     cssSize = w;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(w*dpr);
-    canvas.height = Math.round(w*dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
+    Common.fitCanvas(canvas, w, w, { setStyle: false });
     const pad = w*0.045;
     MARGIN = pad;
     STEP = (w - pad*2)/(N-1);
@@ -333,7 +330,7 @@
     // 难度弱化：一定概率直接走随机候选点，放弃攻防计算（地狱档概率为 0）
     const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
     if(cfg.aiRandom>0 && cands.length && _rand() < cfg.aiRandom){
-      const mv = cands[Math.floor(_rand()*cands.length)];
+      const mv = Common.pick(cands, _rand);
       doMove(mv.r, mv.c, A);
       if(gameOver) return;
       current = P; setTurn(); draw();

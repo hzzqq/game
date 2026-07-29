@@ -134,7 +134,7 @@
     let guard=0;
     do{
       for(let i=0;i<SCRAMBLE;i++){
-        const p=pieces[Math.floor(_rand()*pieces.length)];
+        const p=Common.pick(pieces, _rand);
         const d=dirs[Math.floor(_rand()*4)];
         rawMove(p.id, d[0], d[1]); // 打乱用 rawMove，绕过 isWin 守卫，非法移动被忽略
       }

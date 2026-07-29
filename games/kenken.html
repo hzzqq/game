@@ -76,7 +76,7 @@
     };
   }
   function range(a,b){ const o=[]; for(let i=a;i<b;i++) o.push(i); return o; }
-  function shuffle(arr,rng){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+  function shuffle(arr,rng){ var _a=arr.slice(); Common.shuffle(_a, rng); return _a; }
 
   // ---- 生成合法拉丁方解 ----
   function genSolution(nn,rng){
@@ -108,7 +108,7 @@
       const a=vals[0],b=vals[1];
       const valid=['+','*','-'];
       if(Math.max(a,b)%Math.min(a,b)===0) valid.push('/');
-      const op=valid[Math.floor(rng()*valid.length)];
+      const op=Common.pick(valid, rng);
       let target;
       if(op==='+') target=a+b;
       else if(op==='*') target=a*b;

@@ -244,7 +244,7 @@
     const moves = legalMovesState(S);
     let m;
     if(cfg.aiRandom>0 && moves.length && _rand() < cfg.aiRandom){
-      m = moves[Math.floor(_rand()*moves.length)]; // 难度弱化：走随机合法步
+      m = Common.pick(moves, _rand); // 难度弱化：走随机合法步
     } else {
       m = aiMove(S, cfg.depth);
     }

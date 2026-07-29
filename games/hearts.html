@@ -192,7 +192,7 @@
   function aiChooseFor(H, player, moves, trk, ls){
     const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
     if(moves.length && cfg.aiRandom>0 && _rng() < cfg.aiRandom){
-      return moves[Math.floor(_rng()*moves.length)];
+      return Common.pick(moves, _rng);
     }
     if(trk.length===0){
       const nonHearts = moves.filter(c=>suit(c)!==1);

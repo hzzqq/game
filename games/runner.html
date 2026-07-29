@@ -159,7 +159,7 @@
   var best = 0;
   var milestone = 0;
   var confettiFired = false; // 成就/胜利正反馈：到达里程碑达成后置真（跳变防重复）
-  try { best = parseInt(localStorage.getItem('runner_best')||'0',10) || 0; } catch(e){ best = 0; }
+  try { best = parseInt(Common.Storage.get('runner','best',0)||'0',10) || 0; } catch(e){ best = 0; }
   bestEl.textContent = best;
 
   var runner, obstacles, particles, pickups;
@@ -735,7 +735,7 @@
     var nb = false;
     if (d > best){
       best = d; nb = true;
-      try { localStorage.setItem('runner_best', String(best)); } catch(e){}
+      try { Common.Storage.set('runner','best',best); } catch(e){}
     }
     bestEl.textContent = best;
     ovTitle.textContent = 'GAME OVER // 撞毁';

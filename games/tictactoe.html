@@ -102,7 +102,7 @@
     if(moves.length===0) return -1;
     // 难度：一定概率走随机步以弱化 AI（地狱档概率为 0 → 纯 minimax）
     const cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
-    if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){ return moves[Math.floor(_rand()*moves.length)]; }
+    if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){ return Common.pick(moves, _rand); }
     let best=-Infinity, pick=moves[0];
     for(const m of moves){
       board[m]=AI;

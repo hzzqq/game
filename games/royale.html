@@ -141,9 +141,7 @@
   const W = 420, H = 640, RIVER = H/2;
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = W * dpr; canvas.height = H * dpr;
-  ctx.scale(dpr, dpr);
+  Common.fitCanvas(canvas, W, H, { setStyle: false });
 
   // 局部 PRNG（mulberry32）——所有随机必须走这里，禁止裸 Math.random
   // 收口到共享核心 Common.mulberry32（算法逐字节等价，同种子输出一致）
@@ -281,7 +279,7 @@
     state.pickups.push(pk); return pk;
   }
   function spawnPickupAtRandom(){
-    const type = PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+    const type = Common.pick(PICKUP_TYPES, _rng);
     const x = _rng()*W, y = 20 + _rng()*40;     // 从顶部落下
     return makePickup(type, x, y);
   }
@@ -385,7 +383,7 @@
       for(let i=0;i<h.length;i++) if(CARDS[h[i]].cost <= state.elixirAi){ idx=i; break; }
     } else if(state.aiTimer <= 0){
       const aff = h.map((k,i)=>CARDS[k].cost<=state.elixirAi? i : -1).filter(i=>i>=0);
-      if(aff.length){ idx = aff[Math.floor(_rng()*aff.length)]; state.aiTimer = 1.8 + _rng()*1.8; }
+      if(aff.length){ idx = Common.pick(aff, _rng); state.aiTimer = 1.8 + _rng()*1.8; }
     }
     if(idx<0) return;
     const key = playFromDeck('ai', idx);
@@ -399,7 +397,7 @@
       x = t? t.x : W/2; y = t? t.y : H/2;
     } else {
       const lanes = [64, W/2, W-64];
-      x = lanes[Math.floor(_rng()*lanes.length)] + (_rng()*30-15);
+      x = Common.pick(lanes, _rng) + (_rng()*30-15);
       y = RIVER - 40 - _rng()*70; // AI 半场
     }
     deploy('ai', key, x, y);

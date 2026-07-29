@@ -58,7 +58,7 @@
   const GLY = { coin:'💰', hint:'⭐', shield:'🛡' };
   function makePickup(type,r,c){ return { type, r, c, age:0, id:pkid++ }; }
   function spawnPickup(type,r,c){ const p=makePickup(type,r,c); pickups.push(p); return p; }
-  function spawnPickupAtRandom(){ const types=[PICK.COIN,PICK.HINT]; const t=types[Math.floor(_prng()*types.length)]; const r=Math.floor(_prng()*N), c=Math.floor(_prng()*N); return spawnPickup(t,r,c); }
+  function spawnPickupAtRandom(){ const types=[PICK.COIN,PICK.HINT]; const t=Common.pick(types, _prng); const r=Math.floor(_prng()*N), c=Math.floor(_prng()*N); return spawnPickup(t,r,c); }
   function applyPickup(type){ if(type===PICK.COIN){ coins+=50; } else if(type===PICK.HINT){ hintTimer=10; } else if(type===PICK.SHIELD){ shield=true; } if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); } }
   function collectPickupsUnderCars(){
     const occ=new Set();

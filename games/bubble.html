@@ -154,7 +154,7 @@
   var popFx;         // particle effects
   var clears;        // 成功消除计数（用于蓄力特殊泡）
 
-  try { best = parseInt(localStorage.getItem("bubble_best") || "0", 10) || 0; } catch(e) { best = 0; }
+  try { best = parseInt(Common.Storage.get('bubble','best',0) || "0", 10) || 0; } catch(e) { best = 0; }
   bestEl.textContent = best;
 
   function evenCols(r) { return (r % 2 === 0) ? COLS : COLS - 1; }
@@ -206,7 +206,7 @@
     for (var rr = 0; rr < startRows; rr++) {
       var nc = evenCols(rr);
       for (var cc = 0; cc < nc; cc++) {
-        grid[rr][cc] = activeColors[Math.floor(Math.random() * activeColors.length)];
+        grid[rr][cc] = Common.pick(activeColors, Math.random);
       }
     }
     score = 0; shots = 0; clears = 0;
@@ -225,7 +225,7 @@
   function pickNext() {
     var present = colorsOnBoard();
     if (present.length === 0) { next = activeColors[0]; return; }
-    next = present[Math.floor(Math.random() * present.length)];
+    next = Common.pick(present, Math.random);
   }
 
   function colorsOnBoard() {
@@ -242,7 +242,7 @@
   function updateHud() {
     scoreEl.textContent = score;
     shotsEl.textContent = shots;
-    if (score > best) { best = score; bestEl.textContent = best; try { localStorage.setItem("bubble_best", String(best)); } catch(e){} }
+    if (score > best) { best = score; bestEl.textContent = best; try { Common.Storage.set('bubble','best',best); } catch(e){} }
   }
 
   // ---- Firing ----
@@ -541,7 +541,7 @@
   var PICKUP_COLOR={boost:'#02c076',heal:'#f6465d'};
   function makePickup(type,x,y){ var p={type:type,x:x,y:y,vy:70,r:14,dead:false}; pickups.push(p); return p; }
   function spawnPickupAtRandom(){
-    var t=PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+    var t=Common.pick(PICKUP_TYPES, _rng);
     var x=_rng()*(FIELD_W-40)+20;
     return makePickup(t,x,-20);
   }

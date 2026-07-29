@@ -83,7 +83,6 @@
 <script>
 (function(){
   "use strict";
-  const BEST_KEY = "terminal_whack_best";
   const GAME_TIME = 30;
   const HOLES = 9;            // 3x3
   const COLS = 3, ROWS = 3;
@@ -150,7 +149,7 @@
     document.getElementById('resetBtn').onclick = startGame;
     document.getElementById('o-btn').onclick = startGame;
 
-    try { best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; } catch(e){ best = 0; }
+    try { best = parseInt(Common.Storage.get('whack','best',0) || '0', 10) || 0; } catch(e){ best = 0; }
     resetHoles();
     updateHUD();
     startGame();
@@ -186,7 +185,7 @@
     const empty = [];
     for (let i = 0; i < HOLES; i++) if (holes[i].state === 'empty') empty.push(i);
     if (empty.length === 0) return -1;
-    return empty[Math.floor(Math.random() * empty.length)];
+    return Common.pick(empty, Math.random);
   }
 
   // 纯逻辑：按权重选地鼠类型
@@ -321,7 +320,7 @@
         if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:140, life:2.6});
         if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.6);
       }
-      try { localStorage.setItem(BEST_KEY, String(best)); } catch(e){}
+      try { Common.Storage.set('whack','best',best); } catch(e){}
     }
     if (typeof Juice !== 'undefined') {
       Juice.sfx('lose');
@@ -457,7 +456,7 @@
 
   // ---- 测试钩子：暴露纯逻辑 + 状态访问器（不改功能）----
   window.__t = {
-    HOLES, COLS, ROWS, TYPES, GAME_TIME, BEST_KEY, PICKUPS,
+    HOLES, COLS, ROWS, TYPES, GAME_TIME, PICKUPS,
     pickHole, pickType, spawnMole, whack, upDuration, currentSpawnInterval,
     holePos, holeCenter, cellW, cellH,
     startGame, endGame, update,

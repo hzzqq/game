@@ -266,7 +266,7 @@
     function sfxKO() { tone(120, 0.45, 'sawtooth', 0.12); }
 
     // ---- helpers ----
-    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+    function clamp(v, a, b) { return Common.clamp(v, a, b); }
     function atkActive(f) {
       if (f.attackTime <= 0) return false;
       var d = ATK[f.attackType], total = d.startup + d.active + d.recover;

@@ -68,7 +68,7 @@
   function rankName(r){ return r===1?'A':r===11?'J':r===12?'Q':r===13?'K':String(r); }
   function color(s){ return s===1?'red':'black'; }
   function newDeck(){ const d=[]; for(let copy=0;copy<2;copy++) for(let s=0;s<2;s++) for(let r=1;r<=13;r++) d.push({s,r}); return d; }
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function shuffle(a, r){ return Common.shuffle(a, r || _rng); }
 
   function newGame(){
     const deck=shuffle(newDeck());

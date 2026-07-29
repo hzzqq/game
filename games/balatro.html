@@ -65,8 +65,8 @@
 
   function rand(a,b){ return Common.range(a,b,_randFn); }
   function randi(a,b){return Math.floor(rand(a,b+1));}
-  function choice(a){return a[Math.floor(_randFn()*a.length)];}
-  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(_randFn()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+  function choice(a){return Common.pick(a, _randFn);}
+  function shuffle(a, r){ return Common.shuffle(a, r || _randFn); }
 
   function buildDeck(){ const d=[]; for(const s of SUITS) for(let r=2;r<=14;r++) d.push({rank:r,suit:s}); return d; }
   function cardChip(rank){ if(rank<=10) return rank; if(rank===14) return 11; return 10; }

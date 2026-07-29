@@ -297,7 +297,7 @@
       var rnd = document.getElementById('rnd');
       if(rnd){ rnd.addEventListener('click', function(){
         var vis = cards.filter(function(c){ return !c.classList.contains('hide'); });
-        if(vis.length){ var pick = vis[Math.floor(Math.random()*vis.length)]; pushRecent(pick.getAttribute('href')); location.href = pick.getAttribute('href'); }
+        if(vis.length){ var pick = Common.pick(vis, Math.random); pushRecent(pick.getAttribute('href')); location.href = pick.getAttribute('href'); }
       }); }
       document.addEventListener('keydown', function(e){
         if(e.key==='/' && document.activeElement!==search){ e.preventDefault(); search.focus(); }

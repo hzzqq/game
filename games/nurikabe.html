@@ -61,7 +61,7 @@
   let won=false, _confettiFired=false;
 
   function inb(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+  function shuffle(a, r){ return Common.shuffle(a, r || _rng); }
 
   function blackOK(g){
     const blacks=[]; for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(g[r][c]===1) blacks.push([r,c]);
@@ -120,7 +120,7 @@
             }
           }
           if(frontier.length===0) break;
-          const pick=frontier[Math.floor(_rng()*frontier.length)];
+          const pick=Common.pick(frontier, _rng);
           owner[pick[0]][pick[1]]=myId; cnt++;
         }
         if(cnt<sz){ ok=false; break; }

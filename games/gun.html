@@ -278,7 +278,7 @@
   }
 
   function dropItem(x,y){
-    var it=ITEMS[Math.floor(_rng()*ITEMS.length)];
+    var it=Common.pick(ITEMS, _rng);
     items.push({x:x,y:y,t:it.t,icon:it.icon,label:it.label,life:11});
   }
   function spawnItem(){
@@ -300,7 +300,7 @@
     items.push(p); return p;
   }
   function spawnPickupAtRandom(){
-    var type = PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+    var type = Common.pick(PICKUP_TYPES, _rng);
     var x = 30+_rng()*(W-60), y = 30+_rng()*(H-60);
     return makePickup(type,x,y);
   }
@@ -448,7 +448,7 @@
       Juice.popup(player.x,player.y-20,'清屏!','#f0b90b',{life:.9,big:true});
     }
     else if(t==='gun'){
-      player.weapon=CRATE[Math.floor(_rng()*CRATE.length)];
+      player.weapon=Common.pick(CRATE, _rng);
       player.ammo=WEAPONS[player.weapon].ammo; player.reload=0;
       Juice.popup(player.x,player.y-20,'武器:'+WEAPONS[player.weapon].name,'#f0b90b',{life:.9});
       Juice.achievement('获得武器 · '+WEAPONS[player.weapon].name);

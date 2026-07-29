@@ -147,7 +147,7 @@
   // ===== game state =====
   var state = 'menu';    // menu | play | over
   var best = 0;
-  try { best = parseInt(localStorage.getItem('gd_best') || '0', 10) || 0; } catch(e){ best = 0; }
+  try { best = parseInt(Common.Storage.get('geometrydash','best',0) || '0', 10) || 0; } catch(e){ best = 0; }
   bestEl.textContent = best;
 
   var player, obstacles, particles, pickups;
@@ -542,7 +542,7 @@
     var nb = false;
     if (d > best){
       best = d; nb = true;
-      try { localStorage.setItem('gd_best', String(best)); } catch(e){}
+      try { Common.Storage.set('geometrydash','best',best); } catch(e){}
     }
     bestEl.textContent = best;
     if (nb) milestoneFire();   // 打破最高分 → 正反馈彩带（只读钩子记录）

@@ -105,14 +105,7 @@
   // 可注入随机源，便于测试确定性；默认 Math.random
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
-  function shuffle(arr){
-    const a = arr.slice();
-    for(let i=a.length-1;i>0;i--){
-      const j = Math.floor(_rand()*(i+1));
-      const t = a[i]; a[i]=a[j]; a[j]=t;
-    }
-    return a;
-  }
+  function shuffle(arr){ var _a=arr.slice(); Common.shuffle(_a, _rand); return _a; }
   function cardStr(c){ return RANKS[c.r] + SUITS[c.s]; }
 
   // ---- 5 张评估：返回 {cat:0..8, tb:[...]} ----

@@ -73,10 +73,10 @@
   // ---------- helpers ----------
   function rand(a,b){ return Common.range(a,b,_randFn); }
   function randi(a,b){ return Math.floor(rand(a,b+1)); }
-  function choice(a){ return a[Math.floor(_randFn()*a.length)]; }
+  function choice(a){ return Common.pick(a, _randFn); }
   function dist(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); }
   function clamp(v,a,b){ return Common.clamp(v,a,b); }
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_randFn()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function shuffle(a, r){ return Common.shuffle(a, r || _randFn); }
 
   // ---------- config ----------
   const WEAPONS = {

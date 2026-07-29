@@ -58,7 +58,7 @@
   const GLY = { coin:'💰', aim:'🎯', shield:'🛡' };
   function makePickup(type,x,y){ return { type, x, y, r:11, age:0, id:pkid++ }; }
   function spawnPickup(type,x,y){ const p=makePickup(type,x,y); pickups.push(p); return p; }
-  function spawnPickupAtRandom(){ const types=[PICK.COIN,PICK.AIM]; const t=types[Math.floor(_prng()*types.length)]; const x=20+_prng()*(W-40); const y=20+_prng()*(H-40); return spawnPickup(t,x,y); }
+  function spawnPickupAtRandom(){ const types=[PICK.COIN,PICK.AIM]; const t=Common.pick(types, _prng); const x=20+_prng()*(W-40); const y=20+_prng()*(H-40); return spawnPickup(t,x,y); }
   function applyPickup(type){ if(type===PICK.COIN){ coins+=50; } else if(type===PICK.AIM){ aimTimer=6; } else if(type===PICK.SHIELD){ shield=true; } if(typeof Juice!=='undefined'){ Juice.sfx('pickup'); } }
   function tryCollect(x,y){ for(let i=pickups.length-1;i>=0;i--){ const p=pickups[i]; if(Math.hypot(p.x-x,p.y-y)<=p.r+R){ const pk=pickups.splice(i,1)[0]; applyPickup(pk.type); } } }
   function updatePickups(dt){ if(aimTimer>0) aimTimer=Math.max(0,aimTimer-(dt||1)); for(let i=pickups.length-1;i>=0;i--){ pickups[i].age+=(dt||1); if(pickups[i].age>30) pickups.splice(i,1); } }

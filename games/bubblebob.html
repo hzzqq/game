@@ -471,7 +471,7 @@ function aiThink(p){
   }
   return {dx:0,dy:0,bomb:false};
 }
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(_randFn()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function shuffle(a, r){ return Common.shuffle(a, r || _randFn); }
 
 // ===================== 主更新 =====================
 function update(dt){

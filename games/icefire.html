@@ -363,7 +363,7 @@
     pickups.push(p); return p;
   }
   function spawnPickupAtRandom(){
-    const type = PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+    const type = Common.pick(PICKUP_TYPES, _rng);
     const x = _rng()*CW, y = 20 + _rng()*40;     // 从顶部落下
     return makePickup(type, x, y);
   }
@@ -476,7 +476,7 @@
       if(score>bestScore){ bestScore=score; dir=d; }
     }
     const ties=scored.filter(s=> s.score===bestScore).map(s=>s.d);
-    if(ties.length>1) dir = ties[Math.floor(cpuRng()*ties.length)] || dir;
+    if(ties.length>1) dir = Common.pick(ties, cpuRng) || dir;
     input[who].left = dir<0;
     input[who].right = dir>0;
     // 起跳：前方是挡墙或自己类型致命格 → 在地面起跳越过（免疫地形不会触发）

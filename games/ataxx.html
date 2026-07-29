@@ -217,7 +217,7 @@
     if(cfg.aiRandom>0 && _rand() < cfg.aiRandom){
       const moves = legalMovesState(S);
       if(!moves.length) return null;
-      mv = moves[Math.floor(_rand()*moves.length)];
+      mv = Common.pick(moves, _rand);
     } else {
       mv = aiMove(S, cfg.depth);
     }

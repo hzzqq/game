@@ -65,7 +65,7 @@
   const NEI8 = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
   const NEI4 = [[1,0],[-1,0],[0,1],[0,-1]];
   function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+  function shuffle(a, r){ return Common.shuffle(a, r || _rng); }
 
   // ---- 随机生成树 + 帐篷合法布局 ----
   function genLayout(){
@@ -107,7 +107,7 @@
           opts.push(nidx);
         }
         if(!opts.length){ okk=false; break; }
-        treeSet.add(opts[Math.floor(_rng()*opts.length)]);
+        treeSet.add(Common.pick(opts, _rng));
       }
       if(!okk) continue;
       return { tents:[...tentSet], trees:[...treeSet] };

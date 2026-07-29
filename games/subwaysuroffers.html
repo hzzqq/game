@@ -133,7 +133,7 @@
   var best = 0;
   var milestone = 0;
   var confettiFiredFlag = false;   // 成就反馈：破最高分置真（跳变防重复）
-  try { best = parseInt(localStorage.getItem('subwaysuroffers_best')||'0',10) || 0; } catch(e){ best = 0; }
+  try { best = parseInt(Common.Storage.get('subwaysuroffers','best',0)||'0',10) || 0; } catch(e){ best = 0; }
   bestEl.textContent = best;
 
   var runner, obstacles, particles, pickups;
@@ -566,7 +566,7 @@
     var nb = false;
     if (d > best){
       best = d; nb = true;
-      try { localStorage.setItem('subwaysuroffers_best', String(best)); } catch(e){}
+      try { Common.Storage.set('subwaysuroffers','best',best); } catch(e){}
     }
     // 成就正反馈：破最高分 → confetti + 粒子（纯注入，不改计分/死亡判定）
     if (nb && !confettiFiredFlag){

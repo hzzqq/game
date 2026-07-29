@@ -270,7 +270,7 @@ function makePickup(type,x,y){
   pickups.push(p); return p;
 }
 function spawnPickupAtRandom(){
-  const type=PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+  const type=Common.pick(PICKUP_TYPES, _rng);
   const x=_rng()*W, y=40+_rng()*120;
   return makePickup(type, x, y);
 }

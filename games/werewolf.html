@@ -180,10 +180,7 @@
     var t = G ? G.token : 0;
     setTimeout(function(){ if(G && G.token===t) fn(); }, ms);
   }
-  function shuffle(a){
-    for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var x=a[i]; a[i]=a[j]; a[j]=x; }
-    return a;
-  }
+  function shuffle(a, r){ return Common.shuffle(a, r || Math.random); }
   function livingIds(){ return G.players.filter(function(p){return p.alive;}).map(function(p){return p.id;}); }
   function aliveRole(role){ for(var i=0;i<G.players.length;i++){ var p=G.players[i]; if(p.role===role&&p.alive) return p; } return null; }
   function livingNonWitch(){ return livingIds().filter(function(id){ return G.players[id].role!=='witch'; }); }
@@ -438,7 +435,7 @@
       renderAction();
     } else {
       var cands = livingIds().filter(function(id){return id!==seer.id;});
-      var t = cands[Math.floor(Math.random()*cands.length)];
+      var t = Common.pick(cands, Math.random);
       var isW = G.players[t].role==='wolf';
       if(isW) G.knownWolves.push(t);
       log('预言家在暗中完成查验。', 'dim');
@@ -475,7 +472,7 @@
     if(!used && G.witchPoison && Math.random()<0.22){
       var cands = livingNonWitch();
       if(cands.length){
-        var t = cands[Math.floor(Math.random()*cands.length)];
+        var t = Common.pick(cands, Math.random);
         G.poisonTarget = t; G.witchPoison=false;
         log('女巫使用了毒药，毒杀了 #'+G.players[t].seat+' '+G.players[t].name+'。', 'wolf');
       }
@@ -511,7 +508,7 @@
     var alive = G.players.filter(function(p){return p.alive;});
     alive.forEach(function(p){
       if(p.isHuman) return;
-      var target = alive[Math.floor(Math.random()*alive.length)];
+      var target = Common.pick(alive, Math.random);
       var line = pickStatement(p, target);
       log('#'+p.seat+' '+p.name+'：'+line, 'dim');
     });
@@ -527,7 +524,7 @@
       '狼人一定混在人群里。',
       '#'+target.seat+' 昨晚太安静了，值得怀疑。'
     ];
-    return pool[Math.floor(Math.random()*pool.length)];
+    return Common.pick(pool, Math.random);
   }
   function dayVote(){
     if(G.over) return;
@@ -554,9 +551,9 @@
     }
     if(p.role==='seer'){
       var kw = G.knownWolves.filter(function(id){return G.players[id].alive && id!==p.id;});
-      if(kw.length) return kw[Math.floor(Math.random()*kw.length)];
+      if(kw.length) return Common.pick(kw, Math.random);
     }
-    return alive[Math.floor(Math.random()*alive.length)];
+    return Common.pick(alive, Math.random);
   }
   function tallyVotes(){
     if(G.over) return;
@@ -606,7 +603,7 @@
       renderAction();
     } else {
       var cands = livingIds().filter(function(id){return id!==shooterId;});
-      var t = cands.length ? cands[Math.floor(Math.random()*cands.length)] : null;
+      var t = cands.length ? Common.pick(cands, Math.random) : null;
       if(t!=null){ kill(t,'gun'); log('猎人开枪击中了 #'+G.players[t].seat+' '+G.players[t].name+'。', 'wolf'); }
       wait(700, function(){ finishHunter(cont); });
     }

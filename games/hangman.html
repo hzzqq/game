@@ -137,7 +137,7 @@
 
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
-  function pickWord(){ return WORDS[Math.floor(_rand()*WORDS.length)]; }
+  function pickWord(){ return Common.pick(WORDS, _rand); }
 
   let secret, guessed, wrong, status, winFx = 0;
   // 手感深化（P-juice）：屏震 / 粒子计数器（纯反馈，不改玩法）

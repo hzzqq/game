@@ -172,7 +172,7 @@
     const moves=legalMovesFor('w');
     if(!moves.length) return null;
     let mv;
-    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) mv=moves[Math.floor(_rand()*moves.length)];
+    if(cfg.aiRandom>0 && _rand()<cfg.aiRandom) mv=Common.pick(moves, _rand);
     else mv=aiChoose();
     if(mv) move(mv.fr,mv.fc,mv.tr,mv.tc);
     return mv;

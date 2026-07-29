@@ -107,7 +107,7 @@
       }
       if(!okc) continue;
       for(const [rr,cc] of cells) board[rr][cc]=-1; // 挖空
-      const lamp = cells[Math.floor(_rng()*cells.length)];
+      const lamp = Common.pick(cells, _rng);
       lamps[lamp[0]][lamp[1]]=true;
       rooms.push(cells);
     }

@@ -152,13 +152,13 @@
   const pauseBtn = document.getElementById('pauseBtn');
 
   // ---- 工具 ----
-  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+  function clamp(v,a,b){ return Common.clamp(v,a,b); }
   function loadHigh(){
-    try{ return parseInt(localStorage.getItem('arkanoid_high')||'0',10)||0; }
+    try{ return parseInt(Common.Storage.get('arkanoid','best',0)||'0',10)||0; }
     catch(e){ return 0; }
   }
   function saveHigh(){
-    try{ localStorage.setItem('arkanoid_high', String(high)); }catch(e){}
+    try{ Common.Storage.set('arkanoid','best',high); }catch(e){}
   }
   function setState(s){ state=s; updateUI(); }
   function updateUI(){
@@ -251,7 +251,7 @@
   // 砖块击碎回调：按概率掉落一个随机道具（用局部 _rng，禁止裸 Math.random）
   function maybeDrop(x, y){
     if(_rng() < DROP_PROB){
-      const t = PICKUP_TYPES[Math.floor(_rng()*PICKUP_TYPES.length)];
+      const t = Common.pick(PICKUP_TYPES, _rng);
       pickups.push(makePickup(t, x, y));
     }
   }

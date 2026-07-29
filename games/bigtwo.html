@@ -135,7 +135,7 @@
     const cfg=DIFFICULTY[difficulty]||DIFFICULTY.normal;
     const rnd=()=> (_rand||Math.random)();
     if(cfg.aiRandom>0 && rnd() < cfg.aiRandom){
-      return lc.length ? lc[Math.floor(rnd()*lc.length)] : {type:'pass'};
+      return lc.length ? Common.pick(lc, rnd) : {type:'pass'};
     }
     if(!lc.length) return {type:'pass'};
     return lc.slice().sort((a,b)=> a.power[1]-b.power[1] || a.power[2]-b.power[2])[0];

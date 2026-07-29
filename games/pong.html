@@ -57,7 +57,7 @@
   const GLY = { coin:'💰', shield:'🛡', boost:'🚀' };
   function makePickup(type,x,y){ return { type, x, y, vy:60, r:9, age:0, id:pkid++ }; }
   function spawnPickup(type,x,y){ const p=makePickup(type,x,y); pickups.push(p); return p; }
-  function spawnPickupAtRandom(){ const types=[PICK.COIN,PICK.SHIELD,PICK.BOOST]; const t=types[Math.floor(_prng()*types.length)]; const x=20+_prng()*(W-40); return spawnPickup(t,x,-10); }
+  function spawnPickupAtRandom(){ const types=[PICK.COIN,PICK.SHIELD,PICK.BOOST]; const t=Common.pick(types, _prng); const x=20+_prng()*(W-40); return spawnPickup(t,x,-10); }
   function sideOf(x){ return x<W/2?'L':'R'; }
   function applyPickup(type, side){
     side=side||'L';

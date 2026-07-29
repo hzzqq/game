@@ -59,7 +59,7 @@
   "use strict";
   const WORDS=['CRANE','SLATE','BRICK','PLANT','SOUND','FANCY','GHOST','WORLD','MONEY','LIGHT','APPLE','ALLOY'];
   let solution, guesses, over, won, winFx = 0;
-  function choose(){ solution=WORDS[Math.floor(_randFn()*WORDS.length)]; }
+  function choose(){ solution=Common.pick(WORDS, _randFn); }
   function setSolution(w){ solution=w.toUpperCase(); guesses=[]; over=false; won=false; }
   function feedback(guess){
     const g=guess.toUpperCase(), s=solution, n=s.length; const res=new Array(n).fill('x');

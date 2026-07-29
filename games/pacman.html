@@ -271,7 +271,7 @@
       g.frightened = false; g.eaten = false; g.eatTimer = 0;
       // initial scatter directions
       var opts = validDirs(g);
-      if (opts.length) g.dir = opts[Math.floor(_randFn()*opts.length)];
+      if (opts.length) g.dir = Common.pick(opts, _randFn);
     }
     frightTimer = 0;
   }
@@ -450,7 +450,7 @@
       return b2;
     }
     // random
-    return filtered[Math.floor(_randFn()*filtered.length)];
+    return Common.pick(filtered, _randFn);
   }
 
   function moveGhost(g, pacTile){

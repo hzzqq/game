@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-28T07:28:37.952Z",
+  "generatedAt": "2026-07-29T05:00:52.862Z",
   "games": 165,
-  "totalHtmlLoc": 55138,
+  "totalHtmlLoc": 55099,
   "avgLocPerGame": 334,
   "locBuckets": {
     "<500": 135,
@@ -16,7 +16,7 @@
     },
     {
       "file": "carrot.html",
-      "loc": 893
+      "loc": 890
     },
     {
       "file": "rhythm.html",
@@ -32,9 +32,9 @@
     }
   ],
   "tests": {
-    "files": 167,
-    "passed": 5688,
-    "total": 5688,
+    "files": 168,
+    "passed": 5700,
+    "total": 5700,
     "green": true
   },
   "commonAdoption": {
