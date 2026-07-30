@@ -476,6 +476,64 @@
     ctx.fill();
   };
 
+  /* ---------- 统一「退出 / 返回大厅」按钮 ----------
+   * 所有加载 common.js 的游戏页自动获得一个固定定位的返回大厅按钮，
+   * 无需逐个游戏改代码（166 款一次性覆盖）。大厅(index.html)与测试页不加。
+   * 设计：与主终端主题一致（复用 --gold/--border/--panel/--text/--red），
+   * 固定左上角、半透明、毛玻璃、最高 z-index，点击导航回 index.html。
+   * 防御：在 vm 沙箱（无 document/location 或 mock 不完整）中静默失败，不炸逻辑测试。 */
+  Common.mountExitButton = function () {
+    try {
+      if (window.__hubExitMounted) return;            // 幂等
+      if (window.GAME_CATALOG) return;                // 大厅本身不加
+      var p = (typeof location !== 'undefined' && location.pathname) || '';
+      if (p.indexOf('/tests/') >= 0) return;          // 测试页不加
+      if (typeof document === 'undefined' || !document.createElement) return;
+      window.__hubExitMounted = true;
+      function doMount() {
+        try {
+          if (!document.body) return;
+          if (document.getElementById('hubExitBtn')) return;
+          var st = document.createElement('style');
+          st.id = 'hub-exit-style';
+          st.textContent = [
+            '#hubExitBtn{position:fixed;top:12px;left:12px;z-index:2147483000;',
+            'display:inline-flex;align-items:center;gap:6px;',
+            'padding:8px 14px;border-radius:8px;',
+            'background:rgba(14,20,29,.82);border:1px solid var(--border,#1f2a38);',
+            'color:var(--gold,#f0b90b);font:600 13px/1 "JetBrains Mono",Consolas,monospace;',
+            'text-decoration:none;letter-spacing:.5px;cursor:pointer;user-select:none;',
+            'box-shadow:0 4px 16px rgba(0,0,0,.45);backdrop-filter:blur(4px);',
+            '-webkit-backdrop-filter:blur(4px);transition:.15s ease;}',
+            '#hubExitBtn:hover{border-color:var(--gold,#f0b90b);background:rgba(22,32,44,.94);',
+            'box-shadow:0 0 16px rgba(240,185,11,.28);}',
+            '#hubExitBtn:active{transform:translateY(1px);}'
+          ].join('');
+          (document.head || document.body).appendChild(st);
+          var b = document.createElement('a');
+          b.id = 'hubExitBtn';
+          b.href = 'index.html';
+          b.textContent = '← 大厅';
+          b.title = '返回游戏大厅';
+          b.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (typeof location !== 'undefined') location.href = 'index.html';
+          });
+          document.body.appendChild(b);
+        } catch (e) { /* 静默：不阻断游戏逻辑 */ }
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', doMount);
+      else doMount();
+    } catch (e) { /* 静默：vm 沙箱等环境 */ }
+  };
+  // 自动挂载：所有加载 common.js 的游戏页都会得到退出按钮（大厅/测试页已被上面的守卫排除）
+  try {
+    if (typeof document !== 'undefined') {
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { Common.mountExitButton(); });
+      else Common.mountExitButton();
+    }
+  } catch (e) {}
+
   global.Common = Common;
   if (typeof module !== 'undefined' && module.exports) module.exports = Common;
 })(typeof window !== 'undefined' ? window : globalThis);
