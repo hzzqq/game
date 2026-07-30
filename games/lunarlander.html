@@ -232,7 +232,7 @@
       getPickups:()=>pickups.length,
       getPickup:(i)=>pickups[i]?{type:pickups[i].type,x:pickups[i].x,y:pickups[i].y}:null,
       getShield:()=>ship.shield||0, setShield:(v)=>{ ship.shield=v; },
-      getFuel:()=>ship.fuel, setFuel:(v)=>{ ship.fuel=Math.max(0,Math.min(100,v)); },
+      getFuel:()=>ship.fuel, setFuel:(v)=>{ ship.fuel=Common.clamp(v, 0, 100); },
       getStable:()=>ship.stableT||0, setStable:(v)=>{ ship.stableT=v; },
       getScore:()=>score, setScore:(v)=>{ score=v; },
       get confettiFired(){ return _confettiFired; } };

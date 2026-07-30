@@ -157,7 +157,7 @@
   function setCell(r,c,v){
     if(!inb(r,c)) return false;
     if(clue[r][c]>0) return false; // 给定不可改
-    v=Math.max(0,Math.min(N*N, v|0));
+    v=Common.clamp(v|0, 0, N*N);
     grid[r][c]=v;
     won=isWin();
     if(won){

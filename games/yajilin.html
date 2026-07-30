@@ -122,7 +122,7 @@
     const blacks=[];
     for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(black[r][c]) blacks.push([r,c]);
     for(let i=blacks.length-1;i>0;i--){ const j=Math.floor(_rng()*(i+1)); const t=blacks[i]; blacks[i]=blacks[j]; blacks[j]=t; }
-    const k = Math.min(blacks.length, Math.max(1, Math.floor(N*0.8)));
+    const k = Common.clamp(Math.floor(N*0.8, 1, blacks.length));
     const dirKeys=['U','D','L','R'];
     for(let i=0;i<k;i++){
       const [r,c]=blacks[i];

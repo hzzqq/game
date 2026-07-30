@@ -141,7 +141,7 @@
   function bid(player, n){
     if(phase!=='bid') return false;
     if(bids[player]!==null) return false;
-    n=Math.max(0, Math.min(13, Math.floor(n)));
+    n=Common.clamp(Math.floor(n, 0, 13));
     bids[player]=n;
     if(player===HUMAN){ for(let a=0;a<4;a++) if(a!==HUMAN && bids[a]===null) bids[a]=aiBid(a); }
     if(bids.every(x=>x!==null)) startPlay();

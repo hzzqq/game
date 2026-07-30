@@ -65,7 +65,7 @@
   }
   function setRolls(arr){ rolls=arr.slice(); }
   function roll(pins){
-    pins=Math.max(0,Math.min(10,pins));
+    pins=Common.clamp(pins, 0, 10);
     rolls.push(pins);
     if(pins>0){ Juice.sfx('hit'); Juice.addTrauma(.25); if(pins===10) Juice.sfx('combo'); }
     if(pins===10){ const p=makePickup('spare',0,0); pickups.push(p); applyPickup(p); _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.4); fireVictory(); } // 全中掉落 🎯 补中奖励 + 胜利反馈 + 屏震

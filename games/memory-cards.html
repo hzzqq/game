@@ -206,7 +206,7 @@
     const vw = (typeof window!=='undefined') ? window.innerWidth : 800;
     // 动态依据当前网格设置画布尺寸（只改绘制层）
     const cw = CW, chh = CH;
-    cv.width = Math.min(cols * cw, Math.max(240, (vw - 24)));
+    cv.width = Common.clamp((vw - 24, 240, cols * cw));
     cv.height = rows * chh;
     const ctx = cv.getContext('2d');
     ctx.clearRect(0,0,cv.width,cv.height);

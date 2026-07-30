@@ -25,6 +25,8 @@
  *   Common.sign/mod/randInt/choices/approach/lerpAngle
  *   Common.Storage / Common.fitCanvas / Common.pick / Common.chance
  *   Common.Sound(懒AudioContext) / Common.Input(键盘) / Common.Timer / Common.State
+ *   Common.seq/sum/avg(数组) / Common.wrap(环形坐标) / Common.lerpColor/rgba(颜色)
+ *   Common.easing(outCubic/inOutQuad/inOutCubic) / Common.circle(ctx,x,y,r)
  */
 (function (global) {
   'use strict';
@@ -428,6 +430,50 @@
       def: function (s, fn) { defs[s] = fn; },
       run: function (dt) { if (defs[cur]) defs[cur](dt); }
     };
+  };
+
+  /* ---------- 数组 / 数值便捷（纯函数，node 可测） ----------
+   * 注意：Common.range 已被占用（随机浮点 a+fn()*(b-a)，sgs/spire 依赖），
+   * 故数组序列生成器命名为 Common.seq，避免覆盖随机版。 */
+  Common.seq = function (a, b) {
+    if (b === undefined) { b = a; a = 0; }
+    var o = []; for (var i = a; i < b; i++) o.push(i); return o;
+  };
+  Common.sum = function (arr) { var s = 0; for (var i = 0; i < arr.length; i++) s += arr[i]; return s; };
+  Common.avg = function (arr) { return arr.length ? Common.sum(arr) / arr.length : 0; };
+
+  /* ---------- 环形包装（贪吃蛇 / 太空类 toroidal 坐标） ---------- */
+  Common.wrap = function (v, min, max) {
+    var d = max - min;
+    v = (v - min) % d;
+    if (v < 0) v += d;
+    return v + min;
+  };
+
+  /* ---------- 颜色（纯函数，视觉层但数学可 node 测） ---------- */
+  Common.lerpColor = function (a, b, t) {
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * t),
+      Math.round(a[1] + (b[1] - a[1]) * t),
+      Math.round(a[2] + (b[2] - a[2]) * t)
+    ];
+  };
+  Common.rgba = function (r, g, b, a) {
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + (a === undefined ? 1 : a) + ')';
+  };
+
+  /* ---------- 缓动（动画用，纯函数） ---------- */
+  Common.easing = {
+    inOutQuad: function (t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; },
+    outCubic: function (t) { return 1 - Math.pow(1 - t, 3); },
+    inOutCubic: function (t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+  };
+
+  /* ---------- 绘制便捷（纯调用 ctx，vm 不可渲染但方法调用可 mock 验证） ---------- */
+  Common.circle = function (ctx, x, y, r) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
   };
 
   global.Common = Common;

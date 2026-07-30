@@ -94,7 +94,7 @@
       if(!p1.length||!p2.length) break;
       const c1=p1.shift(), c2=p2.shift(); pot.push(c1,c2);
       if(c1.r===c2.r){ // 战争：各压若干暗牌，但各留 1 张翻面比
-        const down=Math.min(3, Math.max(0, Math.min(p1.length,p2.length)-1));
+        const down=Common.clamp(Math.min(p1.length,p2.length)-1, 0, 3);
         for(let k=0;k<down;k++){ pot.push(p1.shift()); pot.push(p2.shift()); }
         continue;
       }

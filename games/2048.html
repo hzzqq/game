@@ -308,7 +308,7 @@
   // 颜色：数值越大越偏金红、越亮
   function tileColors(value) {
     const level = Math.log2(value);            // 2->1 ... 2048->11
-    const t = Math.max(0, Math.min(1, (level - 1) / 10));
+    const t = Common.clamp((level - 1) / 10, 0, 1);
     const r = Math.round(246 + (240 - 246) * t);
     const g = Math.round(70 + (185 - 70) * t);
     const b = Math.round(93 + (11 - 93) * t);

@@ -75,7 +75,7 @@
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
-  function range(a,b){ const o=[]; for(let i=a;i<b;i++) o.push(i); return o; }
+  function range(a,b){ return Common.seq(a,b); }
   function shuffle(arr,rng){ var _a=arr.slice(); Common.shuffle(_a, rng); return _a; }
 
   // ---- 生成合法拉丁方解 ----

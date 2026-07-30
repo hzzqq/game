@@ -238,8 +238,8 @@
         if(I.down('up'))dy-=1; if(I.down('down'))dy+=1;
       }
       if(dx||dy){ const l=Math.hypot(dx,dy); player.x+=dx/l*player.speed*dt; player.y+=dy/l*player.speed*dt; }
-      player.x=Math.max(player.r,Math.min(W-player.r,player.x));
-      player.y=Math.max(player.r+50,Math.min(H-player.r,player.y));
+      player.x=Common.clamp(player.x, player.r, W-player.r);
+      player.y=Common.clamp(player.y, player.r+50, H-player.r);
       if(player.invuln>0) player.invuln-=dt;
       if(player.shield>0) player.shield-=dt;
       if(player.rapid>0) player.rapid-=dt;

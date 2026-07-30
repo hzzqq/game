@@ -170,7 +170,7 @@
     r=Math.min(255,Math.round(r+(255-r)*amt)); g=Math.min(255,Math.round(g+(255-g)*amt)); b=Math.min(255,Math.round(b+(255-b)*amt));
     return 'rgb('+r+','+g+','+b+')';
   }
-  function easeOut(t){ return 1-Math.pow(1-t,3); }
+  function easeOut(t){ return Common.easing.outCubic(t); }
 
   /* ---------- 落子 ---------- */
   function dropAt(col){

@@ -184,7 +184,7 @@
   }
   function setBridge(i,j,count){
     if(!inIsl(i)||!inIsl(j)||i===j) return false;
-    count=Math.max(0,Math.min(2,count|0));
+    count=Common.clamp(count|0, 0, 2);
     const k=ekey(i,j);
     if(count>0){
       rebuildOcc();

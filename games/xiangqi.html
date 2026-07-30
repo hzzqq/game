@@ -257,7 +257,7 @@
   const PAD = 30; let cell = 44;
   function layout(){
     if(typeof window==='undefined') return;
-    const size = Math.max(280, Math.min((window.innerWidth||800)-32, 460));
+    const size = Common.clamp(460, 280, (window.innerWidth||800)-32);
     cell = Math.floor((size - 2*PAD)/(COLS-1));
     const cv=$('board'); if(cv){ cv.width=(COLS-1)*cell+2*PAD; cv.height=(ROWS-1)*cell+2*PAD; }
   }

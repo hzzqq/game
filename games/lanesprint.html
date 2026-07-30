@@ -102,10 +102,10 @@
     function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; if(typeof Juice!=='undefined') Juice.sfx('click'); syncHud(); }
     function setRand(seed){ S.rng=Common.mulberry32(seed>>>0); pickupRng=Common.lcg(seed>>>0); }
     function setLanes(n){ S.lanes=Math.max(2,n|0); S.playerLane=Math.min(S.playerLane,S.lanes-1); }
-    function setPlayerLane(i){ S.playerLane=Math.max(0,Math.min(S.lanes-1,i|0)); }
+    function setPlayerLane(i){ S.playerLane=Common.clamp(i|0, 0, S.lanes-1); }
     function moveLeft(){ setPlayerLane(S.playerLane-1); }
     function moveRight(){ setPlayerLane(S.playerLane+1); }
-    function spawnObstacle(lane,y){ S.obstacles.push({lane:Math.max(0,Math.min(S.lanes-1,lane)),y:y,dead:false}); }
+    function spawnObstacle(lane,y){ S.obstacles.push({lane:Common.clamp(lane, 0, S.lanes-1),y:y,dead:false}); }
     function setSpeed(v){ S.speed=v; }
 
     function laneX(lane){

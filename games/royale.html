@@ -212,8 +212,8 @@
     return best;
   }
   function distToRect(px,py,r){
-    const cx=Math.max(r.x-r.w/2, Math.min(px, r.x+r.w/2));
-    const cy=Math.max(r.y-r.h/2, Math.min(py, r.y+r.h/2));
+    const cx=Common.clamp(r.x+r.w/2, r.x-r.w/2, px);
+    const cy=Common.clamp(r.y+r.h/2, r.y-r.h/2, py);
     return Math.hypot(px-cx, py-cy);
   }
 
@@ -557,7 +557,7 @@
     drawHpBar(u.x, u.y - u.r - 7, Math.max(20, u.r*2), u.hp/u.maxHp);
   }
   function drawHpBar(cx, y, w, ratio){
-    const r = Math.max(0, Math.min(1, ratio));
+    const r = Common.clamp(ratio, 0, 1);
     ctx.fillStyle = '#1f2a38'; ctx.fillRect(cx-w/2, y, w, 4);
     ctx.fillStyle = r>0.5? '#02c076' : (r>0.25? '#f0b90b' : '#f6465d');
     ctx.fillRect(cx-w/2, y, w*r, 4);

@@ -83,9 +83,11 @@ function mockCtx() {
     beginPath() { calls.push('beginPath'); },
     moveTo() { calls.push('moveTo'); },
     lineTo() { calls.push('lineTo'); },
+    arc() { calls.push('arc'); },
     arcTo() { calls.push('arcTo'); },
     closePath() { calls.push('closePath'); },
-    save: noop, restore: noop, fill: noop, stroke: noop, fillText: noop,
+    save() { calls.push('save'); }, restore() { calls.push('restore'); },
+    fill() { calls.push('fill'); }, stroke() { calls.push('stroke'); }, fillText() { calls.push('fillText'); },
     fillStyle: '', strokeStyle: '', font: '', textAlign: '', textBaseline: '', lineWidth: 1
   };
 }
@@ -153,5 +155,44 @@ st.set('play', { lv: 2 });
 H.ok('State 切换并更新', st.get() === 'play');
 H.ok('State 进入回调收到数据', entered && entered.lv === 2);
 H.ok('State is 判定', st.is('play') === true && st.is('menu') === false);
+
+// ---- Y 系列新增工具：数组/数值/颜色/缓动/绘制 ----
+H.ok('seq(3) 生成[0,1,2]', Common.seq(3).join() === '0,1,2');
+H.ok('seq(2,5) 生成[2,3,4]', Common.seq(2, 5).join() === '2,3,4');
+H.ok('sum 求和', Common.sum([1, 2, 3, 4]) === 10);
+H.ok('avg 均值', Common.avg([2, 4, 6]) === 4);
+H.ok('avg 空数组返0', Common.avg([]) === 0);
+
+H.ok('wrap 同点不变', Common.wrap(5, 0, 10) === 5);
+H.ok('wrap 上溢回绕', Common.wrap(11, 0, 10) === 1);
+H.ok('wrap 下溢回绕', Common.wrap(-1, 0, 10) === 9);
+H.ok('wrap 边界归零', Common.wrap(10, 0, 10) === 0);
+H.ok('wrap 含负区间', Common.wrap(6, -5, 5) === -4);
+
+H.ok('lerpColor 中点灰阶', JSON.stringify(Common.lerpColor([0, 0, 0], [255, 255, 255], 0.5)) === JSON.stringify([128, 128, 128]));
+H.ok('lerpColor 端点', JSON.stringify(Common.lerpColor([0, 0, 0], [255, 255, 255], 0)) === JSON.stringify([0, 0, 0]));
+H.ok('rgba 默认不透明', Common.rgba(255, 0, 0) === 'rgba(255,0,0,1)');
+H.ok('rgba 带 alpha', Common.rgba(255, 0, 0, 0.5) === 'rgba(255,0,0,0.5)');
+
+H.ok('easing.outCubic 端点', Common.easing.outCubic(0) === 0 && Common.easing.outCubic(1) === 1);
+H.ok('easing.outCubic 中点', Math.abs(Common.easing.outCubic(0.5) - 0.875) < 1e-9);
+H.ok('easing.inOutQuad 端点', Common.easing.inOutQuad(0) === 0 && Common.easing.inOutQuad(1) === 1);
+H.ok('easing.inOutQuad 中点', Math.abs(Common.easing.inOutQuad(0.5) - 0.5) < 1e-9);
+H.ok('easing.inOutCubic 中点', Math.abs(Common.easing.inOutCubic(0.5) - 0.5) < 1e-9);
+
+const mc3 = mockCtx();
+let circleOk = true;
+try { Common.circle(mc3, 10, 20, 5); } catch (e) { circleOk = false; }
+H.ok('circle 触发 arc+fill 且不抛错', circleOk && mc3._c.indexOf('arc') >= 0 && mc3._c.indexOf('fill') >= 0);
+
+// ---- Z 系列边界加固：捕捉纯工具回归 ----
+H.ok('seq 负区间 [-2,2)', Common.seq(-2, 2).join() === '-2,-1,0,1');
+H.ok('sum 空数组返0', Common.sum([]) === 0);
+H.ok('avg 小数均值', Common.avg([1, 2]) === 1.5);
+H.ok('wrap 整倍数归零', Common.wrap(20, 0, 10) === 0 && Common.wrap(0, 0, 10) === 0);
+H.ok('lerpColor t=1 取终点', JSON.stringify(Common.lerpColor([0, 0, 0], [255, 255, 255], 1)) === JSON.stringify([255, 255, 255]));
+H.ok('easing.outCubic 单调递增(0.25)>0.25', Common.easing.outCubic(0.25) > 0.25);
+H.ok('easing 输出有限数', [Common.easing.outCubic(0.3), Common.easing.inOutQuad(0.7), Common.easing.inOutCubic(0.9)].every(Number.isFinite));
+H.ok('circle 半径0不抛错', (function () { const mc = mockCtx(); try { Common.circle(mc, 0, 0, 0); return mc._c.indexOf('arc') >= 0; } catch (e) { return false; } })());
 
 module.exports = {};

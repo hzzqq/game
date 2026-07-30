@@ -153,7 +153,7 @@
 
   function render(){
     boardEl.style.gridTemplateColumns=`repeat(${C},1fr)`;
-    const cellPx = diff==='hard'? Math.max(18, Math.min(26, Math.floor((Math.min(640, window.innerWidth*0.96))-4)/C - 2)) : '';
+    const cellPx = diff==='hard'? Common.clamp(Math.floor((Math.min(640, window.innerWidth*0.96, 18, 26)-4)/C - 2)) : '';
     boardEl.innerHTML='';
     for(let i=0;i<R*C;i++){
       const d=document.createElement('div');

@@ -341,8 +341,8 @@
     if(Input.down('up'))my-=1; if(Input.down('down'))my+=1;
     if(mx||my){ var l=Math.hypot(mx,my); mx/=l; my/=l; }
     var sp=player.speed*(player.speedT>0?1.5:1)*(player.dashT>0?2.6:1);
-    player.x=Math.max(player.r,Math.min(W-player.r,player.x+mx*sp*dt));
-    player.y=Math.max(player.r,Math.min(H-player.r,player.y+my*sp*dt));
+    player.x=Common.clamp(player.x+mx*sp*dt, player.r, W-player.r);
+    player.y=Common.clamp(player.y+my*sp*dt, player.r, H-player.r);
 
     // 瞄准
     if(useMouse && mouse){ player.aim=Math.atan2(mouse.y-player.y,mouse.x-player.x); }

@@ -240,7 +240,7 @@ function resolveOverlap(){
     player.x-=s*push; ai.x+=s*push;
   }
 }
-function clampFighter(f){ f.x=Math.max(34, Math.min(W-34, f.x)); }
+function clampFighter(f){ f.x=Common.clamp(f.x, 34, W-34); }
 
 function checkRoundEnd(){
   if(player.health<=0||ai.health<=0){
@@ -372,7 +372,7 @@ function drawFighter(f){
   }
 }
 function drawBar(x,y,w,h,frac,color,label,rightAlign){
-  frac=Math.max(0,Math.min(1,frac));
+  frac=Common.clamp(frac, 0, 1);
   ctx.fillStyle=COL.panel; ctx.fillRect(x,y,w,h);
   ctx.strokeStyle=COL.border; ctx.lineWidth=1; ctx.strokeRect(x,y,w,h);
   var fw=w*frac;

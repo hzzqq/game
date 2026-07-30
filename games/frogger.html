@@ -282,7 +282,7 @@
     if(bar){
       if(boss){
         bar.style.display='flex';
-        const frac=Math.max(0,Math.min(1,boss.hp/boss.maxHp));
+        const frac=Common.clamp(boss.hp/boss.maxHp, 0, 1);
         if(fill){ fill.style.width=(frac*100)+'%'; fill.style.background= boss.phase===2?'#f6465d':'#9b6bff'; }
         if(label) label.textContent=(boss.phase===2?'⚠ 鳄鱼王 · 狂暴':'🐊 鳄鱼王')+'  '+Math.ceil(boss.hp)+'/'+boss.maxHp;
       } else { bar.style.display='none'; }

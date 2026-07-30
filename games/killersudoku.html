@@ -151,7 +151,7 @@
     if(!inb(r,c)) return false;
     const idx=r*9+c;
     if(givens[idx]!==0) return false;
-    val=Math.max(0,Math.min(9,val|0));
+    val=Common.clamp(val|0, 0, 9);
     grid[idx]=val;
     won=isWin();
     if(won && J) J.sfx('levelup');
