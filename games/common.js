@@ -510,6 +510,7 @@
             '#hubExitBtn:active{transform:translateY(1px);}'
           ].join('');
           (document.head || document.body).appendChild(st);
+          var inIframe = (typeof window !== 'undefined') && window.self !== window.top;
           var b = document.createElement('a');
           b.id = 'hubExitBtn';
           b.href = 'index.html';
@@ -517,6 +518,10 @@
           b.title = '返回游戏大厅';
           b.addEventListener('click', function (e) {
             e.preventDefault();
+            // 在大厅 iframe 浮层内：通知父窗口关闭浮层（大厅状态保留，无需整页跳转）
+            if (inIframe && window.parent && window.parent.postMessage) {
+              try { window.parent.postMessage({ type: 'hub:exit' }, '*'); return; } catch (err) {}
+            }
             if (typeof location !== 'undefined') location.href = 'index.html';
           });
           document.body.appendChild(b);
