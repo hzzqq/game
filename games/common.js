@@ -476,6 +476,80 @@
     ctx.fill();
   };
 
+  /* ---------- 绘制便捷簇（render 层，纯 ctx 调用；vm 不可渲染但调用可 mock 验证） ---------- */
+  // 线段（替代各游戏手写的 moveTo/lineTo/stroke 样板）
+  Common.line = function (ctx, x1, y1, x2, y2, opt) {
+    opt = opt || {};
+    ctx.save();
+    ctx.strokeStyle = opt.color || '#d7e0ea';
+    ctx.lineWidth = opt.width || 1;
+    if (opt.dash) ctx.setLineDash(opt.dash);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.restore();
+  };
+  // 矩形（opt.fill 填充色，opt.stroke 描边色；二者可并存）
+  Common.rect = function (ctx, x, y, w, h, opt) {
+    opt = opt || {};
+    ctx.save();
+    if (opt.fill) { ctx.fillStyle = opt.fill; ctx.fillRect(x, y, w, h); }
+    if (opt.stroke) { ctx.strokeStyle = opt.stroke; ctx.lineWidth = opt.lw || 1; ctx.strokeRect(x, y, w, h); }
+    ctx.restore();
+  };
+  // 实心圆（带样式）
+  Common.fillCircle = function (ctx, x, y, r, opt) {
+    opt = opt || {};
+    ctx.save();
+    if (opt.color) ctx.fillStyle = opt.color;
+    if (opt.alpha != null) ctx.globalAlpha = opt.alpha;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Common.TAU); ctx.fill();
+    ctx.restore();
+  };
+  // 描边圆
+  Common.strokeCircle = function (ctx, x, y, r, opt) {
+    opt = opt || {};
+    ctx.save();
+    ctx.strokeStyle = opt.color || '#d7e0ea'; ctx.lineWidth = opt.width || 1;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Common.TAU); ctx.stroke();
+    ctx.restore();
+  };
+  // 三角形（opt.fill 实心，opt.stroke 描边；二者可并存）
+  Common.triangle = function (ctx, x1, y1, x2, y2, x3, y3, opt) {
+    opt = opt || {};
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath();
+    if (opt.fill) { ctx.fillStyle = opt.fill; ctx.fill(); }
+    if (opt.stroke) { ctx.strokeStyle = opt.stroke; ctx.lineWidth = opt.lw || 1; ctx.stroke(); }
+    ctx.restore();
+  };
+  // "#rgb" / "#rrggbb" → "rgba(r,g,b,a)"（替代各游戏手写的 hex 解析）
+  Common.hexToRgba = function (hex, a) {
+    var h = String(hex || '#000000').replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var n = parseInt(h, 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + (a === undefined ? 1 : a) + ')';
+  };
+  // 绕 (cx,cy) 旋转点 (x,y) 给定角度（弧度），返回 {x,y}
+  Common.rotatePoint = function (cx, cy, x, y, ang) {
+    var c = Math.cos(ang), s = Math.sin(ang), dx = x - cx, dy = y - cy;
+    return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c };
+  };
+  // 最短角差（归一到 [-PI, PI]），用于角度逼近/插值
+  Common.angleDiff = function (a, b) {
+    var d = Common.mod(b - a + Math.PI, Common.TAU) - Math.PI;
+    return d;
+  };
+  // 二维向量插值：a={x,y}, b={x,y}, t∈[0,1]
+  Common.lerpVec = function (a, b, t) {
+    return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+  };
+  // 标量/向量幅值钳制（v 可为数或 {x,y}）；超过 max 则按比例缩到 max
+  Common.clampMag = function (v, max) {
+    if (typeof v === 'number') return Math.abs(v) > max ? (v < 0 ? -max : max) : v;
+    var m = Math.sqrt(v.x * v.x + v.y * v.y);
+    if (m <= max || m === 0) return { x: v.x, y: v.y };
+    var k = max / m; return { x: v.x * k, y: v.y * k };
+  };
+
   /* ---------- 统一「退出 / 返回大厅」按钮 ----------
    * 所有加载 common.js 的游戏页自动获得一个固定定位的返回大厅按钮，
    * 无需逐个游戏改代码（166 款一次性覆盖）。大厅(index.html)与测试页不加。

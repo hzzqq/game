@@ -88,6 +88,7 @@ function mockCtx() {
     closePath() { calls.push('closePath'); },
     save() { calls.push('save'); }, restore() { calls.push('restore'); },
     fill() { calls.push('fill'); }, stroke() { calls.push('stroke'); }, fillText() { calls.push('fillText'); },
+    fillRect() { calls.push('fillRect'); }, strokeRect() { calls.push('strokeRect'); }, setLineDash() { calls.push('setLineDash'); },
     fillStyle: '', strokeStyle: '', font: '', textAlign: '', textBaseline: '', lineWidth: 1
   };
 }
@@ -184,6 +185,41 @@ const mc3 = mockCtx();
 let circleOk = true;
 try { Common.circle(mc3, 10, 20, 5); } catch (e) { circleOk = false; }
 H.ok('circle 触发 arc+fill 且不抛错', circleOk && mc3._c.indexOf('arc') >= 0 && mc3._c.indexOf('fill') >= 0);
+
+// ---- A 系列：绘制便捷簇（line/rect/fillCircle/strokeCircle/triangle 调用安全 + 纯函数算值） ----
+const ml = mockCtx(); let lineOk = true;
+try { Common.line(ml, 0, 0, 10, 10); } catch (e) { lineOk = false; }
+H.ok('line 触发 moveTo+lineTo+stroke', lineOk && ml._c.indexOf('moveTo') >= 0 && ml._c.indexOf('lineTo') >= 0 && ml._c.indexOf('stroke') >= 0);
+
+const mr = mockCtx(); let rectOk = true;
+try { Common.rect(mr, 1, 2, 3, 4, { fill: '#fff' }); } catch (e) { rectOk = false; }
+H.ok('rect(fill) 触发 fillRect', rectOk && mr._c.indexOf('fillRect') >= 0);
+
+const mf = mockCtx(); let fcOk = true;
+try { Common.fillCircle(mf, 5, 5, 3); } catch (e) { fcOk = false; }
+H.ok('fillCircle 触发 arc+fill', fcOk && mf._c.indexOf('arc') >= 0 && mf._c.indexOf('fill') >= 0);
+
+const ms = mockCtx(); let scOk = true;
+try { Common.strokeCircle(ms, 5, 5, 3); } catch (e) { scOk = false; }
+H.ok('strokeCircle 触发 arc+stroke', scOk && ms._c.indexOf('arc') >= 0 && ms._c.indexOf('stroke') >= 0);
+
+const mt2 = mockCtx(); let triOk = true;
+try { Common.triangle(mt2, 0, 0, 4, 0, 2, 4, { fill: '#fff' }); } catch (e) { triOk = false; }
+H.ok('triangle 触发 moveTo+lineTo×2+fill', triOk && mt2._c.filter(x => x === 'moveTo').length === 1 && mt2._c.filter(x => x === 'lineTo').length === 2 && mt2._c.indexOf('fill') >= 0);
+
+H.ok('hexToRgba #ff0000 不透明', Common.hexToRgba('#ff0000') === 'rgba(255,0,0,1)');
+H.ok('hexToRgba 短写 #f00@0.5', Common.hexToRgba('#f00', 0.5) === 'rgba(255,0,0,0.5)');
+H.ok('hexToRgba 默认 alpha=1', Common.hexToRgba('#00ff00', undefined) === 'rgba(0,255,0,1)');
+
+const rp = Common.rotatePoint(0, 0, 1, 0, Math.PI / 2);
+H.ok('rotatePoint 旋转90°→(0,1)', Math.abs(rp.x) < 1e-9 && Math.abs(rp.y - 1) < 1e-9);
+H.ok('angleDiff(0,π/2)→π/2', Math.abs(Common.angleDiff(0, Math.PI / 2) - Math.PI / 2) < 1e-12);
+H.ok('angleDiff 走最短路径', Math.abs(Common.angleDiff(Math.PI - 0.01, -Math.PI + 0.01) - 0.02) < 1e-9);
+H.ok('lerpVec 中点', JSON.stringify(Common.lerpVec({ x: 0, y: 0 }, { x: 10, y: 20 }, 0.5)) === JSON.stringify({ x: 5, y: 10 }));
+H.ok('clampMag 标量超额截断为10', Common.clampMag(15, 10) === 10);
+H.ok('clampMag 标量未超不变', Common.clampMag(5, 10) === 5);
+H.ok('clampMag 负数标量截断为-10', Common.clampMag(-15, 10) === -10);
+H.ok('clampMag 向量超额缩到2.5', (function () { const v = Common.clampMag({ x: 3, y: 4 }, 2.5); return Math.abs(Math.sqrt(v.x * v.x + v.y * v.y) - 2.5) < 1e-9; })());
 
 // ---- Z 系列边界加固：捕捉纯工具回归 ----
 H.ok('seq 负区间 [-2,2)', Common.seq(-2, 2).join() === '-2,-1,0,1');
