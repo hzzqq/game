@@ -156,7 +156,7 @@
 
   /* ===================== 工具函数 ===================== */
   function rand(n){ return Math.floor(Common.range(0,n,_randFn)); }
-  function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=rand(i+1); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function shuffle(a){ return Common.shuffle(a, _randFn); }
   function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function log(msg){ logLines.push(msg); if(logLines.length>240) logLines.shift(); }
 

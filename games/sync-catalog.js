@@ -67,7 +67,7 @@ function auditRandom() {
     const mathCount = (clean.match(/Math\.random/g) || []).length;
     const hasMulDef = /(?:function|const|let|var|=>)\s*mulberry32\s*(?:\(|=)/.test(clean);
     const mulCalls = (clean.match(/mulberry32\s*\(/g) || []).length;
-    usesCommon = /Common\s*\.\s*(mulberry32|mk|lcg|range|Loop|buildDiffBar|injectTheme|confetti|shuffle|clamp|lerp|DIFFICULTY)/.test(raw);
+    usesCommon = /Common\s*\.\s*(mulberry32|lcg|range|Loop|buildDiffBar|injectTheme|confetti|shuffle|clamp|lerp|DIFFICULTY)/.test(raw);
     const hasInlineTheme = THEME_RE.test(raw) && /<style[\s\S]*:root/.test(raw);
     const hasDiffbar = DIFFBAR_RE.test(raw);
     // 只统计真实调用 requestAnimationFrame(...)；排除 typeof 环境守卫（harness 兼容写法）
@@ -166,7 +166,7 @@ if (missing.length) {
 
 // 一致性防线：引用 Common.* 但未加载 common.js 脚本
 // （迁移后的游戏若忘了 <script src="common.js">，浏览器里会 ReferenceError 崩）
-const COMMON_RE = /Common\s*\.\s*(mulberry32|mk|Loop|buildDiffBar|injectTheme|confetti|range|lcg|shuffle|clamp|lerp|DIFFICULTY)/;
+const COMMON_RE = /Common\s*\.\s*(mulberry32|Loop|buildDiffBar|injectTheme|confetti|range|lcg|shuffle|clamp|lerp|DIFFICULTY)/;
 const noTag = files.filter(f => {
   const raw = fs.readFileSync(path.join(GAMES_DIR, f), 'utf8');
   return COMMON_RE.test(raw) && !/common\.js/.test(raw);

@@ -11,6 +11,10 @@
 //   4. usingCommon      —— 每个游戏文件必须引用 Common（共享库）
 //   5. rawRoundRect     —— 游戏内不得出现原生 roundRect 实现（必须委托 Common.roundRect），
 //                          薄封装 function roundRect(...){ Common.roundRect(...) } 不含 arcTo，不算违规。
+//   6. deadCommonTool   —— common.js 导出的每个 Common.X 必须在全库有 ≥1 处“外部”引用
+//                          （仅自身定义、零引用的工具 = 死代码/水活，必须删除或补消费者；
+//                           防止未来再出现 A 系列式零消费者工具）。定义行本身计 1 次，
+//                          故 _cnt<=1 即“只有定义、无外部消费者”。
 //
 // 用法：node convergence.js   （退出码 0=通过，1=存在违规；可被 ci-check.js 调用）
 const fs = require('fs');
@@ -40,7 +44,7 @@ function hasBareRaf(src) {
 }
 
 function scan() {
-  const issues = { rawLocalStorage: [], inlineTheme: [], bareRaf: [], notUsingCommon: [], rawRoundRect: [] };
+  const issues = { rawLocalStorage: [], inlineTheme: [], bareRaf: [], notUsingCommon: [], rawRoundRect: [], deadCommonTool: [] };
   for (const file of gameFiles()) {
     const src = fs.readFileSync(file, 'utf8');
     const name = path.basename(file);
@@ -50,6 +54,21 @@ function scan() {
     if (!/\bCommon\b/.test(src)) issues.notUsingCommon.push(name);
     // 原生 roundRect 实现：函数体内含 arcTo（薄封装只调 Common.roundRect，不含 arcTo）
     if (/function\s+roundRect\s*\([^)]*\)\s*\{[^}]*arcTo/.test(src)) issues.rawRoundRect.push(name);
+  }
+  // 死代码检测：common.js 导出的每个 Common.X 必须在全库有 ≥1 处外部引用
+  // （仅定义自身、零引用的工具 = 死代码/水活，必须删除或补消费者；防止未来再出现 A 系列式零消费者工具）
+  var _cSrc = fs.readFileSync(path.join(GAMES_DIR, 'common.js'), 'utf8');
+  var _tools = []; var _m; var _re2 = /Common\.([A-Za-z_$][\w$]*)\s*=/g;
+  while ((_m = _re2.exec(_cSrc))) _tools.push(_m[1]);
+  var _all = (function w(d){ var o=[]; var fl=fs.readdirSync(d); for(var i=0;i<fl.length;i++){ var p=path.join(d,fl[i]); var st=fs.statSync(p); if(st.isDirectory()) o=o.concat(w(p)); else if(fl[i].endsWith('.html')||fl[i].endsWith('.js')) o.push(p); } return o; })(GAMES_DIR);
+  for (var _k=0;_k<_tools.length;_k++){
+    var _t=_tools[_k];
+    // 注意：'\b' 在 JS 字符串里是退格符而非单词边界，故用负向预查 (?![\w$]) 代替，
+    // 并转义工具名中的 $ 以防被当作正则元字符。
+    var _re=new RegExp('Common\\.'+_t.replace(/\$/g,'\\$')+'(?![\\w$])','g');
+    var _cnt=0;
+    for (var _j=0;_j<_all.length;_j++){ var _ss=fs.readFileSync(_all[_j],'utf8'); var _mm=_ss.match(_re); if(_mm) _cnt+=_mm.length; }
+    if (_cnt<=1) issues.deadCommonTool.push('Common.'+_t);
   }
   return issues;
 }
@@ -62,6 +81,7 @@ function report(issues) {
     ['裸 requestAnimationFrame 主循环', issues.bareRaf],
     ['未引用 Common 的游戏', issues.notUsingCommon],
     ['游戏内原生 roundRect 实现(未委托)', issues.rawRoundRect],
+    ['Common 工具零引用(死代码/水活)', issues.deadCommonTool],
   ];
   let fail = 0;
   for (const [label, list] of checks) {
