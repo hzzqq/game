@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-30T03:37:50.267Z",
+  "generatedAt": "2026-08-07T09:39:26.136Z",
   "games": 165,
-  "totalHtmlLoc": 55099,
+  "totalHtmlLoc": 55039,
   "avgLocPerGame": 334,
   "locBuckets": {
     "<500": 135,
@@ -19,11 +19,11 @@
       "loc": 890
     },
     {
-      "file": "rhythm.html",
-      "loc": 883
+      "file": "bubble.html",
+      "loc": 877
     },
     {
-      "file": "bubble.html",
+      "file": "rhythm.html",
       "loc": 877
     },
     {
@@ -33,8 +33,8 @@
   ],
   "tests": {
     "files": 168,
-    "passed": 5776,
-    "total": 5776,
+    "passed": 5792,
+    "total": 5792,
     "green": true
   },
   "commonAdoption": {

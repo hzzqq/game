@@ -9,6 +9,8 @@
 //   2. inlineTheme      —— 游戏文件不得出现内联 :root 主题（必须走 Common.injectTheme）
 //   3. bareRaf          —— 不得出现裸 requestAnimationFrame(NAME()) 主循环（必须走 Common.Loop）
 //   4. usingCommon      —— 每个游戏文件必须引用 Common（共享库）
+//   5. rawRoundRect     —— 游戏内不得出现原生 roundRect 实现（必须委托 Common.roundRect），
+//                          薄封装 function roundRect(...){ Common.roundRect(...) } 不含 arcTo，不算违规。
 //
 // 用法：node convergence.js   （退出码 0=通过，1=存在违规；可被 ci-check.js 调用）
 const fs = require('fs');
@@ -38,7 +40,7 @@ function hasBareRaf(src) {
 }
 
 function scan() {
-  const issues = { rawLocalStorage: [], inlineTheme: [], bareRaf: [], notUsingCommon: [] };
+  const issues = { rawLocalStorage: [], inlineTheme: [], bareRaf: [], notUsingCommon: [], rawRoundRect: [] };
   for (const file of gameFiles()) {
     const src = fs.readFileSync(file, 'utf8');
     const name = path.basename(file);
@@ -46,6 +48,8 @@ function scan() {
     if (src.includes(':root')) issues.inlineTheme.push(name);
     if (hasBareRaf(src)) issues.bareRaf.push(name);
     if (!/\bCommon\b/.test(src)) issues.notUsingCommon.push(name);
+    // 原生 roundRect 实现：函数体内含 arcTo（薄封装只调 Common.roundRect，不含 arcTo）
+    if (/function\s+roundRect\s*\([^)]*\)\s*\{[^}]*arcTo/.test(src)) issues.rawRoundRect.push(name);
   }
   return issues;
 }
@@ -57,6 +61,7 @@ function report(issues) {
     ['游戏内联 :root 主题', issues.inlineTheme],
     ['裸 requestAnimationFrame 主循环', issues.bareRaf],
     ['未引用 Common 的游戏', issues.notUsingCommon],
+    ['游戏内原生 roundRect 实现(未委托)', issues.rawRoundRect],
   ];
   let fail = 0;
   for (const [label, list] of checks) {
