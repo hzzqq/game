@@ -598,14 +598,8 @@
 
     // ---- draw ----
     function roundRect(x, y, w, h, r) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-    }
+    Common.roundRect(ctx, x, y, w, h, r);
+  }
     function drawBackground() {
       var g = ctx.createLinearGradient(0, 0, 0, H);
       g.addColorStop(0, '#0b1018'); g.addColorStop(1, '#0a0e14');
