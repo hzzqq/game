@@ -178,3 +178,30 @@ function head() { return t.getSnake()[0]; }
   t.reset();
   H.ok('蛇 新局重置未触发', t.confettiFired() === false);
 })();
+
+// ===== 16) 本地最高分排行榜（Common.Storage 持久化 + 降序 + 前5截断 + 上榜判定）=====
+(() => {
+  t.reset();
+  H.ok('排行榜 清空成功', t.clearTop5() === true);
+  // 非正分不入榜
+  H.eq('排行榜 0 分不入榜', t.recordScore(0), 0);
+  H.eq('排行榜 负分不入榜', t.recordScore(-5), 0);
+  H.eq('排行榜 空榜无记录', t.getTop5().length, 0);
+  // 大分数必上榜首；次级分插到第 2
+  H.eq('排行榜 9999 上榜第 1', t.recordScore(9999), 1);
+  H.eq('排行榜 榜首=9999', t.getTop5()[0].score, 9999);
+  H.eq('排行榜 8888 上榜第 2', t.recordScore(8888), 2);
+  H.eq('排行榜 次席=8888', t.getTop5()[1].score, 8888);
+  // 全列表分数降序（相邻非增）
+  let top = t.getTop5();
+  let sorted = true;
+  for (let i = 1; i < top.length; i++) if (top[i - 1].score < top[i].score) sorted = false;
+  H.ok('排行榜 全列表分数降序', sorted);
+  // 条目含日期字段（YYYY-MM-DD）
+  H.ok('排行榜 条目含日期字段', /^\d{4}-\d{2}-\d{2}$/.test(top[0].date));
+  // 塞满 6 条大分后截断为前 5，榜首仍是最大
+  for (let i = 0; i < 6; i++) t.recordScore(10000 + i);
+  H.eq('排行榜 最多保留 5 条', t.getTop5().length, 5);
+  H.eq('排行榜 截断后榜首仍最大', t.getTop5()[0].score, 10005);
+  t.reset();
+})();

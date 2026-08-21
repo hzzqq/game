@@ -45,6 +45,13 @@
   #overlay .score{font-size:40px;font-weight:700;color:var(--gold);margin-bottom:4px}
   #overlay .best{color:var(--dim);font-size:13px;margin-bottom:18px}
   #overlay .big{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 28px;font-family:inherit;cursor:pointer;border-radius:8px;font-size:14px}
+  #overlay .board{margin-top:16px;border-top:1px solid var(--border);padding-top:12px;min-width:230px;text-align:left}
+  #overlay .board-title{color:var(--dim);font-size:11px;letter-spacing:2px;margin-bottom:6px;text-align:center}
+  #overlay .board ol{list-style:none;padding:0;margin:0}
+  #overlay .board li{display:flex;align-items:baseline;gap:10px;color:var(--text);font-size:13px;line-height:1.9}
+  #overlay .board li .rk{color:var(--gold);font-weight:700;min-width:16px;text-align:right}
+  #overlay .board li .dt{color:var(--dim);font-size:11px;margin-left:auto}
+  #overlay .board li.mine{color:var(--red);font-weight:700}
 
   #tip{width:min(520px,96vw);color:var(--dim);font-size:12px;margin-top:10px;text-align:center;line-height:1.6}
 </style>
@@ -80,6 +87,10 @@
       <div class="sub" id="goSub">SESSION TERMINATED</div>
       <div class="score" id="goScore">0</div>
       <div class="best">BEST <span id="goBest">0</span></div>
+      <div class="board">
+        <div class="board-title">LOCAL TOP 5 · 本地排行榜</div>
+        <ol id="top5List"></ol>
+      </div>
       <button class="big" id="goBtn">新 局</button>
     </div>
   </div>
@@ -115,6 +126,7 @@
   function reseed(s){ _rng = mk((s>>>0) || 1); }
 
   var snake, dir, nextDir, food, score, best, alive, paused, level;
+  var _myTopRank = 0;   // 本局在本地排行榜的名次（0=未上榜），用于结束浮层高亮
   var powerups=[], boostUntil=0, shieldUntil=0;
   var stepMs, acc, lastT, raf;
 
@@ -155,6 +167,7 @@
     boostUntil = 0;
     shieldUntil = 0;
     _confettiFired = false;
+    _myTopRank = 0;
     reseed(0x5EED ^ (GRID*2654435761));
     spawnFood();
     overlay.style.display = 'none';
@@ -278,6 +291,46 @@
     if(!ate) snake.pop();
   }
 
+  // 本地最高分排行榜（前 5 名，分数+日期，持久化到浏览器本地存储）。
+  // 存取走 Common.Storage（key='game:snake:top5'）——游戏文件内禁止裸存储 API
+  // （收敛闸门 rawLocalStorage 不变量）。返回本次排名（1-5=上榜，0=未上榜/非正分）；
+  // vm 沙箱等无本地存储环境走 try/catch 静默路径，天然安全。
+  function addTop5(s){
+    if(!(s > 0)) return 0;
+    var list = [];
+    try { list = Common.Storage.get('snake','top5',[]) || []; } catch(e){ list = []; }
+    if(!Array.isArray(list)) list = [];
+    var today = new Date().toISOString().slice(0,10);
+    list.push({ score: s, date: today });
+    // 分数降序；同分先达成的排前（YYYY-MM-DD 字典序即时间序）
+    list.sort(function(a,b){ return b.score - a.score || (a.date < b.date ? -1 : 1); });
+    if(list.length > 5) list.length = 5;
+    var rank = 0;
+    for(var i=0;i<list.length;i++){
+      if(list[i].score === s && list[i].date === today){ rank = i+1; break; }
+    }
+    try { Common.Storage.set('snake','top5',list); } catch(e){}
+    return rank;
+  }
+
+  // 渲染排行榜到结束浮层 #top5List；无 DOM 环境静默跳过
+  function renderTop5(){
+    try {
+      var box = document.getElementById('top5List');
+      if(!box) return;
+      var list = [];
+      try { list = Common.Storage.get('snake','top5',[]) || []; } catch(e){ list = []; }
+      if(!Array.isArray(list)) list = [];
+      if(list.length === 0){ box.innerHTML = '<li><span class="dt">暂无记录 · 来一局？</span></li>'; return; }
+      var html = '';
+      for(var i=0;i<list.length;i++){
+        var mine = (_myTopRank > 0 && (i+1) === _myTopRank) ? ' class="mine"' : '';
+        html += '<li'+mine+'><span class="rk">'+(i+1)+'</span><span>'+list[i].score+'</span><span class="dt">'+list[i].date+'</span></li>';
+      }
+      box.innerHTML = html;
+    } catch(e) { /* 静默：不阻断游戏流程 */ }
+  }
+
   function gameOver(){
     alive = false;
     if(score > best){ best = score; try { Common.Storage.set('snake','best',best); } catch(e){} }
@@ -285,11 +338,16 @@
     Juice.sfx('lose');
     Juice.addTrauma(0.5);
     Juice.flash('#f6465d', 0.35);
-    if(score > 0 && score >= best){ Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk); }
+    _myTopRank = addTop5(score);
+    var isNewBest = (score > 0 && score >= best);
+    if(isNewBest && _myTopRank > 0){ Juice.achievement('🏆 新纪录 '+score+'！本地榜第 '+_myTopRank+' 名'); }
+    else if(_myTopRank > 0){ Juice.achievement('📊 进入本地排行榜 第 '+_myTopRank+' 名'); }
+    else if(isNewBest){ Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk); }
     updateHud();
     goScore.textContent = score;
     goBest.textContent = best;
     goSub.textContent = (score>=best && score>0) ? ('NEW HIGH SCORE · 段位 '+rk) : ('SESSION TERMINATED · 段位 '+rk);
+    renderTop5();
     overlay.style.display = 'flex';
   }
 
@@ -499,6 +557,10 @@
     getSnake() { return snake.map(p => ({ x: p.x, y: p.y })); },
     getFood() { return food ? { x: food.x, y: food.y } : null; },
     getScore() { return score; },
+    recordScore(s) { return addTop5(s); },
+    getTop5() { try { return Common.Storage.get('snake','top5',[]); } catch(e){ return []; } },
+    getMyRank() { return _myTopRank; },
+    clearTop5() { try { Common.Storage.set('snake','top5',[]); return true; } catch(e){ return false; } },
     getAlive() { return alive; },
     getBoost() { return nowMs() < boostUntil; },
     getShield() { return nowMs() < shieldUntil; },
