@@ -47,26 +47,46 @@
   #overlay .big{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 28px;font-family:inherit;cursor:pointer;border-radius:8px;font-size:14px}
   #overlay .board{margin-top:20px;border-top:1px solid var(--border);padding-top:14px;text-align:left}
   #overlay .board-title{color:var(--gold);font-size:13px;letter-spacing:4px;font-weight:700;text-align:center;margin-bottom:2px}
-  #overlay .board-sub{color:var(--dim);font-size:10px;letter-spacing:2px;text-align:center;margin-bottom:12px}
+  #overlay .board-sub{color:var(--dim);font-size:10px;letter-spacing:2px;text-align:center;margin-bottom:14px}
   #overlay .board ol{list-style:none;padding:0;margin:0}
-  #overlay .board li{display:grid;grid-template-columns:34px 1fr auto auto;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;margin-bottom:4px;background:rgba(255,255,255,.02);font-family:'JetBrains Mono',Consolas,monospace}
-  #overlay .board li .rk{font-size:18px;font-weight:700;color:var(--dim);text-align:center;letter-spacing:1px}
-  #overlay .board li .sc{font-size:17px;font-weight:700;color:var(--text);letter-spacing:1px;text-align:left}
-  #overlay .board li .dt{font-size:10px;color:var(--dim);text-align:right}
-  #overlay .board li .badge{font-size:9px;font-weight:700;letter-spacing:1px;background:var(--red);color:#0a0e14;padding:2px 6px;border-radius:3px;margin-left:4px}
-  #overlay .board li.gold{background:linear-gradient(90deg,rgba(240,185,11,.14),transparent 70%);box-shadow:inset 3px 0 0 var(--gold)}
-  #overlay .board li.gold .rk{color:var(--gold);font-size:24px;text-shadow:0 0 8px rgba(240,185,11,.5)}
-  #overlay .board li.gold .sc{color:var(--gold);font-size:22px}
-  #overlay .board li.silver{background:linear-gradient(90deg,rgba(192,192,192,.10),transparent 70%);box-shadow:inset 3px 0 0 #c0c0c0}
-  #overlay .board li.silver .rk{color:#c0c0c0;font-size:20px}
-  #overlay .board li.silver .sc{color:#dcdcdc;font-size:18px}
-  #overlay .board li.bronze{background:linear-gradient(90deg,rgba(205,127,50,.10),transparent 70%);box-shadow:inset 3px 0 0 #cd7f32}
-  #overlay .board li.bronze .rk{color:#cd7f32;font-size:19px}
-  #overlay .board li.bronze .sc{color:#d99564;font-size:17px}
-  #overlay .board li.mine{box-shadow:inset 0 0 0 1px var(--red),0 0 12px rgba(246,70,93,.25);background:rgba(246,70,93,.06)}
-  #overlay .board li.mine .rk,#overlay .board li.mine .sc{color:var(--red);text-shadow:0 0 8px rgba(246,70,93,.5)}
-  #overlay .board-empty{padding:24px 12px;text-align:center;color:var(--dim);font-size:12px;line-height:1.9;display:block}
+  /* 入榜动画：逐条延迟滑入（staggered） */
+  #overlay .board li{opacity:0;transform:translateY(14px);animation:rankIn .5s cubic-bezier(.2,.9,.3,1.15) forwards;font-family:'JetBrains Mono',Consolas,monospace}
+  @keyframes rankIn{to{opacity:1;transform:none}}
+  #overlay .board li:nth-child(1){animation-delay:.04s}
+  #overlay .board li:nth-child(2){animation-delay:.16s}
+  #overlay .board li:nth-child(3){animation-delay:.28s}
+  #overlay .board li:nth-child(4){animation-delay:.40s}
+  #overlay .board li:nth-child(5){animation-delay:.52s}
+  /* 普通条目（2-5 名）：奖杯/序号 | 头像 | 信息 | 徽章 */
+  #overlay .board li.row{display:grid;grid-template-columns:36px 32px 1fr auto;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;margin-bottom:4px;background:rgba(255,255,255,.02)}
+  #overlay .board li.row .rk{font-size:18px;font-weight:700;color:var(--dim);text-align:center;letter-spacing:1px}
+  #overlay .board li.row .rk.silver{color:#dcdcdc;font-size:19px;text-shadow:0 0 8px rgba(192,192,192,.55)}
+  #overlay .board li.row .rk.bronze{color:#d99564;font-size:18px;text-shadow:0 0 8px rgba(205,127,50,.55)}
+  /* hero 大卡（第 1 名）：大头像 + 奖杯 + 大分数 */
+  #overlay .board li.hero{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;margin-bottom:8px;background:linear-gradient(90deg,rgba(240,185,11,.10),transparent 75%);box-shadow:inset 3px 0 0 var(--gold),0 0 22px rgba(240,185,11,.16)}
+  #overlay .board li.hero .avatar{width:46px;height:46px;font-size:20px}
+  #overlay .board li.hero .info .line2 .sc{font-size:24px;color:var(--gold);text-shadow:0 0 10px rgba(240,185,11,.5)}
+  /* 头像：首字母 + 代号 hash 渐变（JS 内联算好色相，无依赖） */
+  #overlay .board .avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#0a0e14;font-weight:700;font-size:13px;flex:none;box-shadow:0 0 8px rgba(0,0,0,.45)}
+  /* 信息区：两行（名称+段位 / 分数·用时·相对时间） */
+  #overlay .board .info{min-width:0}
+  #overlay .board .info .line1{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text)}
+  #overlay .board .info .line1 .name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+  #overlay .board .info .line1 .tier{font-size:11px;color:var(--dim);background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:4px;padding:1px 6px;letter-spacing:1px;white-space:nowrap}
+  #overlay .board .info .line2{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);margin-top:2px;flex-wrap:wrap}
+  #overlay .board .info .line2 .sc{font-size:15px;font-weight:700;color:var(--text);letter-spacing:1px}
+  #overlay .board .info .line2 .dot{opacity:.35}
+  #overlay .board li .badge{font-size:9px;font-weight:700;letter-spacing:1px;background:var(--red);color:#0a0e14;padding:2px 6px;border-radius:3px}
+  /* 当前玩家：霓虹红框 + 外发光 */
+  #overlay .board li.mine{box-shadow:inset 0 0 0 1px var(--red),0 0 18px rgba(246,70,93,.5),inset 0 0 14px rgba(246,70,93,.08);background:rgba(246,70,93,.07)}
+  #overlay .board li.mine .info .line1 .name{color:var(--red);text-shadow:0 0 10px rgba(246,70,93,.6)}
+  #overlay .board li.mine .info .line2 .sc{color:var(--red);text-shadow:0 0 10px rgba(246,70,93,.5)}
+  /* 空榜占位（禁用入场动画） */
+  #overlay .board-empty{padding:24px 12px;text-align:center;color:var(--dim);font-size:12px;line-height:1.9;display:block;opacity:1;transform:none;animation:none;border:1px dashed var(--border);border-radius:8px;margin-top:4px}
   #overlay .board-empty .hint{color:var(--gold);font-size:13px;letter-spacing:3px;margin-bottom:8px;font-weight:700;text-shadow:0 0 8px rgba(240,185,11,.5)}
+  /* 新纪录全屏文字彩蛋 */
+  #recFlash{position:fixed;left:50%;top:36%;transform:translate(-50%,-50%) scale(.6);z-index:2147483001;color:var(--gold);font:700 32px 'JetBrains Mono',Consolas,monospace;letter-spacing:2px;text-shadow:0 0 20px rgba(240,185,11,.85),0 0 60px rgba(240,185,11,.4);pointer-events:none;animation:recPop 1.7s ease-out forwards;white-space:nowrap}
+  @keyframes recPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}14%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}28%{transform:translate(-50%,-50%) scale(1)}78%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.06)}}
 
   #tip{width:min(520px,96vw);color:var(--dim);font-size:12px;margin-top:10px;text-align:center;line-height:1.6}
 </style>
@@ -143,6 +163,7 @@
 
   var snake, dir, nextDir, food, score, best, alive, paused, level;
   var _myTopRank = 0;   // 本局在本地排行榜的名次（0=未上榜），用于结束浮层高亮
+  var _startMs = 0;     // 本局开始时间戳（nowMs），用于排行榜"用时"字段
   var powerups=[], boostUntil=0, shieldUntil=0;
   var stepMs, acc, lastT, raf;
 
@@ -184,6 +205,7 @@
     shieldUntil = 0;
     _confettiFired = false;
     _myTopRank = 0;
+    _startMs = nowMs();
     reseed(0x5EED ^ (GRID*2654435761));
     spawnFood();
     overlay.style.display = 'none';
@@ -307,29 +329,89 @@
     if(!ate) snake.pop();
   }
 
-  // 本地最高分排行榜（前 5 名，分数+日期，持久化到浏览器本地存储）。
+  // 玩家代号：首次自动生成 3 字符（大写字母数字，去易混 I/O/0/1），存本地，后续复用。
+  // 不做弹窗输昵称——弹窗会侵入游戏启动流程，破坏单文件零侵入模型（166 款游戏通用约束）。
+  function playerTag(){
+    try {
+      var t = Common.Storage.get('snake','tag',null);
+      if(t) return t;
+      var h = 0, s = 'snake:' + Date.now();
+      for(var i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
+      var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      var tag = chars[h & 31] + chars[((h >>> 5) & 31)] + chars[((h >>> 10) & 31)];
+      Common.Storage.set('snake','tag',tag);
+      return tag;
+    } catch(e){ return 'YOU'; }
+  }
+
+  // 头像底色：代号 hash → 色相角（0-359），渲染时拼 hsl 渐变
+  function avatarHue(tag){
+    var h = 0;
+    for(var i=0;i<tag.length;i++){ h = (h*33 + tag.charCodeAt(i)) | 0; }
+    return Math.abs(h) % 360;
+  }
+
+  // 段位：按分数区间映射（snake 本地定义，不影响共享的 Juice.rank）
+  function tierOf(s){
+    if(s >= 50) return { e:'💎', n:'钻石' };
+    if(s >= 35) return { e:'🟦', n:'铂金' };
+    if(s >= 20) return { e:'🟨', n:'黄金' };
+    if(s >= 10) return { e:'⬜', n:'白银' };
+    return { e:'🟫', n:'青铜' };
+  }
+
+  // 相对时间：今日 HH:MM / 昨日 MM-DD / MM-DD
+  function relTime(ts){
+    if(!ts) return '';
+    var d = new Date(ts), n = new Date();
+    var p = function(v){ return ('0'+v).slice(-2); };
+    var sameDay = d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth() && d.getDate()===n.getDate();
+    if(sameDay) return '今日 '+p(d.getHours())+':'+p(d.getMinutes());
+    var y = new Date(n.getFullYear(), n.getMonth(), n.getDate()-1);
+    var isYest = d.getFullYear()===y.getFullYear() && d.getMonth()===y.getMonth() && d.getDate()===y.getDate();
+    if(isYest) return '昨日 '+p(d.getMonth()+1)+'-'+p(d.getDate());
+    return p(d.getMonth()+1)+'-'+p(d.getDate());
+  }
+
+  // 用时 mm:ss
+  function fmtDur(ms){
+    if(!ms) return '--:--';
+    var s = Math.floor(ms/1000);
+    return ('0'+Math.floor(s/60)).slice(-2)+':'+('0'+(s%60)).slice(-2);
+  }
+
+  // 本地最高分排行榜（前 5 名，持久化到浏览器本地存储）。
   // 存取走 Common.Storage（key='game:snake:top5'）——游戏文件内禁止裸存储 API
-  // （收敛闸门 rawLocalStorage 不变量）。返回本次排名（1-5=上榜，0=未上榜/非正分）；
+  // （收敛闸门 rawLocalStorage 不变量）。记录含 {score,user,ts,dur,date}：
+  // 玩家代号 / 完成时间戳(毫秒) / 用时(毫秒) / 日期。返回本次排名（1-5=上榜，0=未上榜/非正分）。
   // vm 沙箱等无本地存储环境走 try/catch 静默路径，天然安全。
   function addTop5(s){
     if(!(s > 0)) return 0;
     var list = [];
     try { list = Common.Storage.get('snake','top5',[]) || []; } catch(e){ list = []; }
     if(!Array.isArray(list)) list = [];
-    var today = new Date().toISOString().slice(0,10);
-    list.push({ score: s, date: today });
-    // 分数降序；同分先达成的排前（YYYY-MM-DD 字典序即时间序）
-    list.sort(function(a,b){ return b.score - a.score || (a.date < b.date ? -1 : 1); });
+    var now = new Date();
+    var rec = {
+      score: s,
+      user: playerTag(),
+      ts: now.getTime(),
+      dur: (nowMs() - _startMs) || 0,
+      date: now.toISOString().slice(0,10)
+    };
+    list.push(rec);
+    // 分数降序；同分先达成的排前（ts 小者在前）
+    list.sort(function(a,b){ return b.score - a.score || ((a.ts||0) - (b.ts||0)); });
     if(list.length > 5) list.length = 5;
     var rank = 0;
     for(var i=0;i<list.length;i++){
-      if(list[i].score === s && list[i].date === today){ rank = i+1; break; }
+      if(list[i].score === s && list[i].ts === rec.ts){ rank = i+1; break; }
     }
     try { Common.Storage.set('snake','top5',list); } catch(e){}
     return rank;
   }
 
-  // 渲染排行榜到结束浮层 #top5List；无 DOM 环境静默跳过
+  // 渲染排行榜到结束浮层 #top5List：第 1 名 hero 大卡（头像/🥇/段位/用时/相对时间），
+  // 2-5 名紧凑条（🥈🥉/序号）；当前玩家行霓虹高亮 + [ME] 徽章。无 DOM 环境静默跳过。
   function renderTop5(){
     try {
       var box = document.getElementById('top5List');
@@ -343,15 +425,45 @@
       }
       var html = '';
       for(var i=0;i<list.length;i++){
-        var rank = i+1;
-        var tier = rank === 1 ? 'gold' : (rank === 2 ? 'silver' : (rank === 3 ? 'bronze' : ''));
+        var rec = list[i], rank = i+1;
+        var user = rec.user || 'PLAYER';
+        var hue = avatarHue(user);
+        var tier = tierOf(rec.score);
+        var dur = fmtDur(rec.dur);
+        var rt = relTime(rec.ts || (rec.date ? new Date(rec.date+'T00:00:00').getTime() : 0));
         var mine = (_myTopRank > 0 && rank === _myTopRank);
-        var cls = (tier || '') + (mine ? (tier ? ' mine' : 'mine') : '');
-        var badge = mine ? '<span class="badge">YOU</span>' : '';
-        html += '<li class="'+cls+'"><span class="rk">'+rank+'</span><span class="sc">'+list[i].score+'</span><span class="dt">'+list[i].date+'</span>'+badge+'</li>';
+        var badge = mine ? '<span class="badge">[ME]</span>' : '';
+        var avatar = '<div class="avatar" style="background:linear-gradient(135deg,hsl('+hue+',72%,52%),hsl('+((hue+40)%360)+',72%,38%))">'+user.charAt(0)+'</div>';
+        var line2 = '<div class="line2"><span class="sc">'+rec.score+'</span><span class="dot">·</span><span class="dur">'+dur+'</span><span class="dot">·</span><span class="rt">'+rt+'</span></div>';
+        if(rank === 1){
+          html += '<li class="hero'+(mine?' mine':'')+'">'
+            + avatar
+            + '<div class="info"><div class="line1"><span style="font-size:20px">🥇</span><span class="name">'+user+'</span><span class="tier">'+tier.e+' '+tier.n+'</span></div>'
+            + line2 + '</div>' + badge + '</li>';
+        } else {
+          var cup = rank===2 ? '🥈' : (rank===3 ? '🥉' : rank);
+          var cupCls = rank===2 ? 'silver' : (rank===3 ? 'bronze' : '');
+          html += '<li class="row'+(mine?' mine':'')+'">'
+            + '<span class="rk'+cupCls+'">'+cup+'</span>'
+            + avatar
+            + '<div class="info"><div class="line1"><span class="name">'+user+'</span><span class="tier">'+tier.e+' '+tier.n+'</span></div>'
+            + line2 + '</div>' + badge + '</li>';
+        }
       }
       box.innerHTML = html;
     } catch(e) { /* 静默：不阻断游戏流程 */ }
+  }
+
+  // 新纪录全屏文字彩蛋（1.8s 后自动移除；无 DOM 环境静默）
+  function flashNewRecord(){
+    try {
+      if(typeof document==='undefined' || !document.createElement) return;
+      var el = document.createElement('div');
+      el.id = 'recFlash';
+      el.textContent = '🏆 NEW RECORD ' + score + '!';
+      (document.body || document.documentElement).appendChild(el);
+      setTimeout(function(){ if(el && el.parentNode) el.parentNode.removeChild(el); }, 1800);
+    } catch(e) { /* 静默 */ }
   }
 
   function gameOver(){
@@ -363,9 +475,9 @@
     Juice.flash('#f6465d', 0.35);
     _myTopRank = addTop5(score);
     var isNewBest = (score > 0 && score >= best);
-    if(isNewBest && _myTopRank > 0){ Juice.achievement('🏆 新纪录 '+score+'！本地榜第 '+_myTopRank+' 名'); }
+    if(isNewBest && _myTopRank > 0){ Juice.achievement('🏆 新纪录 '+score+'！本地榜第 '+_myTopRank+' 名'); flashNewRecord(); }
     else if(_myTopRank > 0){ Juice.achievement('📊 进入本地排行榜 第 '+_myTopRank+' 名'); }
-    else if(isNewBest){ Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk); }
+    else if(isNewBest){ Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk); flashNewRecord(); }
     updateHud();
     goScore.textContent = score;
     goBest.textContent = best;
