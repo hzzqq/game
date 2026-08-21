@@ -39,19 +39,34 @@
   .diffbar button.active{background:var(--gold,#f0b90b);color:#0a0e14;border-color:var(--gold,#f0b90b)}
 
   #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.92)}
-  #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;text-align:center;min-width:260px}
+  #overlay .box{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:30px 40px;text-align:center;min-width:340px}
   #overlay h2{font-size:24px;margin-bottom:8px;letter-spacing:1px;color:var(--red)}
   #overlay .sub{color:var(--dim);font-size:12px;margin-bottom:14px}
   #overlay .score{font-size:40px;font-weight:700;color:var(--gold);margin-bottom:4px}
   #overlay .best{color:var(--dim);font-size:13px;margin-bottom:18px}
   #overlay .big{background:var(--red);color:#0a0e14;border:none;font-weight:700;padding:11px 28px;font-family:inherit;cursor:pointer;border-radius:8px;font-size:14px}
-  #overlay .board{margin-top:16px;border-top:1px solid var(--border);padding-top:12px;min-width:230px;text-align:left}
-  #overlay .board-title{color:var(--dim);font-size:11px;letter-spacing:2px;margin-bottom:6px;text-align:center}
+  #overlay .board{margin-top:20px;border-top:1px solid var(--border);padding-top:14px;text-align:left}
+  #overlay .board-title{color:var(--gold);font-size:13px;letter-spacing:4px;font-weight:700;text-align:center;margin-bottom:2px}
+  #overlay .board-sub{color:var(--dim);font-size:10px;letter-spacing:2px;text-align:center;margin-bottom:12px}
   #overlay .board ol{list-style:none;padding:0;margin:0}
-  #overlay .board li{display:flex;align-items:baseline;gap:10px;color:var(--text);font-size:13px;line-height:1.9}
-  #overlay .board li .rk{color:var(--gold);font-weight:700;min-width:16px;text-align:right}
-  #overlay .board li .dt{color:var(--dim);font-size:11px;margin-left:auto}
-  #overlay .board li.mine{color:var(--red);font-weight:700}
+  #overlay .board li{display:grid;grid-template-columns:34px 1fr auto auto;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;margin-bottom:4px;background:rgba(255,255,255,.02);font-family:'JetBrains Mono',Consolas,monospace}
+  #overlay .board li .rk{font-size:18px;font-weight:700;color:var(--dim);text-align:center;letter-spacing:1px}
+  #overlay .board li .sc{font-size:17px;font-weight:700;color:var(--text);letter-spacing:1px;text-align:left}
+  #overlay .board li .dt{font-size:10px;color:var(--dim);text-align:right}
+  #overlay .board li .badge{font-size:9px;font-weight:700;letter-spacing:1px;background:var(--red);color:#0a0e14;padding:2px 6px;border-radius:3px;margin-left:4px}
+  #overlay .board li.gold{background:linear-gradient(90deg,rgba(240,185,11,.14),transparent 70%);box-shadow:inset 3px 0 0 var(--gold)}
+  #overlay .board li.gold .rk{color:var(--gold);font-size:24px;text-shadow:0 0 8px rgba(240,185,11,.5)}
+  #overlay .board li.gold .sc{color:var(--gold);font-size:22px}
+  #overlay .board li.silver{background:linear-gradient(90deg,rgba(192,192,192,.10),transparent 70%);box-shadow:inset 3px 0 0 #c0c0c0}
+  #overlay .board li.silver .rk{color:#c0c0c0;font-size:20px}
+  #overlay .board li.silver .sc{color:#dcdcdc;font-size:18px}
+  #overlay .board li.bronze{background:linear-gradient(90deg,rgba(205,127,50,.10),transparent 70%);box-shadow:inset 3px 0 0 #cd7f32}
+  #overlay .board li.bronze .rk{color:#cd7f32;font-size:19px}
+  #overlay .board li.bronze .sc{color:#d99564;font-size:17px}
+  #overlay .board li.mine{box-shadow:inset 0 0 0 1px var(--red),0 0 12px rgba(246,70,93,.25);background:rgba(246,70,93,.06)}
+  #overlay .board li.mine .rk,#overlay .board li.mine .sc{color:var(--red);text-shadow:0 0 8px rgba(246,70,93,.5)}
+  #overlay .board-empty{padding:24px 12px;text-align:center;color:var(--dim);font-size:12px;line-height:1.9;display:block}
+  #overlay .board-empty .hint{color:var(--gold);font-size:13px;letter-spacing:3px;margin-bottom:8px;font-weight:700;text-shadow:0 0 8px rgba(240,185,11,.5)}
 
   #tip{width:min(520px,96vw);color:var(--dim);font-size:12px;margin-top:10px;text-align:center;line-height:1.6}
 </style>
@@ -88,7 +103,8 @@
       <div class="score" id="goScore">0</div>
       <div class="best">BEST <span id="goBest">0</span></div>
       <div class="board">
-        <div class="board-title">LOCAL TOP 5 · 本地排行榜</div>
+        <div class="board-title">LOCAL LEADERBOARD</div>
+        <div class="board-sub">TOP 5 · 本地最高分</div>
         <ol id="top5List"></ol>
       </div>
       <button class="big" id="goBtn">新 局</button>
@@ -321,11 +337,18 @@
       var list = [];
       try { list = Common.Storage.get('snake','top5',[]) || []; } catch(e){ list = []; }
       if(!Array.isArray(list)) list = [];
-      if(list.length === 0){ box.innerHTML = '<li><span class="dt">暂无记录 · 来一局？</span></li>'; return; }
+      if(list.length === 0){
+        box.innerHTML = '<li class="board-empty"><div class="hint">👑 NO RECORDS YET</div>暂无记录 · 来一局<br>你的分数将占榜首</li>';
+        return;
+      }
       var html = '';
       for(var i=0;i<list.length;i++){
-        var mine = (_myTopRank > 0 && (i+1) === _myTopRank) ? ' class="mine"' : '';
-        html += '<li'+mine+'><span class="rk">'+(i+1)+'</span><span>'+list[i].score+'</span><span class="dt">'+list[i].date+'</span></li>';
+        var rank = i+1;
+        var tier = rank === 1 ? 'gold' : (rank === 2 ? 'silver' : (rank === 3 ? 'bronze' : ''));
+        var mine = (_myTopRank > 0 && rank === _myTopRank);
+        var cls = (tier || '') + (mine ? (tier ? ' mine' : 'mine') : '');
+        var badge = mine ? '<span class="badge">YOU</span>' : '';
+        html += '<li class="'+cls+'"><span class="rk">'+rank+'</span><span class="sc">'+list[i].score+'</span><span class="dt">'+list[i].date+'</span>'+badge+'</li>';
       }
       box.innerHTML = html;
     } catch(e) { /* 静默：不阻断游戏流程 */ }
