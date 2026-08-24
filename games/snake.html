@@ -329,49 +329,8 @@
     if(!ate) snake.pop();
   }
 
-  // 玩家代号：首次自动生成 3 字符（大写字母数字，去易混 I/O/0/1），存本地，后续复用。
-  // 不做弹窗输昵称——弹窗会侵入游戏启动流程，破坏单文件零侵入模型（166 款游戏通用约束）。
-  function playerTag(){
-    try {
-      var t = Common.Storage.get('snake','tag',null);
-      if(t) return t;
-      var h = 0, s = 'snake:' + Date.now();
-      for(var i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
-      var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      var tag = chars[h & 31] + chars[((h >>> 5) & 31)] + chars[((h >>> 10) & 31)];
-      Common.Storage.set('snake','tag',tag);
-      return tag;
-    } catch(e){ return 'YOU'; }
-  }
-
-  // 头像底色：代号 hash → 色相角（0-359），渲染时拼 hsl 渐变
-  function avatarHue(tag){
-    var h = 0;
-    for(var i=0;i<tag.length;i++){ h = (h*33 + tag.charCodeAt(i)) | 0; }
-    return Math.abs(h) % 360;
-  }
-
-  // 段位：按分数区间映射（snake 本地定义，不影响共享的 Juice.rank）
-  function tierOf(s){
-    if(s >= 50) return { e:'💎', n:'钻石' };
-    if(s >= 35) return { e:'🟦', n:'铂金' };
-    if(s >= 20) return { e:'🟨', n:'黄金' };
-    if(s >= 10) return { e:'⬜', n:'白银' };
-    return { e:'🟫', n:'青铜' };
-  }
-
-  // 相对时间：今日 HH:MM / 昨日 MM-DD / MM-DD
-  function relTime(ts){
-    if(!ts) return '';
-    var d = new Date(ts), n = new Date();
-    var p = function(v){ return ('0'+v).slice(-2); };
-    var sameDay = d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth() && d.getDate()===n.getDate();
-    if(sameDay) return '今日 '+p(d.getHours())+':'+p(d.getMinutes());
-    var y = new Date(n.getFullYear(), n.getMonth(), n.getDate()-1);
-    var isYest = d.getFullYear()===y.getFullYear() && d.getMonth()===y.getMonth() && d.getDate()===y.getDate();
-    if(isYest) return '昨日 '+p(d.getMonth()+1)+'-'+p(d.getDate());
-    return p(d.getMonth()+1)+'-'+p(d.getDate());
-  }
+  // 玩家代号 / 头像底色 / 段位 / 相对时间 —— 统一走 Common.HighScores（共享数据层，见 common.js）。
+  // 本地仅保留游戏计时 _startMs（纯游戏逻辑，不动）。
 
   // 用时 mm:ss
   function fmtDur(ms){
@@ -380,34 +339,11 @@
     return ('0'+Math.floor(s/60)).slice(-2)+':'+('0'+(s%60)).slice(-2);
   }
 
-  // 本地最高分排行榜（前 5 名，持久化到浏览器本地存储）。
-  // 存取走 Common.Storage（key='game:snake:top5'）——游戏文件内禁止裸存储 API
-  // （收敛闸门 rawLocalStorage 不变量）。记录含 {score,user,ts,dur,date}：
-  // 玩家代号 / 完成时间戳(毫秒) / 用时(毫秒) / 日期。返回本次排名（1-5=上榜，0=未上榜/非正分）。
-  // vm 沙箱等无本地存储环境走 try/catch 静默路径，天然安全。
+  // 写入本地排行榜：委托 Common.HighScores（key='snake'）。返回本次名次（1-5=上榜）。
+  // 玩家代号 / 头像色相 / 段位 / 相对时间等全部走共享工具，避免游戏文件裸存储与重复实现。
   function addTop5(s){
     if(!(s > 0)) return 0;
-    var list = [];
-    try { list = Common.Storage.get('snake','top5',[]) || []; } catch(e){ list = []; }
-    if(!Array.isArray(list)) list = [];
-    var now = new Date();
-    var rec = {
-      score: s,
-      user: playerTag(),
-      ts: now.getTime(),
-      dur: (nowMs() - _startMs) || 0,
-      date: now.toISOString().slice(0,10)
-    };
-    list.push(rec);
-    // 分数降序；同分先达成的排前（ts 小者在前）
-    list.sort(function(a,b){ return b.score - a.score || ((a.ts||0) - (b.ts||0)); });
-    if(list.length > 5) list.length = 5;
-    var rank = 0;
-    for(var i=0;i<list.length;i++){
-      if(list[i].score === s && list[i].ts === rec.ts){ rank = i+1; break; }
-    }
-    try { Common.Storage.set('snake','top5',list); } catch(e){}
-    return rank;
+    return Common.HighScores.record('snake', s, (nowMs() - _startMs) || 0);
   }
 
   // 渲染排行榜到结束浮层 #top5List：第 1 名 hero 大卡（头像/🥇/段位/用时/相对时间），
@@ -416,9 +352,7 @@
     try {
       var box = document.getElementById('top5List');
       if(!box) return;
-      var list = [];
-      try { list = Common.Storage.get('snake','top5',[]) || []; } catch(e){ list = []; }
-      if(!Array.isArray(list)) list = [];
+      var list = Common.HighScores.read('snake');
       if(list.length === 0){
         box.innerHTML = '<li class="board-empty"><div class="hint">👑 NO RECORDS YET</div>暂无记录 · 来一局<br>你的分数将占榜首</li>';
         return;
@@ -427,10 +361,10 @@
       for(var i=0;i<list.length;i++){
         var rec = list[i], rank = i+1;
         var user = rec.user || 'PLAYER';
-        var hue = avatarHue(user);
-        var tier = tierOf(rec.score);
+        var hue = Common.HighScores.avatarHue(user);
+        var tier = Common.HighScores.tierOf(rec.score);
         var dur = fmtDur(rec.dur);
-        var rt = relTime(rec.ts || (rec.date ? new Date(rec.date+'T00:00:00').getTime() : 0));
+        var rt = Common.HighScores.relTime(rec.ts || (rec.date ? new Date(rec.date+'T00:00:00').getTime() : 0));
         var mine = (_myTopRank > 0 && rank === _myTopRank);
         var badge = mine ? '<span class="badge">[ME]</span>' : '';
         var avatar = '<div class="avatar" style="background:linear-gradient(135deg,hsl('+hue+',72%,52%),hsl('+((hue+40)%360)+',72%,38%))">'+user.charAt(0)+'</div>';

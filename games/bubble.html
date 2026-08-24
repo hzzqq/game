@@ -65,6 +65,26 @@
   .diffbar button { flex:0 0 auto; font:600 11px/1 ui-monospace,monospace; color:var(--dim); background:transparent; border:1px solid var(--border); border-radius:6px; padding:5px 10px; cursor:pointer; transition:.12s; }
   .diffbar button:hover { color:#fff; border-color:#666; }
   .diffbar button.active { color:#0b0e11; background:var(--gold,#ffcf5a); border-color:var(--gold,#ffcf5a); }
+  /* 本地排行榜（复用 common 数据层 Common.HighScores；样式与本游戏 overlay 协调） */
+  #overlay .board{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;text-align:left;max-width:320px;margin-left:auto;margin-right:auto}
+  #overlay .board-title{color:var(--gold,#ffcf5a);font-size:13px;letter-spacing:4px;font-weight:700;text-align:center;margin-bottom:8px}
+  #overlay .board ol{list-style:none;padding:0;margin:0}
+  #overlay .board li{display:grid;grid-template-columns:34px 1fr auto auto;align-items:center;gap:10px;padding:7px 12px;border-radius:6px;margin-bottom:4px;background:rgba(255,255,255,.02)}
+  #overlay .board li .rk{font-size:18px;font-weight:700;color:var(--dim);text-align:center}
+  #overlay .board li .sc{font-size:17px;font-weight:700;color:var(--text,#d7e0ea);text-align:left}
+  #overlay .board li .dt{font-size:10px;color:var(--dim);text-align:right}
+  #overlay .board li .badge{font-size:9px;font-weight:700;letter-spacing:1px;background:var(--red,#f6465d);color:#0a0e14;padding:2px 6px;border-radius:3px;margin-left:4px}
+  #overlay .board li.gold{background:linear-gradient(90deg,rgba(255,207,90,.14),transparent 70%);box-shadow:inset 3px 0 0 var(--gold,#ffcf5a)}
+  #overlay .board li.gold .rk{color:var(--gold,#ffcf5a);font-size:24px}
+  #overlay .board li.gold .sc{color:var(--gold,#ffcf5a);font-size:22px}
+  #overlay .board li.silver{background:linear-gradient( 90deg,rgba(192,192,192,.10),transparent 70%);box-shadow:inset 3px 0 0 #c0c0c0}
+  #overlay .board li.silver .rk{color:#c0c0c0;font-size:20px}
+  #overlay .board li.bronze{background:linear-gradient(90deg,rgba(205,127,50,.10),transparent 70%);box-shadow:inset 3px 0 0 #cd7f32}
+  #overlay .board li.bronze .rk{color:#cd7f32;font-size:19px}
+  #overlay .board li.mine{box-shadow:inset 0 0 0 1px var(--red,#f6465d),0 0 12px rgba(246,70,93,.25);background:rgba(246,70,93,.06)}
+  #overlay .board li.mine .rk,#overlay .board li.mine .sc{color:var(--red,#f6465d);text-shadow:0 0 8px rgba(246,70,93,.5)}
+  #overlay .board-empty{padding:18px 12px;text-align:center;color:var(--dim);font-size:12px;line-height:1.9}
+  #overlay .board-empty .hint{color:var(--gold,#ffcf5a);font-size:13px;letter-spacing:3px;margin-bottom:6px;font-weight:700}
 </style>
 </head>
 <body>
@@ -83,6 +103,10 @@
     <div id="overlay">
       <h1 id="ovTitle">// GAME OVER</h1>
       <p id="ovText">泡泡触底</p>
+      <div class="board">
+        <div class="board-title">LOCAL TOP 5 · 本地最高分</div>
+        <ol id="top5List"></ol>
+      </div>
       <button id="restart">新 局</button>
     </div>
   </div>
@@ -149,6 +173,7 @@
   var flying;        // {x,y,vx,vy,color} or null
   var aimAngle;      // radians, pointing up (negative)
   var score, best, shots, state;
+  var _myTopRank = 0;   // 本局在本地排行榜的名次（0=未上榜），用于结束浮层高亮
   var _confettiFired=false; // 通关（盘面清空）confetti 已触发（独立于 Juice 的只读测试锁）
   var _fxShakes = 0, _fxBursts = 0; // 手感深化：屏震/粒子 只读计数钩子
   var popFx;         // particle effects
@@ -509,11 +534,52 @@
       var b = Juice.best('bubble', score); var rk = Juice.rank(score);
       if (score > 0 && b.isNew) Juice.achievement('🏆 新纪录 ' + score + '！段位 ' + rk);
     }
+    // 本地排行榜：委托 Common.HighScores（经共享存储封装，防收敛闸门拦截裸存储）
+    _myTopRank = Common.HighScores.record('bubble', score, null);
+    if (_myTopRank > 0) {
+      Juice.achievement('📊 进入本地排行榜 第 ' + _myTopRank + ' 名');
+    }
+    renderTop5();
     if (win && !_confettiFired) {
       _confettiFired=true;
       if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
       if (typeof Juice !== 'undefined' && Juice.shake) Juice.shake(0.4);
     }
+  }
+
+  // 渲染本地排行榜到 #top5List：复用 Common.HighScores 数据与头像/段位/相对时间。
+  // 当前玩家行红框高亮 + [ME] 徽章；无 DOM 环境静默跳过。
+  function renderTop5() {
+    try {
+      var box = document.getElementById('top5List');
+      if (!box) return;
+      var list = Common.HighScores.read('bubble');
+      if (list.length === 0) {
+        box.innerHTML = '<li class="board-empty"><div class="hint">👑 NO RECORDS YET</div>暂无记录 · 来一局<br>你的分数将占榜首</li>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < list.length; i++) {
+        var rec = list[i], rank = i + 1;
+        var user = rec.user || 'PLAYER';
+        var hue = Common.HighScores.avatarHue(user);
+        var tier = Common.HighScores.tierOf(rec.score);
+        var dur = Common.HighScores.fmtDur(rec.dur);
+        var rt = Common.HighScores.relTime(rec.ts || (rec.date ? new Date(rec.date + 'T00:00:00').getTime() : 0));
+        var mine = (_myTopRank > 0 && rank === _myTopRank);
+        var badge = mine ? '<span class="badge">[ME]</span>' : '';
+        var avatar = '<div class="avatar" style="display:inline-block;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:700;color:#0a0e14;background:linear-gradient(135deg,hsl(' + hue + ',72%,52%),hsl(' + ((hue + 40) % 360) + ',72%,38%))">' + user.charAt(0) + '</div>';
+        var line2 = '<span class="sc">' + rec.score + '</span><span class="dt">' + dur + ' · ' + rt + '</span>';
+        var tierBadge = '<span class="dt">' + tier.e + ' ' + tier.n + '</span>';
+        var cupCls = rank === 2 ? 'silver' : (rank === 3 ? 'bronze' : (rank === 1 ? 'gold' : ''));
+        var cup = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
+        html += '<li class="' + cupCls + (mine ? ' mine' : '') + '">'
+          + '<span class="rk">' + cup + '</span>' + avatar
+          + '<div style="display:flex;flex-direction:column;gap:2px">' + tierBadge + line2 + '</div>'
+          + badge + '</li>';
+      }
+      box.innerHTML = html;
+    } catch (e) { /* 静默：不阻断游戏流程 */ }
   }
 
   // ---- Effects ----

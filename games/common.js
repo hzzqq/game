@@ -475,6 +475,101 @@
   };
 
 
+  /* ---------- 本地最高分排行榜（共享数据层） ----------
+   * 为单文件游戏提供可复用的「本地 Top N 排行榜」数据层，避免每款游戏重复实现、
+   * 也避免游戏文件裸用 localStorage（收敛闸门 rawLocalStorage 不变量）。
+   * 设计：纯数据 + 纯函数，不含任何 DOM/UI；渲染由各自游戏按自身主题完成。
+   * 存储：Common.Storage key = 'game:'+key+':top5'，值为 [{score,user,ts,dur,date}]，
+   *      按分数降序、同分先达成(ts较小)者靠前，截断为 topN（默认 5）。
+   * 防回归：无 DOM / 无 localStorage 环境（vm 沙箱、测试）走 try/catch 静默路径。
+   * 真实消费者：snake.html、bubble.html 等已接入（Common 工具不得零消费者）。 */
+  Common.HighScores = {
+    // 玩家代号：首次自动生成 3 字符（大写字母数字，去易混 I/O/0/1），存本地复用。
+    // 不弹窗输昵称——弹窗会侵入游戏启动流程，破坏单文件零侵入模型。
+    playerTag: function (gameKey) {
+      try {
+        var t = Common.Storage.get(gameKey, 'tag', null);
+        if (t) return t;
+        var h = 0, s = gameKey + ':' + Date.now();
+        for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+        var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        var tag = chars[h & 31] + chars[(h >>> 5) & 31] + chars[(h >>> 10) & 31];
+        Common.Storage.set(gameKey, 'tag', tag);
+        return tag;
+      } catch (e) { return 'YOU'; }
+    },
+
+    // 头像底色：代号 hash → 色相角（0-359），渲染时拼 hsl 渐变
+    avatarHue: function (tag) {
+      var h = 0;
+      for (var i = 0; i < tag.length; i++) { h = (h * 33 + tag.charCodeAt(i)) | 0; }
+      return Math.abs(h) % 360;
+    },
+
+    // 段位：按分数区间映射（5 档 emoji + 中文名）。各游戏如需自定义可覆盖此函数。
+    tierOf: function (s) {
+      if (s >= 50) return { e: '💎', n: '钻石' };
+      if (s >= 35) return { e: '🟦', n: '铂金' };
+      if (s >= 20) return { e: '🟨', n: '黄金' };
+      if (s >= 10) return { e: '⬜', n: '白银' };
+      return { e: '🟫', n: '青铜' };
+    },
+
+    // 相对时间：今日 HH:MM / 昨日 MM-DD / MM-DD
+    relTime: function (ts) {
+      if (!ts) return '';
+      var d = new Date(ts), n = new Date();
+      var p = function (v) { return ('0' + v).slice(-   2); };
+      var sameDay = d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+      if (sameDay) return '今日 ' + p(d.getHours()) + ':' + p(d.getMinutes());
+      var y = new Date(n.getFullYear(), n.getMonth(), n.getDate() - 1);
+      var isYest = d.getFullYear() === y.getFullYear() && d.getMonth() === y.getMonth() && d.getDate() === y.getDate();
+      if (isYest) return '昨日 ' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+      return p(d.getMonth() + 1) + '-' + p(d.getDate());
+    },
+
+    // 用时 mm:ss
+    fmtDur: function (ms) {
+      if (!ms) return '--:--';
+      var s = Math.floor(ms / 1000);
+      return ('0' + Math.floor(s / 60)).slice(-2) + ':' + ('0' + (s % 60)).slice(-2);
+    },
+
+    // 写入一条成绩，返回本次名次（1..topN=上榜，0=未上榜/非正分）。
+    record: function (gameKey, score, durMs) {
+      if (!(score > 0)) return 0;
+      var list = [];
+      try { list = Common.Storage.get(gameKey, 'top5', []) || []; } catch (e) { list = []; }
+      if (!Array.isArray(list)) list = [];
+      var now = new Date();
+      var rec = {
+        score: score,
+        user: this.playerTag(gameKey),
+        ts: now.getTime(),
+        dur: durMs || 0,
+        date: now.toISOString().slice(0, 10)
+      };
+      list.push(rec);
+      list.sort(function (a, b) { return b.score - a.score || ((a.ts || 0) - (b.ts || 0)); });
+      var topN = 5;
+      if (list.length > topN) list.length = topN;
+      var rank = 0;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].score === score && list[i].ts === rec.ts) { rank = i + 1; break; }
+      }
+      try { Common.Storage.set(gameKey, 'top5', list); } catch (e) {}
+      return rank;
+    },
+
+    // 读取当前榜单（数组，已排序），无数据返回 []
+    read: function (gameKey) {
+      var list = [];
+      try { list = Common.Storage.get(gameKey, 'top5', []) || []; } catch (e) { list = []; }
+      if (!Array.isArray(list)) list = [];
+      return list;
+    }
+  };
+
   /* ---------- 统一「退出 / 返回大厅」按钮 ----------
    * 所有加载 common.js 的游戏页自动获得一个固定定位的返回大厅按钮，
    * 无需逐个游戏改代码（166 款一次性覆盖）。大厅(index.html)与测试页不加。

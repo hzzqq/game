@@ -52,9 +52,16 @@ function scan() {
     if (src.includes(':root')) issues.inlineTheme.push(name);
     if (hasBareRaf(src)) issues.bareRaf.push(name);
     if (!/\bCommon\b/.test(src)) issues.notUsingCommon.push(name);
-    // 原生 roundRect 实现：函数体内含 arcTo（薄封装只调 Common.roundRect，不含 arcTo）
+    // 原生 roundRect A实现：函数体内含 arcTo（薄封装只调 Common.roundRect，不含 arcTo）
     if (/function\s+roundRect\s*\([^)]*\)\s*\{[^}]*arcTo/.test(src)) issues.rawRoundRect.push(name);
   }
+  // 门户启动器（根目录 index.html）也纳入裸存储检查：即便当前干净，也防止未来有人裸用本地存储。
+  // 注意：门户不引用 Common、不是游戏，故 notUsingCommon / bareRaf / rawRoundRect 不针对它。
+  const portal = path.join(GAMES_DIR, '..', 'index.html');
+  try {
+    const ps = fs.readFileSync(portal, 'utf8');
+    if (ps.includes('localStorage')) issues.rawLocalStorage.push('../index.html');
+  } catch (e) { /* 不存在则跳过 */ }
   // 死代码检测：common.js 导出的每个 Common.X 必须在全库有 ≥1 处外部引用
   // （仅定义自身、零引用的工具 = 死代码/水活，必须删除或补消费者；防止未来再出现 A 系列式零消费者工具）
   var _cSrc = fs.readFileSync(path.join(GAMES_DIR, 'common.js'), 'utf8');
