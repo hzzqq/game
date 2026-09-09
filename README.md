@@ -143,3 +143,20 @@ cd games && python -m http.server 8000   # 然后访问 http://localhost:8000
 ---
 
 © 软件工程实训 · StockSignal 游戏合集
+
+---
+
+## 🏗️ 架构
+
+```mermaid
+flowchart TB
+    G[165 款原生游戏<br/>HTML / CSS / JS] --> CORE[共享核心 core/]
+    CORE --> IN[input.js · 统一输入层<br/>修复断触]
+    CORE --> CM[common.js · 手感引擎]
+    CORE --> TK[toolkit · 通用能力]
+    G --> TEST[自动化测试 · 6641 项全绿]
+    TEST --> TR[test-runner.js · 静态检测 953]
+    TEST --> LR[logic/* · 5688 逻辑单测<br/>167 文件]
+```
+
+> 设计要点：**共享核心收口重复代码**——165 款游戏复用同一套输入层与手感引擎，新增游戏只需写玩法；配 6641 项自动化测试（静态 + 逻辑）保证合集长期可维护。
