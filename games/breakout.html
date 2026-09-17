@@ -64,6 +64,8 @@
   .btn-main:hover:not(:disabled){ filter:brightness(1.1); }
   /* 画布区 */
   .stage{ position:relative; z-index:6; padding:14px; background:var(--bg); }
+  /* T-119：本地 Top5 榜单浮层（game over 时显示，开新局隐藏；样式主体走 Common.HighScores.render 注入的 .hs-board） */
+  #top5Board{position:absolute;top:56px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
   canvas{
     display:block; margin:0 auto;
     border:1px solid var(--border); border-radius:6px;
@@ -94,6 +96,7 @@
     </div>
     <div class="stage">
       <canvas id="game" width="780" height="540"></canvas>
+      <div id="top5Board"></div>
       <div class="hint">鼠标 / ←→ / 触屏拖动 移动挡板 · 接住掉落道具（宽/多/慢/♥/炸）· 打碎所有砖块过关</div>
       <div class="diffbar" id="diffbar"></div>
     </div>
@@ -222,6 +225,7 @@
     paddle.w=paddle.baseW; wideUntil=0; slowUntil=0;
     _confettiFired=false; // 新游戏重置通关反馈锁（仅视觉状态）
     _fxShakes=0; _fxBursts=0; _combo=0; // 重置手感计数器
+    var _tb = document.getElementById('top5Board'); if(_tb) _tb.style.display='none';
     buildLevel(); resetBall();
     setState('ready');
   }
@@ -437,6 +441,10 @@
           const b=Juice.best('breakout',score); const rk=Juice.rank(score);
           if(b.isNew) Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk);
         }
+        // 本地 Top5 榜单：委托 Common.HighScores（T-119，数据+渲染走共享层）
+        var _tr = Common.HighScores.record('breakout', score, null);
+        Common.HighScores.render('breakout', document.getElementById('top5Board'), _tr);
+        var _tb = document.getElementById('top5Board'); if(_tb) _tb.style.display='block';
       }
       else { resetBall(); setState('ready'); }
     }
@@ -763,6 +771,10 @@
 
   // ---- 测试钩子 ----
   window.__t = {
+    // ---- 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+    recordScore: function(s){ return Common.HighScores.record('breakout', s, null); },
+    getTop5: function(){ try { return Common.HighScores.read('breakout'); } catch(e){ return []; } },
+    clearTop5: function(){ try { Common.Storage.set('breakout','top5',[]); return true; } catch(e){ return false; } },
     buildLevel: buildLevel, applyPower: applyPower, makeBall: makeBall, render,
     resetBall: resetBall, startGame: startGame, maybeDrop: maybeDrop, launch: launch,
     clamp: clamp,
