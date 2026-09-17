@@ -75,3 +75,27 @@ t.newGame();
 eq('dominoes 重开后 fxShakes=0', t.fxShakes(), 0);
 eq('dominoes 重开后 fxBursts=0', t.fxBursts(), 0);
 
+// ===== T-118：真实发牌（双六套 28 张洗牌各发 7）+ setRand 随机缝 =====
+(() => {
+  const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  ok('dominoes setRand 钩子存在', typeof t.setRand === 'function');
+  t.setRand(lcg(7));     t.newGame(); const d1 = JSON.stringify(t.getHands());
+  t.setRand(lcg(7));     t.newGame(); const d2 = JSON.stringify(t.getHands());
+  t.setRand(lcg(99999)); t.newGame(); const d3 = JSON.stringify(t.getHands());
+  ok('dominoes 同种子发牌确定', d1 === d2);
+  ok('dominoes 不同种子发牌不同', d1 !== d3);
+  // 双六套合法性：共 14 张、均在 0≤a≤b≤6 且互不重复
+  const dealt = JSON.parse(d1)[0].concat(JSON.parse(d1)[1]);
+  ok('dominoes 两家共 14 张', dealt.length === 14);
+  const seen = new Set();
+  let valid = true;
+  for (const [a, b] of dealt) {
+    if (!(a >= 0 && a <= b && b <= 6)) valid = false;
+    const k = a + '-' + b;
+    if (seen.has(k)) valid = false;
+    seen.add(k);
+  }
+  ok('dominoes 牌张合法（双六套内）且互不重复', valid);
+  t.setRand();
+})();
+

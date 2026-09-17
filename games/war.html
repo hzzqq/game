@@ -54,6 +54,9 @@
 <script>
 (function(){
   "use strict";
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
   let p1, p2, over, winner, last;
   let _wonPrev=false, _confettiFired=0;
 
@@ -86,7 +89,14 @@
   }
 
   function rank(r){ return r; } // 2..14，A=14 最大
-  function newGame(){ p1=[{r:10},{r:7},{r:3}]; p2=[{r:5},{r:7},{r:2}]; over=false; winner=null; last=null; pickups=[]; shield=0; rngPick=mk(0x7A5B3C1D); _wonPrev=false; _confettiFired=0; }
+  // T-118 修复：此前 newGame 双方各发 3 张硬编码固定牌（每局完全相同、零重玩性）；
+  // 现按经典 War 规则：52 张牌（点数 2..14 各 4 张）洗牌后对半 26/26（_randFn 可注入复现）。
+  function buildDeck(){
+    const d=[];
+    for(let s=0;s<4;s++) for(let r=2;r<=14;r++) d.push({r:r});
+    return Common.shuffle(d, _randFn);
+  }
+  function newGame(){ const deck=buildDeck(); p1=deck.slice(0,26); p2=deck.slice(26); over=false; winner=null; last=null; pickups=[]; shield=0; rngPick=mk(0x7A5B3C1D); _wonPrev=false; _confettiFired=0; }
   function step(){
     if(over) return null;
     const pot=[];
@@ -143,6 +153,8 @@
   }
   if(typeof window!=='undefined'){
     window.__t={
+      setRand: setRand,
+      getCards:()=>({ p1:p1.map(c=>c.r), p2:p2.map(c=>c.r) }),
       newGame, step, getDecks, getWinner, isOver, getLast, setDecks, rank, PICKUPS,
       reset: newGame,
       update: step,

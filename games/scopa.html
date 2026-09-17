@@ -48,9 +48,19 @@
 <script>
 (function(){
   "use strict";
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
   let table, hand, captured, scopaCount, sel;
   let _won=false, _confettiFired=0;
-  function newGame(){ table=[{v:2,s:0},{v:5,s:1},{v:7,s:2},{v:1,s:3}]; hand=[{v:3,s:0},{v:6,s:1},{v:9,s:2},{v:4,s:3}]; captured=0; scopaCount=0; sel=null; _won=false; _confettiFired=0; }
+  // T-118 修复：此前桌面与手牌均为硬编码固定牌（每局完全相同、零重玩性）；
+  // 现从 40 张整副牌（点数 1..10 × 4 花色）洗牌后发 4 张桌面 + 4 张手牌（_randFn 可注入复现）。
+  function buildDeck(){
+    const d=[];
+    for(let s=0;s<4;s++) for(let v=1;v<=10;v++) d.push({v:v,s:s});
+    return Common.shuffle(d, _randFn);
+  }
+  function newGame(){ const deck=buildDeck(); table=deck.slice(0,4); hand=deck.slice(4,8); captured=0; scopaCount=0; sel=null; _won=false; _confettiFired=0; }
   function findCapture(val){
     const n=table.length; let best=null;
     for(let mask=1;mask<(1<<n);mask++){ let sum=0,cnt=0; for(let i=0;i<n;i++) if(mask&(1<<i)){ sum+=table[i].v; cnt++; } if(sum===val){ if(!best||cnt>best.cnt||(cnt===best.cnt&&sum>best.sum)) best={mask,cnt,sum}; } }
@@ -89,7 +99,7 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ newGame, play, getTable, getHand, getCaptured, getScopa, findCapture, setTableau,
+    window.__t={ setRand, newGame, play, getTable, getHand, getCaptured, getScopa, findCapture, setTableau,
       declareWin, hasWon: function(){ return _won; }, confettiFired: function(){ return _confettiFired; } };
   }
 })();

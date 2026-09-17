@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T08:38:55.183Z",
+  "generatedAt": "2026-09-17T08:55:23.854Z",
   "games": [
     {
       "file": "2048.html",
@@ -598,7 +598,7 @@
     },
     {
       "file": "dominoes.html",
-      "mathRandom": 0,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -1888,7 +1888,7 @@
     },
     {
       "file": "scopa.html",
-      "mathRandom": 0,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -2368,7 +2368,7 @@
     },
     {
       "file": "war.html",
-      "mathRandom": 0,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -2377,7 +2377,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 10,
+      "hookFnCount": 12,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2609,7 +2609,7 @@
   ],
   "summary": {
     "gamesScanned": 165,
-    "totalNakedMathRandom": 160,
+    "totalNakedMathRandom": 166,
     "gamesWithMulberryDef": 0,
     "gamesUsingCommon": 165,
     "gamesWithLocalPrngHelpers": 8,
