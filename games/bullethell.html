@@ -311,15 +311,9 @@
       if(overlay){overlay.style.display='flex';const h1=overlay.querySelector('h1');if(h1)h1.textContent='☠ 被弹幕吞没 · 得分 '+S.score;const b=overlay.querySelector('.start');if(b)b.textContent='再躲一次';}
     }
     function buildDiffBar(){
-      const bar=$('diffbar'); if(!bar) return;
-      bar.innerHTML='';
-      DIFF_ORDER.forEach(k=>{
-        const b=document.createElement('button');
-        b.textContent=DIFFICULTY[k].label;
-        if(k===difficulty) b.className='active';
-        b.addEventListener('click',()=>{ setDifficulty(k); buildDiffBar(); });
-        bar.appendChild(b);
-      });
+      // T-121：委托共享核心（四档键与本项目 DIFFICULTY 一致）；bar.set 同步当前档位高亮
+      var bar = Common.buildDiffBar('#diffbar', function(d){ setDifficulty(d); });
+      if (bar) bar.set(difficulty);
     }
     buildDiffBar();
     if(startBtn)startBtn.addEventListener('click',start);

@@ -197,4 +197,21 @@ H.ok('easing.outCubic 单调递增(0.25)>0.25', Common.easing.outCubic(0.25) > 0
 H.ok('easing 输出有限数', [Common.easing.outCubic(0.3), Common.easing.inOutQuad(0.7), Common.easing.inOutCubic(0.9)].every(Number.isFinite));
 H.ok('circle 半径0不抛错', (function () { const mc = mockCtx(); try { Common.circle(mc, 0, 0, 0); return mc._c.indexOf('arc') >= 0; } catch (e) { return false; } })());
 
+// ---- buildDiffBar / DIFFICULTY（T-121 收口：容器缺失兜底 + 四档键一致 + 配置数值合法）----
+H.ok('buildDiffBar 容器缺失返回 null', Common.buildDiffBar(null, function () {}) === null);
+H.ok('DIFFICULTY 四档键完整', (function () {
+  const want = ['easy', 'normal', 'hard', 'hell'];
+  const keys = Object.keys(Common.DIFFICULTY);
+  return keys.length === 4 && want.every(k => keys.indexOf(k) >= 0);
+})());
+H.ok('DIFFICULTY 各档倍率为正数', (function () {
+  const fields = ['speedMult', 'growth', 'countMult', 'hpMult', 'dmgMult', 'bossHpMult', 'dropMult'];
+  return Object.keys(Common.DIFFICULTY).every(k => fields.every(f => typeof Common.DIFFICULTY[k][f] === 'number' && Common.DIFFICULTY[k][f] > 0));
+})());
+H.ok('DIFFICULTY normal 档主倍率全 1（growth 除外=1.12 渐进）', (function () {
+  const n = Common.DIFFICULTY.normal;
+  const ones = ['speedMult', 'bulletMult', 'countMult', 'hpMult', 'dmgMult', 'bossHpMult', 'dropMult'];
+  return ones.every(f => n[f] === 1) && n.growth === 1.12;
+})());
+
 module.exports = {};

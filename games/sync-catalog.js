@@ -69,7 +69,8 @@ function auditRandom() {
     const mulCalls = (clean.match(/mulberry32\s*\(/g) || []).length;
     usesCommon = /Common\s*\.\s*(mulberry32|lcg|range|Loop|buildDiffBar|injectTheme|confetti|shuffle|clamp|lerp|DIFFICULTY)/.test(raw);
     const hasInlineTheme = THEME_RE.test(raw) && /<style[\s\S]*:root/.test(raw);
-    const hasDiffbar = DIFFBAR_RE.test(raw);
+    // T-121 口径修正：手写 diffbar = 有痕迹且未委托 Common.buildDiffBar（否则用共享版的也因有容器被误计）
+    const hasDiffbar = DIFFBAR_RE.test(raw) && !/Common\.buildDiffBar/.test(raw);
     // 只统计真实调用 requestAnimationFrame(...)；排除 typeof 环境守卫（harness 兼容写法）
     const hasRAF = /(?<!typeof\s)requestAnimationFrame\s*\(/.test(clean);
     const logicNaked = mathCount > 0 && !usesCommon;

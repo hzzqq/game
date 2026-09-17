@@ -305,20 +305,9 @@ function bindUI(){
   if(typeof requestAnimationFrame!=='undefined') rafId=loop.start();
 }
 function buildDiffBar(){
-  if(typeof document==='undefined') return;
-  let bar=document.getElementById('diffbar');
-  if(!bar){
-    bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
-    const body=document.querySelector('.body'); if(body) body.insertBefore(bar, body.firstChild);
-  }
-  if(!bar) return;
-  bar.innerHTML='';
-  DIFF_ORDER.forEach(k=>{
-    const b=document.createElement('button'); b.textContent=DIFFICULTY[k].label;
-    if(k===difficulty) b.className='active';
-    b.addEventListener('click',()=>{ if(setDifficulty(k)){ reset(); } });
-    bar.appendChild(b);
-  });
+  // T-121：委托共享核心（四档键与本项目 DIFFICULTY 一致）；bar.set 同步当前档位高亮
+  var bar = Common.buildDiffBar('#diffbar', function(d){ if(setDifficulty(d)){ reset(); } });
+  if (bar) bar.set(difficulty);
 }
 reset();
 if(typeof document!=='undefined' && document.getElementById){

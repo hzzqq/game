@@ -571,16 +571,9 @@
     ;
 });
   function buildDiffBar(){
-    if(typeof document==='undefined') return;
-    var bar=document.getElementById('diffbar'); if(!bar) return;
-    bar.innerHTML='';
-    DIFF_ORDER.forEach(function(k){
-      var b=document.createElement('button');
-      b.textContent=DIFFICULTY[k].label;
-      if(k===difficulty) b.className='active';
-      b.addEventListener('click',function(){ setDifficulty(k); buildDiffBar(); });
-      bar.appendChild(b);
-    });
+    // T-121：委托共享核心（四档键与本项目 DIFFICULTY 一致）；bar.set 同步当前档位高亮
+    var bar = Common.buildDiffBar('#diffbar', function(d){ setDifficulty(d); });
+    if (bar) bar.set(difficulty);
   }
   // 初始
   state='menu';

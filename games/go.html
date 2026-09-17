@@ -185,9 +185,9 @@
     if(!bar){ bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
       const ref=document.querySelector('.controls')||document.querySelector('.wrap');
       if(ref&&ref.parentNode) ref.parentNode.insertBefore(bar, ref); }
-    bar.innerHTML='';
-    DIFF_ORDER.forEach(k=>{ const b=document.createElement('button'); b.textContent=DIFFICULTY[k].label; if(k===difficulty) b.className='active';
-      b.addEventListener('click',()=>{ setDifficulty(k); buildDiffBar(); }); bar.appendChild(b); });
+    // T-121：委托共享核心（四档键与本项目 DIFFICULTY 一致）；bar.set 同步当前档位高亮
+    var ui = Common.buildDiffBar(bar, function(d){ setDifficulty(d); });
+    if (ui) ui.set(difficulty);
   }
 
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }

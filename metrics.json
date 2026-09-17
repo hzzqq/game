@@ -1,40 +1,40 @@
 {
-  "generatedAt": "2026-08-07T09:39:26.136Z",
+  "generatedAt": "2026-09-17T15:55:10.429Z",
   "games": 165,
-  "totalHtmlLoc": 55039,
-  "avgLocPerGame": 334,
+  "totalHtmlLoc": 55193,
+  "avgLocPerGame": 335,
   "locBuckets": {
-    "<500": 135,
-    "500-1000": 30,
+    "<500": 134,
+    "500-1000": 31,
     "1000-2000": 0,
     ">2000": 0
   },
   "top5Largest": [
     {
+      "file": "bubble.html",
+      "loc": 936
+    },
+    {
       "file": "tetris.html",
-      "loc": 919
+      "loc": 912
     },
     {
       "file": "carrot.html",
       "loc": 890
     },
     {
-      "file": "bubble.html",
-      "loc": 877
-    },
-    {
       "file": "rhythm.html",
-      "loc": 877
+      "loc": 882
     },
     {
       "file": "runner.html",
-      "loc": 838
+      "loc": 839
     }
   ],
   "tests": {
     "files": 168,
-    "passed": 5792,
-    "total": 5792,
+    "passed": 5950,
+    "total": 5950,
     "green": true
   },
   "commonAdoption": {
@@ -42,12 +42,12 @@
     "adoptionPct": 100,
     "logicNakedRandom": 0,
     "inlineTheme": 0,
-    "diffbar": 55,
+    "diffbar": 20,
     "rafLoop": 0
   },
   "testability": {
     "withHooks": 164,
     "withLogicTest": 165,
-    "avgHookFns": 8.2
+    "avgHookFns": 8.3
   }
 }
