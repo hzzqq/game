@@ -112,3 +112,15 @@ eq('接水管解出触发彩带', t.confettiFired, pf0+1);
 t.render();
 eq('已解出不重复触发', t.confettiFired, pf0+1);
 
+// ===== setRand 可注入随机源（T-115：随机缝 + 确定性验证）=====
+(() => {
+  const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  ok('plumber setRand 钩子存在', typeof t.setRand === 'function');
+  t.setRand(lcg(7));     t.newGame(); const b1 = JSON.stringify(t.getBoard());
+  t.setRand(lcg(7));     t.newGame(); const b2 = JSON.stringify(t.getBoard());
+  t.setRand(lcg(99999)); t.newGame(); const b3 = JSON.stringify(t.getBoard());
+  ok('plumber 同种子谜盘确定', b1 === b2);
+  ok('plumber 不同种子谜盘不同', b1 !== b3);
+  t.setRand();
+})();
+

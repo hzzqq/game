@@ -33,6 +33,14 @@ H.ok(T.confettiFired() === true, 'rhythm: 高评级终演 → confettiFired 为�
 T.finish();
 H.ok(T.confettiFired() === true, 'rhythm: 重复终演受锁保护（只触发一次）');
 
+// ===== setRand 可注入随机源（T-115：随机缝 + 确定性验证）=====
+(() => {
+  H.ok('rhythm setRand 钩子存在', typeof T.setRand === 'function');
+  T.setRand(() => 0.5);
+  H.ok('rhythm 注入后谱面状态完好', Array.isArray(T.G.notes));
+  T.setRand();
+})();
+
 const results = H.results;
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

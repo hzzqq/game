@@ -242,6 +242,10 @@
 <script>
 "use strict";
 
+// 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+var _randFn = Math.random;
+function setRand(fn){ _randFn = fn || Math.random; }
+
 /* ============== 配置 ============== */
 const KEYS = ['d','f','j','k'];
 const LANE_W = 90;
@@ -300,7 +304,7 @@ function makeNoiseBuffer(){
   const len = Math.floor(audioCtx.sampleRate * 0.2);
   const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
   const d = buf.getChannelData(0);
-  for(let i=0;i<len;i++) d[i] = Math.random()*2 - 1;
+  for(let i=0;i<len;i++) d[i] = _randFn()*2 - 1;
   return buf;
 }
 
@@ -391,15 +395,15 @@ function buildProceduralBeatmap(startTime, duration){
   let lastLane = -1;
   for(let b=0;b<totalBeats;b++){
     const t = startTime + b * BEAT;
-    const onBeat = (b % 4 === 0) || (b % 2 === 0 ? Math.random() < 0.7 : Math.random() < 0.5);
+    const onBeat = (b % 4 === 0) || (b % 2 === 0 ? _randFn() < 0.7 : _randFn() < 0.5);
     if(onBeat){
-      let lane = Math.floor(Math.random()*4);
+      let lane = Math.floor(_randFn()*4);
       if(lane === lastLane) lane = (lane + 1) % 4;
       notes.push({lane, hitTime:t, judged:false, result:null});
       lastLane = lane;
     }
-    if(Math.random() < 0.22){
-      const lane = Math.floor(Math.random()*4);
+    if(_randFn() < 0.22){
+      const lane = Math.floor(_randFn()*4);
       notes.push({lane, hitTime:t + BEAT/2, judged:false, result:null});
     }
   }
@@ -858,7 +862,8 @@ mp3Input.addEventListener('change', async (e)=>{
 
   // 测试钩子（不影响正常玩法）
   window.__t = {
-    G,
+  setRand,
+  G,
     setShield(v){ G.shield = v; updateHUD(); },
     getShield(){ return G.shield; },
     judgeNote(note, result){ judge(note, result); },

@@ -221,6 +221,18 @@ t.checkWin();
 ok('endGame 好人胜 触发胜利彩带(confettiFired)', t.confettiFired());
 
 // ===== 汇总 =====
+// ===== setRand 可注入随机源（T-115：随机缝 + 确定性验证）=====
+(() => {
+  const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  ok('werewolf setRand 钩子存在', typeof t.setRand === 'function');
+  t.setRand(lcg(7));     const w1 = JSON.stringify(t.shuffle([1,2,3,4,5,6,7,8]));
+  t.setRand(lcg(7));     const w2 = JSON.stringify(t.shuffle([1,2,3,4,5,6,7,8]));
+  t.setRand(lcg(99999)); const w3 = JSON.stringify(t.shuffle([1,2,3,4,5,6,7,8]));
+  ok('werewolf 同种子洗牌确定', w1 === w2);
+  ok('werewolf 不同种子洗牌不同', w1 !== w3);
+  t.setRand();
+})();
+
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;
 console.log(`\nwerewolf: ${passed}/${total} 通过`);

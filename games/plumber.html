@@ -52,6 +52,9 @@
 <script>
 (function(){
   "use strict";
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
   const N=6;
   const U=1,R=2,D=4,L=8;
   let board, over;
@@ -103,9 +106,9 @@
     // 构造 L 型解：第 0 行横向，最后一列纵向
     for(let c=0;c<N;c++){ board[0][c]= (c===0?L|R : (c===N-1?L|D : L|R)); }
     for(let r=1;r<N;r++){ board[r][N-1]= (r===N-1?U|R : U|D); }
-    for(let r=0;r<N;r++) for(let c=0;c<N;c++){ if(r===0&&c===0) continue; if(r===0&&c===N-1) continue; if(r===N-1&&c===N-1) continue; if(c===N-1&&r>0) continue; board[r][c]=(1+Math.floor(Math.random()*15)); }
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){ if(r===0&&c===0) continue; if(r===0&&c===N-1) continue; if(r===N-1&&c===N-1) continue; if(c===N-1&&r>0) continue; board[r][c]=(1+Math.floor(_randFn()*15)); }
     // 打乱旋转
-    for(let r=0;r<N;r++) for(let c=0;c<N;c++){ const k=Math.floor(Math.random()*4); for(let i=0;i<k;i++) board[r][c]=rotMask(board[r][c]); }
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){ const k=Math.floor(_randFn()*4); for(let i=0;i<k;i++) board[r][c]=rotMask(board[r][c]); }
     over=false;
   }
   function rotate(r,c){ if(over) return; board[r][c]=rotMask(board[r][c]); collectAt(r,c); if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.addTrauma(0.15); } }
@@ -159,7 +162,7 @@
     else { build(); bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ N, U, R, D, L, newGame, rotate, getMask, getBoard, isSolved, setBoard, rotMask, render,
+    window.__t={ setRand, N, U, R, D, L, newGame, rotate, getMask, getBoard, isSolved, setBoard, rotMask, render,
       // 注入钩子
       PICK, spawnPickup, spawnPickupAtRandom, applyPickup, collectAt, updatePickups, takeHit,
       getPickups, getCoins, getShield, setShield, getBoost, setBoost,

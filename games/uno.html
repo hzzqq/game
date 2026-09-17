@@ -112,6 +112,9 @@
 <script>
 (function(){
   "use strict";
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
   const RED='#f6465d',GREEN='#02c076',BLUE='#3b82f6',YEL='#f0b90b';
   const COL = {r:RED,g:GREEN,b:BLUE,y:YEL};
   const SYM = {skip:'⊘',reverse:'⇄',draw2:'+2',wild:'★',wild4:'+4'};
@@ -127,7 +130,7 @@
     for(let i=0;i<4;i++){ d.push({color:'w',value:'wild'}); d.push({color:'w',value:'wild4'}); }
     return shuffle(d);
   }
-  function shuffle(a){ return Common.shuffle(a, Math.random); }
+  function shuffle(a){ return Common.shuffle(a, _randFn); }
   function reshuffle(){ const top=discard.pop(); deck=shuffle(discard); discard=[top]; }
 
   function reset(){
@@ -213,7 +216,7 @@
     // 优先出非 wild4 的功能/数字牌，保留万能牌
     let pool = legal.filter(function(i){ return !(hands[current][i].color==='w' && hands[current][i].value==='wild4'); });
     if(pool.length===0) pool=legal;
-    const pick = pool[(Math.random()*pool.length)|0];
+    const pick = pool[(_randFn()*pool.length)|0];
     playCard(current, pick);
   }
 
@@ -309,7 +312,8 @@
   reset();
 
   window.__t = {
-    buildDeck, isLegal, playCard, drawCards, reset,
+  setRand,
+  buildDeck, isLegal, playCard, drawCards, reset,
     setN(n){ N=n; },
     getState(){ return { N:N, current:current, dir:dir, currentColor:currentColor, gameOver:gameOver,
       hands:hands.map(function(h){ return h.length; }), deck:deck.length }; },

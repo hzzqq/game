@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T08:03:53.155Z",
+  "generatedAt": "2026-09-17T08:38:55.183Z",
   "games": [
     {
       "file": "2048.html",
@@ -233,7 +233,7 @@
     },
     {
       "file": "blackjack.html",
-      "mathRandom": 1,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -242,7 +242,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 9,
+      "hookFnCount": 10,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1353,7 +1353,7 @@
     },
     {
       "file": "match3.html",
-      "mathRandom": 1,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -1553,7 +1553,7 @@
     },
     {
       "file": "parkour.html",
-      "mathRandom": 15,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -1562,7 +1562,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 16,
+      "hookFnCount": 17,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1583,7 +1583,7 @@
     },
     {
       "file": "pinball.html",
-      "mathRandom": 1,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -1748,7 +1748,7 @@
     },
     {
       "file": "racing.html",
-      "mathRandom": 9,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -1778,7 +1778,7 @@
     },
     {
       "file": "rhythm.html",
-      "mathRandom": 6,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -2383,7 +2383,7 @@
     },
     {
       "file": "werewolf.html",
-      "mathRandom": 11,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -2392,7 +2392,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 45,
+      "hookFnCount": 46,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2443,7 +2443,7 @@
     },
     {
       "file": "words.html",
-      "mathRandom": 6,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -2452,7 +2452,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 8,
+      "hookFnCount": 9,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2609,7 +2609,7 @@
   ],
   "summary": {
     "gamesScanned": 165,
-    "totalNakedMathRandom": 194,
+    "totalNakedMathRandom": 160,
     "gamesWithMulberryDef": 0,
     "gamesUsingCommon": 165,
     "gamesWithLocalPrngHelpers": 8,

@@ -81,4 +81,16 @@ T.runRound([Ten, N9], [Ten, N9], 100);
 H.eq('newGame 后 shake 归零', T.fxShakes(), 0);
 H.eq('newGame 后 burst 归零', T.fxBursts(), 0);
 
+// ===== setRand 可注入随机源（T-115：随机缝 + 确定性验证）=====
+(() => {
+  const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  H.ok('blackjack setRand 钩子存在', typeof T.setRand === 'function');
+  T.setRand(lcg(7));     T.buildShoe(); const d1 = JSON.stringify([T.draw(), T.draw(), T.draw(), T.draw(), T.draw()]);
+  T.setRand(lcg(7));     T.buildShoe(); const d2 = JSON.stringify([T.draw(), T.draw(), T.draw(), T.draw(), T.draw()]);
+  T.setRand(lcg(99999)); T.buildShoe(); const d3 = JSON.stringify([T.draw(), T.draw(), T.draw(), T.draw(), T.draw()]);
+  H.ok('blackjack 同种子洗牌发牌序列确定', d1 === d2);
+  H.ok('blackjack 不同种子发牌序列不同', d1 !== d3);
+  T.setRand();
+})();
+
 module.exports = {};

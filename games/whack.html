@@ -84,6 +84,9 @@
 <script>
 (function(){
   "use strict";
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
   const GAME_TIME = 30;
   const HOLES = 9;            // 3x3
   const COLS = 3, ROWS = 3;
@@ -186,13 +189,13 @@
     const empty = [];
     for (let i = 0; i < HOLES; i++) if (holes[i].state === 'empty') empty.push(i);
     if (empty.length === 0) return -1;
-    return Common.pick(empty, Math.random);
+    return Common.pick(empty, _randFn);
   }
 
   // 纯逻辑：按权重选地鼠类型
   function pickType(){
     const total = Object.values(TYPES).reduce((s, t) => s + t.weight, 0);
-    let r = Math.random() * total;
+    let r = _randFn() * total;
     for (const k of Object.keys(TYPES)) {
       r -= TYPES[k].weight;
       if (r <= 0) return k;
@@ -460,7 +463,8 @@
 
   // ---- 测试钩子：暴露纯逻辑 + 状态访问器（不改功能）----
   window.__t = {
-    HOLES, COLS, ROWS, TYPES, GAME_TIME, PICKUPS,
+  setRand,
+  HOLES, COLS, ROWS, TYPES, GAME_TIME, PICKUPS,
     pickHole, pickType, spawnMole, whack, upDuration, currentSpawnInterval,
     holePos, holeCenter, cellW, cellH,
     startGame, endGame, update,

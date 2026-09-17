@@ -78,3 +78,15 @@ H.ok('消消乐 新局未标记 confetti', t.confettiFired === false);
 t.newGame();
 H.ok('消消乐 重开后 confetti 复位', t.confettiFired === false);
 })();
+
+// ===== setRand 可注入随机源（T-115：随机缝 + 确定性验证）=====
+(() => {
+  const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  H.ok('match3 setRand 钩子存在', typeof t.setRand === 'function');
+  t.setRand(lcg(7));     t.newGame(); const b1 = JSON.stringify(t.getBoard());
+  t.setRand(lcg(7));     t.newGame(); const b2 = JSON.stringify(t.getBoard());
+  t.setRand(lcg(99999)); t.newGame(); const b3 = JSON.stringify(t.getBoard());
+  H.ok('match3 同种子开局棋盘确定', b1 === b2);
+  H.ok('match3 不同种子开局棋盘不同', b1 !== b3);
+  t.setRand();
+})();

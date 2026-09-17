@@ -76,6 +76,18 @@ eq('setS/getS rank', t.getS().rank, '黄金');
   ok('words: 重开后 confettiFired 复位 false', t.confettiFired() === false);
 })();
 
+// ===== setRand 可注入随机源（T-115：随机缝 + 确定性验证）=====
+(() => {
+  const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  ok('words setRand 钩子存在', typeof t.setRand === 'function');
+  t.setRand(lcg(7));     const a1 = JSON.stringify(t.newState());
+  t.setRand(lcg(7));     const a2 = JSON.stringify(t.newState());
+  t.setRand(lcg(99999)); const a3 = JSON.stringify(t.newState());
+  ok('words 同种子起始成语确定', a1 === a2);
+  ok('words 不同种子起始成语不同', a1 !== a3);
+  t.setRand();
+})();
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

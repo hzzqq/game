@@ -94,6 +94,9 @@
 <script>
 (function(){
   "use strict";
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
 
   // ---- DOM refs ----
   var cv = document.getElementById('game');
@@ -185,12 +188,12 @@
   }
 
   function spawnEnemy(){
-    var lane = (Math.random() * LANES) | 0;
+    var lane = (_randFn() * LANES) | 0;
     var m = roadMetrics();
     var carW = Math.min(m.laneW * 0.62, 54);
     var carH = carW * 1.7;
     // pick a color: green / gold / dim
-    var r = Math.random();
+    var r = _randFn();
     var color = r < 0.45 ? '#02c076' : (r < 0.8 ? '#f0b90b' : '#3b6ea5');
     enemies.push({
       lane: lane,
@@ -200,7 +203,7 @@
       h: carH,
       color: color,
       // relative closing speed: slower than scroll so they drift toward player
-      gap: 90 + Math.random() * 160
+      gap: 90 + _randFn() * 160
     });
   }
 
@@ -316,14 +319,14 @@
     var interval = Math.max(0.45, 1.4 - worldSpeed / 600);
     if (spawnTimer <= 0){
       spawnEnemy();
-      spawnTimer = interval * (0.7 + Math.random() * 0.6);
+      spawnTimer = interval * (0.7 + _randFn() * 0.6);
     }
 
     // spawn road pickups (drops)
     pickupTimer -= dt;
     if (pickupTimer <= 0){
       spawnPickupAtRandom();
-      pickupTimer = 2.5 + Math.random() * 3;
+      pickupTimer = 2.5 + _randFn() * 3;
     }
 
     // move enemies (down the screen, relative to scroll)
@@ -352,8 +355,8 @@
     return { type: type, lane: lane, x: laneCenterX(lane), y: y, r: r, dead:false };
   }
   function spawnPickupAtRandom(){
-    var lane = (Math.random() * LANES) | 0;
-    var r = Math.random();
+    var lane = (_randFn() * LANES) | 0;
+    var r = _randFn();
     var type = r < 0.5 ? 'coin' : (r < 0.8 ? 'shield' : 'boost');
     pickups.push(makePickup(type, lane, -30));
   }
@@ -462,7 +465,7 @@
     ctx.save();
     if (shake > 0){
       var s = shake;
-      ctx.translate((Math.random()-0.5)*s, (Math.random()-0.5)*s);
+      ctx.translate((_randFn()-0.5)*s, (_randFn()-0.5)*s);
     }
 
     var m = roadMetrics();
@@ -556,6 +559,7 @@
 
   // 测试钩子（不影响正常玩法）
   window.__t = {
+    setRand,
     reset, update, player,
     getState(){ return state; },
     spawnPickup(type, lane, y){ pickups.push(makePickup(type, lane == null ? player.lane : lane, y == null ? -30 : y)); },

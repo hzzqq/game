@@ -76,6 +76,9 @@
 <script>
 (function(){
   "use strict";
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
   var stage = document.getElementById('stage');
   var canvas = document.createElement('canvas');
   stage.appendChild(canvas);
@@ -162,21 +165,21 @@
 
   function spawnObstacle(){
     // type 0: spike (jump), 1: pit (jump), 2: tall block (jump, bigger)
-    var r = Math.random();
+    var r = _randFn();
     var type;
     if (r < 0.5) type = 0;
     else if (r < 0.8) type = 1;
     else type = 2;
     var ob = { type: type, passed: false };
     if (type === 0){
-      ob.w = 22 + Math.random()*16; ob.h = 26 + Math.random()*16;
+      ob.w = 22 + _randFn()*16; ob.h = 26 + _randFn()*16;
       ob.x = W + 20; ob.y = GROUND_Y - ob.h;
     } else if (type === 1){
       // pit: a gap in the ground; render as dark hole, collision if runner on ground over it
-      ob.w = 46 + Math.random()*40; ob.h = 0;
+      ob.w = 46 + _randFn()*40; ob.h = 0;
       ob.x = W + 20; ob.y = GROUND_Y; ob.isPit = true;
     } else {
-      ob.w = 26 + Math.random()*18; ob.h = 40 + Math.random()*26;
+      ob.w = 26 + _randFn()*18; ob.h = 40 + _randFn()*26;
       ob.x = W + 20; ob.y = GROUND_Y - ob.h;
     }
     obstacles.push(ob);
@@ -186,20 +189,20 @@
     for (var i=0;i<n;i++){
       particles.push({
         x:x, y:y,
-        vx:(Math.random()-0.5)*3,
-        vy: upward ? -Math.random()*4-1 : (Math.random()-0.5)*3,
-        life: 18 + Math.random()*14,
-        col: Math.random()<0.5 ? '#f6465d' : '#f0b90b'
+        vx:(_randFn()-0.5)*3,
+        vy: upward ? -_randFn()*4-1 : (_randFn()-0.5)*3,
+        life: 18 + _randFn()*14,
+        col: _randFn()<0.5 ? '#f6465d' : '#f0b90b'
       });
     }
   }
 
   // ---- 道具：🪙金币(加分) / 🛡护盾(免死一次) / ⭐无敌星(限时穿障) ----
   function spawnPickup(){
-    var r = Math.random();
+    var r = _randFn();
     var type = r < 0.5 ? 'coin' : (r < 0.78 ? 'shield' : 'star');
-    var py = GROUND_Y - 44 - Math.random()*64;   // 悬浮在地面上方，跳跃可够到
-    pickups.push({ x: W + 22, type: type, r: type === 'coin' ? 9 : 11, y: py, bob: Math.random()*Math.PI*2 });
+    var py = GROUND_Y - 44 - _randFn()*64;   // 悬浮在地面上方，跳跃可够到
+    pickups.push({ x: W + 22, type: type, r: type === 'coin' ? 9 : 11, y: py, bob: _randFn()*Math.PI*2 });
   }
 
   function collectPickup(pp){
@@ -318,7 +321,7 @@
     pickTimer--;
     if (pickTimer <= 0){
       spawnPickup();
-      pickTimer = 70 + Math.floor(Math.random()*90);
+      pickTimer = 70 + Math.floor(_randFn()*90);
     }
 
     // 道具移动 + 拾取
@@ -591,6 +594,7 @@
 
   // 测试钩子（不影响正常玩法）
   window.__t = {
+    setRand: setRand,
     GROUND_Y: function(){ return GROUND_Y; },
     reset: reset, update: update, hitTest: hitTest,
     spawnPickup: spawnPickup, collectPickup: collectPickup, startGame: startGame,

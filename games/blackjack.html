@@ -89,6 +89,9 @@
   <script>
   (function () {
     var COL = { red:'#f6465d', green:'#02c076', gold:'#f0b90b', dim:'#6b7785' };
+    // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+    var _randFn = Math.random;
+    function setRand(fn){ _randFn = fn || Math.random; }
     var SUITS = [
       { s:'♠', c:'green' }, { s:'♥', c:'red' }, { s:'♦', c:'red' }, { s:'♣', c:'green' }
     ];
@@ -111,7 +114,7 @@
           for (var j = 0; j < RANKS.length; j++)
             shoe.push({ r: RANKS[j].r, v: RANKS[j].v, s: SUITS[i].s, c: SUITS[i].c });
       for (var k = shoe.length - 1; k > 0; k--) {
-        var r = (Math.random() * (k + 1)) | 0; var t = shoe[k]; shoe[k] = shoe[r]; shoe[r] = t;
+        var r = (_randFn() * (k + 1)) | 0; var t = shoe[k]; shoe[k] = shoe[r]; shoe[r] = t;
       }
     }
     function draw() {
@@ -235,6 +238,7 @@
 
     // ---- 测试钩子 ----
     window.__t = {
+      setRand: setRand,
       buildShoe: buildShoe, draw: draw,
       handValue: handValue, isBlackjack: isBlackjack, dealerShouldHit: dealerShouldHit, resolveRound: resolveRound,
       deal: deal, hit: hit, stand: stand,

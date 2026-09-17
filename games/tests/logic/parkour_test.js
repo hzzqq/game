@@ -73,4 +73,16 @@ H.ok(pg < 600, 'parkour: 在合理步数内抵达里程碑');
   H.eq('parkour 排行榜 收尾清空', T.getTop5().length, 0);
 })();
 
+// ===== setRand 可注入随机源（T-115：随机缝 + 确定性验证）=====
+(() => {
+  const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  H.ok('parkour setRand 钩子存在', typeof T.setRand === 'function');
+  T.setRand(lcg(7)); T.startGame(); for (let i = 0; i < 300; i++) T.update(1/60);
+  const s1 = JSON.stringify([T.getCoins(), T.getRunner()]);
+  T.setRand(lcg(7)); T.startGame(); for (let i = 0; i < 300; i++) T.update(1/60);
+  const s2 = JSON.stringify([T.getCoins(), T.getRunner()]);
+  H.ok('parkour 同种子双局状态确定', s1 === s2);
+  T.setRand();
+})();
+
 module.exports = {};

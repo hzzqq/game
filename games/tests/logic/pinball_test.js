@@ -64,3 +64,15 @@ H.eq('达成前 confettiFired 为 false', T.confettiFired(), false);
 T.setScore(200); T.setBall({x:200,y:300,vx:0,vy:0}); T.setLives(3);
 T.step(1);
 H.eq('破目标分触发 confettiFired', T.confettiFired(), true);
+
+// ===== setRand 可注入随机源（T-115：随机缝 + 确定性验证）=====
+(() => {
+  const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  H.ok('pinball setRand 钩子存在', typeof T.setRand === 'function');
+  T.setRand(lcg(7)); T.reset(); for (let i = 0; i < 300; i++) T.step(1/60);
+  const s1 = JSON.stringify([T.getBall(), T.getScore(), T.getLives()]);
+  T.setRand(lcg(7)); T.reset(); for (let i = 0; i < 300; i++) T.step(1/60);
+  const s2 = JSON.stringify([T.getBall(), T.getScore(), T.getLives()]);
+  H.ok('pinball 同种子双局球道确定', s1 === s2);
+  T.setRand();
+})();

@@ -124,7 +124,10 @@
 <script src="juice.js"></script>
   <script>
   (function () {
-    if ('ontouchstart' in window) document.body.classList.add('touch');
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
+  if ('ontouchstart' in window) document.body.classList.add('touch');
     const $ = id => document.getElementById(id);
     const fx = $('fx'), fxc = fx.getContext('2d');
     function sizeFx(){ fx.width=window.innerWidth; fx.height=window.innerHeight; }
@@ -162,7 +165,7 @@
       _confettiFired = false;
       const today = new Date();
       const key = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-      const start = daily ? IDIOMS[key % IDIOMS.length] : IDIOMS[(Math.random() * IDIOMS.length) | 0];
+      const start = daily ? IDIOMS[key % IDIOMS.length] : IDIOMS[(_randFn() * IDIOMS.length) | 0];
       return {
         running: true, over: false, daily: !!daily, dateKey: key,
         score: 0, combo: 0, lives: 3, hints: 3, skips: 2,
@@ -211,7 +214,7 @@
       // 接龙成功
       S.combo++;
       let pts = 100 * (1 + Math.floor(S.combo / 5));
-      let gold = Math.random() < GOLD;
+      let gold = _randFn() < GOLD;
       if (gold) pts *= 3;
       S.score += pts;
       const cx = window.innerWidth / 2, cy = window.innerHeight / 2 - 40;
@@ -227,8 +230,8 @@
       }
       // 推进：下一个 required = 当前成语尾字；高连击时按概率出「稀有挑战字」
       S.anchor = v;
-      if (S.combo >= 8 && RARE.length && Math.random() < Math.min(0.3, S.combo * 0.012)) {
-        S.required = RARE[(Math.random() * RARE.length) | 0]; S.challenge = true;
+      if (S.combo >= 8 && RARE.length && _randFn() < Math.min(0.3, S.combo * 0.012)) {
+        S.required = RARE[(_randFn() * RARE.length) | 0]; S.challenge = true;
       } else {
         S.required = v[3]; S.challenge = false;
       }
@@ -258,7 +261,7 @@
       if (!S || S.hints <= 0) return;
       const opts = MAP[S.required];
       if (!opts) { $('msg').textContent = '这个字头暂时没词，用「跳过」换一个'; $('msg').className = 'bad'; return; }
-      const pick = opts[(Math.random() * opts.length) | 0];
+      const pick = opts[(_randFn() * opts.length) | 0];
       S.hints--; Juice.sfx('click');
       $('msg').textContent = '提示：可接「' + pick + '」'; $('msg').className = 'good';
       syncHUD();
@@ -267,7 +270,7 @@
     function skip() {
       if (!S || S.skips <= 0) return;
       S.skips--; Juice.sfx('click');
-      const alt = IDIOMS[(Math.random() * IDIOMS.length) | 0];
+      const alt = IDIOMS[(_randFn() * IDIOMS.length) | 0];
       S.anchor = alt; S.required = alt[3]; S.challenge = false;
       $('msg').textContent = '已跳过，新锚点：' + alt; $('msg').className = '';
       syncHUD();
@@ -337,7 +340,8 @@
 
     // ---- 测试钩子 ----
     window.__t = {
-      chainOk: chainOk, comboPts: comboPts, newState: newState, rankCheck: rankCheck,
+    setRand: setRand,
+    chainOk: chainOk, comboPts: comboPts, newState: newState, rankCheck: rankCheck,
       getIDIOMS: function(){ return IDIOMS.slice(); },
       hasIdiom: function(w){ return SET.has(w); },
       getS: function(){ return S ? JSON.parse(JSON.stringify(S)) : null; },

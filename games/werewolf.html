@@ -160,6 +160,9 @@
 <script>
 (function(){
   'use strict';
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
 
   // ---------- 共享输入层（断触修复）----------
   if(window.Input && typeof window.Input.init==='function'){ Input.init({}); }
@@ -180,7 +183,7 @@
     var t = G ? G.token : 0;
     setTimeout(function(){ if(G && G.token===t) fn(); }, ms);
   }
-  function shuffle(a, r){ return Common.shuffle(a, r || Math.random); }
+  function shuffle(a, r){ return Common.shuffle(a, r || _randFn); }
   function livingIds(){ return G.players.filter(function(p){return p.alive;}).map(function(p){return p.id;}); }
   function aliveRole(role){ for(var i=0;i<G.players.length;i++){ var p=G.players[i]; if(p.role===role&&p.alive) return p; } return null; }
   function livingNonWitch(){ return livingIds().filter(function(id){ return G.players[id].role!=='witch'; }); }
@@ -188,7 +191,7 @@
     if(!ids.length) return null;
     var weights = ids.map(function(id){ var r=G.players[id].role; return (r==='seer'||r==='witch'||r==='hunter')?3:1; });
     var sum = weights.reduce(function(a,b){return a+b;},0);
-    var r = Math.random()*sum;
+    var r = _randFn()*sum;
     for(var i=0;i<ids.length;i++){ r-=weights[i]; if(r<=0) return ids[i]; }
     return ids[ids.length-1];
   }
@@ -435,7 +438,7 @@
       renderAction();
     } else {
       var cands = livingIds().filter(function(id){return id!==seer.id;});
-      var t = Common.pick(cands, Math.random);
+      var t = Common.pick(cands, _randFn);
       var isW = G.players[t].role==='wolf';
       if(isW) G.knownWolves.push(t);
       log('预言家在暗中完成查验。', 'dim');
@@ -464,15 +467,15 @@
     if(G.witchAntidote && G.nightVictim!=null){
       // 若女巫自己遇袭，更倾向自救
       var prob = (G.nightVictim===witch.id) ? 0.8 : 0.55;
-      if(Math.random()<prob){
+      if(_randFn()<prob){
         G.nightSaved = G.nightVictim; G.witchAntidote=false; used=true;
         log('女巫使用了解药。', 'good');
       }
     }
-    if(!used && G.witchPoison && Math.random()<0.22){
+    if(!used && G.witchPoison && _randFn()<0.22){
       var cands = livingNonWitch();
       if(cands.length){
-        var t = Common.pick(cands, Math.random);
+        var t = Common.pick(cands, _randFn);
         G.poisonTarget = t; G.witchPoison=false;
         log('女巫使用了毒药，毒杀了 #'+G.players[t].seat+' '+G.players[t].name+'。', 'wolf');
       }
@@ -508,7 +511,7 @@
     var alive = G.players.filter(function(p){return p.alive;});
     alive.forEach(function(p){
       if(p.isHuman) return;
-      var target = Common.pick(alive, Math.random);
+      var target = Common.pick(alive, _randFn);
       var line = pickStatement(p, target);
       log('#'+p.seat+' '+p.name+'：'+line, 'dim');
     });
@@ -524,7 +527,7 @@
       '狼人一定混在人群里。',
       '#'+target.seat+' 昨晚太安静了，值得怀疑。'
     ];
-    return Common.pick(pool, Math.random);
+    return Common.pick(pool, _randFn);
   }
   function dayVote(){
     if(G.over) return;
@@ -551,9 +554,9 @@
     }
     if(p.role==='seer'){
       var kw = G.knownWolves.filter(function(id){return G.players[id].alive && id!==p.id;});
-      if(kw.length) return Common.pick(kw, Math.random);
+      if(kw.length) return Common.pick(kw, _randFn);
     }
-    return Common.pick(alive, Math.random);
+    return Common.pick(alive, _randFn);
   }
   function tallyVotes(){
     if(G.over) return;
@@ -603,7 +606,7 @@
       renderAction();
     } else {
       var cands = livingIds().filter(function(id){return id!==shooterId;});
-      var t = cands.length ? Common.pick(cands, Math.random) : null;
+      var t = cands.length ? Common.pick(cands, _randFn) : null;
       if(t!=null){ kill(t,'gun'); log('猎人开枪击中了 #'+G.players[t].seat+' '+G.players[t].name+'。', 'wolf'); }
       wait(700, function(){ finishHunter(cont); });
     }
@@ -638,8 +641,9 @@
 
   /* ==== 逻辑测试钩子（纯逻辑/状态访问，不触发动效与渲染） ==== */
   window.__t = {
-    /* 常量 */
-    ROLES: ROLES,
+  setRand: setRand,
+  /* 常量 */
+  ROLES: ROLES,
     ROLE_TEXT: ROLE_TEXT,
     /* 工具 */
     shuffle: shuffle,
