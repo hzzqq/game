@@ -582,7 +582,7 @@
           var st = document.createElement('style');
           st.id = 'hs-board-style';
           st.textContent = [
-            '.hs-board{margin-top:10px;border-top:1px solid var(--border,#1f2a38);padding-top:10px;text-align:left;max-width:340px;margin-left:auto;margin-right:auto}',
+            '.hs-board{margin-top:10px;border-top:1px solid var(--border,#1f2a38);padding-top:10px;text-align:left;max-width:min(340px,92vw);margin-left:auto;margin-right:auto}',
             '.hs-board .hs-title{color:var(--gold,#f0b90b);font-size:12px;letter-spacing:4px;font-weight:700;text-align:center;margin-bottom:8px}',
             '.hs-board .hs-list{list-style:none;padding:0;margin:0}',
             '.hs-board .hs-row{display:grid;grid-template-columns:30px 26px 1fr auto;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;margin-bottom:4px;background:rgba(255,255,255,.02)}',

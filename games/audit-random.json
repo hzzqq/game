@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T09:16:11.302Z",
+  "generatedAt": "2026-09-17T10:23:03.072Z",
   "games": [
     {
       "file": "2048.html",
@@ -2278,7 +2278,7 @@
     },
     {
       "file": "trivia.html",
-      "mathRandom": 0,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -2609,7 +2609,7 @@
   ],
   "summary": {
     "gamesScanned": 165,
-    "totalNakedMathRandom": 166,
+    "totalNakedMathRandom": 168,
     "gamesWithMulberryDef": 0,
     "gamesUsingCommon": 165,
     "gamesWithLocalPrngHelpers": 8,
