@@ -64,6 +64,7 @@
     <div class="box">
       <h1 id="ovTitle">PARKOUR // 跑酷</h1>
       <p id="ovText">自动向右奔跑。跳过红色尖刺与深坑，活得越久分数越高。<br>SPACE / ↑ / W 或 点屏跳跃（可二段跳）。<br>碰撞即结束。</p>
+      <div id="top5Board"></div>
       <button class="start" id="startBtn">新局 / START</button>
     </div>
   </div>
@@ -546,6 +547,9 @@
       try { Common.Storage.set('parkour','best',best); } catch(e){}
     }
     bestEl.textContent = best;
+    // 本地 Top5 榜单：委托 Common.HighScores（T-106 收口，数据+渲染走共享层）
+    var _tr = Common.HighScores.record('parkour', d, null);
+    Common.HighScores.render('parkour', document.getElementById('top5Board'), _tr);
     ovTitle.textContent = 'GAME OVER // 撞毁';
     ovTitle.style.color = '#f6465d';
     ovText.innerHTML = '本次距离 <b style="color:#f0b90b">'+d+'</b>' +
@@ -599,6 +603,10 @@
     setState: function(s){ state = s; },
     setObstacles: function(arr){ obstacles = arr; },
     spawnObstacle: spawnObstacle,
+    // ---- 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+    recordScore: function(s){ return Common.HighScores.record('parkour', s, null); },
+    getTop5: function(){ try { return Common.HighScores.read('parkour'); } catch(e){ return []; } },
+    clearTop5: function(){ try { Common.Storage.set('parkour','top5',[]); return true; } catch(e){ return false; } },
     confettiFired: function(){ return confettiFired; }
   };
 

@@ -53,4 +53,24 @@ const pass = results.filter(r => r.pass).length;
 console.log(`\nwhack: ${pass}/${total} 通过`);
 if (pass !== total) process.exit(1);
 
+// ===== 本地 Top5 排行榜（T-106 收口：Common.HighScores 数据层）=====
+(() => {
+  H.ok('whack 排行榜 清空成功', T.clearTop5() === true);
+  H.eq('whack 排行榜 0 分不入榜', T.recordScore(0), 0);
+  H.eq('whack 排行榜 空榜无记录', T.getTop5().length, 0);
+  H.eq('whack 排行榜 9999 上榜第 1', T.recordScore(9999), 1);
+  H.eq('whack 排行榜 榜首=9999', T.getTop5()[0].score, 9999);
+  H.eq('whack 排行榜 8888 上榜第 2', T.recordScore(8888), 2);
+  const top = T.getTop5();
+  let sorted = true;
+  for (let i = 1; i < top.length; i++) if (top[i - 1].score < top[i].score) sorted = false;
+  H.ok('whack 排行榜 全列表分数降序', sorted);
+  H.ok('whack 排行榜 条目含日期字段', /^\d{4}-\d{2}-\d{2}$/.test(top[0].date));
+  for (let i = 0; i < 6; i++) T.recordScore(10000 + i);
+  H.eq('whack 排行榜 最多保留 5 条', T.getTop5().length, 5);
+  H.eq('whack 排行榜 截断后榜首仍最大', T.getTop5()[0].score, 10005);
+  T.clearTop5();
+  H.eq('whack 排行榜 收尾清空', T.getTop5().length, 0);
+})();
+
 module.exports = {};

@@ -73,6 +73,7 @@
       <div class="otitle" id="o-title">时间到</div>
       <div class="omsg" id="o-msg">本局结束</div>
       <div class="oscore" id="o-score">0</div>
+      <div id="top5Board"></div>
       <button class="obtn" id="o-btn">再来一局</button>
     </div>
   </div>
@@ -329,6 +330,9 @@
     }
     document.getElementById('o-score').textContent = score;
     document.getElementById('o-msg').textContent = '最高连击 ' + maxCombo + ' · 最佳 ' + best;
+    // 本地 Top5 榜单：委托 Common.HighScores（T-106 收口，数据+渲染走共享层）
+    var _tr = Common.HighScores.record('whack', score, null);
+    Common.HighScores.render('whack', document.getElementById('top5Board'), _tr);
     document.getElementById('overlay').classList.add('show');
     updateHUD();
   }
@@ -481,6 +485,10 @@
     getPickups: ()=>pickups,
     collectAt: (x,y)=>{ collectAt(x,y); },
     confettiFired: ()=>_confettiFired,
+    // ---- 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+    recordScore: (s)=>Common.HighScores.record('whack', s, null),
+    getTop5: ()=>{ try { return Common.HighScores.read('whack'); } catch(e){ return []; } },
+    clearTop5: ()=>{ try { Common.Storage.set('whack','top5',[]); return true; } catch(e){ return false; } },
   };
 })();
 </script>

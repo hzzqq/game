@@ -249,6 +249,7 @@
           <div class="overlay-card">
             <div class="overlay-title" id="overlayTitle"></div>
             <div class="overlay-msg" id="overlayMsg"></div>
+            <div id="top5Board"></div>
             <div class="overlay-btns" id="overlayBtns"></div>
           </div>
         </div>
@@ -582,6 +583,9 @@
   }
   function triggerOver() {
     if (typeof Juice !== 'undefined') { Juice.sfx('lose'); const b = Juice.best('2048', score); Juice.rank(score); if (b.isNew) Juice.achievement('最佳分 ' + score); }
+    // 本地 Top5 榜单：委托 Common.HighScores（T-106 收口，数据+渲染走共享层）
+    const _tr = Common.HighScores.record('2048', score, null);
+    Common.HighScores.render('2048', document.getElementById('top5Board'), _tr);
     showOverlay("游戏结束", "无可行移动 · 最终分数 " + score, [
       { label: "重新开始", primary: true, onClick: () => newGame() }
     ]);
@@ -664,7 +668,11 @@
       confettiFired: function () { return _confettiFired; },
       fxShakes: function () { return _fxShakes; },
       fxBursts: function () { return _fxBursts; },
-      freezeSpawn(v) { addRandomTile = v ? function () {} : _origAdd; }
+      freezeSpawn(v) { addRandomTile = v ? function () {} : _origAdd; },
+      // ---- 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+      recordScore(s) { return Common.HighScores.record('2048', s, null); },
+      getTop5() { try { return Common.HighScores.read('2048'); } catch(e){ return []; } },
+      clearTop5() { try { Common.Storage.set('2048','top5',[]); return true; } catch(e){ return false; } }
     };
   })();
 })();

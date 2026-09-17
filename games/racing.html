@@ -82,6 +82,7 @@
         躲避对向与同向车辆。速度越快得分越高。<br>
         撞车扣一条命，三命耗尽即结束。
       </p>
+      <div id="top5Board"></div>
       <button class="start" id="startBtn">开始 (START)</button>
     </div>
   </div>
@@ -218,6 +219,9 @@
       try { Common.Storage.set('racing','best',best); } catch(e){}
       hBest.textContent = best;
     }
+    // 本地 Top5 榜单：委托 Common.HighScores（T-106 收口，数据+渲染走共享层）
+    var _tr = Common.HighScores.record('racing', dist, null);
+    Common.HighScores.render('racing', document.getElementById('top5Board'), _tr);
     ovTitle.textContent = 'GAME OVER';
     ovTitle.style.color = 'var(--red)';
     ovText.innerHTML = '本次里程 <b style="color:var(--gold)">' + dist + '</b> M<br>' +
@@ -565,6 +569,10 @@
     setBoost(v){ boostTimer = v; },
     getDistance(){ return distance; },
     getLives(){ return lives; },
+    // ---- 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+    recordScore(s){ return Common.HighScores.record('racing', s, null); },
+    getTop5(){ try { return Common.HighScores.read('racing'); } catch(e){ return []; } },
+    clearTop5(){ try { Common.Storage.set('racing','top5',[]); return true; } catch(e){ return false; } },
     // ---- 注入：里程碑彩带只读/驱动钩子 ----
     confettiFired: function(){ return _confettiFired; },
     getWinDist: function(){ return WIN_DIST; },
