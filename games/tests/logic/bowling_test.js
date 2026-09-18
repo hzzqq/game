@@ -76,3 +76,23 @@ eq('全中触发 confettiFired', t.confettiFired(), true);
   ok('手感: 补中 fxShakes>0', t.fxShakes() > 0);
 })();
 
+// ===== T-134：本地 Top5 榜单（十格完成 → 真实结算路径 record 总分）=====
+(() => {
+  ok('bowling isGameOver 钩子存在', typeof t.isGameOver === 'function');
+  ok('bowling recordScore/getTop5/clearTop5 钩子存在', typeof t.recordScore === 'function' && typeof t.getTop5 === 'function' && typeof t.clearTop5 === 'function');
+  t.clearTop5();
+  t.reset();
+  for(let i=0;i<9;i++) t.roll(10);
+  ok('bowling 9 连全中后未完成（差第 10 格）', !t.isGameOver());
+  t.roll(10); t.roll(10); t.roll(10); // 第 10 格全中 + 2 奖球
+  ok('bowling 12 球全中完成十格且满分 300', t.isGameOver() && t.score() === 300);
+  const top = t.getTop5();
+  ok('bowling 完成路径已入榜（真路径非注入）', top.length >= 1 && top[0].score === 300);
+  t.reset(); t.roll(4); t.roll(6);
+  ok('bowling 未完成不入榜', !t.isGameOver() && t.getTop5().length === 1);
+  t.recordScore(187);
+  ok('bowling recordScore 注入次高分在榜', t.getTop5().some(e => e.score === 187));
+  t.clearTop5();
+  ok('bowling clearTop5 清空', t.getTop5().length === 0);
+})();
+

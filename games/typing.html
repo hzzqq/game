@@ -30,6 +30,8 @@
   .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
   .msg.win{color:var(--gold);font-weight:700}
   .foot{width:min(640px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  /* T-134：本地 Top5 榜单浮层（完成时显示；position:fixed 居中，勿挂 #msg 文档流） */
+  #top5Board{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
@@ -49,6 +51,7 @@
     <div class="msg" id="msg">逐词键入上面的单词，回车提交。完成后统计 WPM 与准确率。</div>
   </div>
   <div class="foot">打字速度挑战：系统给出词序列，逐词键入。WPM = 正确字符数 / 5 / 分钟；准确率 = 正确字符 / 输入字符。计时从首个词开始。</div>
+  <div id="top5Board" style="display:none"></div>
 
 <script src="common.js"></script>
 <script>Common.injectTheme();</script>
@@ -73,6 +76,7 @@
     if(!words || !words.length) words = Common.shuffle(DEFAULT_WORDS.slice(), _randFn);
     idx = 0; totalCorrectChars = 0; totalEntryChars = 0; correctWords = 0;
     startTime = null; endTime = null; finished = false; confettiFired = false;
+    hideTop5();
   }
   // 提交一次键入（typed: 字符串）
   function submitWord(typed){
@@ -88,7 +92,7 @@
     if(wordCorrect) correctWords++;
     const result = {target, typed, correctChars:cc, wordCorrect, index:idx};
     idx++;
-    if(idx>=words.length){ endTime = _now(); finished = true; confettiFired = true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+    if(idx>=words.length){ endTime = _now(); finished = true; confettiFired = true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); recordTop5(); }
     if(typeof Juice!=='undefined') Juice.sfx(wordCorrect?'click':'boom');
     return result;
   }
@@ -102,6 +106,16 @@
     return {words:words.slice(), idx, correctWords, finished, current: idx<words.length?words[idx]:null,
       totalCorrectChars, totalEntryChars, startTime, endTime};
   }
+  // T-134：本地 Top5 榜单（完成时记录 WPM 取整；Common.HighScores 共享层）
+  function recordTop5(){
+    try {
+      const wpm = Math.round(getStats().wpm);
+      const rk = Common.HighScores.record('typing', wpm, null);
+      const el = (typeof document!=='undefined') ? document.getElementById('top5Board') : null;
+      if(el){ Common.HighScores.render('typing', el, rk); el.style.display='block'; }
+    } catch(e) {}
+  }
+  function hideTop5(){ if(typeof document==='undefined') return; const el=document.getElementById('top5Board'); if(el) el.style.display='none'; }
 
   /* ===================== UI ===================== */
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
@@ -141,6 +155,10 @@
       setRand, setWords, setClock, reset, submitWord, getStats, getState,
       getDefaultWords:()=>DEFAULT_WORDS.slice(),
       getConfettiFired:()=>confettiFired,
+      // ---- T-134 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+      recordScore:(s)=>Common.HighScores.record('typing', s, null),
+      getTop5:()=>{ try { return Common.HighScores.read('typing'); } catch(e){ return []; } },
+      clearTop5:()=>{ try { Common.Storage.set('typing','top5',[]); return true; } catch(e){ return false; } },
     };
   }
 })();

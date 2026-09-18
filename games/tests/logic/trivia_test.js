@@ -52,3 +52,25 @@ ok('全部答完 → 结束', t.isFinished() === true);
     && got.has('光在真空中的速度约为？') && got.has('下列哪个是质数？')
     && got.has('水的化学式是？') && got.has('一年有多少天（平年）？'));
 })();
+
+// ===== T-134：本地 Top5 榜单（答题完成 → 真实结算路径 record 答对题数）=====
+(() => {
+  ok('trivia recordScore 钩子存在', typeof t.recordScore === 'function');
+  ok('trivia getTop5/clearTop5 钩子存在', typeof t.getTop5 === 'function' && typeof t.clearTop5 === 'function');
+  t.clearTop5();
+  t.setQuestions([
+    { q:'T1', options:['a','b','c','d'], answer:0 },
+    { q:'T2', options:['a','b','c','d'], answer:1 },
+    { q:'T3', options:['a','b','c','d'], answer:2 },
+    { q:'T4', options:['a','b','c','d'], answer:3 },
+  ]);
+  t.answer(0); t.answer(1); t.answer(2); t.answer(3);
+  ok('trivia 4 题全对完成', t.isFinished() && t.getScore() === 4);
+  const top = t.getTop5();
+  ok('trivia 结算路径已入榜（真路径非注入）', top.length >= 1 && top[0].score === 4);
+  t.recordScore(9);
+  ok('trivia 更高分注入后居首', t.getTop5()[0].score === 9);
+  ok('trivia Top5 容量上限 5', t.getTop5().length <= 5);
+  t.clearTop5();
+  ok('trivia clearTop5 清空', t.getTop5().length === 0);
+})();

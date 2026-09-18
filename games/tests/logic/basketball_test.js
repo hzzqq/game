@@ -4,7 +4,7 @@ const { t: T } = H.loadGame('../basketball.html');
 
 T.reset();
 const s0 = T.getState();
-H.ok(s0.pickups === 0 && s0.boostTimer === 0, 'basketball: reset 后无掉落/强化');
+H.ok('basketball: reset 后无掉落/强化', s0.pickups === 0 && s0.boostTimer === 0);
 
 // 找一个能命中的角度/力度组合
 let found=false, ang=0, pow=0;
@@ -15,7 +15,7 @@ for(let a=15;a<=80;a+=2){
     if(T.getScore()===1){ ang=a; pow=p; found=true; break outer; }
   }
 }
-H.ok(found, 'basketball: 找到能命中的角度/力度 (' + ang + '°/' + pow + ')');
+H.ok('basketball: 找到能命中的角度/力度 (' + ang + '°/' + pow + ')', found);
 
 // 1) 金币生效数值
 T.reset(); T.setScore(0);

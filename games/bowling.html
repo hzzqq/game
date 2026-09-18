@@ -28,6 +28,8 @@
   .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
   .controls button:hover{filter:brightness(1.1)}
   .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  /* T-134：本地 Top5 榜单浮层（十格完成时显示；position:fixed 居中，勿挂 #msg 文档流） */
+  #top5Board{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
@@ -45,6 +47,7 @@
     </div>
   </div>
   <div class="foot">Bowling（保龄球）：标准十瓶制计分。全中加下两球、补中加下一球作为奖励分，满 10 格后结算总分（满分 300）。</div>
+  <div id="top5Board" style="display:none"></div>
 
 <script src="common.js"></script>
 <script>Common.injectTheme();</script>
@@ -54,7 +57,8 @@
   "use strict";
   let rolls, frame, standing, ballInFrame, bonus, pickups, confettiFired=false;
   let _fxShakes=0, _fxBursts=0; // 手感计数器：全中/补中屏震（仅视觉反馈）
-  function reset(){ rolls=[]; frame=0; standing=10; ballInFrame=0; bonus=0; pickups=[]; confettiFired=false; _fxShakes=0; _fxBursts=0; }
+  let _top5Done=false; // T-134：本局榜单已记录旗标（防完成后继续投球导致重复入榜）
+  function reset(){ rolls=[]; frame=0; standing=10; ballInFrame=0; bonus=0; pickups=[]; confettiFired=false; _fxShakes=0; _fxBursts=0; _top5Done=false; hideTop5(); }
   // 胜利彩带：全中(strike)达成时一次性触发，跳变防重复
   function fireVictory(){
     if(confettiFired) return;
@@ -74,6 +78,8 @@
       const n=rolls.length;
       if(n>=2 && rolls[n-2]!==10 && (rolls[n-2]+pins)===10){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.25); }
     }
+    // T-134：十格完成 → 记录总分（旗标防重复入榜）
+    if(!_top5Done && isGameOver()){ _top5Done=true; recordTop5(); }
   }
   // ---- 注入式掉落道具系统（本地种子 PRNG，禁止 Math.random）----
   function mk(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
@@ -92,6 +98,29 @@
     return total;
   }
   function isPerfect(){ return score()===300; }
+  // T-134：十格赛制完成判定（前 9 格：全中 1 球 / 否则 2 球；第 10 格：全中或补中加 1 奖球共 3 球，开局 2 球）
+  function isGameOver(){
+    let i=0;
+    for(let f=0;f<9;f++){
+      if(i>=rolls.length) return false;
+      if(rolls[i]===10){ i+=1; }
+      else { if(rolls[i+1]===undefined) return false; i+=2; }
+    }
+    const a=rolls[i]; if(a===undefined) return false;
+    if(a===10) return (rolls.length-i)>=3;
+    const b=rolls[i+1]; if(b===undefined) return false;
+    if(a+b===10) return (rolls.length-i)>=3;
+    return (rolls.length-i)>=2;
+  }
+  // T-134：本地 Top5 榜单（十格完成时记录总分；Common.HighScores 共享层）
+  function recordTop5(){
+    try {
+      const rk = Common.HighScores.record('bowling', score(), null);
+      const el = (typeof document!=='undefined') ? document.getElementById('top5Board') : null;
+      if(el){ Common.HighScores.render('bowling', el, rk); el.style.display='block'; }
+    } catch(e) {}
+  }
+  function hideTop5(){ if(typeof document==='undefined') return; const el=document.getElementById('top5Board'); if(el) el.style.display='none'; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
@@ -108,7 +137,11 @@
   }
   reset();
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
-  if(typeof window!=='undefined'){ window.__t={ reset, setRolls, roll, score, isPerfect, confettiFired: function(){ return confettiFired; },
+  if(typeof window!=='undefined'){ window.__t={ reset, setRolls, roll, score, isPerfect, isGameOver, confettiFired: function(){ return confettiFired; },
+    // ---- T-134 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+    recordScore:(s)=>Common.HighScores.record('bowling', s, null),
+    getTop5:()=>{ try { return Common.HighScores.read('bowling'); } catch(e){ return []; } },
+    clearTop5:()=>{ try { Common.Storage.set('bowling','top5',[]); return true; } catch(e){ return false; } },
     fxShakes: function(){ return _fxShakes; }, fxBursts: function(){ return _fxBursts; },
     getState(){ return {bonus, pickups:pickups.length}; },
     spawnPickup(type,x,y){ pickups.push(makePickup(type||'coin', x, y)); },

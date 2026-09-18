@@ -33,6 +33,8 @@
   .msg{text-align:center;min-height:20px;margin-top:10px;font-size:13px;color:var(--dim)}
   .msg.win{color:var(--gold);font-weight:700}
   .foot{width:min(460px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  /* T-134：本地 Top5 榜单浮层（通关时显示；position:fixed 居中，勿挂 #msg 文档流） */
+  #top5Board{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
@@ -45,6 +47,7 @@
     <div class="msg" id="msg">点格子旋转管道，把左侧水源（绿框）接到右侧出水口（红框）。管道两端互通才能通水。</div>
   </div>
   <div class="foot">接水管（Pipe Rotation）：旋转方格中的管道，连通左右两端的供水线路即过关。每局随机打乱，保证有解。</div>
+  <div id="top5Board" style="display:none"></div>
 
 <script src="common.js"></script>
 <script>Common.injectTheme();</script>
@@ -110,8 +113,9 @@
     // 打乱旋转
     for(let r=0;r<N;r++) for(let c=0;c<N;c++){ const k=Math.floor(_randFn()*4); for(let i=0;i<k;i++) board[r][c]=rotMask(board[r][c]); }
     over=false;
+    hideTop5();
   }
-  function rotate(r,c){ if(over) return; board[r][c]=rotMask(board[r][c]); collectAt(r,c); if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.addTrauma(0.15); } }
+  function rotate(r,c){ if(over) return; board[r][c]=rotMask(board[r][c]); collectAt(r,c); if(typeof Juice!=='undefined'){ Juice.sfx('click'); Juice.addTrauma(0.15); } checkWin(); }
   function getMask(r,c){ return board[r][c]; }
   function getBoard(){ return board.map(r=>r.slice()); }
   function isSolved(){
@@ -127,6 +131,25 @@
     return seen.has((N-1)+','+(N-1));
   }
   function setBoard(m){ board=m.map(r=>r.slice()); over=false; }
+  // T-134：win 检测（原 render 内联块抽离；rotate 与 render 共用，行为不变）+ 本地 Top5 榜单
+  function checkWin(){
+    if(isSolved() && !over){
+      over=true;
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);}
+      if(typeof Juice!=='undefined' && Juice.confetti){ Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      _confettiCount++;
+      recordTop5();
+    }
+  }
+  // T-134：本地 Top5 榜单（通关时记录持有金币；Common.HighScores 共享层）
+  function recordTop5(){
+    try {
+      const rk = Common.HighScores.record('plumber', coins, null);
+      const el = (typeof document!=='undefined') ? document.getElementById('top5Board') : null;
+      if(el){ Common.HighScores.render('plumber', el, rk); el.style.display='block'; }
+    } catch(e) {}
+  }
+  function hideTop5(){ if(typeof document==='undefined') return; const el=document.getElementById('top5Board'); if(el) el.style.display='none'; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   let cellEls=[];
   function build(){
@@ -149,7 +172,7 @@
       } }
       // 护盾>0 画护盾环（绘制层，仅视觉）：在水源格叠加蓝色辉环
       if(shield && r===0 && c===0){ el.style.boxShadow='inset 0 0 0 3px #5ab4ff, 0 0 14px #5ab4ff'; }
-      if(isSolved()&&!over){ over=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.addTrauma(.4);} if(typeof Juice!=='undefined' && Juice.confetti){ Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } _confettiCount++; }
+      checkWin();
     });
     const st=$('st'),msg=$('msg');
     if(st) st.textContent=(over?'已连通':'连通中')+(coins>0?(' · 💰'+coins):'')+(shield?' · 🛡':'');
@@ -170,6 +193,10 @@
       stepPickups(dt){ updatePickups(dt); },
       // 场景计时掉落钩子（update 中按计时器随机掉落）
       update, SPAWN_INTERVAL, getSpawnTimer(){ return spawnTimer; },
+      // ---- T-134 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+      recordScore:(s)=>Common.HighScores.record('plumber', s, null),
+      getTop5:()=>{ try { return Common.HighScores.read('plumber'); } catch(e){ return []; } },
+      clearTop5:()=>{ try { Common.Storage.set('plumber','top5',[]); return true; } catch(e){ return false; } },
       reset(){ newGame(); coins=0; shield=false; boostTimer=0; pickups=[]; spawnTimer=0; }
     };
     Object.defineProperty(window.__t, 'confettiFired', { get: ()=>_confettiCount, enumerable:true });

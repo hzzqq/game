@@ -124,3 +124,23 @@ eq('已解出不重复触发', t.confettiFired, pf0+1);
   t.setRand();
 })();
 
+// ===== T-134：本地 Top5 榜单（checkWin 真实通关路径 record 持有金币）=====
+(() => {
+  ok('plumber recordScore 钩子存在', typeof t.recordScore === 'function');
+  ok('plumber getTop5/clearTop5 钩子存在', typeof t.getTop5 === 'function' && typeof t.clearTop5 === 'function');
+  t.clearTop5();
+  t.reset();                  // 金币/掉落/护盾清零 + newGame（隐藏榜单）
+  t.setBoard(solvedBoard);    // 已解布局（over=false）
+  ok('plumber 源格旋转一次即断开', (() => { t.rotate(0,0); return !t.isSolved(); })());
+  t.spawnPickup('coin', 2, 2); t.collectAt(2, 2);
+  ok('plumber 通关前金币已收集(25)且未入榜', t.getCoins() === 25 && t.getTop5().length === 0);
+  t.rotate(0,0); t.rotate(0,0); t.rotate(0,0); // 旋转 3 次回到原向 → 连通
+  ok('plumber 复原后通关', t.isSolved());
+  const top = t.getTop5();
+  ok('plumber 通关路径已入榜（真路径非注入）', top.length >= 1 && top[0].score === 25);
+  t.recordScore(99);
+  ok('plumber 更高分注入后居首', t.getTop5()[0].score === 99);
+  t.clearTop5();
+  ok('plumber clearTop5 清空', t.getTop5().length === 0);
+})();
+

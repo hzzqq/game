@@ -88,3 +88,24 @@ console.log('typing: 全部断言通过');
   t.setRand(lcg(7)); t.reset(); t.setWords(['b','a','c']);
   ok('typing setWords 顺序保持原样', JSON.stringify(t.getState().words)==='["b","a","c"]');
 })();
+
+// ===== T-134：本地 Top5 榜单（完成 → 真实结算路径 record WPM 取整）=====
+(() => {
+  ok('typing recordScore 钩子存在', typeof t.recordScore === 'function');
+  ok('typing getTop5/clearTop5 钩子存在', typeof t.getTop5 === 'function' && typeof t.clearTop5 === 'function');
+  t.clearTop5();
+  let clock = 0; t.setClock(() => clock);
+  t.reset(); t.setWords(['alpha','bravo','charlie','delta']);
+  t.submitWord('alpha'); t.submitWord('bravo'); t.submitWord('charlie');
+  clock = 60000;               // 第 4 词提交时恰为 1 分钟
+  t.submitWord('delta');
+  const st = t.getStats();
+  ok('typing 4 词全对完成（22 正确字符）', st.finished && t.getState().totalCorrectChars === 22);
+  ok('typing WPM=4.4 取整=4（22/5/1min）', Math.round(st.wpm) === 4);
+  const top = t.getTop5();
+  ok('typing 完成路径已入榜（真路径非注入）', top.length >= 1 && top[0].score === 4);
+  t.recordScore(88);
+  ok('typing 更高分注入后居首', t.getTop5()[0].score === 88);
+  t.clearTop5();
+  ok('typing clearTop5 清空', t.getTop5().length === 0);
+})();

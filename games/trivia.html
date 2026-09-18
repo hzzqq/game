@@ -27,6 +27,8 @@
   .controls button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
   .controls button:hover{filter:brightness(1.1)}
   .foot{width:min(480px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
+  /* T-134：本地 Top5 榜单浮层（答题完成时显示；position:fixed 居中，勿挂 #msg 文档流） */
+  #top5Board{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
@@ -40,6 +42,7 @@
     <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
   </div>
   <div class="foot">Trivia（知识问答）：选择题竞答，每题四选一，答对累积得分，全部作答后结算总分。</div>
+  <div id="top5Board" style="display:none"></div>
 
 <script src="common.js"></script>
 <script>Common.injectTheme();</script>
@@ -59,7 +62,7 @@
   ];
   // T-120 修复：此前按 DEFAULT 固定顺序出题（每局题目顺序完全相同、零重玩性）；
   // 现每局洗牌题目顺序（_randFn 可注入复现；setQuestions 供测试精确控题不受影响）。
-  function reset(){ questions=Common.shuffle(DEFAULT.map(q=>({...q})), _randFn); idx=0; score=0; confettiFired=false; }
+  function reset(){ questions=Common.shuffle(DEFAULT.map(q=>({...q})), _randFn); idx=0; score=0; confettiFired=false; hideTop5(); }
   function setQuestions(arr){ questions=arr.map(q=>({...q})); idx=0; score=0; confettiFired=false; }
   function getCurrent(){ return idx<questions.length ? { q:questions[idx].q, options:questions[idx].options } : null; }
   function answer(i){
@@ -69,11 +72,20 @@
     idx++;
     if(correct){ Juice.sfx('hit'); Juice.addTrauma(.25); }
     else { Juice.sfx('error'); }
-    if(isFinished()){ Juice.sfx('win'); Juice.flash('#02c076', .5); confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+    if(isFinished()){ Juice.sfx('win'); Juice.flash('#02c076', .5); confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); recordTop5(); }
     return correct;
   }
   function getScore(){ return score; }
   function isFinished(){ return idx>=questions.length; }
+  // T-134：本地 Top5 榜单（答题完成时记录答对题数；Common.HighScores 共享层）
+  function recordTop5(){
+    try {
+      const rk = Common.HighScores.record('trivia', score, null);
+      const el = (typeof document!=='undefined') ? document.getElementById('top5Board') : null;
+      if(el){ Common.HighScores.render('trivia', el, rk); el.style.display='block'; }
+    } catch(e) {}
+  }
+  function hideTop5(){ if(typeof document==='undefined') return; const el=document.getElementById('top5Board'); if(el) el.style.display='none'; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
@@ -100,7 +112,11 @@
   }
   reset();
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
-  if(typeof window!=='undefined'){ window.__t={ setRand, reset, setQuestions, getCurrent, answer, getScore, isFinished, getConfettiFired:()=>confettiFired }; }
+  if(typeof window!=='undefined'){ window.__t={ setRand, reset, setQuestions, getCurrent, answer, getScore, isFinished, getConfettiFired:()=>confettiFired,
+    // ---- T-134 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+    recordScore:(s)=>Common.HighScores.record('trivia', s, null),
+    getTop5:()=>{ try { return Common.HighScores.read('trivia'); } catch(e){ return []; } },
+    clearTop5:()=>{ try { Common.Storage.set('trivia','top5',[]); return true; } catch(e){ return false; } } }; }
 })();
 </script>
 </body>
