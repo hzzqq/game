@@ -66,3 +66,25 @@ console.log('typing: 全部断言通过');
   t.submitWord('x'); // 仅完成第一词，未结束
   ok('未完成不置位', t.getConfettiFired()===false);
 }
+
+// ===== T-123：默认词表洗牌（词序不再固定）+ setRand 随机缝 =====
+// 注：游戏无重开按钮（重玩=刷新页面），reset 仅在初始化调用一次；
+// 测试用 setWords([]) 清词模拟新一轮（reset 对空 words 触发洗牌）。
+(() => {
+  const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  const order = () => { t.setWords([]); t.reset(); return JSON.stringify(t.getState().words); };
+  ok('typing setRand 钩子存在', typeof t.setRand === 'function');
+  t.setRand(lcg(7));     const s1 = order();
+  t.setRand(lcg(7));     const s2 = order();
+  t.setRand(lcg(99999)); const s3 = order();
+  ok('typing 同种子词序确定', s1 === s2);
+  ok('typing 不同种子词序不同', s1 !== s3);
+  // 词集合不变（仅顺序变）：默认 20 词全在
+  t.setRand(); const got = JSON.parse(order());
+  const def = t.getDefaultWords();
+  ok('typing 词集合不变（20 词全在）', got.length===def.length
+    && def.every(w => got.indexOf(w)>=0));
+  // setWords 精确控词不受洗牌影响
+  t.setRand(lcg(7)); t.reset(); t.setWords(['b','a','c']);
+  ok('typing setWords 顺序保持原样', JSON.stringify(t.getState().words)==='["b","a","c"]');
+})();

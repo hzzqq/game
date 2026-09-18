@@ -602,21 +602,15 @@
     if(typeof document==='undefined') return;
     let bar=document.getElementById('diffbar');
     if(!bar){
-      bar=document.createElement('div'); bar.id='diffbar';
+      bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
       bar.style.cssText='display:flex;gap:6px;justify-content:center;margin:8px 0;flex-wrap:wrap';
       const ctr=document.querySelector('.controls');
       if(ctr&&ctr.parentNode) ctr.parentNode.insertBefore(bar, ctr);
       else { const bd=document.getElementById('board'); if(bd&&bd.parentNode) bd.parentNode.insertBefore(bar, bd.nextSibling); else if(typeof document.body!=='undefined') document.body.appendChild(bar); }
     }
-    if(!bar) return;
-    bar.innerHTML='';
-    DIFF_ORDER.forEach(k=>{
-      const b=document.createElement('button');
-      b.textContent=DIFFICULTY[k].label;
-      b.style.cssText='background:'+(k===difficulty?'var(--gold)':'var(--panel)')+';color:'+(k===difficulty?'#0a0e14':'var(--text)')+';border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:inherit';
-      b.addEventListener('click',()=>{ setDifficulty(k); buildDiffBar(); render(); });
-      bar.appendChild(b);
-    });
+    // T-123：委托共享核心（四档键与本项目 DIFFICULTY 一致）；按钮样式由 injectTheme 的 .diffbar button 接管；bar.set 同步当前档位高亮
+    var handle = Common.buildDiffBar(bar, function(d){ setDifficulty(d); render(); });
+    if (handle) handle.set(difficulty);
   }
 
   function endGame(winnerIdx){

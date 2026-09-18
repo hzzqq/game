@@ -56,6 +56,9 @@
 <script>
 (function(){
   "use strict";
+  // 锐评修复：随机可注入缝（默认 Math.random，行为不变；setRand 可注入确定性 PRNG）
+  var _randFn = Math.random;
+  function setRand(fn){ _randFn = fn || Math.random; }
   /* ===================== 纯逻辑核心 ===================== */
   const DEFAULT_WORDS = ['terminal','market','signal','vector','liquid','engine','random','render','canvas','prompt','socket','lambda','kernel','buffer','binary','crypto','matrix','cursor','router','server'];
 
@@ -65,7 +68,9 @@
   let words, idx, totalCorrectChars, totalEntryChars, correctWords, startTime, endTime, finished, confettiFired;
   function setWords(w){ words = w.slice(); }
   function reset(){
-    if(!words || !words.length) words = DEFAULT_WORDS.slice();
+    // T-123 修复：此前 DEFAULT_WORDS 固定词序（每次加载练习词序完全相同）；
+    // 现 words 为空（页面加载/新一轮）时洗牌（_randFn 可注入复现；setWords 供测试精确控词不受影响）。
+    if(!words || !words.length) words = Common.shuffle(DEFAULT_WORDS.slice(), _randFn);
     idx = 0; totalCorrectChars = 0; totalEntryChars = 0; correctWords = 0;
     startTime = null; endTime = null; finished = false; confettiFired = false;
   }
@@ -133,7 +138,7 @@
 
   if(typeof window!=='undefined'){
     window.__t = {
-      setWords, setClock, reset, submitWord, getStats, getState,
+      setRand, setWords, setClock, reset, submitWord, getStats, getState,
       getDefaultWords:()=>DEFAULT_WORDS.slice(),
       getConfettiFired:()=>confettiFired,
     };
