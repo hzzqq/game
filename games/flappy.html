@@ -29,6 +29,8 @@
   .title .accent{ color:var(--red); }
   .stage{ position:relative; padding:14px; background:var(--bg); }
   canvas{ display:block; width:100%; height:auto; border-radius:6px; background:#0d1420; touch-action:none; }
+  /* T-127：本地 Top5 榜单浮层（死亡画面显示；样式主体走 Common.HighScores.render 注入的 .hs-board） */
+  #top5Board{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
   .bar{ display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--border); }
   button{
     flex:1; font-family:inherit; font-size:12px; cursor:pointer; border-radius:6px;
@@ -50,6 +52,7 @@
     </div>
     <div class="stage">
       <canvas id="cv" width="400" height="600"></canvas>
+      <div id="top5Board" style="display:none"></div>
     </div>
     <div class="bar">
       <button id="btnFlap" class="btn-main">拍翅 ▲</button>
@@ -118,6 +121,7 @@
 
     function reset() {
       state = 'menu';
+      var _fb0 = document.getElementById('top5Board'); if(_fb0) _fb0.style.display='none'; // T-127：重开隐藏榜单
       bird = { x: 96, y: H * 0.42, vy: 0, r: 13 };
       pipes = [];
       score = 0;
@@ -238,6 +242,12 @@
       if (hits()) {
         if (!birdHit()) {  // 有额外命则 revive 存活，否则 dead
           state = 'dead';
+          // T-127：本地 Top5 榜单（Common.HighScores 数据+渲染走共享层）
+          try {
+            var _fr = Common.HighScores.record('flappy', score, null);
+            Common.HighScores.render('flappy', document.getElementById('top5Board'), _fr);
+            var _fb = document.getElementById('top5Board'); if(_fb) _fb.style.display='block';
+          } catch(e) {}
           var isNewRecord = score > best;   // 成就：本次得分破历史最高分
           if (typeof Juice !== 'undefined') {
             Juice.sfx('lose'); Juice.addTrauma(0.6); Juice.flash('#f6465d', 0.35);
@@ -384,7 +394,11 @@
         pickups: pickups.map(function (p) { return { x: p.x, y: p.y, type: p.type }; }) }; },
       // —— 成就反馈只读钩子（破最高分置真，跳变防重复）——
       confettiFired: function () { return confettiFiredFlag; },
-      fxShakes: function () { return _fxShakes; }, fxBursts: function () { return _fxBursts; }
+      fxShakes: function () { return _fxShakes; }, fxBursts: function () { return _fxBursts; },
+      // —— T-127 本地 Top5 榜单钩子（Common.HighScores 数据层）——
+      recordScore: function (s) { return Common.HighScores.record('flappy', s, null); },
+      getTop5: function () { try { return Common.HighScores.read('flappy'); } catch (e) { return []; } },
+      clearTop5: function () { try { Common.Storage.set('flappy', 'top5', []); return true; } catch (e) { return false; } }
     };
 
     reset();

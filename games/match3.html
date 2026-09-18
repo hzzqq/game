@@ -102,6 +102,7 @@
       <div class="big" id="finalScore">0</div>
       <p id="finalMsg">最终得分</p>
       <div class="act" id="again">再来一局 / NEW GAME</div>
+      <div id="top5Board" style="display:none"></div>
     </div>
   </div>
 
@@ -386,6 +387,12 @@
     finalScore.textContent = score;
     document.getElementById('finalMsg').textContent = '最终得分 // 已用 ' + START_MOVES + ' 步';
     overlay.style.display = 'flex';
+    // T-127：本地 Top5 榜单（Common.HighScores 数据+渲染走共享层）
+    try {
+      var _mr = Common.HighScores.record('match3', score, null);
+      Common.HighScores.render('match3', document.getElementById('top5Board'), _mr);
+      var _mb = document.getElementById('top5Board'); if(_mb) _mb.style.display='block';
+    } catch(e) {}
     if(typeof Juice!=='undefined'){ Juice.sfx('click'); const b=Juice.best('match3',score); Juice.rank(score); if(b.isNew) Juice.achievement('最佳分 '+score); }
   }
 
@@ -435,7 +442,11 @@
       newGame,
       get confettiFired(){ return _confettiFired; },
       hasBigMatch,
-      milestone: function(){ if(hasBigMatch()) fireMilestoneConfetti(); }
+      milestone: function(){ if(hasBigMatch()) fireMilestoneConfetti(); },
+      // —— T-127 本地 Top5 榜单钩子（Common.HighScores 数据层）——
+      recordScore: function(s){ return Common.HighScores.record('match3', s, null); },
+      getTop5: function(){ try { return Common.HighScores.read('match3'); } catch(e){ return []; } },
+      clearTop5: function(){ try { Common.Storage.set('match3','top5',[]); return true; } catch(e){ return false; } }
     };
   }
 })();

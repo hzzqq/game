@@ -90,3 +90,18 @@ H.ok('消消乐 重开后 confetti 复位', t.confettiFired === false);
   H.ok('match3 不同种子开局棋盘不同', b1 !== b3);
   t.setRand();
 })();
+
+// ===== T-127：本地 Top5 排行榜（Common.HighScores 数据层）=====
+(() => {
+  H.ok('match3 排行榜 清空成功', t.clearTop5() === true);
+  H.ok('match3 排行榜 0 分不入榜', t.recordScore(0) === 0);
+  H.ok('match3 排行榜 空榜无记录', t.getTop5().length === 0);
+  H.ok('match3 排行榜 9999 上榜第 1', t.recordScore(9999) === 1);
+  H.ok('match3 排行榜 榜首=9999', t.getTop5()[0].score === 9999);
+  H.ok('match3 排行榜 8888 上榜第 2', t.recordScore(8888) === 2);
+  for (let i = 0; i < 6; i++) t.recordScore(10000 + i);
+  H.ok('match3 排行榜 最多保留 5 条', t.getTop5().length === 5);
+  H.ok('match3 排行榜 截断后榜首仍最大', t.getTop5()[0].score === 10005);
+  t.clearTop5();
+  H.ok('match3 排行榜 收尾清空', t.getTop5().length === 0);
+})();

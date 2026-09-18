@@ -23,6 +23,8 @@
   .controls button:active,.controls button.on{border-color:var(--gold);color:var(--gold);background:rgba(240,185,11,.1)}
   .msg{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--dim)}
   .msg.over{color:var(--red);font-weight:700}
+  /* T-127：本地 Top5 榜单浮层（game over 显示；样式主体走 Common.HighScores.render 注入的 .hs-board） */
+  #top5Board{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
   .foot{width:min(440px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
 </style>
 </head>
@@ -37,6 +39,7 @@
       <button id="right">右挡板 (→/D) ▶</button>
     </div>
     <div class="msg" id="msg">球会自动落下，用左右挡板把球弹回去。撞发光柱加分。</div>
+    <div id="top5Board" style="display:none"></div>
   </div>
   <div class="foot">经典弹珠台：重力下落的球撞 3 根发光柱（bumper）反弹加分，用左右挡板（←/A、→/D 或屏幕按钮）击球。3 条命耗尽即结束。红涨绿跌，暗色终端风。</div>
 
@@ -102,6 +105,7 @@
     score=0; lives=START_LIVES; over=false; leftDown=false; rightDown=false;
     pickups=[]; boostTimer=0; shield=0; rngPick=mk(0x9E3779B1);
     resetBall(); confettiFired=false;
+    var _pb0 = document.getElementById('top5Board'); if(_pb0) _pb0.style.display='none'; // T-127：重开隐藏榜单
   }
   // 达成目标反馈：破目标分(GOAL)一次性触发胜利彩带，跳变防重复
   const GOAL=200;
@@ -114,7 +118,16 @@
     if(shield>0){ shield--; if(typeof Juice!=='undefined') Juice.sfx('shield'); resetBall(); return; }
     lives--;
     if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.3); }
-    if(lives<=0){ over=true; if(typeof Juice!=='undefined'){ Juice.flash('#f6465d'); Juice.best('pinball', score); } }
+    if(lives<=0){
+      over=true;
+      // T-127：本地 Top5 榜单（Common.HighScores 数据+渲染走共享层）
+      try {
+        var _pr = Common.HighScores.record('pinball', score, null);
+        Common.HighScores.render('pinball', document.getElementById('top5Board'), _pr);
+        var _pb = document.getElementById('top5Board'); if(_pb) _pb.style.display='block';
+      } catch(e) {}
+      if(typeof Juice!=='undefined'){ Juice.flash('#f6465d'); Juice.best('pinball', score); }
+    }
     else resetBall();
   }
   function flipperHit(fx, active){
@@ -263,6 +276,10 @@
       getPickups:()=>pickups,
       getShield:()=>shield, setShield:(v)=>{shield=v;},
       getBoost:()=>boostTimer, setBoost:(v)=>{boostTimer=v;},
+      // —— T-127 本地 Top5 榜单钩子（Common.HighScores 数据层）——
+      recordScore: function(s){ return Common.HighScores.record('pinball', s, null); },
+      getTop5: function(){ try { return Common.HighScores.read('pinball'); } catch(e){ return []; } },
+      clearTop5: function(){ try { Common.Storage.set('pinball','top5',[]); return true; } catch(e){ return false; } }
     };
   }
 })();

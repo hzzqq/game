@@ -417,6 +417,21 @@ ok('plane: 击败后 boss=null', t.getBoss() === null);
 t.start();
 ok('plane: 重置后 confettiFired 复位', t.confettiFired() === false);
 
+// ===== T-127：本地 Top5 排行榜（Common.HighScores 数据层）=====
+(() => {
+  ok('plane 排行榜 清空成功', t.clearTop5() === true);
+  ok('plane 排行榜 0 分不入榜', t.recordScore(0) === 0);
+  ok('plane 排行榜 空榜无记录', t.getTop5().length === 0);
+  ok('plane 排行榜 9999 上榜第 1', t.recordScore(9999) === 1);
+  ok('plane 排行榜 榜首=9999', t.getTop5()[0].score === 9999);
+  ok('plane 排行榜 8888 上榜第 2', t.recordScore(8888) === 2);
+  for (let i = 0; i < 6; i++) t.recordScore(10000 + i);
+  ok('plane 排行榜 最多保留 5 条', t.getTop5().length === 5);
+  ok('plane 排行榜 截断后榜首仍最大', t.getTop5()[0].score === 10005);
+  t.clearTop5();
+  ok('plane 排行榜 收尾清空', t.getTop5().length === 0);
+})();
+
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
 const total = results.length;
