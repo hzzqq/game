@@ -105,8 +105,8 @@ H.eq('俄罗斯 rotateCW', t.rotateCW([[1,2],[3,4]]), [[3,1],[4,2]]);
   H.eq('俄罗斯 addCharge(2)=2', t.getCharges(), 2);
   t.addCharge(5);
   H.eq('俄罗斯 充能封顶=3', t.getCharges(), 3);
-  t.usePower('slow'); // 不应抛错
-  H.ok('俄罗斯 缓速调用无异常', true);
+  // 缓速：充能存在时必须生效（返回 true）——原为 H.ok('...', true) 字面量恒真，连返回值都没验证
+  H.ok('俄罗斯 缓速生效(usePower 返回 true)', t.usePower('slow') === true);
 })();
 
 // 12) 回归（核心缺陷）：消行升级当帧含「硬降加分」，弹窗显示值必须 == 实际净增(score 增量)

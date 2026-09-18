@@ -86,9 +86,16 @@ function auditRandom() {
       if (name === 'mk' && /const mk=\s*\(kind/.test(clean)) kind = 'overload'; // royale 式 mk 被重载（造塔），需手动
       return { name, kind };
     });
-    // 测试钩子覆盖率：window.__t 暴露的函数数 + 是否有配套 *_test.js
-    const hasHooks = /window\.__t\s*=/.test(clean);
-    const hookBlock = hasHooks ? (clean.match(/window\.__t\s*=\s*\{[\s\S]*?\n\s*\}/) || [''])[0] : '';
+    // 测试钩子覆盖率：window.__xx 暴露的函数数 + 是否有配套 *_test.js
+    // （T-139 口径修正：钩子名泛化为 window.__ 前缀——bubblebob 用 __bb、曾致 hasHooks 漏检 164/165 与逻辑测试 165/165 矛盾）
+    const hasHooks = /window\.__[A-Za-z_$][\w$]*\s*=/.test(clean);
+    // 钩子块提取两形态：① window.__x = { 内联对象字面量 }；② window.__x = 局部引用（const/let/var __x = {...}，bubblebob 式）
+    const hookMatch = hasHooks ? clean.match(/window\.(__[A-Za-z_$][\w$]*)\s*=\s*(\{|\S)/) : null;
+    const hookBlock = hookMatch
+      ? (clean.match(new RegExp('window\\.' + hookMatch[1] + '\\s*=\\s*\\{[\\s\\S]*?\\n\\s*\\}'))
+        || clean.match(new RegExp('(?:const|let|var)\\s+' + hookMatch[1] + '\\s*=\\s*\\{[\\s\\S]*?\\n\\s*\\}'))
+        || [''])[0]
+      : '';
     const hookFns = hasHooks ? (hookBlock.match(/^\s*[A-Za-z_$][\w$]*\s*[:(]/gm) || []).length : 0;
     const hasTest = fs.existsSync(path.join(TESTS_DIR_A, f.replace(/\.html$/, '_test.js')));
     if (hasHooks) { cHooks++; totalHookFns += hookFns; }
@@ -140,7 +147,7 @@ function auditRandom() {
   const violators = report.games.filter(g => g.mathRandom > 0 && !g.usesCommon);
   console.log('⚠ 裸 Math.random 且未用 Common 的游戏：' + violators.length + ' 款');
   console.log('📊 复制量：内联主题 ' + cTheme + ' ｜ diffbar 难度条 ' + cDiffbar + ' ｜ requestAnimationFrame ' + cRAF);
-  console.log('🧪 可测性：__t 钩子 ' + cHooks + '/' + report.games.length + ' ｜ 有逻辑测试 ' + cTested + '/' + report.games.length + ' ｜ 平均钩子函数 ' + report.summary.avgHookFnsPerGame + ' 个/款');
+  console.log('🧪 可测性：window.__ 钩子 ' + cHooks + '/' + report.games.length + ' ｜ 有逻辑测试 ' + cTested + '/' + report.games.length + ' ｜ 平均钩子函数 ' + report.summary.avgHookFnsPerGame + ' 个/款');
   return report;
 }
 if (process.argv.includes('--audit')) { auditRandom(); process.exit(0); }
