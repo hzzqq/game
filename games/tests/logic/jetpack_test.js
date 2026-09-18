@@ -6,50 +6,50 @@ const { t: T } = H.loadGame('../jetpack.html');
 // 1) 菜单态喷喷射 → 进入游戏且获得向上初速
 T.reset();
 T.flap();
-H.ok(T.getStatus() === 'play', 'jetpack: 喷射从菜单进入游戏');
-H.ok(T.getState().bird.vy === T.FLAP && T.FLAP < 0, 'jetpack: 喷射给向上初速 vy=FLAP(<0)');
+H.ok('jetpack: 喷射从菜单进入游戏', T.getStatus() === 'play');
+H.ok('jetpack: 喷射给向上初速 vy=FLAP(<0)', T.getState().bird.vy === T.FLAP && T.FLAP < 0);
 
 // 2) 重力把鸟往下拉
 T.reset(); T.setStatus('play');
 var by0 = T.getState().bird.y;
 T.setBird(by0, 0);
 T.step(0.1);
-H.ok(T.getState().bird.y > by0, 'jetpack: 重力使鸟下落 (y ' + by0.toFixed(1) + '→' + T.getState().bird.y.toFixed(1) + ')');
+H.ok('jetpack: 重力使鸟下落 (y ' + by0.toFixed(1) + '→' + T.getState().bird.y.toFixed(1) + ')', T.getState().bird.y > by0);
 
 // 3) 撞上管道 → 碰撞判定为真
 T.reset(); T.clearPipes(); T.setStatus('play');
 var bx = T.getState().bird.x;
 T.addPipe(bx, 300);            // 上管占据 0..300
 T.setBird(100, 0);            // 鸟身在管内
-H.ok(T.hits() === true, 'jetpack: 鸟身陷管道 → 碰撞');
+H.ok('jetpack: 鸟身陷管道 → 碰撞', T.hits() === true);
 
 // 4) 处于间隙中央 → 不碰撞
 T.reset(); T.clearPipes(); T.setStatus('play');
 T.addPipe(bx, 300);           // 间隙 300..458
 T.setBird(379, 0);            // 间隙中央
-H.ok(T.hits() === false, 'jetpack: 间隙中央 → 不碰撞');
+H.ok('jetpack: 间隙中央 → 不碰撞', T.hits() === false);
 
 // 5) 触地 → 碰撞
 T.reset(); T.setStatus('play');
 T.setBird(T.GROUND + 5, 0);
-H.ok(T.hits() === true, 'jetpack: 触地 → 碰撞');
+H.ok('jetpack: 触地 → 碰撞', T.hits() === true);
 
 // 6) 穿过管道计分 +1（距离计分公式不变）
 T.reset(); T.clearPipes(); T.setStatus('play'); T.setScore(0);
 T.addPipe(bx + T.PIPE_W + 4, 300);
 T.step(1.0);
-H.ok(T.getScore() === 1, 'jetpack: 越过管道计分 +1 (score=' + T.getScore() + ')');
+H.ok('jetpack: 越过管道计分 +1 (score=' + T.getScore() + ')', T.getScore() === 1);
 
 // 7) 撞地 → 状态变 dead
 T.reset(); T.setStatus('play');
 T.setBird(T.GROUND + 5, 0);
 T.step(0.016);
-H.ok(T.getStatus() === 'dead', 'jetpack: 撞地 → 状态 dead');
+H.ok('jetpack: 撞地 → 状态 dead', T.getStatus() === 'dead');
 
 // 8) 重置清空分数与管道、道具
 T.reset();
-H.ok(T.getScore() === 0, 'jetpack: 重置分数归零');
-H.ok(T.getStatus() === 'menu', 'jetpack: 重置回菜单');
+H.ok('jetpack: 重置分数归零', T.getScore() === 0);
+H.ok('jetpack: 重置回菜单', T.getStatus() === 'menu');
 H.eq('jetpack: 重置清空掉落物', T.getPickups().length, 0);
 H.ok('jetpack: 重置护盾为 0', T.getShield() === false);
 H.ok('jetpack: 重置加速为 0', T.getBoost() === false);
@@ -229,3 +229,17 @@ T.reset();
 H.eq('jetpack: 重置 fxShakes=0', T.fxShakes(), 0);
 H.eq('jetpack: 重置 fxBursts=0', T.fxBursts(), 0);
 
+// ===== T-132：本地 Top5 排行榜（Common.HighScores 数据层）=====
+(() => {
+  H.ok('jetpack 排行榜 清空成功', T.clearTop5() === true);
+  H.ok('jetpack 排行榜 0 分不入榜', T.recordScore(0) === 0);
+  H.ok('jetpack 排行榜 空榜无记录', T.getTop5().length === 0);
+  H.ok('jetpack 排行榜 9999 上榜第 1', T.recordScore(9999) === 1);
+  H.ok('jetpack 排行榜 榜首=9999', T.getTop5()[0].score === 9999);
+  H.ok('jetpack 排行榜 8888 上榜第 2', T.recordScore(8888) === 2);
+  for (let i = 0; i < 6; i++) T.recordScore(10000 + i);
+  H.ok('jetpack 排行榜 最多保留 5 条', T.getTop5().length === 5);
+  H.ok('jetpack 排行榜 截断后榜首仍最大', T.getTop5()[0].score === 10005);
+  T.clearTop5();
+  H.ok('jetpack 排行榜 收尾清空', T.getTop5().length === 0);
+})();

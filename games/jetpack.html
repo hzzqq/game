@@ -40,6 +40,8 @@
   .diffbar{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap; padding:0 14px 12px; }
   .diffbar button{ background:var(--panel,#121821); color:var(--sub,#6b7785); border:1px solid var(--border); border-radius:8px; padding:6px 13px; font-weight:700; cursor:pointer; font-family:inherit; font-size:12px; }
   .diffbar button.active{ background:var(--gold,#f0b90b); color:#0a0e14; border-color:var(--gold,#f0b90b); }
+  /* T-132：本地 Top5 榜单浮层（死亡画面显示；样式主体走 Common.HighScores.render 注入的 .hs-board） */
+  #top5Board{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
@@ -58,6 +60,7 @@
     <div class="hint">空格 / ↑ / W / 点按 喷射上升 · 松开下落 · 穿过管道得分 · 撞管或落地即结束</div>
     <div class="diffbar" id="diffbar"></div>
   </div>
+  <div id="top5Board" style="display:none"></div>
 
   <script src="common.js"></script>
 <script>Common.injectTheme();</script>
@@ -140,6 +143,7 @@
       PIPE_SPD = BASE_PIPE_SPD * diffCfg().speedMult;
       SPAWN_DX = BASE_SPAWN_DX / diffCfg().countMult;
       reseed(0x5E7AC0DE & 0xFFFFFFFF);
+      var _fb0 = document.getElementById('top5Board'); if(_fb0) _fb0.style.display='none'; // T-132：重开隐藏榜单
       spawnPipe(W + 120);
       spawnPipe(W + 120 + SPAWN_DX);
       spawnPipe(W + 120 + SPAWN_DX * 2);
@@ -250,6 +254,12 @@
       if (invuln <= 0 && hits()) {
         if (takeHit()) {  // 无盾 → 失败
           state = 'dead';
+          // T-132：本地 Top5 榜单（Common.HighScores 数据+渲染走共享层）
+          try {
+            var _fr = Common.HighScores.record('jetpack', score, null);
+            Common.HighScores.render('jetpack', document.getElementById('top5Board'), _fr);
+            var _fb = document.getElementById('top5Board'); if(_fb) _fb.style.display='block';
+          } catch(e) {}
           groundHit = (bird.y + bird.r >= GROUND);
           if (J) {
             J.sfx('lose'); J.addTrauma(0.6); J.flash('#f6465d', 0.35);
@@ -399,6 +409,10 @@
       getInvuln: function () { return invuln; },
       setRand: setRand,
       reseed: reseed,
+      // —— T-132 本地 Top5 榜单钩子（Common.HighScores 数据层）——
+      recordScore: function (s) { return Common.HighScores.record('jetpack', s, null); },
+      getTop5: function () { try { return Common.HighScores.read('jetpack'); } catch (e) { return []; } },
+      clearTop5: function () { try { Common.Storage.set('jetpack', 'top5', []); return true; } catch (e) { return false; } },
       getState: function () {
         return {
           status: state, score: score, best: best,

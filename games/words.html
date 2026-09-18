@@ -65,6 +65,8 @@
   #overlay p{color:var(--dim);font-size:13px;line-height:1.9;margin-bottom:18px}
   #overlay .start{background:var(--gold);color:#0a0e14;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;box-shadow:0 0 14px rgba(240,185,11,.4);margin:4px}
   #overlay .ghost{background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px 22px;cursor:pointer;font-family:inherit;font-size:14px;margin:4px}
+  /* T-132：本地 Top5 榜单浮层（结算时显示；position:fixed 居中，独立于 overlay 菜单态） */
+  #top5Board{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
@@ -118,6 +120,7 @@
       <button class="ghost" id="dailyBtn">今日挑战</button>
     </div>
   </div>
+  <div id="top5Board" style="display:none"></div>
 
   <script src="common.js"></script>
 <script>Common.injectTheme();</script>
@@ -284,8 +287,8 @@
       if (b.isNew) { Juice.achievement('🏆 新纪录 ' + S.score + '！'); Juice.flash('#f0b90b', 0.4); }
       Juice.sfx('lose');
       $('overlay').style.display = 'flex';
-      $('overlay h1').textContent = '💥 接龙中断';
-      $('overlay p').innerHTML = (S.daily ? '【今日挑战】<br/>' : '') +
+      document.querySelector('#overlay h1').textContent = '💥 接龙中断';
+      document.querySelector('#overlay p').innerHTML = (S.daily ? '【今日挑战】<br/>' : '') +
         '得分 <b style="color:var(--gold)">' + S.score + '</b> · 段位 ' + S.rank +
         '<br/>历史最佳 <b style="color:var(--gold)">' + b.value + '</b>' + (b.isNew ? '（新纪录!）' : '') +
         '<br/>点击下方按钮再来一局。';
@@ -293,11 +296,21 @@
       // 把本局分数写回通用最佳
       Juice.save('idiom', Math.max(Juice.load('idiom', 0), S.score));
       syncHUD();
+      // T-132：结算时记录+渲染本地 Top5（Common.HighScores 共享层；日常/普通模式同分制，共榜）
+      try {
+        const _tb = document.getElementById('top5Board');
+        if (_tb) {
+          const rk = Common.HighScores.record('words', S.score, null);
+          Common.HighScores.render('words', _tb, rk);
+          _tb.style.display = 'block';
+        }
+      } catch (e) {}
     }
 
     function start(daily) {
       S = newState(daily);
       $('overlay').style.display = 'none';
+      const _tb0 = document.getElementById('top5Board'); if (_tb0) _tb0.style.display = 'none'; // T-132：重开隐藏榜单
       $('msg').textContent = '用上一个成语的尾字，作下一个成语的首字。'; $('msg').className = '';
       syncHUD();
       $('guess').focus();
@@ -348,7 +361,11 @@
       setS: function(v){ S = v; },
       submitWord: function(w){ submit(w); },
       chainFx: function(){ return chainFx; },
-      confettiFired: function(){ return _confettiFired; }
+      confettiFired: function(){ return _confettiFired; },
+      // ---- T-132 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+      recordScore: function (s) { return Common.HighScores.record('words', s, null); },
+      getTop5: function () { try { return Common.HighScores.read('words'); } catch (e) { return []; } },
+      clearTop5: function () { try { Common.Storage.set('words', 'top5', []); return true; } catch (e) { return false; } }
     };
   })();
   </script>

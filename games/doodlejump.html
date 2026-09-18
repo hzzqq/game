@@ -28,6 +28,8 @@
   .diffbar{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:10px}
   .diffbar button{background:var(--panel);color:var(--dim);border:1px solid var(--border);border-radius:8px;padding:6px 13px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px}
   .diffbar button.active{background:var(--gold);color:#0a0e14;border-color:var(--gold)}
+  /* T-132：本地 Top5 榜单浮层（失败时显示；position:fixed 居中，勿挂 #msg 文档流） */
+  #top5Board{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
@@ -44,6 +46,7 @@
     <div class="diffbar" id="diffbar"></div>
     <div class="msg" id="msg">小人自动跳上平台，越往上分数越高；掉出屏幕底部即失败。捡道具：🌀弹簧跳更高 · 🚀火箭升空 · 🛡护盾免一次坠落 · ⭐星星加分。</div>
   </div>
+  <div id="top5Board" style="display:none"></div>
   <div class="foot">Doodle Jump（涂鸦跳跃）：自动跳跃穿越平台，向上攀登刷新高度分；收集增益道具助你飞得更高。</div>
 
 <script src="common.js"></script>
@@ -222,6 +225,7 @@
       gameOver = true;
       if(J) J.sfx && J.sfx('lose');
       if(J) J.best && J.best('doodlejump', score);
+      showTop5();
       _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
     }
   }
@@ -261,6 +265,7 @@
     cam = player.y - H*0.7;
     platforms.push({ x: W/2 - PLAT_W/2, y: START_Y + 18, w: PLAT_W, type:'normal' }); // 起始平台
     ensurePlatforms();
+    if(typeof document!=='undefined'){ const _lb=document.getElementById('top5Board'); if(_lb) _lb.style.display='none'; } // T-132：重开隐藏榜单
     return getState();
   }
   function newGame(seed){ return reset(seed); }
@@ -316,6 +321,7 @@
                 gameOver = true;
                 if(J) J.sfx&&J.sfx('lose');
                 if(J) J.best&&J.best('doodlejump', score);
+                showTop5();
                 _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
               }
               break;
@@ -361,6 +367,7 @@
         gameOver = true;
         if(J) J.sfx&&J.sfx('lose');
         if(J) J.best&&J.best('doodlejump', score);
+        showTop5();
         _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
       }
     }
@@ -368,6 +375,16 @@
 
   function isGameOver(){ return gameOver; }
   function getScore(){ return score; }
+  // T-132：失败时记录+渲染本地 Top5（Common.HighScores 共享层）
+  function showTop5(){
+    if(typeof document==='undefined') return;
+    try {
+      const el = document.getElementById('top5Board'); if(!el) return;
+      const rk = Common.HighScores.record('doodlejump', score, null);
+      Common.HighScores.render('doodlejump', el, rk);
+      el.style.display='block';
+    } catch(e) {}
+  }
   function getState(){
     return {
       player: { x:player.x, y:player.y, vy:player.vy, r:player.r },
@@ -515,6 +532,10 @@
       W, H, R, START_Y, PLAT_W, JUMP_V, SPRING_V, ROCKET_V, ROCKET_DUR, STAR_VALUE, GRAVITY,
       PICKUP_TYPES, PICKUP_PROB,
       setRand, reseed, newGame, reset, step, move, isGameOver, getScore, getState,
+      // ---- T-132 本地 Top5 榜单钩子（Common.HighScores 数据层）----
+      recordScore:(s)=>Common.HighScores.record('doodlejump', s, null),
+      getTop5:()=>{ try { return Common.HighScores.read('doodlejump'); } catch(e){ return []; } },
+      clearTop5:()=>{ try { Common.Storage.set('doodlejump','top5',[]); return true; } catch(e){ return false; } },
       setPlayerX, setPlayerY, setVY, triggerFall,
       getPlatforms:()=>platforms.map(p=>({x:p.x,y:p.y,w:p.w,type:p.type,broken:!!p.broken})),
       setPlatforms:(arr)=>{ platforms = (arr||[]).map(p=>({x:p.x,y:p.y,w:p.w,type:p.type||'normal',broken:false})); },

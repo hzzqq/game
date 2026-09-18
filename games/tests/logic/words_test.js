@@ -88,6 +88,32 @@ eq('setS/getS rank', t.getS().rank, '黄金');
   t.setRand();
 })();
 
+// ===== T-132：本地 Top5 排行榜（Common.HighScores 数据层）=====
+{
+  ok('words 排行榜 清空成功', t.clearTop5() === true);
+  ok('words 排行榜 0 分不入榜', t.recordScore(0) === 0);
+  ok('words 排行榜 空榜无记录', t.getTop5().length === 0);
+  ok('words 排行榜 9999 上榜第 1', t.recordScore(9999) === 1);
+  ok('words 排行榜 榜首=9999', t.getTop5()[0].score === 9999);
+  ok('words 排行榜 8888 上榜第 2', t.recordScore(8888) === 2);
+  for (let i = 0; i < 6; i++) t.recordScore(10000 + i);
+  ok('words 排行榜 最多保留 5 条', t.getTop5().length === 5);
+  ok('words 排行榜 截断后榜首仍最大', t.getTop5()[0].score === 10005);
+  t.clearTop5();
+  ok('words 排行榜 收尾清空', t.getTop5().length === 0);
+}
+
+// ===== T-132 附带：gameOver 真路径回归（浏览器 QA 抓到 $('overlay h1') 恒 null 崩溃，已修 querySelector）=====
+{
+  t.clearTop5();
+  t.setS({ running:true, over:false, daily:false, dateKey:1, score:600, combo:0, lives:1, hints:3, skips:2, anchor:'一鸣惊人', required:'人', challenge:false, rank:'青铜', best:0, wrong:[] });
+  t.submitWord('完全不对词');   // lives 1→0 → gameOver 真路径
+  const st = t.getS();
+  ok('words gameOver 真路径执行到底', st.over === true);
+  ok('words gameOver 记录 Top5（600 上榜首）', (t.getTop5()[0] || {}).score === 600);
+  t.clearTop5();
+}
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;
