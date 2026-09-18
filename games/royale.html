@@ -472,18 +472,20 @@
     if(state.boostTimer>0) state.boostTimer = Math.max(0, state.boostTimer - dt);
     updatePickups(dt);
 
+    // 胜负即时判定：必须先于死亡塔清理——dead king 会被下方 filter 移除，之后 find 恒 undefined，
+    // 原判定（filter 之后）是从未生效的死代码（摧毁国王塔不立即结算，拖到计时结束才按塔数判）
+    const myKingNow = state.towers.find(t=>t.side==='me' && t.kind==='king');
+    const aiKingNow = state.towers.find(t=>t.side==='ai' && t.kind==='king');
+    if(aiKingNow && aiKingNow.dead){ finish('win'); return; }
+    if(myKingNow && myKingNow.dead){ finish('lose'); return; }
     // 清理
     state.units = state.units.filter(u=>!u.dead);
     state.towers = state.towers.filter(t=>!t.dead);
     state.effects = state.effects.filter(ef=>ef.age < ef.life);
 
-    // 计时 / 胜负
+    // 计时
     state.time -= dt;
     if(state.time <= 0){ endByTowers(); return; }
-    const myKing = state.towers.find(t=>t.side==='me' && t.kind==='king');
-    const aiKing = state.towers.find(t=>t.side==='ai' && t.kind==='king');
-    if(aiKing && aiKing.dead){ finish('win'); return; }
-    if(myKing && myKing.dead){ finish('lose'); return; }
   }
   function endByTowers(){
     const myT = aliveTowers('me').length, aiT = aliveTowers('ai').length;
@@ -723,6 +725,7 @@
     setElixir(side, v){ if(side==='me') state.elixirMe=v; else state.elixirAi=v; },
     // ---- 注入：标准化掉落/增益系统钩子 ----
     reset: resetState,
+    update: function(dt){ if(!state.over) update(dt||0.016); },   // 测试驱动一帧：king 失守的 finish 判定在 update 内
     getState: function(){ return state; },
     spawnPickup: function(type,x,y){ if(type===undefined) return spawnPickupAtRandom(); return makePickup(type, x!==undefined?x:W/2, y!==undefined?y:H/2); },
     stepPickups: function(dt){ updatePickups(dt); },

@@ -81,14 +81,14 @@ const { t } = H.loadGame('../snakebattle.html');
 
 // 13) 胜利彩带：一方被淘汰 → confettiFired 置真（只读锁，独立于 Juice）
 t.reset();
-H.ok(t.confettiFired() === false, 'snakebattle: 胜利前 confettiFired 为 false');
+H.ok('snakebattle: 胜利前 confettiFired 为 false', t.confettiFired() === false);
 t.win();
-H.ok(t.confettiFired() === true, 'snakebattle: 一方被淘汰(P1胜) → confettiFired 为真');
-H.ok(t.getState().gameOver === true, 'snakebattle: win() 进入结束态');
+H.ok('snakebattle: 一方被淘汰(P1胜) → confettiFired 为真', t.confettiFired() === true);
+H.ok('snakebattle: win() 进入结束态', t.getState().gameOver === true);
 
 // 14) 重置后锁复位
 t.reset();
-H.ok(t.confettiFired() === false, 'snakebattle: 重置后 confettiFired 复位');
+H.ok('snakebattle: 重置后 confettiFired 复位', t.confettiFired() === false);
 
 const total = H.results.length;
 const pass = H.results.filter(r => r.pass).length;

@@ -4,7 +4,7 @@ const { t: T } = H.loadGame('../whack.html');
 
 T.reset();
 const s0 = T.getState();
-H.ok(s0.pickups === 0, 'whack: reset 后无掉落');
+H.ok('whack: reset 后无掉落', s0.pickups === 0);
 
 // 1) 高分金币生效数值
 T.setScore(0);
@@ -40,12 +40,12 @@ H.eq('whack: 仅下落掉落仍在', T.getPickups().length, 1);
 
 // ===== 破纪录里程碑 confetti 测试（仅视觉反馈钩子，不改玩法）=====
 T.reset(); T.setScore(1000);
-H.ok(T.confettiFired() === false, 'whack: 破纪录前 confettiFired 为 false');
+H.ok('whack: 破纪录前 confettiFired 为 false', T.confettiFired() === false);
 T.endGame(); // 1000 > best(0) → 新纪录
-H.ok(T.confettiFired() === true, 'whack: 破纪录 → confettiFired 为真');
+H.ok('whack: 破纪录 → confettiFired 为真', T.confettiFired() === true);
 // 同一局只触发一次（锁）
 T.setScore(2000); T.endGame();
-H.ok(T.confettiFired() === true, 'whack: 二次破纪录仍受锁保护（只触发一次）');
+H.ok('whack: 二次破纪录仍受锁保护（只触发一次）', T.confettiFired() === true);
 
 const results = H.results;
 const total = results.length;

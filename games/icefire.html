@@ -246,6 +246,7 @@
     if(fireStart){ fire.startX=fireStart.x*T+(T-fire.w)/2; fire.startY=fireStart.y*T+(T-fire.h); }
     ice.x=ice.startX; ice.y=ice.startY; ice.vx=0; ice.vy=0; ice.onGround=false; ice.upPrev=false; ice.jumpBuf=0; ice.atExit=false;
     fire.x=fire.startX; fire.y=fire.startY; fire.vx=0; fire.vy=0; fire.onGround=false; fire.upPrev=false; fire.jumpBuf=0; fire.atExit=false;
+    for(const who in input) for(const k in input[who]) input[who][k]=false;   // 清残留按键：防上一局空中帧的输入泄漏进新局（破坏 reset 确定性）
     ice.shield=0; ice.starTimer=0; ice.shieldGrace=0;
     fire.shield=0; fire.starTimer=0; fire.shieldGrace=0;
     powerups = [];

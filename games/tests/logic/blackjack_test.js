@@ -13,14 +13,15 @@ H.eq('bj: A+6+10=17(软)', T.handValue([A, N6, Ten]), 17);
 H.eq('bj: 10+7=17', T.handValue([Ten, N7]), 17);
 
 // 2) 黑杰克：仅两张 21
-H.ok(T.isBlackjack([A, K]) === true, 'bj: A+K 是黑杰克');
-H.ok(T.isBlackjack([A, N5, N5]) === false, 'bj: A+5+5 非黑杰克');
-H.ok(T.isBlackjack([Ten, Ten]) === false, 'bj: 10+10 非黑杰克');
+H.ok('bj: A+K 是黑杰克', T.isBlackjack([A, K]) === true);
+H.ok('bj: A+5+5 非黑杰克', T.isBlackjack([A, N5, N5]) === false);
+H.ok('bj: 10+10 非黑杰克', T.isBlackjack([Ten, Ten]) === false);
 
 // 3) 庄家 17 停手
-H.ok(T.dealerShouldHit([N6, N8, N5]) === true, 'bj: 19 以上停手前 16 继续要');
-H.ok(T.dealerShouldHit([Ten, N7]) === false, 'bj: 17 停手');
-H.ok(T.dealerShouldHit([A, N6]) === false, 'bj: 软17 停手');
+H.ok('bj: 19 点停手（17 停手规则）', T.dealerShouldHit([N6, N8, N5]) === false);
+H.ok('bj: 16 点继续要', T.dealerShouldHit([N6, Ten]) === true);
+H.ok('bj: 17 停手', T.dealerShouldHit([Ten, N7]) === false);
+H.ok('bj: 软17 停手', T.dealerShouldHit([A, N6]) === false);
 
 // 4) 结算
 H.eq('bj: 玩家BJ胜', T.resolveRound([A, K], [Ten, N7]), 'blackjack');
@@ -52,14 +53,17 @@ T.runRound([Ten, N9], [Ten, N6, N8], 100);
 H.eq('bj: 庄家爆牌胜 +100', T.getChips(), 1100, '1000-100+200');
 
 // ===== 胜利彩带标记（confettiFired）=====
-H.ok(T.confettiFired() === false, 'bj: 初始 confettiFired=false');
+// 注：第 5 节赔付轮的「庄家爆牌胜」(win 分支) 已置位彩带标记；先跑一局平局（不触发彩带）回到干净基线
+T.setChips(1000);
+T.runRound([Ten, N9], [Ten, N9], 100);
+H.ok('bj: 平局局不触发彩带 confettiFired=false', T.confettiFired() === false);
 T.setChips(1000);
 T.runRound([A, K], [Ten, N7], 100);   // 黑杰克 → 触发彩带
-H.ok(T.confettiFired() === true, 'bj: 黑杰克胜后 confettiFired=true');
+H.ok('bj: 黑杰克胜后 confettiFired=true', T.confettiFired() === true);
 // 新一局（runRound 内部已复位）应恢复 false
 T.setChips(1000);
 T.runRound([Ten, N7], [Ten, N8], 100); // 普通负，不触发彩带
-H.ok(T.confettiFired() === false, 'bj: 新局重置后 confettiFired=false');
+H.ok('bj: 新局重置后 confettiFired=false', T.confettiFired() === false);
 
 // ===== 手感计数钩子（只读 _fxShakes/_fxBursts）=====
 // 干净基线：runRound 内部归零；平局(push)不触发任何 fx

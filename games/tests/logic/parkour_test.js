@@ -14,44 +14,44 @@ fresh();
 T.setPickups([{ x: 90 + 12, y: T.GROUND_Y() - 19, type: 'coin', r: 10 }]);
 var c0 = T.getCoins();
 T.update(1);
-H.ok(T.getCoins() === c0 + 1, 'parkour: 金币被拾取 coins+1 (得到 ' + T.getCoins() + ')');
-H.ok(T.getPickups().length === 0, 'parkour: 金币拾取后从场上移除');
+H.ok('parkour: 金币被拾取 coins+1 (得到 ' + T.getCoins() + ')', T.getCoins() === c0 + 1);
+H.ok('parkour: 金币拾取后从场上移除', T.getPickups().length === 0);
 
 // 2) 护盾免死：有护盾撞障碍不结束
 fresh();
 T.setRunner({ shield: 1 });
 T.setObstacles([{ type: 0, x: 90, y: T.GROUND_Y() - 26, w: 22, h: 26 }]);
 T.update(1);
-H.ok(T.getState() === 'play', 'parkour: 有护盾撞障碍不死 (state=' + T.getState() + ')');
-H.ok(T.getRunner().shield === 0, 'parkour: 护盾被消耗 (shield=' + T.getRunner().shield + ')');
-H.ok(T.getRunner().invuln > 0, 'parkour: 消耗后获得短暂无敌 (invuln=' + T.getRunner().invuln + ')');
+H.ok('parkour: 有护盾撞障碍不死 (state=' + T.getState() + ')', T.getState() === 'play');
+H.ok('parkour: 护盾被消耗 (shield=' + T.getRunner().shield + ')', T.getRunner().shield === 0);
+H.ok('parkour: 消耗后获得短暂无敌 (invuln=' + T.getRunner().invuln + ')', T.getRunner().invuln > 0);
 
 // 3) 无敌星穿障：有 star 时撞障碍不结束
 fresh();
 T.setRunner({ star: 240 });
 T.setObstacles([{ type: 0, x: 90, y: T.GROUND_Y() - 26, w: 22, h: 26 }]);
 T.update(1);
-H.ok(T.getState() === 'play', 'parkour: 无敌星期间穿障不死 (state=' + T.getState() + ')');
-H.ok(T.getRunner().star < 240, 'parkour: 无敌星计时递减 (star=' + T.getRunner().star + ')');
+H.ok('parkour: 无敌星期间穿障不死 (state=' + T.getState() + ')', T.getState() === 'play');
+H.ok('parkour: 无敌星计时递减 (star=' + T.getRunner().star + ')', T.getRunner().star < 240);
 
 // 4) 无护盾无星 → 撞障碍 gameOver
 fresh();
 T.setRunner({ shield: 0, star: 0, invuln: 0 });
 T.setObstacles([{ type: 0, x: 90, y: T.GROUND_Y() - 26, w: 22, h: 26 }]);
 T.update(1);
-H.ok(T.getState() === 'over', 'parkour: 无护盾撞障碍结束 (state=' + T.getState() + ')');
+H.ok('parkour: 无护盾撞障碍结束 (state=' + T.getState() + ')', T.getState() === 'over');
 
 // 5) collectPickup 直接调用：shield +1
 fresh();
 T.collectPickup({ x: 100, y: 100, type: 'shield' });
-H.ok(T.getRunner().shield === 1, 'parkour: collectPickup 护盾+1 (shield=' + T.getRunner().shield + ')');
+H.ok('parkour: collectPickup 护盾+1 (shield=' + T.getRunner().shield + ')', T.getRunner().shield === 1);
 
 // ---------- 成就/胜利正反馈：到达距离里程碑触发 confettiFired ----------
 fresh();
 var pg = 0;
 while (!T.confettiFired() && pg < 600){ T.setObstacles([]); T.update(1); pg++; }
-H.ok(T.confettiFired() === true, 'parkour: 到达里程碑触发 confettiFired (steps=' + pg + ')');
-H.ok(pg < 600, 'parkour: 在合理步数内抵达里程碑');
+H.ok('parkour: 到达里程碑触发 confettiFired (steps=' + pg + ')', T.confettiFired() === true);
+H.ok('parkour: 在合理步数内抵达里程碑', pg < 600);
 
 // ===== 本地 Top5 排行榜（T-106 收口：Common.HighScores 数据层）=====
 (() => {

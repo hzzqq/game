@@ -187,8 +187,9 @@ if (fs.existsSync(TESTS_DIR)) {
   const gameStems = new Set(files.map(f => f.replace(/\.html$/, '')));
   // demo 参考实现的测试指向 games/demo/，单独放行；
   // common_test 是 Common 共享库的测试，本就无对应游戏 html，同样放行
-  // （注意：common_test.js 去后缀后的 stem 是 'common'，不是 'common_test'）
-  const EXEMPT_TESTS = new Set(['demo_common', 'demo_toolkit', 'common']);
+  // （注意：common_test.js 去后缀后的 stem 是 'common'，不是 'common_test'）；
+  // convergence_test 是收敛门禁行为锁（games/tests/convergence.js 的单测），同样无游戏 html
+  const EXEMPT_TESTS = new Set(['demo_common', 'demo_toolkit', 'common', 'convergence']);
   const orphanTests = testStems.filter(s => !gameStems.has(s) && !EXEMPT_TESTS.has(s));
   const untested = [...gameStems].filter(s => !testStems.includes(s)).sort();
   if (orphanTests.length) {

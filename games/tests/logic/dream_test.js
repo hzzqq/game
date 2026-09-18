@@ -5,36 +5,36 @@ const { t: T } = H.loadGame('../dream.html');
 
 T.start();                       // 仅在点击时初始化 hero，单测显式拉起
 var hero = T.getHero();
-H.ok(!!hero && typeof hero.maxhp === 'number', 'dream: start() 后 hero 已初始化');
+H.ok('dream: start() 后 hero 已初始化', !!hero && typeof hero.maxhp === 'number');
 
 // 1) 回血：hp +25（封顶 maxhp）
 hero.hp = 10;
 T.spawnPickup('heal', 100, 100);
 T.collectAll();
-H.ok(hero.hp === Math.min(hero.maxhp, 35), 'dream: 回血 +25 封顶 (得到 ' + hero.hp + ')');
-H.ok(T.getPickups() === 0, 'dream: 拾取后清空');
+H.ok('dream: 回血 +25 封顶 (得到 ' + hero.hp + ')', hero.hp === Math.min(hero.maxhp, 35));
+H.ok('dream: 拾取后清空', T.getPickups() === 0);
 
 // 2) 回蓝：mana +30（封顶 maxmana）
 hero.mana = 0;
 T.spawnPickup('mana', 100, 100);
 T.collectAll();
-H.ok(hero.mana === Math.min(hero.maxmana, 30), 'dream: 回蓝 +30 封顶 (得到 ' + hero.mana + ')');
+H.ok('dream: 回蓝 +30 封顶 (得到 ' + hero.mana + ')', hero.mana === Math.min(hero.maxmana, 30));
 
 // 3) 狂暴：heroRage 置 5s
 T.setRage(0);
 T.spawnPickup('rage', 100, 100);
 T.collectAll();
-H.ok(T.getRage() === 5, 'dream: 狂暴置 5s (得到 ' + T.getRage() + ')');
+H.ok('dream: 狂暴置 5s (得到 ' + T.getRage() + ')', T.getRage() === 5);
 
 // 4) setRage/getRage 通路
 T.setRage(2);
-H.ok(T.getRage() === 2, 'dream: setRage/getRage 通路 (得到 ' + T.getRage() + ')');
+H.ok('dream: setRage/getRage 通路 (得到 ' + T.getRage() + ')', T.getRage() === 2);
 
 // 5) 通关彩带钩子
 T.start();
 T.win();
-H.ok(T.getState() === 'win', 'dream: win() 后状态为 win');
-H.ok(T.confettiFired(), 'dream: 通关触发胜利彩带(confettiFired)');
+H.ok('dream: win() 后状态为 win', T.getState() === 'win');
+H.ok('dream: 通关触发胜利彩带(confettiFired)', T.confettiFired());
 
 // ===== 汇总 =====
 const passed = results.filter(r=>r.pass).length;
@@ -48,10 +48,10 @@ module.exports = {};
 
 // --- 手感 fx 计数钩子（只读，纯追加）---
 T.start();                        // 重置 fx 计数
-H.ok(T.fxShakes() === 0 && T.fxBursts() === 0, 'dream: 初始 fx 计数为 0');
+H.ok('dream: 初始 fx 计数为 0', T.fxShakes() === 0 && T.fxBursts() === 0);
 var fakeEnemy = { x:100, y:100, w:34, h:48, hp:10, dead:false, score:10 };
 T.damageEnemy(fakeEnemy, 100, 1);  // 击杀敌人 → shake + burst
-H.ok(T.fxShakes() > 0, 'dream: 击杀敌人后 fxShakes>0 (得到 ' + T.fxShakes() + ')');
-H.ok(T.fxBursts() > 0, 'dream: 击杀敌人后 fxBursts>0 (得到 ' + T.fxBursts() + ')');
+H.ok('dream: 击杀敌人后 fxShakes>0 (得到 ' + T.fxShakes() + ')', T.fxShakes() > 0);
+H.ok('dream: 击杀敌人后 fxBursts>0 (得到 ' + T.fxBursts() + ')', T.fxBursts() > 0);
 T.start();                        // 重置
-H.ok(T.fxShakes() === 0 && T.fxBursts() === 0, 'dream: start() 重置后 fx 计数为 0');
+H.ok('dream: start() 重置后 fx 计数为 0', T.fxShakes() === 0 && T.fxBursts() === 0);

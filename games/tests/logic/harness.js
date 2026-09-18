@@ -137,7 +137,7 @@ function makeSandbox() {
     Juice: {
       update() {}, begin() {}, mid() {}, end() {},
       sfx() {}, burst() {}, popup() {}, flash() {}, ring() {}, beam() {}, addTrauma() {}, shake() {},
-      setMuted() {}, toggleMute() { return false; },
+      setMuted() {}, toggleMute() { return false; }, confetti() {},
       best(k, v) { return { isNew: false, value: v || 0 }; },
       rank() { return '青铜'; },
       achievement() {}, save() {}, load(k, d) { return d; },

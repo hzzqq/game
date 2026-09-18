@@ -4,7 +4,7 @@ const { t: T } = H.loadGame('../towerdefense.html');
 
 T.reset();
 const s0 = T.getState();
-H.ok(s0.pickups === 0 && s0.shield === 0 && s0.boostTimer === 0, 'towerdefense: reset 后无掉落/护盾/强化');
+H.ok('towerdefense: reset 后无掉落/护盾/强化', s0.pickups === 0 && s0.shield === 0 && s0.boostTimer === 0);
 
 // 1) 金币生效数值
 T.setGold(0);
@@ -27,15 +27,16 @@ T.applyPickup('shield');
 H.eq('towerdefense: 护盾置 1', T.getShield(), 1);
 
 // 5) 强化使塔射速更快（同时间敌人受伤更多）
-function freshEnemy(){ return {id:1,hp:100,maxhp:100,seg:0,t:0,speed:0,reward:4,alive:true}; }
+// 注意：TOWER_CD=0.5s、boost 减半 0.25s——步长必须 <0.25s 才能体现开火频率差（0.5s 步长每步至多一枪，两轮等伤）
+function freshEnemy(){ return {id:1,hp:100000,maxhp:100000,seg:0,t:0,speed:0,reward:4,alive:true}; }
 T.reset(); T.setGold(999); T.placeTower(2,1);
 T.setEnemies([freshEnemy()]); T.setBoost(0);
-for(let i=0;i<10;i++) T.step(0.5);
+for(let i=0;i<600;i++) T.step(1/120);
 const hpNo = T.getEnemies()[0] ? T.getEnemies()[0].hp : 0;
 T.setEnemies([freshEnemy()]); T.setBoost(6);
-for(let i=0;i<10;i++) T.step(0.5);
+for(let i=0;i<600;i++) T.step(1/120);
 const hpHas = T.getEnemies()[0] ? T.getEnemies()[0].hp : 0;
-H.ok(hpHas < hpNo, 'towerdefense: 强化使塔射速更快（受伤更多）');
+H.ok('towerdefense: 强化使塔射速更快（受伤更多 hpNo=' + hpNo + ' hpHas=' + hpHas + '）', hpHas < hpNo);
 
 // 6) 未碰撞不生效（顶部掉落未落到底）
 T.reset(); T.setGold(0);

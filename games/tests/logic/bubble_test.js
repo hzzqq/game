@@ -18,9 +18,8 @@ function put(g, r, c, v){ if (g[r] && g[r][c] !== undefined) g[r][c] = v; }
   var s0 = t.getScore();
   t.resolveAt(0, 3, 0);
   var gg = t.getGrid();
-  H.ok(gg[0][0] === -1 && gg[0][1] === -1 && gg[0][2] === -1 && gg[0][3] === -1,
-       'bubble: 普通四连消除 (0,0~0,3 全清空)');
-  H.ok(t.getScore() > s0, 'bubble: 消除得分增加 (score=' + t.getScore() + ')');
+  H.ok('bubble: 普通四连消除 (0,0~0,3 全清空)', gg[0][0] === -1 && gg[0][1] === -1 && gg[0][2] === -1 && gg[0][3] === -1);
+  H.ok('bubble: 消除得分增加 (score=' + t.getScore() + ')', t.getScore() > s0);
 })();
 
 // 2) 彩虹泡通配：落点解析为相邻最大同色组并消除
@@ -32,23 +31,24 @@ function put(g, r, c, v){ if (g[r] && g[r][c] !== undefined) g[r][c] = v; }
   t.setGrid(g);
   t.resolveAt(0, 2, t.RAINBOW);        // 彩虹落在中间，应桥接 0 组
   var gg = t.getGrid();
-  H.ok(gg[0][0] === -1, 'bubble: 彩虹泡解析为相邻色并消除同色组 (0,0 清空)');
-  H.ok(gg[0][3] === 1, 'bubble: 彩虹泡只清通配色组，异色组保留 (0,3 仍为1)');
+  H.ok('bubble: 彩虹泡解析为相邻色并消除同色组 (0,0 清空)', gg[0][0] === -1);
+  H.ok('bubble: 彩虹泡只清通配色组，异色组保留 (0,3 仍为1)', gg[0][3] === 1);
 })();
 
 // 3) 炸弹泡：落点炸掉周围两圈
 (() => {
   t.newGame();
   var g = blankGrid();
-  for (var r = 3; r <= 7; r++) for (var c = 2; c <= 7; c++) put(g, r, c, 1);
+  // 从 row0 铺起保持与顶部连通：否则炸弹爆炸后 dropDisconnected 会把整块悬空泡（含两圈外的 3,2）连带掉落
+  for (var r = 0; r <= 7; r++) for (var c = 2; c <= 7; c++) put(g, r, c, 1);
   put(g, 5, 5, -1);                    // 中心留空，便于炸弹精确落位
   t.setGrid(g);
   t.resolveAt(5, 5, t.BOMB);
   var gg = t.getGrid();
-  H.ok(gg[5][4] === -1, 'bubble: 炸弹泡炸掉一圈内 (5,4 清空)');
-  H.ok(gg[4][4] === -1, 'bubble: 炸弹泡炸掉两圈内 (4,4 清空)');
-  H.ok(gg[3][2] === 1, 'bubble: 炸弹泡不波及两圈外 (3,2 保留)');
-  H.ok(t.getScore() > 0, 'bubble: 炸弹泡得分 (score=' + t.getScore() + ')');
+  H.ok('bubble: 炸弹泡炸掉一圈内 (5,4 清空)', gg[5][4] === -1);
+  H.ok('bubble: 炸弹泡炸掉两圈内 (4,4 清空)', gg[4][4] === -1);
+  H.ok('bubble: 炸弹泡不波及两圈外 (3,2 保留)', gg[3][2] === 1);
+  H.ok('bubble: 炸弹泡得分 (score=' + t.getScore() + ')', t.getScore() > 0);
 })();
 
 // 4) 注入：能量胶囊系统（确定性，不破坏核心玩法）

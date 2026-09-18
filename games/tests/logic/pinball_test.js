@@ -5,7 +5,7 @@ const { t: T } = H.loadGame('../pinball.html');
 // 初始化
 T.reset();
 const s0 = T.getState();
-H.ok(s0.pickups === 0 && s0.shield === 0 && s0.boostTimer === 0, 'pinball: reset 后无掉落/护盾/强化');
+H.ok('pinball: reset 后无掉落/护盾/强化', s0.pickups === 0 && s0.shield === 0 && s0.boostTimer === 0);
 
 // 1) 金币生效数值
 T.setScore(0);
