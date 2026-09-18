@@ -5,6 +5,10 @@ const { t } = H.loadGame('../tetris.html');
 // 启动以初始化 grid / score / level
 t.startGame();
 
+// T-140 mutation 试点补漏：初始护盾 / board 形状此前未被任何断言锁定
+H.ok('俄罗斯 初始护盾未就绪', t.getShield() === false);
+H.ok('俄罗斯 board 形状完整(ROWS×COLS)', t.getGrid().length === t.ROWS && t.getGrid().every(r => r.length === t.COLS));
+
 // 1) 左越界碰撞
 H.ok('俄罗斯 左越界碰撞=true', t.collides({ x:0, y:0, matrix:[[1]] }, -1, 0) === true);
 // 2) 地板越界碰撞
