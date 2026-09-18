@@ -76,6 +76,9 @@ function head() { return t.getSnake()[0]; }
   t.setPowerups([{ x: 2, y: 2, type: 'shield' }]);
   t.spawnPowerup();
   H.eq('蛇 未达上限可刷到 2', t.getPowerups().length, 2);
+
+  t.reset();
+  H.ok('蛇 reset 后存活(初始态)', t.getAlive() === true);
 })();
 
 // 5) occupied：身体格为 true，空格为 false

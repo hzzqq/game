@@ -82,6 +82,19 @@ T.state.towers = [
 ];
 T.update(0.016);
 H.ok('royale 等塔平局 result=draw', T.state.over === true && T.state.result === 'draw');
+
+// T-142 mutation 残留：圣水最后 60s 双倍 regen（time<=60 → 1.6 否则 2.8）此前未锁
+T.state.over = false;
+T.state.units = []; T.state.loot = [];
+T.state.elixirMe = 0;
+T.state.time = 61;
+T.update(1);
+const late = T.state.elixirMe;
+T.state.elixirMe = 0;
+T.state.time = 60;
+T.update(1);
+const last = T.state.elixirMe;
+H.ok('royale 最后 60s 圣水 regen 更快(1.6 vs 2.8)', last > late);
 T.reset();
 H.ok('重开后 confettiFired 复位为 false', T.confettiFired() === false);
 

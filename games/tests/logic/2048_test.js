@@ -93,3 +93,21 @@ H.ok('2048 新局后 fxBursts 归零', t.fxBursts() === 0);
   H.eq('2048 排行榜 收尾清空', t.getTop5().length, 0);
 })();
 
+// T-142 mutation 残留：初始块 2:8 概率阈值（_randFn()<0.9 ? 2 : 4）此前未锁——注入边界值锁定
+(() => {
+  t.setRand(() => 0.9);   // 0.9 不满足 <0.9 → 全出 4
+  t.freezeSpawn(false);   // 恢复真实 addRandomTile（本文件 L9 起一直 no-op，newGame 出不来块）
+  t.newGame();
+  t.freezeSpawn(true);    // 重新禁随机，保持文件惯例
+  const b1 = t.getBoard().flat().filter(v => v);
+  H.ok('2048 rand=0.9 边界全出 4', b1.length === 2 && b1.every(v => v === 4));
+
+  t.setRand(() => 0.89);  // <0.9 → 全出 2
+  t.freezeSpawn(false);
+  t.newGame();
+  t.freezeSpawn(true);
+  const b2 = t.getBoard().flat().filter(v => v);
+  H.ok('2048 rand=0.89 全出 2', b2.length === 2 && b2.every(v => v === 2));
+  t.setRand(null);        // 恢复 Math.random（fn||Math.random 守卫）
+})();
+

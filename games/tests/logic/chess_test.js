@@ -34,11 +34,16 @@ const { t } = H.loadGame('../chess.html');
 // 1.5) 兵过河边界（T-141 mutation 真缺口：crossed=r<=4 过河横走此前未锁）
 (() => {
   const empty = Array.from({ length: 10 }, () => Array(9).fill(null));
-  const boardAt = (r, c) => { const b = empty.map(row => row.slice()); b[r][c] = { side: 'r', type: 'S' }; return b; };
+  const boardAt = (r, c, side) => { const b = empty.map(row => row.slice()); b[r][c] = { side: side || 'r', type: 'S' }; return b; };
   const near = t.pseudo(boardAt(5, 4), 5, 4);    // r=5 未过河：仅前进
   H.ok('象棋 未过河兵仅前进', near.length === 1 && near[0][0] === 4 && near[0][1] === 4);
   const across = t.pseudo(boardAt(4, 4), 4, 4);  // r=4 过河：前进+左右横走
   H.ok('象棋 过河兵可横走(3 向)', across.length === 3 && across.some(m => m[0] === 4 && m[1] === 3) && across.some(m => m[0] === 4 && m[1] === 5));
+  // 黑兵对称侧（fwd=+1，crossed=r>=5：黑方向下走，r=4 仍在河界上方）——T-142 mutation 残留
+  const bNear = t.pseudo(boardAt(4, 4, 'b'), 4, 4);   // r=4 未过河：仅前进
+  H.ok('象棋 黑兵未过河仅前进', bNear.length === 1 && bNear[0][0] === 5 && bNear[0][1] === 4);
+  const bAcross = t.pseudo(boardAt(5, 4, 'b'), 5, 4); // r=5 过河：前进+左右
+  H.ok('象棋 黑兵过河可横走(3 向)', bAcross.length === 3 && bAcross.some(m => m[0] === 6 && m[1] === 4) && bAcross.some(m => m[0] === 5 && m[1] === 3) && bAcross.some(m => m[0] === 5 && m[1] === 5));
 })();
 
 // ---------- 难度系统 ----------

@@ -656,7 +656,7 @@
   window.__t = (function () {
     const _origAdd = addRandomTile;
     return {
-      newGame, move, movesAvailable,
+      newGame, move, movesAvailable, setRand,
       setBoard(m) {
         cells = m.map((row, r) => row.map((v, c) => v ? { id: ++tileId, value: v, r, c, isNew: false, justMerged: false, mergedThisMove: false } : null));
         score = 0; over = false; won = false; paused = false; keepPlaying = false; mergedAway = [];
