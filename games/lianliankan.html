@@ -29,6 +29,8 @@
   @keyframes hintp{from{opacity:.6}to{opacity:1}}
   .msg{text-align:center;min-height:22px;margin-top:10px;font-size:14px;color:var(--dim)}
   .msg.win{color:var(--gold);font-weight:700}
+  /* T-129：本地 Top5 榜单浮层（胜利时显示；position:fixed 居中，勿挂 #msg 文档流） */
+  #top5Board{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,14,20,.96);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
   .foot{width:min(760px,98vw);text-align:center;color:var(--dim);font-size:11px;margin-top:10px;line-height:1.6}
 </style>
 </head>
@@ -43,6 +45,7 @@
     <div class="board" id="board"></div>
     <div class="msg" id="msg">点击两个相同图案，路径不超两拐角即可消除。</div>
   </div>
+  <div id="top5Board" style="display:none"></div>
   <div class="foot">经典连连看：相同图案且可用不超过两个拐角的路径连通即消除。无路可走自动重排。红涨绿跌，暗色终端风。</div>
 
 <script src="common.js"></script>
@@ -72,7 +75,18 @@
     grid = [];
     for(let r=0;r<ROWS;r++){ grid.push(cells.slice(r*COLS, r*COLS+COLS)); }
   }
-  function reset(){ initGrid(); score=0; sel=null; combo=0; gameOver=false; celebrated=false; _confettiFired=false; }
+  function reset(){ initGrid(); score=0; sel=null; combo=0; gameOver=false; celebrated=false; _confettiFired=false;
+    if(typeof document!=='undefined'){ const _lb=document.getElementById('top5Board'); if(_lb) _lb.style.display='none'; } } // T-129：重开隐藏榜单
+  // T-129：胜利时记录+渲染本地 Top5（Common.HighScores 共享层）
+  function showTop5(){
+    if(typeof document==='undefined') return;
+    try {
+      const el = document.getElementById('top5Board'); if(!el) return;
+      const rk = Common.HighScores.record('lianliankan', score, null);
+      Common.HighScores.render('lianliankan', el, rk);
+      el.style.display='block';
+    } catch(e){}
+  }
   function countLeft(){ let n=0; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(grid[r][c]!==0) n++; return n; }
   function isWin(){ return countLeft()===0; }
 
@@ -170,7 +184,7 @@
       sel=null;
       if(typeof Juice!=='undefined'){ Juice.flash&&Juice.flash('#02c076'); }
       spawnParticle(window.innerWidth/2, window.innerHeight/2, '#02c076');
-      if(isWin()){ gameOver=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('lianliankan',score); } celebrate(); }
+      if(isWin()){ gameOver=true; if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('lianliankan',score); } celebrate(); showTop5(); }
     } else { sel={r,c}; }
     render();
     if(!gameOver && !hasMove()){ reshuffle(); render(); }
@@ -207,6 +221,11 @@
       getScore:()=>score, setScore:(v)=>{score=v;}, getSel:()=>sel, setSel:(v)=>{sel=v;},
       getCombo:()=>combo, isGameOver:()=>gameOver,
       celebrate, spawnParticle,
+      showTop5,
+      // —— T-129 本地 Top5 榜单钩子（Common.HighScores 数据层）——
+      recordScore: function(s){ return Common.HighScores.record('lianliankan', s, null); },
+      getTop5: function(){ try { return Common.HighScores.read('lianliankan'); } catch(e){ return []; } },
+      clearTop5: function(){ try { Common.Storage.set('lianliankan','top5',[]); return true; } catch(e){ return false; } },
       triggerWinEffect:function(){ celebrate(); },
       celebrateOnWin:function(){ if(isWin()){ gameOver=true; celebrate(); } },
       wasCelebrated:function(){ return celebrated; },

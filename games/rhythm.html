@@ -213,6 +213,7 @@
               <div class="k">MISS</div><div class="v m" id="resM">0</div>
             </div>
             <button class="btn-primary" id="resRestart">重新开始</button>
+            <div id="top5Board" style="display:none"></div>
           </div>
         </div>
       </div>
@@ -495,6 +496,7 @@ async function startGame(buffer){
   G.endTime = lastT + 2.5;
   G.playing = true;
   hideResult();
+  var _rb0 = document.getElementById('top5Board'); if(_rb0) _rb0.style.display='none'; // T-129：开局隐藏榜单
   updateHUD();
   runCountdown();
 }
@@ -535,6 +537,12 @@ function finish(){
   const col = rating==='S' ? '#f0b90b' : rating==='A' ? '#02c076' : rating==='B' ? '#e6edf3' : '#f6465d';
   document.getElementById('resRating').style.color = col;
   resultOverlay.classList.add('show');
+  // T-129：本地 Top5 榜单（Common.HighScores 数据+渲染走共享层）
+  try {
+    var _rr = Common.HighScores.record('rhythm', G.score, null);
+    Common.HighScores.render('rhythm', document.getElementById('top5Board'), _rr);
+    var _rb = document.getElementById('top5Board'); if(_rb) _rb.style.display='block';
+  } catch(e) {}
   if(typeof Juice!=='undefined'){
     const b = Juice.best('rhythm', G.score); const rk = Juice.rank(G.score);
     if(rating === 'S' || rating === 'A'){ Juice.sfx('win'); Juice.flash('#02c076',0.3); }
@@ -873,6 +881,10 @@ mp3Input.addEventListener('change', async (e)=>{
     },
     finish,
     confettiFired:()=>_confettiFired,
+    // —— T-129 本地 Top5 榜单钩子（Common.HighScores 数据层）——
+    recordScore: function(s){ return Common.HighScores.record('rhythm', s, null); },
+    getTop5: function(){ try { return Common.HighScores.read('rhythm'); } catch(e){ return []; } },
+    clearTop5: function(){ try { Common.Storage.set('rhythm','top5',[]); return true; } catch(e){ return false; } },
   };
 
 updateHUD();

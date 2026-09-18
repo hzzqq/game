@@ -163,3 +163,18 @@ H.ok('手感: 爆炸+击杀触发 burst>0', bb.fxBursts() > 0);
 bb.startGame('1v1');
 H.ok('手感: 新对局 shake 归零', bb.fxShakes() === 0);
 H.ok('手感: 新对局 burst 归零', bb.fxBursts() === 0);
+
+// ===== T-129：本地 Top5 排行榜（Common.HighScores 数据层）=====
+(() => {
+  H.ok('泡泡堂 排行榜 清空成功', bb.clearTop5() === true);
+  H.ok('泡泡堂 排行榜 0 分不入榜', bb.recordScore(0) === 0);
+  H.ok('泡泡堂 排行榜 空榜无记录', bb.getTop5().length === 0);
+  H.ok('泡泡堂 排行榜 9999 上榜第 1', bb.recordScore(9999) === 1);
+  H.ok('泡泡堂 排行榜 榜首=9999', bb.getTop5()[0].score === 9999);
+  H.ok('泡泡堂 排行榜 8888 上榜第 2', bb.recordScore(8888) === 2);
+  for (let i = 0; i < 6; i++) bb.recordScore(10000 + i);
+  H.ok('泡泡堂 排行榜 最多保留 5 条', bb.getTop5().length === 5);
+  H.ok('泡泡堂 排行榜 截断后榜首仍最大', bb.getTop5()[0].score === 10005);
+  bb.clearTop5();
+  H.ok('泡泡堂 排行榜 收尾清空', bb.getTop5().length === 0);
+})();

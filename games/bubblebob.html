@@ -99,6 +99,7 @@
             <button class="btn" id="nextRound">下一局</button>
             <button class="btn gold" id="newGame">新游戏</button>
           </div>
+          <div id="top5Board" style="display:none"></div>
         </div>
       </div>
       <div class="hud" id="hud"></div>
@@ -719,6 +720,17 @@ function showRoundOver(){
   } else {
     Juice.sfx('lose'); Juice.addTrauma(0.4); Juice.flash('#f6465d',0.3);
   }
+  // T-129：本地 Top5 榜单（仅 P1 获胜记录分数；其余局面显式隐藏防残留）
+  try {
+    var _tb = document.getElementById('top5Board');
+    if(_tb){
+      if(lastWinner && lastWinner.id===0){
+        var _br = Common.HighScores.record('bubblebob', p1score, null);
+        Common.HighScores.render('bubblebob', _tb, _br);
+        _tb.style.display='block';
+      } else { _tb.style.display='none'; }
+    }
+  } catch(e) {}
   showOverlay('roundover');
 }
 
@@ -768,6 +780,10 @@ const __bb={
   get confettiFired(){ return _confettiFired; },
   fxShakes: () => _fxShakes,
   fxBursts: () => _fxBursts,
+  // —— T-129 本地 Top5 榜单钩子（Common.HighScores 数据层）——
+  recordScore: (s)=>Common.HighScores.record('bubblebob', s, null),
+  getTop5: ()=>{ try { return Common.HighScores.read('bubblebob'); } catch(e){ return []; } },
+  clearTop5: ()=>{ try { Common.Storage.set('bubblebob','top5',[]); return true; } catch(e){ return false; } },
 };
 if(typeof window!=='undefined') window.__bb=__bb;
 

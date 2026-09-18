@@ -158,3 +158,18 @@ console.log('lianliankan: 全部断言通过');
   ll.reset();
   ok('lianliankan confetti: 重置恢复未标记', ll.confettiFired === false);
 })();
+
+// ===== T-129：本地 Top5 排行榜（Common.HighScores 数据层）=====
+(() => {
+  ok('lianliankan 排行榜 清空成功', t.clearTop5() === true);
+  ok('lianliankan 排行榜 0 分不入榜', t.recordScore(0) === 0);
+  ok('lianliankan 排行榜 空榜无记录', t.getTop5().length === 0);
+  ok('lianliankan 排行榜 9999 上榜第 1', t.recordScore(9999) === 1);
+  ok('lianliankan 排行榜 榜首=9999', t.getTop5()[0].score === 9999);
+  ok('lianliankan 排行榜 8888 上榜第 2', t.recordScore(8888) === 2);
+  for (let i = 0; i < 6; i++) t.recordScore(10000 + i);
+  ok('lianliankan 排行榜 最多保留 5 条', t.getTop5().length === 5);
+  ok('lianliankan 排行榜 截断后榜首仍最大', t.getTop5()[0].score === 10005);
+  t.clearTop5();
+  ok('lianliankan 排行榜 收尾清空', t.getTop5().length === 0);
+})();

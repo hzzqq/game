@@ -361,6 +361,21 @@ t.reset();
 eq('gun: reset 后 fxShakes=0', t.fxShakes(), 0);
 eq('gun: reset 后 fxBursts=0', t.fxBursts(), 0);
 
+// ===== T-129：本地 Top5 排行榜（Common.HighScores 数据层）=====
+(() => {
+  ok('gun 排行榜 清空成功', t.clearTop5() === true);
+  ok('gun 排行榜 0 分不入榜', t.recordScore(0) === 0);
+  ok('gun 排行榜 空榜无记录', t.getTop5().length === 0);
+  ok('gun 排行榜 9999 上榜第 1', t.recordScore(9999) === 1);
+  ok('gun 排行榜 榜首=9999', t.getTop5()[0].score === 9999);
+  ok('gun 排行榜 8888 上榜第 2', t.recordScore(8888) === 2);
+  for (let i = 0; i < 6; i++) t.recordScore(10000 + i);
+  ok('gun 排行榜 最多保留 5 条', t.getTop5().length === 5);
+  ok('gun 排行榜 截断后榜首仍最大', t.getTop5()[0].score === 10005);
+  t.clearTop5();
+  ok('gun 排行榜 收尾清空', t.getTop5().length === 0);
+})();
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

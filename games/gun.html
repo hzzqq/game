@@ -90,6 +90,7 @@
     <p>你被敌人小队包围。用 WASD 走位、鼠标/方向键射击、Shift 冲刺闪避，撑过一波波进攻。<br>场上会刷新 <b>道具</b>，善用它们活到最后。按「开始」或回车进场。</p>
     <div class="diffbar" id="diffbar"></div>
     <button class="btn" id="startBtn" data-action="start" style="background:var(--gold);color:#0a0e14;font-weight:700;padding:10px 22px">开始突袭</button>
+    <div id="top5Board" style="display:none"></div>
   </div>
 
 <script>
@@ -471,6 +472,12 @@
     var r=Juice.best('gun',score);
     document.getElementById('besttxt').textContent=r.value;
     var ov=document.getElementById('overlay'); ov.classList.remove('hidden');
+    // T-129：本地 Top5 榜单（Common.HighScores 数据+渲染走共享层）
+    try {
+      var _gr = Common.HighScores.record('gun', score, null);
+      Common.HighScores.render('gun', document.getElementById('top5Board'), _gr);
+      var _gb = document.getElementById('top5Board'); if(_gb) _gb.style.display='block';
+    } catch(e) {}
     ov.querySelector('h2').textContent='💀 阵亡';
     ov.querySelector('p').innerHTML='到达第 <b class="stat">'+wave+'</b> 波 · 得分 <b class="stat">'+score+'</b> · 段位 '+Juice.rank(score)+(r.isNew?'<br>🏅 新纪录！':'');
     document.getElementById('startBtn').textContent='再来一局';
@@ -551,10 +558,12 @@
   document.getElementById('pauseBtn').addEventListener('click',togglePause);
   document.getElementById('muteBtn').addEventListener('click',function(){ var m=Juice.toggleMute(); this.textContent=m?'🔇':'🔊'; });
   Input.bindVirtualButtons(document);
-  function togglePause(){ if(state==='play'){ state='paused'; document.getElementById('overlay').classList.remove('hidden'); var ov=document.getElementById('overlay'); ov.querySelector('h2').textContent='⏸ 暂停'; ov.querySelector('p').textContent='按 ESC 或下方按钮继续。'; document.getElementById('startBtn').textContent='继续'; } else if(state==='paused'){ state='play'; document.getElementById('overlay').classList.add('hidden'); } }
+  function togglePause(){ if(state==='play'){ state='paused'; document.getElementById('overlay').classList.remove('hidden'); var ov=document.getElementById('overlay'); ov.querySelector('h2').textContent='⏸ 暂停'; ov.querySelector('p').textContent='按 ESC 或下方按钮继续。'; document.getElementById('startBtn').textContent='继续'; var _gp=document.getElementById('top5Board'); if(_gp) _gp.style.display='none'; /* T-129：暂停不显示榜单 */ } else if(state==='paused'){ state='play'; document.getElementById('overlay').classList.add('hidden'); } }
   function startGame(){
     if(state==='paused'){ togglePause(); return; }
-    reset(); state='play'; document.getElementById('overlay').classList.add('hidden'); syncHud();
+    reset(); state='play'; document.getElementById('overlay').classList.add('hidden');
+    var _gs=document.getElementById('top5Board'); if(_gs) _gs.style.display='none'; // T-129：开局隐藏榜单
+    syncHud();
   }
 
   var last=performance.now();
@@ -616,7 +625,11 @@
     setShield: function(v){ player.shield=v; },
     getBoost: function(){ return player.speedT; },
     setBoost: function(v){ player.speedT=v; },
-    takeHit: function(dmg){ hurtPlayer(dmg); }
+    takeHit: function(dmg){ hurtPlayer(dmg); },
+    // —— T-129 本地 Top5 榜单钩子（Common.HighScores 数据层）——
+    recordScore: function(s){ return Common.HighScores.record('gun', s, null); },
+    getTop5: function(){ try { return Common.HighScores.read('gun'); } catch(e){ return []; } },
+    clearTop5: function(){ try { Common.Storage.set('gun','top5',[]); return true; } catch(e){ return false; } }
   };
 
   frame.start();
