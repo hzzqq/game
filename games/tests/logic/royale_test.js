@@ -71,6 +71,17 @@ H.ok('胜利前 confettiFired 为 false', T.confettiFired() === false);
 T.finish('win');
 H.ok('胜利 → confettiFired 为 true', T.confettiFired() === true);
 H.ok('finish 后 result=win', T.state.result === 'win');
+
+// T-141 mutation 真缺口：等塔平局语义（myT>aiT 翻转为 >= 时 draw 会变 win，此前未锁）
+T.state.over = false;
+T.state.time = 0;
+T.state.units = []; T.state.loot = [];
+T.state.towers = [
+  { side: 'me', kind: 'king', dead: false },
+  { side: 'ai', kind: 'king', dead: false },
+];
+T.update(0.016);
+H.ok('royale 等塔平局 result=draw', T.state.over === true && T.state.result === 'draw');
 T.reset();
 H.ok('重开后 confettiFired 复位为 false', T.confettiFired() === false);
 

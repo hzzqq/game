@@ -49,6 +49,35 @@ function head() { return t.getSnake()[0]; }
   H.ok('蛇 撞自身 alive=false', t.getAlive() === false);
 })();
 
+// 4.5) 护盾穿墙环绕 + 场上道具上限（T-141 mutation 真缺口：ghost 环绕 / powerups>=2 守卫此前未锁）
+(() => {
+  t.reset();
+  t.setSnake([{ x: 5, y: 0 }, { x: 5, y: 1 }]);   // 头贴顶边，方向向上
+  t.setDir(0, -1);
+  t.setFood(null);
+  t.setShield(true);
+  t.step();
+  const s1 = t.getState();
+  H.ok('蛇 护盾穿墙环绕(顶边→底边)', s1.alive === true && s1.snake[0].x === 5 && s1.snake[0].y === 19);
+
+  t.reset();
+  t.setSnake([{ x: 5, y: 0 }, { x: 5, y: 1 }]);
+  t.setDir(0, -1);
+  t.setFood(null);
+  t.setShield(false);
+  t.step();
+  H.ok('蛇 无护盾穿墙仍死', t.getAlive() === false);
+
+  t.reset();
+  t.setFood(null);
+  t.setPowerups([{ x: 2, y: 2, type: 'shield' }, { x: 3, y: 3, type: 'boost' }]);
+  t.spawnPowerup();
+  H.eq('蛇 场上道具上限 2(第 3 个拒刷)', t.getPowerups().length, 2);
+  t.setPowerups([{ x: 2, y: 2, type: 'shield' }]);
+  t.spawnPowerup();
+  H.eq('蛇 未达上限可刷到 2', t.getPowerups().length, 2);
+})();
+
 // 5) occupied：身体格为 true，空格为 false
 (() => {
   t.reset();

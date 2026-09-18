@@ -31,6 +31,16 @@ const { t } = H.loadGame('../chess.html');
   H.ok('aiPick 返回走法', !!t.aiPick(b));
 })();
 
+// 1.5) 兵过河边界（T-141 mutation 真缺口：crossed=r<=4 过河横走此前未锁）
+(() => {
+  const empty = Array.from({ length: 10 }, () => Array(9).fill(null));
+  const boardAt = (r, c) => { const b = empty.map(row => row.slice()); b[r][c] = { side: 'r', type: 'S' }; return b; };
+  const near = t.pseudo(boardAt(5, 4), 5, 4);    // r=5 未过河：仅前进
+  H.ok('象棋 未过河兵仅前进', near.length === 1 && near[0][0] === 4 && near[0][1] === 4);
+  const across = t.pseudo(boardAt(4, 4), 4, 4);  // r=4 过河：前进+左右横走
+  H.ok('象棋 过河兵可横走(3 向)', across.length === 3 && across.some(m => m[0] === 4 && m[1] === 3) && across.some(m => m[0] === 4 && m[1] === 5));
+})();
+
 // ---------- 难度系统 ----------
 (() => {
   const D = t.DIFFICULTY;
