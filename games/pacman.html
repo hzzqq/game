@@ -96,6 +96,7 @@
       <div class="sub" id="goSub">SESSION TERMINATED</div>
       <div class="score" id="goScore">0</div>
       <div class="best">DOTS LEFT <span id="goDots">0</span></div>
+      <div id="top5Board" style="display:none"></div>
       <button class="big" id="goBtn">新 局</button>
     </div>
   </div>
@@ -529,6 +530,12 @@
     }
     goScore.textContent = score;
     goDots.textContent = Math.max(0, dotsLeft);
+    // T-126：本地 Top5 榜单（Common.HighScores 数据+渲染走共享层；胜负局均记录）
+    try {
+      var _tr = Common.HighScores.record('pacman', score, null);
+      Common.HighScores.render('pacman', document.getElementById('top5Board'), _tr);
+      var _tb = document.getElementById('top5Board'); if(_tb) _tb.style.display='block';
+    } catch(e) {}
   }
 
   function updateHUD(){
@@ -796,7 +803,11 @@
       }),
       setPacTile(c,r){ if(pac){ pac.x = c*TILE + TILE/2; pac.y = r*TILE + TILE/2; pac.dir = {x:0,y:0}; pac.want = {x:0,y:0}; } },
       setScore(n){ score = n; },
-      setLives(n){ lives = n; }
+      setLives(n){ lives = n; },
+      // —— T-126 本地 Top5 榜单钩子（Common.HighScores 数据层）——
+      recordScore: function(s){ return Common.HighScores.record('pacman', s, null); },
+      getTop5: function(){ try { return Common.HighScores.read('pacman'); } catch(e){ return []; } },
+      clearTop5: function(){ try { Common.Storage.set('pacman','top5',[]); return true; } catch(e){ return false; } }
     };
   }
 })();

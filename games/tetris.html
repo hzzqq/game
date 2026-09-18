@@ -226,6 +226,7 @@
         <div class="overlay" id="overlay">
           <div class="big red" id="overlayTitle">GAME OVER</div>
           <div class="sub" id="overlaySub">按「重新开始」再来一局</div>
+          <div id="top5Board" style="display:none"></div>
         </div>
       </div>
 
@@ -787,6 +788,7 @@
     charges = 0; slowUntil = 0; shieldCharge = false;
     paused = false; gameOver = false; running = true;
     overlay.classList.remove('show');
+    var _tb0 = document.getElementById('top5Board'); if(_tb0) _tb0.style.display='none'; // T-126：重开隐藏榜单
     pauseBtn.textContent = '暂停';
     updateHud();
     drawHold();
@@ -805,6 +807,12 @@
     overlayTitle.textContent = 'GAME OVER';
     overlayTitle.className = 'big red';
     overlaySub.textContent = '按「重新开始」再来一局 · 段位 '+rk;
+    // T-126：本地 Top5 榜单（Common.HighScores 数据+渲染走共享层）
+    try {
+      var _tr = Common.HighScores.record('tetris', score, null);
+      Common.HighScores.render('tetris', document.getElementById('top5Board'), _tr);
+      var _tb = document.getElementById('top5Board'); if(_tb) _tb.style.display='block';
+    } catch(e) {}
     overlay.classList.add('show');
   }
 
@@ -891,7 +899,11 @@
       getShield: () => shieldCharge,
       setRand(fn){ if (fn) Math.random = fn; },
       startGame,
-      confettiFired: () => _confettiFired
+      confettiFired: () => _confettiFired,
+      // —— T-126 本地 Top5 榜单钩子（Common.HighScores 数据层）——
+      recordScore: function(s){ return Common.HighScores.record('tetris', s, null); },
+      getTop5: function(){ try { return Common.HighScores.read('tetris'); } catch(e){ return []; } },
+      clearTop5: function(){ try { Common.Storage.set('tetris','top5',[]); return true; } catch(e){ return false; } }
     };
   }
 })();

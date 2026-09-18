@@ -182,6 +182,21 @@ t.startGame();
 for (const d of t.getDots()) { if (!d.eaten) t.eatAt(d.c, d.r); }
 H.ok('吃豆人: 吃完所有豆子过关 confettiFired 置真', t.confettiFired() === true, 'win='+t.getWin());
 
+// ===== T-126：本地 Top5 排行榜（Common.HighScores 数据层）=====
+(() => {
+  H.ok('吃豆人 排行榜 清空成功', t.clearTop5() === true);
+  H.ok('吃豆人 排行榜 0 分不入榜', t.recordScore(0) === 0);
+  H.ok('吃豆人 排行榜 空榜无记录', t.getTop5().length === 0);
+  H.ok('吃豆人 排行榜 9999 上榜第 1', t.recordScore(9999) === 1);
+  H.ok('吃豆人 排行榜 榜首=9999', t.getTop5()[0].score === 9999);
+  H.ok('吃豆人 排行榜 8888 上榜第 2', t.recordScore(8888) === 2);
+  for (let i = 0; i < 6; i++) t.recordScore(10000 + i);
+  H.ok('吃豆人 排行榜 最多保留 5 条', t.getTop5().length === 5);
+  H.ok('吃豆人 排行榜 截断后榜首仍最大', t.getTop5()[0].score === 10005);
+  t.clearTop5();
+  H.ok('吃豆人 排行榜 收尾清空', t.getTop5().length === 0);
+})();
+
 if (H.results.some(r => !r.pass)) process.exit(1);
 process.exit(0);
 
