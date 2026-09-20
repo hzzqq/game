@@ -110,11 +110,12 @@ function _parseTopLevelArgs(src, startIdx) {
 
 function findHOkReversed(src) {
   const hits = [];
-  let i = 0;
-  for (;;) {
-    const j = src.indexOf('H.ok(', i);
-    if (j < 0) break;
-    const parsed = _parseTopLevelArgs(src, j + 5);
+  // T-143：除 H.ok( 外同时扫解构裸调用 ok(（112 个测试文件用 const { ok, eq } = require 风格，
+  // 39 处反参毒因此绕过旧门禁）。lookbehind 排除 x.ok(（对象方法）与 hook( 等词内子串。
+  const re = /(?<![.\w])(?:H\.)?ok\(/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const parsed = _parseTopLevelArgs(src, m.index + m[0].length);
     if (!parsed) break;
     const { args, endIdx } = parsed;
     if (args.length === 2) {
@@ -122,10 +123,10 @@ function findHOkReversed(src) {
       const a2 = src.slice(args[1].start, args[1].end).trim();
       if (a1 && a2 && a1[0] !== "'" && a1[0] !== '"' && a1[0] !== '`' &&
           (a2[0] === "'" || a2[0] === '"' || a2[0] === '`')) {
-        hits.push('H.ok(' + a1.slice(0, 40) + ', ' + a2.slice(0, 40) + ')');
+        hits.push('ok(' + a1.slice(0, 40) + ', ' + a2.slice(0, 40) + ')');
       }
     }
-    i = endIdx + 1;
+    re.lastIndex = endIdx + 1;
   }
   return hits;
 }

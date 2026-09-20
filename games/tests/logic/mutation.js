@@ -3,6 +3,8 @@
 // 用法：
 //   node mutation.js --game tetris,chess,royale,snake,2048
 //   node mutation.js --game tetris --max-per-op 6   # 快速抽验
+//   node mutation.js --all --max-per-op 2 --quiet   # 全库快速基线：stdout 只留每款汇总行 + 存活率排行，
+//                                                   # survivor 明细仅落 JSON（--out，默认仓库根 __mut_report.json）
 //
 // 原理：对游戏内联脚本做小变异（<=↔<、>=↔>、===↔!==、true↔false，跳过注释/字符串），
 // 生成变异副本（仓库根 __mut_tmp.html，避开 sync-catalog 的 games/*.html 扫描）+ 变异测试副本，
@@ -92,7 +94,7 @@ function extractInline(html) {
   return best;
 }
 
-function runGame(game, maxPerOp) {
+function runGame(game, maxPerOp, quiet) {
   const htmlPath = path.join(GAMES_DIR, game + '.html');
   const testPath = path.join(__dirname, game + '_test.js');
   if (!fs.existsSync(htmlPath) || !fs.existsSync(testPath)) {
@@ -124,38 +126,60 @@ function runGame(game, maxPerOp) {
       // 测试文件尾部自检 process.exit(1) 是进程级——进程内执行时必须拦截为 no-op，
       // 否则变异失败会终止整个 runner（实测 royale_test 在 19 变异中途杀掉进程）；判定只看 H.results
       const safeTestSrc = mutTestSrc.replace(/\bprocess\.exit\s*\(/g, '__mutNoExit(');
+      // 变异执行期静音 console（harness 断言失败 ✗ / 沙箱游戏日志都走 console.log，
+      // 全库扫描时 killed 越多输出越大；runner 自身输出都在此窗口外）+ process.exit 也兜底
+      const realLog = console.log, realErr = console.error, realWarn = console.warn;
+      console.log = function () {}; console.error = function () {}; console.warn = function () {};
       try {
         const fn = new Function('require', 'module', 'exports', '__filename', '__dirname', '__mutNoExit', safeTestSrc);
         fn(virtRequire, { exports: {} }, {}, testPath, __dirname, function () {});
         fail = H.results.filter(r => !r.pass).length;
       } catch (e) { crash = true; }
+      console.log = realLog; console.error = realErr; console.warn = realWarn;
       if (crash) { crashed++; continue; }
       if (fail > 0) { killed++; continue; }
       survived++;
       const ctxFrom = Math.max(0, site.s - 40);
       survivors.push('[' + site.op.name + '] ' + JSON.stringify(inline.code.slice(ctxFrom, site.e + 40)).replace(mut, '»' + mut + '«'));
-      process.stdout.write('.');
+      if (!quiet) process.stdout.write('.');
     }
   } finally {
     if (fs.existsSync(TMP_HTML)) fs.unlinkSync(TMP_HTML);
   }
-  console.log('');
+  if (!quiet) console.log('');
   console.log('== ' + game + ' == 变异点 ' + sites.length + '：killed ' + killed + ' ｜ survived ' + survived + ' ｜ crashed ' + crashed + ' ｜ 存活率 ' + (survived / Math.max(1, sites.length) * 100).toFixed(1) + '%');
-  survivors.forEach(s => console.log('   SURVIVED ' + s));
+  if (!quiet) survivors.forEach(s => console.log('   SURVIVED ' + s));
   return { game, sites: sites.length, killed, survived, crashed, survivors };
 }
 
 // ---- 入口 ----
 const args = process.argv.slice(2);
 const argOf = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
-const games = (argOf('--game', 'tetris,chess,royale,snake,2048')).split(',').map(s => s.trim()).filter(Boolean);
+const quiet = args.includes('--quiet');
+let games = (argOf('--game', 'tetris,chess,royale,snake,2048')).split(',').map(s => s.trim()).filter(Boolean);
+if (args.includes('--all')) {
+  games = fs.readdirSync(GAMES_DIR).filter(f => f.endsWith('.html')).map(f => f.slice(0, -5)).sort();
+}
 const maxPerOp = parseInt(argOf('--max-per-op', '10'), 10);
+const outPath = argOf('--out', quiet ? path.resolve(GAMES_DIR, '..', '__mut_report.json') : null);
 const report = [];
 for (const g of games) {
-  const r = runGame(g, maxPerOp);
+  const r = runGame(g, maxPerOp, quiet);
   if (r) report.push(r);
 }
 const tot = report.reduce((a, r) => ({ sites: a.sites + r.sites, killed: a.killed + r.killed, survived: a.survived + r.survived, crashed: a.crashed + r.crashed }), { sites: 0, killed: 0, survived: 0, crashed: 0 });
 console.log('\n==== 汇总（' + report.length + ' 款）====');
 console.log('变异点 ' + tot.sites + '：killed ' + tot.killed + ' ｜ survived ' + tot.survived + ' ｜ crashed ' + tot.crashed);
 console.log('总体存活率 ' + (tot.survived / Math.max(1, tot.sites) * 100).toFixed(1) + '%（crash 不计入测试功劳）');
+if (quiet) {
+  // 全库存活率排行（降序 = 断言盲区最重在前）；仅排行行，survivor 明细在 JSON
+  const ranked = report.slice().sort((a, b) => (b.survived / Math.max(1, b.sites)) - (a.survived / Math.max(1, a.sites)));
+  console.log('\n==== 存活率排行（高→低，盲区最重在前）====');
+  ranked.forEach(r => {
+    console.log(r.game.padEnd(16) + ' ' + (r.survived / Math.max(1, r.sites) * 100).toFixed(1).padStart(5) + '%  (' + r.survived + '/' + r.sites + ' 变异点, crash ' + r.crashed + ')');
+  });
+}
+if (outPath) {
+  fs.writeFileSync(outPath, JSON.stringify({ generatedAt: new Date().toISOString(), maxPerOp, total: tot, report }, null, 1));
+  console.log('survivor 明细已落 ' + outPath);
+}

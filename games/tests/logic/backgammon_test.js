@@ -20,10 +20,10 @@ t.reset();
 seq = [0.4, 0.0]; si = 0; t.setRand(() => seq[si++ % seq.length]);
 t.rollDice();
 const before = t.points[23].r;
-ok(t.move(23, 3), '点24走3步合法');
+ok( '点24走3步合法', t.move(23, 3));
 eq('点24剩余', t.points[23].r, before - 1);
 eq('点21落子', t.points[20].r, 1);
-ok(!t.turnDice.includes(3), '骰子3已被消耗');
+ok( '骰子3已被消耗', !t.turnDice.includes(3));
 
 // 4) 击落规则：红子(idx13)走3步落白方单子(idx10)→白子进中线
 t.reset(); t.debugClear();
@@ -31,7 +31,7 @@ t.debugSet(13, 1, 0);   // 红 1 子在 idx13(点14)
 t.debugSet(10, 0, 1);   // 白 1 子(blot)在 idx10(点11)
 seq = [0.4, 0.0]; si = 0; t.setRand(() => seq[si++ % seq.length]);
 t.rollDice();           // 期望 [3,1]
-ok(t.move(13, 3), '红走3步落白blot合法');
+ok( '红走3步落白blot合法', t.move(13, 3));
 eq('目标点红子', t.points[10].r, 1);
 eq('目标点白子清空', t.points[10].w, 0);
 eq('白方中线+1', t.bar.w, 1);
@@ -42,11 +42,11 @@ t.reset(); t.debugClear();
 t.debugSet(0, 3, 0); t.debugSet(1, 3, 0); t.debugSet(2, 3, 0);
 t.debugSet(3, 3, 0); t.debugSet(4, 2, 0); t.debugSet(5, 1, 0);
 t.debugBar('red', 0);
-ok(t.allHome('red'), '全部在内盘可移出');
+ok( '全部在内盘可移出', t.allHome('red'));
 seq = [0.9, 0.0]; si = 0; t.setRand(() => seq[si++ % seq.length]);
 t.rollDice();           // 期望 [6,1]
 eq('掷出6', t.dice[0], 6);
-ok(t.bearOff(5, 6), '点6(die=6)精确移出合法');
+ok( '点6(die=6)精确移出合法', t.bearOff(5, 6));
 eq('红方移出+1', t.off.r, 1);
 
 // 6) 胜利判定：14 枚已移出 + 第15枚移出 → 红胜
@@ -56,7 +56,7 @@ t.debugSet(5, 1, 0);    // 最后一枚在 idx5(点6)
 t.debugBar('red', 0);
 seq = [0.9, 0.0]; si = 0; t.setRand(() => seq[si++ % seq.length]);
 t.rollDice();
-ok(t.bearOff(5, 6), '最后一枚移出');
+ok( '最后一枚移出', t.bearOff(5, 6));
 eq('红方全移出', t.off.r, 15);
 eq('红方获胜', t.winner, 'red');
 
@@ -64,7 +64,7 @@ eq('红方获胜', t.winner, 'red');
 t.reset();
 seq = [0.4, 0.0]; si = 0; t.setRand(() => seq[si++ % seq.length]);
 t.rollDice();
-ok(Array.isArray(t.legalMoves()) && t.legalMoves().length > 0, '能枚举合法步');
+ok( '能枚举合法步', Array.isArray(t.legalMoves()) && t.legalMoves().length > 0);
 
 console.log('✓ backgammon_test 完成 · 共 21 条断言');
 
@@ -85,7 +85,7 @@ console.log('✓ backgammon_test 完成 · 共 21 条断言');
   t.turn = 'red';
   let seq = [0.9, 0.0]; let si = 0; t.setRand(() => seq[si++ % seq.length]);
   t.rollDice();           // 期望 [6,1]
-  ok(t.bearOff(5, 6), '最后一枚移出');
+  ok( '最后一枚移出', t.bearOff(5, 6));
   eq('红方获胜', t.winner, 'red');
   eq('胜利 confetti 触发', t.confettiFired(), true);
 }
@@ -102,7 +102,7 @@ console.log('✓ backgammon_test 完成 · 共 21 条断言');
   t.debugSet(10, 0, 1);   // 白 1 子(blot)在 idx10(点11)
   let seq = [0.4, 0.0]; let si = 0; t.setRand(() => seq[si++ % seq.length]);
   t.rollDice();           // 期望 [3,1]
-  ok(t.move(13, 3), '红走3步落白blot合法');
+  ok( '红走3步落白blot合法', t.move(13, 3));
   ok('[fx] backgammon 击中孤子 → fxShakes>0', t.fxShakes() > 0);
   ok('[fx] backgammon 击中孤子 → fxBursts>0', t.fxBursts() > 0);
   // 3) 重开归零
@@ -116,13 +116,13 @@ console.log('✓ backgammon_test 完成 · 共 21 条断言');
   t.debugBar('red', 0);
   seq = [0.9, 0.0]; si = 0; t.setRand(() => seq[si++ % seq.length]);
   t.rollDice();           // 期望 [6,1]
-  ok(t.bearOff(5, 6), '点6(die=6)精确移出合法');
+  ok( '点6(die=6)精确移出合法', t.bearOff(5, 6));
   ok('[fx] backgammon 首次bearoff → fxShakes>0', t.fxShakes() > 0);
   // 5) 胜利 → shake + burst
   t.reset(); t.debugClear(); t.debugOff('red', 14); t.debugSet(5, 1, 0); t.debugBar('red', 0); t.turn = 'red';
   seq = [0.9, 0.0]; si = 0; t.setRand(() => seq[si++ % seq.length]);
   t.rollDice();
-  ok(t.bearOff(5, 6), '最后一枚移出');
+  ok( '最后一枚移出', t.bearOff(5, 6));
   ok('[fx] backgammon 胜利 → fxShakes>0', t.fxShakes() > 0);
   ok('[fx] backgammon 胜利 → fxBursts>0', t.fxBursts() > 0);
   // 6) 最终归零

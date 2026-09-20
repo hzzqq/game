@@ -7,7 +7,7 @@ eq('开局进入地图', t.getScreen(), 'map');
 const mp = t.getMap();
 eq('地图共 15 层', mp.floors, 15);
 eq('末层为 Boss', mp.lastType, 'boss');
-ok(t.currentOptions().length >= 1, '起点至少 1 个可达节点');
+ok( '起点至少 1 个可达节点', t.currentOptions().length >= 1);
 
 // --- entering a battle via direct startCombat ---
 t.resetRun();
@@ -17,18 +17,18 @@ let c = t.getCombat();
 eq('起手抽 5 张', c.hand.length, 5);
 eq('能量为 3', c.energy, 3);
 eq('初始最大能量 3', c.maxEnergy, 3);
-ok(t.getEnemies().length === 1, '竞技场有 1 个敌人');
+ok( '竞技场有 1 个敌人', t.getEnemies().length === 1);
 
 // --- playing an attack reduces enemy hp & spends energy ---
 let e0 = t.getEnemies()[0].hp;
 let hand = t.getHand();
 let ai = hand.findIndex(h=>h.type==='attack');
-ok(ai >= 0, '手牌中存在攻击牌');
+ok( '手牌中存在攻击牌', ai >= 0);
 const cost = hand[ai].cost;
 const before = t.getCombat().energy;
 t.playCard(ai, 0);
 let e1 = t.getEnemies()[0].hp;
-ok(e1 < e0, '攻击后敌人血量下降');
+ok( '攻击后敌人血量下降', e1 < e0);
 eq('攻击消耗能量', t.getCombat().energy, before - cost);
 
 // --- vulnerable multiplies damage (debug hooks) ---
@@ -71,7 +71,7 @@ const c2 = t.getCombat();
 eq('回合 +1', c2.turn, turnBefore + 1);
 eq('新回合能量回满', c2.energy, c2.maxEnergy);
 eq('新回合补满 5 张手牌', c2.hand.length, 5);
-ok(t.getRunHp() < hpBefore, '敌人攻击使玩家掉血');
+ok( '敌人攻击使玩家掉血', t.getRunHp() < hpBefore);
 
 // --- full clear -> win -> reward -> choose adds card ---
 t.resetRun();
@@ -86,10 +86,10 @@ while(guard++ < 50){
   if(t.getCombat().over) break;
   t.endTurn();
 }
-ok(t.getScreen()==='reward' || t.getScreen()==='win', '清场后进入奖励/胜利');
+ok( '清场后进入奖励/胜利', t.getScreen()==='reward' || t.getScreen()==='win');
 if(t.getScreen()==='reward'){
   const rw = t.getReward();
-  ok(rw && rw.cards.length===3, '奖励提供 3 张可选卡');
+  ok( '奖励提供 3 张可选卡', rw && rw.cards.length===3);
   const deckBefore = t.getPlayer().deck;
   t.chooseReward(0);
   eq('选择奖励后牌组 +1', t.getPlayer().deck, deckBefore + 1);
@@ -108,7 +108,7 @@ while(g3++ < 60){
   if(t.getCombat().over) break;
   t.endTurn();
 }
-ok(t.isOver(), '被 Boss 击败后游戏结束');
+ok( '被 Boss 击败后游戏结束', t.isOver());
 
 // ===== 通关庆祝 confetti 只读钩子（击败 Boss 通关）=====
 (() => {

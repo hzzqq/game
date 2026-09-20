@@ -25,14 +25,14 @@ eq('葫芦识别', t.evaluate([C(7,'spade'),C(7,'heart'),C(7,'diamond'),C(2,'clu
 const pairCards=[C(13,'spade'),C(13,'heart'),C(2,'club'),C(5,'diamond'),C(9,'club')];
 const s0=t.scoreHand(pairCards);
 eq('对子基础倍率 2', s0.mult, 2);
-ok(s0.score>0, '无小丑也有得分');
+ok( '无小丑也有得分', s0.score>0);
 
 // --- joker adds mult ---
 t.newRun();
 t.addJoker('joker'); // +4 mult
 const s1=t.scoreHand(pairCards);
 eq('小丑使倍率 +4', s1.mult, 6);
-ok(s1.score > s0.score, '小丑提升总分');
+ok( '小丑提升总分', s1.score > s0.score);
 
 // --- boss debuff disables suit-based joker ---
 t.newRun();
@@ -51,7 +51,7 @@ const quads=[C(7,'spade'),C(7,'heart'),C(7,'diamond'),C(7,'club'),C(2,'spade')];
 t.debugSetHand(quads);
 t.debugSetTarget(50);
 t.toggleSelect(0);t.toggleSelect(1);t.toggleSelect(2);t.toggleSelect(3);t.toggleSelect(4);
-ok(t.canPlay(), '五张可出牌');
+ok( '五张可出牌', t.canPlay());
 t.playSelected();
 eq('达标后进入奖励', t.getScreen(), 'reward');
 const jb=t.getState().jokers;
@@ -64,7 +64,7 @@ eq('盲注推进到小盲→大盲', t.getState().blindIdx, 1);
 t.newRun();
 t.debugSetTarget(1e9);
 for(let i=0;i<4;i++){ t.debugSetHand([C(2,'spade'),C(3,'heart'),C(4,'diamond'),C(5,'club'),C(6,'spade')]); t.toggleSelect(0); t.playSelected(); }
-ok(t.isOver(), '出手耗尽未达标则游戏结束');
+ok( '出手耗尽未达标则游戏结束', t.isOver());
 
 // === confetti 视觉庆祝标记（首次赢下盲注触发，纯旁路，不改玩法）===
 t.newRun();

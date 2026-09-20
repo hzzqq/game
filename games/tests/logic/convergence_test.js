@@ -33,4 +33,14 @@ H.eq('convergence: 三参调用(带 info)不误报', C.findHOkReversed(threeArgs
 var nested = "H.ok('n: f(x,y) 校验', a > 0 && b < 2, 'x');";
 H.eq('convergence: 嵌套括号/逗号的正参不误报', C.findHOkReversed(nested).length, 0);
 
+// T-143：解构裸调用 ok( 形式（112 个测试文件）此前绕过门禁，现同规则覆盖
+var bare = "o_k(reached, 'survivor: 初始进入游戏状态')".replace('o_k', 'ok');
+H.eq('convergence: 裸调用 ok(cond, name) 反参被检出', C.findHOkReversed(bare).length, 1);
+var bareGood = "o_k('survivor: 初始进入游戏状态', reached)".replace('o_k', 'ok');
+H.eq('convergence: 裸调用 name-first 不误报', C.findHOkReversed(bareGood).length, 0);
+var method = "x.o_k(reached, 'name')".replace('o_k', 'ok');
+H.eq('convergence: 对象方法 x.ok( 不误报', C.findHOkReversed(method).length, 0);
+var wordPart = "hook(reached, 'name')";
+H.eq('convergence: 词内子串 hook( 不误报', C.findHOkReversed(wordPart).length, 0);
+
 module.exports = {};
