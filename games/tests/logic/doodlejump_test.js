@@ -268,3 +268,19 @@ H.eq('doodlejump: 重开后 fx 计数为 0', t.fxShakes() + t.fxBursts(), 0);
   t.clearTop5();
   H.ok('doodlejump 排行榜 收尾清空', t.getTop5().length === 0);
 })();
+
+// ===== T-157 Boss 击败语义（mutation 缺口：boss.hp <= 0 分支全无锁）=====
+(() => {
+  t.newGame();
+  t.spawnBoss();
+  H.ok('doodlejump spawnBoss 后 Boss 存在', t.getBoss() !== null);
+  const wave = 2; t.setWave(wave);
+  const s0 = t.getScore();
+  t.setBossHp(0);                    // 击败条件恰好边界：hp=0 满足 <=0
+  const killed = t.updateBoss(0.016);
+  H.ok('doodlejump hp=0 击败返回 true', killed === true);
+  H.ok('doodlejump 击败奖励 score+=100*wave (得到 +' + (t.getScore() - s0) + ')', t.getScore() - s0 === 100 * wave);
+  H.ok('doodlejump 击败后 Boss 与弹幕清空', t.getBoss() === null);
+  const killed2 = t.updateBoss(0.016); // 无 Boss → false
+  H.ok('doodlejump 无 Boss 时 updateBoss 返回 false', killed2 === false);
+})();

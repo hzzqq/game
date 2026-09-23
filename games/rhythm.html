@@ -527,6 +527,7 @@ function finish(){
   if(acc >= 95) rating = 'S';
   else if(acc >= 90) rating = 'A';
   else if(acc >= 80) rating = 'B';
+  G.rating = rating; // T-157 只读暴露：vm 沙箱 DOM 桩收不到 resRating，测试经 G 断言评级链
   document.getElementById('resRating').textContent = rating;
   document.getElementById('resScore').textContent = G.score.toLocaleString();
   document.getElementById('resCombo').textContent = G.maxCombo;

@@ -56,6 +56,25 @@ H.ok('rhythm: 重复终演受锁保护（只触发一次）', T.confettiFired() 
   H.ok('rhythm 排行榜 收尾清空', T.getTop5().length === 0);
 })();
 
+// ===== T-157 评级阈值链（mutation 缺口：acc>=95/90/80 四处翻转全存活）=====
+// acc = (perfect + good*0.5)/total*100；total=200 精确构造边界
+(() => {
+  const cases = [
+    { p: 190, g: 0,   m: 10, want: 'S' },   // 95.00 恰好达 S（>= 翻转敏感）
+    { p: 189, g: 1,   m: 10, want: 'A' },   // 94.75 < 95
+    { p: 179, g: 2,   m: 19, want: 'A' },   // 90.00 恰好达 A
+    { p: 178, g: 3,   m: 19, want: 'B' },   // 89.75 < 90
+    { p: 157, g: 8,   m: 35, want: 'B' },   // 80.00 恰好达 B
+    { p: 150, g: 19,  m: 31, want: 'C' }    // 79.75 < 80
+  ];
+  for (const c of cases) {
+    T.G.perfect = c.p; T.G.good = c.g; T.G.miss = c.m;
+    T.finish();
+    H.ok('rhythm 评级 acc 边界 p=' + c.p + ' g=' + c.g + ' → ' + c.want, T.G.rating === c.want);
+  }
+  T.G.perfect = 0; T.G.good = 0; T.G.miss = 0; // 收尾还原
+})();
+
 const results = H.results;
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

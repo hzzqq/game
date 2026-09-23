@@ -64,7 +64,10 @@ ok( '到达时间后刷出敌人(含Boss)', t.getState().enemies>0);
 // --- player death ends game ---
 t.reset();
 p = t.getPlayer();
-t.spawnEnemy('brute', p.x+3, p.y);
+// T-157 确定性修正：原 spawn brute(70hp) 会被玩家鞭击约 3.5s 击杀，接触伤害与
+// whip DPS 赛跑只差一击 → 400 步内死亡概率性（实测 flaky）。改用 boss(1400hp 打不死、
+// dmg30、5px 已在接触圈)，必然压制致死。
+t.spawnEnemy('boss', p.x+3, p.y);
 let died=false;
 for(let i=0;i<400;i++){ t.step(0.05); if(t.getState().over){ died=true; break; } }
 ok( '被压制时玩家死亡并结束', died);

@@ -85,4 +85,22 @@ H.ok('parkour: 在合理步数内抵达里程碑', pg < 600);
   T.setRand();
 })();
 
+// ===== T-157 二段跳判定（mutation 缺口：runner.jumps < 2 翻转全存活）=====
+(() => {
+  T.setRand(); T.startGame();
+  const R0 = T.getRunner();
+  H.ok('parkour 起跳前 jumps=0', R0.jumps === 0);
+  T.jump();
+  const R1 = T.getRunner();
+  H.ok('parkour 一跳 jumps=1 且离地上升', R1.jumps === 1 && R1.vy === -11.2 && R1.onGround === false);
+  T.jump();
+  H.ok('parkour 二段跳 jumps=2', T.getRunner().jumps === 2);
+  T.jump();                          // jumps<2 不满足 → 第三跳无效
+  H.ok('parkour 三跳被拒(二段跳上限)', T.getRunner().jumps === 2);
+  T.setRunner({ y: T.GROUND_Y(), vy: 3 }); // 下落态触地 → update 吸附并重置 jumps
+  T.update(1/60);
+  const R3 = T.getRunner();
+  H.ok('parkour 落地重置二段跳', R3.onGround === true && R3.jumps === 0);
+})();
+
 module.exports = {};

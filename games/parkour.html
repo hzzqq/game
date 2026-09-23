@@ -597,9 +597,10 @@
     setRand: setRand,
     GROUND_Y: function(){ return GROUND_Y; },
     reset: reset, update: update, hitTest: hitTest,
+    jump: jump, /* T-157 缺口变现：二段跳判定 runner.jumps<2 此前无锁 */
     spawnPickup: spawnPickup, collectPickup: collectPickup, startGame: startGame,
     setRunner: function(o){ for (var k in o) runner[k] = o[k]; },
-    getRunner: function(){ return { x:runner.x, y:runner.y, h:runner.h, w:runner.w, shield:runner.shield, star:runner.star, invuln:runner.invuln }; },
+    getRunner: function(){ return { x:runner.x, y:runner.y, h:runner.h, w:runner.w, shield:runner.shield, star:runner.star, invuln:runner.invuln, jumps:runner.jumps, vy:runner.vy, onGround:runner.onGround }; },
     setPickups: function(arr){ pickups = (arr||[]).map(function(p){ return { x:p.x, y:p.y, type:p.type, r:p.r||10, bob:0 }; }); },
     getPickups: function(){ return pickups.map(function(p){ return { x:p.x, y:p.y, type:p.type, r:p.r }; }); },
     getCoins: function(){ return coins; },
