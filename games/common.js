@@ -58,6 +58,19 @@
       'body{margin:0;background:var(--bg);color:var(--text);',
       "font-family:'Cascadia Code',Consolas,Menlo,monospace;}",
       'canvas{display:block;background:#070a0f;border:1px solid var(--border);border-radius:8px;}',
+      /* T-144 CRT 荧光强化：辉光/扫描线/色差/开机闪现。纯 CSS、合成器友好
+       * （动画只动 opacity），prefers-reduced-motion 全降级。
+       * 用 body::after 而非 ::before——2048 等游戏自带 body::before 网格叠层，避冲突。 */
+      'h1,h2,.overlay-title{text-shadow:0 0 16px rgba(214,228,240,.22);}',
+      '.term-h{text-shadow:0 0 18px rgba(240,185,11,.30),1px 0 0 rgba(246,70,93,.35),-1px 0 0 rgba(46,230,214,.30);}',
+      'canvas{box-shadow:0 0 18px rgba(2,192,118,.07);}',
+      'body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;',
+      'background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);',
+      'animation:crtFlicker 4s ease-in-out infinite;}',
+      '@keyframes crtFlicker{0%,100%{opacity:.55}50%{opacity:1}}',
+      'body{animation:crtOn .5s ease-out;}',
+      '@keyframes crtOn{0%{opacity:0;filter:brightness(3) saturate(.2)}30%{opacity:1;filter:brightness(1.6)}100%{filter:none}}',
+      '@media (prefers-reduced-motion:reduce){body::after{animation:none;}body{animation:none;}}',
       '.term-h{color:var(--gold);letter-spacing:.05em;}',
       '.diffbar{display:flex;gap:6px;margin:8px 0;}',
       '.diffbar button{flex:1;background:var(--panel2);color:var(--dim);',
@@ -66,6 +79,7 @@
       '.diffbar button.active{color:#0a0e14;background:var(--gold);border-color:var(--gold);font-weight:700;}'
     ].join('');
     document.head.appendChild(s);
+    return s; // 便于测试/调用方检查注入内容（幂等分支仍返回 undefined）
   };
 
   /* ---------- 局部 PRNG（spec 铁律：逻辑随机禁止裸 Math.random） ---------- */

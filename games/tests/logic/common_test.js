@@ -214,4 +214,32 @@ H.ok('DIFFICULTY normal 档主倍率全 1（growth 除外=1.12 渐进）', (func
   return ones.every(f => n[f] === 1) && n.growth === 1.12;
 })());
 
+// ---- injectTheme：CRT 荧光强化注入（T-144；node 直跑用最小 document 桩）----
+(() => {
+  const appended = [];
+  const fakeStyle = () => ({ id: '', textContent: '' });
+  let existing = null; // 模拟「主题已存在」
+  global.document = {
+    getElementById: (id) => (existing && existing.id === id ? existing : null),
+    createElement: () => fakeStyle(),
+    head: { appendChild: (el) => appended.push(el) },
+  };
+  try {
+    const s = Common.injectTheme();
+    H.ok('injectTheme 返回 style 载体', !!s && typeof s.textContent === 'string');
+    const css = s.textContent;
+    H.ok('injectTheme 含扫描线呼吸动画 crtFlicker', css.indexOf('crtFlicker') >= 0 && css.indexOf('repeating-linear-gradient') >= 0);
+    H.ok('injectTheme 含 CRT 开机闪现 crtOn', css.indexOf('crtOn') >= 0);
+    H.ok('injectTheme 含 .term-h 红/青色差', css.indexOf('rgba(246,70,93,.35)') >= 0 && css.indexOf('rgba(46,230,214,.30)') >= 0);
+    H.ok('injectTheme 含 reduced-motion 降级', css.indexOf('prefers-reduced-motion:reduce') >= 0);
+    H.ok('injectTheme 扫描线用 body::after（避让游戏自带 body::before）', css.indexOf('body::after') >= 0);
+    existing = s; // 第二次调用：主题已挂载 → 幂等不再注入
+    const n = appended.length;
+    Common.injectTheme();
+    H.ok('injectTheme 幂等：已存在时不重复注入', appended.length === n);
+  } finally {
+    delete global.document;
+  }
+})();
+
 module.exports = {};
