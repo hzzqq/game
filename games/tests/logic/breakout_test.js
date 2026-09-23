@@ -199,6 +199,26 @@ ok('通关 → confettiFired 为真', t.confettiFired() === true);
 })();
 
    const total = results.length;
+// ===== T-178 反弹与生命判负（mutation 缺口：顶墙/挡板反弹与 lives<=0 此前无锁）=====
+(() => {
+  t.reset();                          // startGame → ready
+  t.launch();                         // 发射 → playing
+  ok('breakout launch 后进入 playing', t.getState() === 'playing');
+  let b = t.getBalls()[0];
+  let up = b.vy < 0, hitTop = false;
+  for (let i = 0; i < 200 && up; i++) { t.update(0.016); b = t.getBalls()[0]; if (b.vy > 0) { hitTop = true; break; } }
+  ok('breakout 顶墙反弹 (vy 翻正下落)', hitTop);
+  const pd = t.getPaddle();
+  t.setBalls([{ x: pd.x + 20, y: pd.y - 4, vx: 0, vy: 4, stuck: false }]); // 下落近挡板
+  t.update(0.016);
+  ok('breakout 球触挡板反弹 (vy 翻负)', t.getBalls()[0].vy < 0);
+  t.setLives(1);
+  t.setBalls([{ x: 5, y: 5, vx: 0, vy: 6, stuck: false }]);   // 左上角落下，远离挡板
+  let guard = 0;
+  while (t.getState() !== 'gameover' && guard++ < 400) t.update(0.016);
+  ok('breakout 生命耗尽 gameover', t.getState() === 'gameover' && t.getLives() === 0);
+})();
+
 const pass = results.filter(r => r.pass).length;
 console.log(`\nbreakout: ${pass}/${total} 通过`);
 if (pass !== total) process.exit(1);

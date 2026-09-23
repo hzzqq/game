@@ -518,6 +518,10 @@ document.getElementById('restart').addEventListener('click',restart);
     setRage(f,v){ f.rage=v; },
     isBerserk(f){ return f.berserkTimer>0; },
     getPhase(){ return phase; },
+    /* T-178 缺口变现：赛点制（pWins>=2||aWins>=2 → matchend）此前无锁 */
+    nextRound: nextRound,
+    setWins: function(p, a){ pWins=p; aWins=a; },
+    getWins: function(){ return { p: pWins, a: aWins }; },
     // ---- 注入：标准化掉落/增益系统钩子 ----
     reset: function(){ restart(); pickups=[]; boostTimer=0; spawnTimer=0; },
     update: function(dt){ update(dt||16.6667); },

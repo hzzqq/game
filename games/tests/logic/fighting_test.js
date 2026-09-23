@@ -94,4 +94,20 @@ const pass = H.results.filter(r => r.pass).length;
 console.log(`\nfighting: ${pass}/${total} 通过`);
 if (pass !== total) process.exit(1);
 
+// ===== T-178 赛点制（mutation 缺口：pWins>=2||aWins>=2 → matchend 此前无锁）=====
+(() => {
+  T.reset();
+  H.ok('fighting 重开后为 fight 相位', T.getState() === 'fight');
+  T.setWins(1, 1);
+  T.nextRound();
+  H.ok('fighting 赛点未达 (1-1) 继续比赛', T.getPhase() === 'fight');
+  T.setWins(2, 1);
+  T.nextRound();
+  H.ok('fighting 玩家 2 胜达赛点 → matchend', T.getPhase() === 'matchend');
+  T.reset();
+  T.setWins(1, 2);
+  T.nextRound();
+  H.ok('fighting AI 2 胜达赛点 → matchend', T.getPhase() === 'matchend');
+})();
+
 module.exports = {};

@@ -623,6 +623,7 @@
       return {
         distance: distance, over: state === 'over', speed: speed, boost: boostTimer,
         player: { x: player.x, y: player.y, w: player.w, h: player.h,
+                  jumps: player.jumps, vy: player.vy,
                   shield: player.shield, invuln: player.invuln, onGround: player.onGround }
       };
     },

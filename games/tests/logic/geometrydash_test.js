@@ -158,6 +158,19 @@ eq('geometrydash: reset 后 fxBursts=0', t.fxBursts(), 0);
   eq('gd 排行榜 收尾清空', t.getTop5().length, 0);
 })();
 
+// ===== T-178 二段跳判定（mutation 缺口：player.jumps < 2 此前无锁，与 parkour 同款机制）=====
+(() => {
+  t.startGame();
+  ok('geometrydash 起跳前 jumps=0', t.getState().player.jumps === 0);
+  t.jump();
+  const s1 = t.getState().player;
+  ok('geometrydash 一跳 jumps=1 且 vy=JUMP_V', s1.jumps === 1 && s1.vy === -12.4);
+  t.jump();
+  ok('geometrydash 二段跳 jumps=2', t.getState().player.jumps === 2);
+  t.jump();
+  ok('geometrydash 三跳被拒(二段跳上限)', t.getState().player.jumps === 2);
+})();
+
 // ===== 结果汇总 =====
 const passed = require('./harness').results.filter(r => r.pass).length;
 const total = require('./harness').results.length;
