@@ -42,3 +42,15 @@ ok('通关后标记 confetti', t.confettiFired === true);
 t.newGame(); // 重开
 ok('重开重置 confetti 标记', t.confettiFired === false);
 ok('重开未胜', t.isWin() === false);
+
+// ===== T-173 move 守卫补锁（mutation 缺口：move 系 !canFoundation/!canTableau 拒绝分支此前无锁）=====
+(() => {
+  t.setTableau([[{ s: 0, r: 5 }],[],[],[],[],[],[]],[0,0,0,0],[],[]);  // 列顶黑5，座空需 A
+  ok('klondike 列顶非接牌收座拒', t.moveTableauToFoundation(0) === false);
+  eq('klondike 拒后列顶不变', t.getState().tableau[0].length, 1);
+  t.setTableau([[],[{ s: 0, r: 3 }],[],[],[],[],[]],[0,0,0,0],[],[{ s: 3, r: 2 }]); // 弃牌黑2，列顶黑3 同色拒
+  ok('klondike 弃牌接桌同色拒', t.moveWasteToTableau(1) === false);
+  t.setTableau([[{ s: 0, r: 5 }],[{ s: 3, r: 6 }],[],[],[],[],[]],[0,0,0,0],[],[]); // 黑5 → 黑6 同色
+  ok('klondike 桌间移动同色拒', t.moveTableauToTableau(0, 1) === false);
+  eq('klondike 拒后两列均不变', t.getState().tableau[0].length + t.getState().tableau[1].length, 2);
+})();

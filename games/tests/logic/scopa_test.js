@@ -39,3 +39,18 @@ H.eq('scopa 新局复位', t.confettiFired(), 0);
   H.ok('scopa 牌张合法（40 套内）且互不重复', valid);
   t.setRand();
 })();
+
+// ===== T-173 findCapture 捕获选择（mutation 缺口：cnt>best.cnt 多捕优先此前零锁）=====
+(() => {
+  t.setTableau([{ v: 3 }, { v: 1 }, { v: 2 }], []);
+  let best = t.findCapture(3);         // {3} 单捕 vs {1,2} 双捕 → 双捕优先
+  H.ok('scopa 多捕获优先 (cnt=2)', best !== null && best.cnt === 2 && best.sum === 3);
+  t.setTableau([{ v: 5 }, { v: 1 }, { v: 4 }], []);
+  best = t.findCapture(5);             // {5} vs {1,4} → 双捕优先
+  H.ok('scopa 双组合中取 cnt 大', best !== null && best.cnt === 2);
+  t.setTableau([{ v: 5 }, { v: 6 }], []);
+  H.ok('scopa 无解返回 null', t.findCapture(4) === null);
+  t.setTableau([{ v: 2 }], []);
+  best = t.findCapture(2);             // 唯一解
+  H.ok('scopa 单牌捕获', best !== null && best.cnt === 1);
+})();
