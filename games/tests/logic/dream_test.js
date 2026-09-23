@@ -55,3 +55,40 @@ H.ok('dream: 击杀敌人后 fxShakes>0 (得到 ' + T.fxShakes() + ')', T.fxShak
 H.ok('dream: 击杀敌人后 fxBursts>0 (得到 ' + T.fxBursts() + ')', T.fxBursts() > 0);
 T.start();                        // 重置
 H.ok('dream: start() 重置后 fx 计数为 0', T.fxShakes() === 0 && T.fxBursts() === 0);
+
+// ===== T-153 断言薄缺口变现（mutation 基线 dream 100% 存活）=====
+// 6) 攻击冷却语义：attackCd<=0 才出手，出手后 swingId+1 且置 ATTACK_CD=0.34
+(() => {
+  T.start();
+  const s0 = T.getSwingId();
+  T.tryAttack();
+  H.ok('dream: 空冷攻击出手 swingId+1 (得到 ' + T.getSwingId() + ')', T.getSwingId() === s0 + 1);
+  H.ok('dream: 出手后进入攻击冷却 0.34', Math.abs(T.getAttackCd() - 0.34) < 1e-9);
+  T.tryAttack();                   // CD 中再按 → 不出手
+  H.ok('dream: 冷却中重复攻击不出手', T.getSwingId() === s0 + 1);
+})();
+
+// 7) 技能消耗语义：mana>=25 且 skillCd<=0 才放，放后扣 25+生成弹体+置 CD=0.45
+(() => {
+  T.start();
+  const h = T.getHero();
+  h.mana = 24; h.skillCd = 0;
+  T.trySkill();                    // mana 不足 → 不放
+  H.ok('dream: 蓝量不足 25 技能不放', T.getProjectiles() === 0 && T.getMana() === 24);
+  h.mana = 30; h.skillCd = 0;
+  T.trySkill();                    // 满足 → 扣 25 出弹体
+  H.ok('dream: 放技能扣蓝 30→5 (得到 ' + T.getMana() + ')', T.getMana() === 5);
+  H.ok('dream: 放技能生成 1 弹体', T.getProjectiles() === 1);
+  H.ok('dream: 放技能进入技能冷却 0.45', Math.abs(T.getSkillCd() - 0.45) < 1e-9);
+  T.trySkill();                    // CD 中再按 → 不再生成
+  H.ok('dream: 技能冷却中不重复出弹', T.getProjectiles() === 1);
+})();
+
+// 8) aabb 边界：严格不等号——恰好相切不算碰撞，重叠 1px 才算
+(() => {
+  const a = { x: 0, y: 0, w: 10, h: 10 };
+  H.ok('dream: aabb 右缘相切不碰', T.aabb(a, { x: 10, y: 5, w: 10, h: 10 }) === false);
+  H.ok('dream: aabb 左缘相切不碰', T.aabb(a, { x: -10, y: 5, w: 10, h: 10 }) === false);
+  H.ok('dream: aabb 底缘相切不碰', T.aabb(a, { x: 5, y: 10, w: 10, h: 10 }) === false);
+  H.ok('dream: aabb 重叠 1px 算碰', T.aabb(a, { x: 9, y: 9, w: 10, h: 10 }) === true);
+})();

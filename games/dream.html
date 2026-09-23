@@ -806,7 +806,14 @@
     getState(){ return state; },
     confettiFired(){ return _confettiFired; },
     fxShakes(){ return _fxShakes; }, fxBursts(){ return _fxBursts; },
-    damageEnemy: damageEnemy
+    damageEnemy: damageEnemy,
+    /* T-153 断言薄缺口变现：只读/驱动钩子（纯追加，不改逻辑）——锁攻击冷却/技能消耗/aabb 边界 */
+    tryAttack: tryAttack, trySkill: trySkill, aabb: aabb,
+    getSwingId(){ return hero.swingId; },
+    getAttackCd(){ return hero.attackCd; },
+    getSkillCd(){ return hero.skillCd; },
+    getMana(){ return hero.mana; },
+    getProjectiles(){ return projectiles.length; }
   };
 })();
 </script>
