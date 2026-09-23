@@ -41,3 +41,19 @@ ok('triggerWinEffect 在 Juice 无 confetti 时不抛错', lthrew === false);
   ld.gen();
   ok('liarsdice confetti: 新局恢复未标记', ld.confettiFired === false);
 })();
+
+// ===== T-161 加注与开骰判定（mutation 缺口：isValidRaise/count>=cur.n 此前无锁）=====
+(() => {
+  t.setDice([[3,3,3],[2,2,5]]);       // 全场 3 点共 3 个
+  ok('liarsdice 首叫任意合法', t.placeBid(2, 3) === true);
+  ok('liarsdice 同 n 大 face 合法', t.placeBid(2, 4) === true);
+  ok('liarsdice 同 n 同 face 拒', t.placeBid(2, 4) === false);
+  ok('liarsdice 降 n 拒', t.placeBid(1, 5) === false);
+  ok('liarsdice 加 n 合法', t.placeBid(3, 2) === true);
+  const r1 = t.call();                 // count(2)=2 < 3 → 竞叫者输
+  ok('liarsdice 开骰 count<bid 竞叫者输', r1.winner === 1 && r1.count === 2);
+  t.setDice([[3,3,3],[2,2,5]]);
+  t.placeBid(3, 3);                    // count(3)=3 >= 3 → 竞叫者赢（恰边界）
+  const r2 = t.call();
+  ok('liarsdice 开骰 count>=bid 竞叫者赢', r2.winner === 0 && r2.count === 3);
+})();

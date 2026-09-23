@@ -315,6 +315,7 @@
   setRand,
   buildDeck, isLegal, playCard, drawCards, reset,
     setN(n){ N=n; },
+    setCurrent(c, v){ currentColor=c; currentValue=v; }, /* T-161 缺口变现：isLegal 三条件此前无锁 */
     getState(){ return { N:N, current:current, dir:dir, currentColor:currentColor, gameOver:gameOver,
       hands:hands.map(function(h){ return h.length; }), deck:deck.length }; },
     hand(p){ return hands[p].map(function(c){ return {color:c.color, value:c.value}; }); },

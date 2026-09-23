@@ -24,3 +24,17 @@ H.eq('uno 不重复触发', t.confettiFired(), 1);
   H.ok('uno 不同种子发牌不同', u1 !== u3);
   t.setRand();
 })();
+
+// ===== T-161 出牌合法性（mutation 缺口：isLegal 三条件此前无锁）=====
+(() => {
+  t.setCurrent('r', 5);
+  H.ok('uno 同色可出', t.isLegal({ color: 'r', value: 9 }) === true);
+  H.ok('uno 同值可出', t.isLegal({ color: 'b', value: 5 }) === true);
+  H.ok('uno 异色异值拒', t.isLegal({ color: 'b', value: 7 }) === false);
+  t.setCurrent('g', 3);
+  H.ok('uno 换色后旧色拒', t.isLegal({ color: 'r', value: 9 }) === false);
+  H.ok('uno 新色可出', t.isLegal({ color: 'g', value: 8 }) === true);
+  H.ok('uno wild 万能可出', t.isLegal({ color: 'w', value: 'wild' }) === true);
+  t.setCurrent('r', 0);
+  H.ok('uno wild+draw4 也万能可出', t.isLegal({ color: 'w', value: 'draw4' }) === true);
+})();
