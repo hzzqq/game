@@ -35,11 +35,37 @@
   /* ---------- 终端主题：注入一次，全局生效（幂等） ----------
    * 让游戏不再各自内联一份 166 行的暗色主题。需要额外样式时再在游戏内叠加。 */
   var THEME_ID = 'common-theme';
-  Common.injectTheme = function () {
-    if (document.getElementById(THEME_ID)) return;
-    var s = document.createElement('style');
-    s.id = THEME_ID;
-    s.textContent = [
+
+  /* ---------- 主题模式（T-152）：classic 金红 / phosphor 荧光绿 ----------
+   * 只重映射 accent 系（--gold/--accent/--yellow/--glow-accent），--red 语义色
+   * 与红涨绿跌金融配色不动。mode 经 Storage 记忆，大厅切换后所有游戏跟随。 */
+  Common.THEME_MODES = ['classic', 'phosphor'];
+  Common.getThemeMode = function () {
+    var m = Common.Storage.get('theme', 'mode', 'classic');
+    return Common.THEME_MODES.indexOf(m) >= 0 ? m : 'classic';
+  };
+  Common.setThemeMode = function (mode) {
+    mode = Common.THEME_MODES.indexOf(mode) >= 0 ? mode : 'classic';
+    Common.Storage.set('theme', 'mode', mode);
+    var s = document.getElementById(THEME_ID);
+    if (s) s.textContent = buildThemeCss(mode); // 已注入则热更新（切主题不重载页面）
+    return mode;
+  };
+  Common.toggleThemeMode = function () {
+    return Common.setThemeMode(Common.getThemeMode() === 'phosphor' ? 'classic' : 'phosphor');
+  };
+  /* 挂切换按钮（唯一消费者=大厅 titlebar）：自动回显当前模式文案 */
+  Common.mountThemeToggle = function (btn) {
+    if (!btn) return false;
+    var label = function () { btn.textContent = '主题:' + (Common.getThemeMode() === 'phosphor' ? '荧光' : '经典'); };
+    label();
+    btn.addEventListener('click', function () { Common.toggleThemeMode(); label(); });
+    return true;
+  };
+
+  function buildThemeCss(mode) {
+    var phosphor = mode === 'phosphor';
+    return [
       /* 同时注入两套变量名：Common 旧名（--line/--txt）与游戏主流名（--border/--text），
        * 两者指向同一值，保证「迁移到 injectTheme」的旧游戏无论引用哪套都不丢配色。
        * 红色取游戏主流值 #f6465d（旧 Common 用 #ff5a6a，已对齐）。 */
@@ -53,8 +79,10 @@
       '--green:#02c076;--red:#f6465d;',
       '--blue:#3aa0ff;',
       '--purple:#9b6bff;--cyan:#2ee6d6;--white:#d8dee9;--leaf:#5ad17a;',
+      '--glow-accent:rgba(240,185,11,.30);',
       '--cell:90px;--gap:12px;--size:calc(var(--cell)*4 + var(--gap)*5);',
       "--font:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;}",
+      phosphor ? ':root{--gold:#35e08c;--accent:#35e08c;--yellow:#35e08c;--glow-accent:rgba(2,192,118,.35);}' : '',
       'body{margin:0;background:var(--bg);color:var(--text);',
       "font-family:'Cascadia Code',Consolas,Menlo,monospace;}",
       'canvas{display:block;background:#070a0f;border:1px solid var(--border);border-radius:8px;}',
@@ -62,7 +90,7 @@
        * （动画只动 opacity），prefers-reduced-motion 全降级。
        * 用 body::after 而非 ::before——2048 等游戏自带 body::before 网格叠层，避冲突。 */
       'h1,h2,.overlay-title{text-shadow:0 0 16px rgba(214,228,240,.22);}',
-      '.term-h{text-shadow:0 0 18px rgba(240,185,11,.30),1px 0 0 rgba(246,70,93,.35),-1px 0 0 rgba(46,230,214,.30);}',
+      '.term-h{text-shadow:0 0 18px var(--glow-accent),1px 0 0 rgba(246,70,93,.35),-1px 0 0 rgba(46,230,214,.30);}',
       'canvas{box-shadow:0 0 18px rgba(2,192,118,.07);}',
       'body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;',
       'background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);',
@@ -72,12 +100,23 @@
       '@keyframes crtOn{0%{opacity:0;filter:brightness(3) saturate(.2)}30%{opacity:1;filter:brightness(1.6)}100%{filter:none}}',
       '@media (prefers-reduced-motion:reduce){body::after{animation:none;}body{animation:none;}}',
       '.term-h{color:var(--gold);letter-spacing:.05em;}',
+      /* T-152 主题切换按钮（唯一消费者=大厅 titlebar） */
+      '.theme-toggle{background:var(--panel2);color:var(--dim);border:1px solid var(--border);',
+      'border-radius:6px;padding:3px 10px;cursor:pointer;font-family:inherit;font-size:12px;transition:.15s;}',
+      '.theme-toggle:hover{color:var(--text);border-color:var(--dim);}',
       '.diffbar{display:flex;gap:6px;margin:8px 0;}',
       '.diffbar button{flex:1;background:var(--panel2);color:var(--dim);',
       'border:1px solid var(--border);border-radius:6px;padding:6px 0;cursor:pointer;',
       'font-family:inherit;font-size:13px;transition:.15s;}',
       '.diffbar button.active{color:#0a0e14;background:var(--gold);border-color:var(--gold);font-weight:700;}'
     ].join('');
+  }
+
+  Common.injectTheme = function () {
+    if (document.getElementById(THEME_ID)) return;
+    var s = document.createElement('style');
+    s.id = THEME_ID;
+    s.textContent = buildThemeCss(Common.getThemeMode());
     document.head.appendChild(s);
     return s; // 便于测试/调用方检查注入内容（幂等分支仍返回 undefined）
   };

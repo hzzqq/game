@@ -214,7 +214,7 @@ H.ok('DIFFICULTY normal 档主倍率全 1（growth 除外=1.12 渐进）', (func
   return ones.every(f => n[f] === 1) && n.growth === 1.12;
 })());
 
-// ---- injectTheme：CRT 荧光强化注入（T-144；node 直跑用最小 document 桩）----
+// ---- injectTheme：CRT 荧光强化注入（T-150；node 直跑用最小 document 桩）----
 (() => {
   const appended = [];
   const fakeStyle = () => ({ id: '', textContent: '' });
@@ -238,6 +238,45 @@ H.ok('DIFFICULTY normal 档主倍率全 1（growth 除外=1.12 渐进）', (func
     Common.injectTheme();
     H.ok('injectTheme 幂等：已存在时不重复注入', appended.length === n);
   } finally {
+    delete global.document;
+  }
+})();
+
+// ---- 主题切换（T-152）：classic/phosphor 双模式 + Storage 记忆 + 热更新 ----
+(() => {
+  const store = {};
+  global.localStorage = {
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; },
+  };
+  let live = null; // 模拟已注入的主题 style（setThemeMode 热更新目标）
+  global.document = {
+    getElementById: (id) => (live && live.id === id ? live : null),
+    createElement: () => ({ id: '', textContent: '' }),
+    head: { appendChild: (el) => { live = el; } },
+  };
+  const btn = { textContent: '', listeners: {}, addEventListener(ev, fn) { this.listeners[ev] = fn; } };
+  try {
+    H.ok('THEME_MODES 恰为 classic/phosphor', JSON.stringify(Common.THEME_MODES) === '["classic","phosphor"]');
+    H.eq('getThemeMode 默认 classic', Common.getThemeMode(), 'classic');
+    H.eq('setThemeMode 非法值兜底 classic', Common.setThemeMode('xxx'), 'classic');
+    Common.injectTheme(); // classic 注入（getThemeMode=classic）
+    H.ok('classic 注入不含 phosphor 覆盖段', Common.injectTheme === null ? false : live.textContent.indexOf('#35e08c') < 0);
+    H.eq('setThemeMode(phosphor) 返回 phosphor', Common.setThemeMode('phosphor'), 'phosphor');
+    H.ok('phosphor 热更新已注入 style（不重载）', live.textContent.indexOf('--gold:#35e08c') >= 0 && live.textContent.indexOf('--glow-accent:rgba(2,192,118,.35)') >= 0);
+    H.ok('phosphor 不动 --red 语义色（红涨绿跌）', live.textContent.indexOf('--red:#f6465d;') >= 0);
+    H.eq('Storage 已记忆 phosphor', Common.Storage.get('theme', 'mode', 'classic'), 'phosphor');
+    H.eq('toggleThemeMode 荧光→经典', Common.toggleThemeMode(), 'classic');
+    H.ok('toggle 后热更新回 classic（无覆盖段）', live.textContent.indexOf('#35e08c') < 0);
+    H.eq('toggleThemeMode 经典→荧光', Common.toggleThemeMode(), 'phosphor');
+    H.ok('mountThemeToggle 回显荧光文案', Common.mountThemeToggle(btn) === true && btn.textContent === '主题:荧光');
+    btn.listeners.click();
+    H.ok('按钮点击后切回经典并回显', Common.getThemeMode() === 'classic' && btn.textContent === '主题:经典');
+    H.eq('mountThemeToggle 空元素返回 false', Common.mountThemeToggle(null), false);
+    Common.setThemeMode('classic'); // 收尾还原
+  } finally {
+    delete global.localStorage;
     delete global.document;
   }
 })();

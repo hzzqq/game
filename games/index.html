@@ -118,6 +118,7 @@
     <div class="titlebar">
       <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
       <span class="t">TERMINAL // <b>GAME HUB</b> · 游戏大厅</span>
+      <button class="theme-toggle" id="themeToggle" title="切换 accent 主题（经典金红 / 荧光绿），全部游戏跟随">主题:经典</button>
     </div>
     <div class="body">
       <h1>游戏大厅</h1>
@@ -146,7 +147,7 @@
       </div>
       <div class="grid" id="grid"></div>
 <script src="common.js"></script>
-<script>Common.injectTheme();</script>
+<script>Common.injectTheme(); Common.mountThemeToggle(document.getElementById('themeToggle'));</script>
 <script src="catalog.js"></script>
 <script>
 (function(){
