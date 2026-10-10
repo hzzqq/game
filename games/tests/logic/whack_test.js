@@ -84,5 +84,30 @@ if (pass !== total) process.exit(1);
   H.ok('whack 同种子双局状态确定', s1 === s2);
   T.setRand();
 })();
+// ===== T-175 越界拒/连击加成/计时结束（mutation 缺口：idx 越界与 combo 加成此前无锁）=====
+(() => {
+  T.reset();
+  H.ok('whack 负索引拒', T.whack(-1) === null);
+  H.ok('whack 越上界拒', T.whack(T.HOLES) === null);
+  // 连击加成：combo=0 基线 gain=10；combo=5 → gain=round(10*1.5)=15
+  const holes = T.getHoles();
+  const mk = (i) => { const h = holes.slice(); h[i] = { state: 'up', timer: 0, type: 'normal', popT: 0 }; T.setHoles(h); return i; };
+  T.setScore(0); T.setCombo(0);
+  let i0 = mk(0);
+  const r0 = T.whack(i0);
+  H.ok('whack 无连击 gain=10 (得到 ' + r0.gain + ')', r0.hit === true && r0.gain === 10);
+  T.setScore(0); T.setCombo(5);
+  let i1 = mk(3);
+  const r1 = T.whack(i1);
+  H.ok('whack 连击 5 加成 gain=15 (得到 ' + r1.gain + ')', r1.hit === true && r1.gain === 15);
+  T.setCombo(15);
+  let i2 = mk(6);
+  const r2 = T.whack(i2);
+  H.ok('whack 连击上限 +100% gain=20 (得到 ' + r2.gain + ')', r2.hit === true && r2.gain === 20);
+  // 计时结束：time 是显示值（GAME_TIME - gameTime），真正递减的是 gameTime
+  T.setGameTime(T.GAME_TIME - 0.001);
+  T.update(0.02);
+  H.ok('whack 计时归零结束游戏', T.getOver() === true);
+})();
 
 module.exports = {};

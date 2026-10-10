@@ -640,6 +640,7 @@
     get logArr(){ return logArr; },
     doRoll, reset,
     setCash(id,v){ players[id].cash=v; },
+    setRng(fn){ _rng = fn; }, /* T-175 缺口变现：骰子用 _rng（mulberry32 固定种子）而 setRand 只换 _rand，监狱等骰子规则无法注入——补骰子注入点 */
     // 难度系统
     DIFFICULTY, DIFF_ORDER, setDifficulty, getDifficulty, setRand, confettiFired, endGame,
     // 纯函数

@@ -92,5 +92,28 @@ if (pass !== total) process.exit(1);
   H.ok('racing 同种子双局状态确定', s1 === s2);
   T.setRand();
 })();
+// ===== T-175 车道钳制与生命判负（mutation 缺口：nl<0→0 / nl>LANES-1 钳制与 lives<=0 此前无锁）=====
+// ⚠️ racing 的 reset() 后 state 仍 menu——必须 startGame() 才进 playing（moveLane 有 state 守卫）
+(() => {
+  T.startGame();
+  H.ok('racing startGame 后 playing 态', T.getState() === 'playing');
+  T.player.lane = 0;
+  T.moveLane(-1);
+  H.ok('racing 左界钳制 (0 道)', T.player.lane === 0);
+  T.player.lane = 4;                     // LANES=5 最右道
+  T.moveLane(1);
+  H.ok('racing 右界钳制 (4 道)', T.player.lane === 4);
+  T.player.lane = 2;
+})();
+
+(() => {
+  T.startGame();
+  let guard = 0;
+  while (T.getState() !== 'over' && guard++ < 600) {
+    T.spawnEnemyOnPlayer();              // 每帧压制（单敌撞一次即离场，lives 3 需三次碰撞）
+    T.update(0.016);
+  }
+  H.ok('racing 生命耗尽判负 (lives=' + T.getLives() + ', guard=' + guard + ')', T.getState() === 'over' && T.getLives() <= 0);
+})();
 
 module.exports = {};

@@ -128,6 +128,19 @@ t.players[1].alive=false; t.players[2].alive=false; t.players[3].alive=false;
 t.endGame();
 ok('游戏结束胜利 → confettiFired 为真', t.confettiFired() === true);
 
+// ===== T-175 监狱三轮规则（mutation 缺口：jailTurns>=3 缴 50 出狱此前无锁）=====
+// ⚠️ monopoly 骰子走 _rng（mulberry32 固定种子）而 setRand 只换 _rand——必须用 setRng 注入
+(() => {
+  t.reset();
+  const p = t.players[0];
+  p.inJail = true; p.jailTurns = 2;      // 已关两轮，本轮非双骰即达 3
+  t.setCash(0, 100);
+  let k = 0;
+  t.setRng(() => ((k++ % 2) ? 0.4 : 0.1)); // 面值 1/3 交替 → 非双骰
+  t.doRoll();
+  ok('monopoly 监狱第三轮缴 50 出狱 (cash=' + p.cash + ')', p.cash === 50 && p.inJail === false && p.jailTurns === 0);
+})();
+
 // 汇总
 const total = results.length;
 const pass = results.filter(r => r.pass).length;

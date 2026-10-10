@@ -561,6 +561,8 @@
   window.__t = {
     setRand,
     reset, update, player,
+    moveLane: moveLane, /* T-175 缺口变现：车道钳制 nl<0→0 / nl>LANES-1→LANES-1 此前无锁 */
+    startGame: startGame, /* T-175：reset 后 state 仍 menu，测试需经 startGame 进入 playing */
     getState(){ return state; },
     spawnPickup(type, lane, y){ pickups.push(makePickup(type, lane == null ? player.lane : lane, y == null ? -30 : y)); },
     stepPickups(dt){ updatePickups(dt); },
