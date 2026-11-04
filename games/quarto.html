@@ -151,15 +151,15 @@
     }
     return { r:cell[0], c:cell[1], piece:give };
   }
+  // T-177：委托共享核心；保留动态建容器（ref=controls||wrap 插入位），按钮+active 由 Common.buildDiffBar 接管
   function buildDiffBar(){
     if(typeof document==='undefined') return;
     let bar=document.getElementById('diffbar');
     if(!bar){ bar=document.createElement('div'); bar.id='diffbar'; bar.className='diffbar';
       const ref=document.querySelector('.controls')||document.querySelector('.wrap');
       if(ref&&ref.parentNode) ref.parentNode.insertBefore(bar, ref); }
-    bar.innerHTML='';
-    DIFF_ORDER.forEach(k=>{ const b=document.createElement('button'); b.textContent=DIFFICULTY[k].label; if(k===difficulty) b.className='active';
-      b.addEventListener('click',()=>{ setDifficulty(k); buildDiffBar(); }); bar.appendChild(b); });
+    var handle=Common.buildDiffBar(bar,function(d){ setDifficulty(d); });
+    if(handle) handle.set(difficulty);
   }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function attHTML(p){ if(p===null) return ''; const cols=['#f6465d','#02c076','#f0b90b','#6b7785']; return '<div class="att">'+p.map((v,i)=>'<span class="dot2" style="background:'+(v?cols[i]:'#1f2a38')+'"></span>').join('')+'</div>'; }

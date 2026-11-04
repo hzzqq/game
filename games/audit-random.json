@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T15:54:11.708Z",
+  "generatedAt": "2026-11-04T17:32:13.556Z",
   "games": [
     {
       "file": "2048.html",
@@ -193,7 +193,7 @@
       "mulberryCalls": 0,
       "usesCommon": true,
       "hasInlineTheme": false,
-      "hasDiffbar": true,
+      "hasDiffbar": false,
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
@@ -287,7 +287,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 8,
+      "hookFnCount": 11,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -361,8 +361,8 @@
       "hasDiffbar": false,
       "hasRAF": false,
       "logicNakedRandom": false,
-      "testHooks": false,
-      "hookFnCount": 0,
+      "testHooks": true,
+      "hookFnCount": 21,
       "hasLogicTest": true,
       "localPrngHelpers": [
         {
@@ -513,7 +513,7 @@
       "mulberryCalls": 0,
       "usesCommon": true,
       "hasInlineTheme": false,
-      "hasDiffbar": true,
+      "hasDiffbar": false,
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
@@ -622,7 +622,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 16,
+      "hookFnCount": 19,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -648,7 +648,7 @@
       "mulberryCalls": 0,
       "usesCommon": true,
       "hasInlineTheme": false,
-      "hasDiffbar": true,
+      "hasDiffbar": false,
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
@@ -702,7 +702,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 19,
+      "hookFnCount": 22,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -747,7 +747,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 36,
+      "hookFnCount": 39,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -837,7 +837,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 19,
+      "hookFnCount": 22,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -852,7 +852,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 29,
+      "hookFnCount": 30,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -912,7 +912,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 29,
+      "hookFnCount": 32,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -968,7 +968,7 @@
       "mulberryCalls": 0,
       "usesCommon": true,
       "hasInlineTheme": false,
-      "hasDiffbar": true,
+      "hasDiffbar": false,
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
@@ -983,7 +983,7 @@
       "mulberryCalls": 0,
       "usesCommon": true,
       "hasInlineTheme": false,
-      "hasDiffbar": true,
+      "hasDiffbar": false,
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
@@ -1047,7 +1047,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 27,
+      "hookFnCount": 30,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1062,7 +1062,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 43,
+      "hookFnCount": 46,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1077,7 +1077,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 7,
+      "hookFnCount": 10,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1227,7 +1227,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 6,
+      "hookFnCount": 9,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1362,7 +1362,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 5,
+      "hookFnCount": 8,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1467,7 +1467,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 1,
+      "hookFnCount": 0,
       "hasLogicTest": true,
       "localPrngHelpers": [
         {
@@ -1562,7 +1562,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 17,
+      "hookFnCount": 18,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1592,7 +1592,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 13,
+      "hookFnCount": 16,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1622,7 +1622,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 64,
+      "hookFnCount": 67,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1637,7 +1637,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 3,
+      "hookFnCount": 6,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1723,7 +1723,7 @@
       "mulberryCalls": 0,
       "usesCommon": true,
       "hasInlineTheme": false,
-      "hasDiffbar": true,
+      "hasDiffbar": false,
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
@@ -1757,7 +1757,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 18,
+      "hookFnCount": 20,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2212,7 +2212,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 14,
+      "hookFnCount": 17,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2287,7 +2287,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 3,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2323,7 +2323,7 @@
     },
     {
       "file": "typing.html",
-      "mathRandom": 0,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -2332,7 +2332,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 2,
+      "hookFnCount": 5,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2362,7 +2362,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 6,
+      "hookFnCount": 7,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2452,7 +2452,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 9,
+      "hookFnCount": 12,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2609,7 +2609,7 @@
   ],
   "summary": {
     "gamesScanned": 165,
-    "totalNakedMathRandom": 168,
+    "totalNakedMathRandom": 170,
     "gamesWithMulberryDef": 0,
     "gamesUsingCommon": 165,
     "gamesWithLocalPrngHelpers": 8,
@@ -2617,11 +2617,11 @@
     "overloadMkGames": 1,
     "wrapperRandGames": 0,
     "gamesWithInlineTheme": 0,
-    "gamesWithDiffbar": 20,
+    "gamesWithDiffbar": 14,
     "gamesWithRAF": 0,
     "gamesLogicNakedRandom": 0,
-    "gamesWithTestHooks": 164,
+    "gamesWithTestHooks": 165,
     "gamesWithLogicTest": 165,
-    "avgHookFnsPerGame": 8.3
+    "avgHookFnsPerGame": 8.8
   }
 }
