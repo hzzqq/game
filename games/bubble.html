@@ -223,7 +223,7 @@
     var pool = COLORS.map(function (_, i) { return i; });
     var _cc = Math.min(diffCfg().colorCount, pool.length);
     for (var k = 0; k < _cc; k++) {
-      var idx = Math.floor(Math.random() * pool.length);
+      var idx = Math.floor(_randFn() * pool.length);
       activeColors.push(pool.splice(idx, 1)[0]);
     }
     // fill top rows (按难度：normal=5)
@@ -231,7 +231,7 @@
     for (var rr = 0; rr < startRows; rr++) {
       var nc = evenCols(rr);
       for (var cc = 0; cc < nc; cc++) {
-        grid[rr][cc] = Common.pick(activeColors, Math.random);
+        grid[rr][cc] = Common.pick(activeColors, _randFn);
       }
     }
     score = 0; shots = 0; clears = 0;
@@ -250,7 +250,7 @@
   function pickNext() {
     var present = colorsOnBoard();
     if (present.length === 0) { next = activeColors[0]; return; }
-    next = Common.pick(present, Math.random);
+    next = Common.pick(present, _randFn);
   }
 
   function colorsOnBoard() {
@@ -438,7 +438,7 @@
     // 蓄力：累计消除若干次后，下一发有几率变成特殊泡
     if (clears >= 4 && next !== BOMB && next !== RAINBOW) {
       clears = 0;
-      next = (Math.random() < 0.5) ? BOMB : RAINBOW;
+      next = (_randFn() < 0.5) ? BOMB : RAINBOW;
       if (typeof Juice !== 'undefined') Juice.achievement('✨ 特殊泡就绪！');
     }
 
@@ -588,8 +588,8 @@
     for (var i = 0; i < 6; i++) {
       popFx.push({
         x: p.x, y: p.y,
-        vx: (Math.random() - 0.5) * 4,
-        vy: (Math.random() - 0.5) * 4,
+        vx: (_randFn() - 0.5) * 4,
+        vy: (_randFn() - 0.5) * 4,
         life: 1, color: COLORS[color]
       });
     }
@@ -895,8 +895,12 @@
   buildDiffBar();
 
   // 测试钩子（不影响正常玩法）
+  // T-178：可注入随机源（默认 Math.random）
+  var _randFn = Math.random;
+  // 测试钩子（不影响正常玩法）
   window.__t = {
     newGame: newGame, fire: fire, update: update,
+    setRand: function(fn){ _randFn = fn || Math.random; },
     neighbors: neighbors, cellCenter: cellCenter, floodSameColor: floodSameColor,
     COLS: COLS, MAXROWS: MAXROWS, RAINBOW: RAINBOW, BOMB: BOMB,
     DIFFICULTY: DIFFICULTY, setDifficulty: setDifficulty, getDifficulty: getDifficulty,

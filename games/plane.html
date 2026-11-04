@@ -129,7 +129,9 @@
     }
 
     // ===== 工具 =====
-    function rnd(a,b){return a+Math.random()*(b-a);}
+    // T-178：可注入随机源（默认 Math.random），setRand 钩子在 window.__t
+    var _randFn = Math.random;
+    function rnd(a,b){return a+_randFn()*(b-a);}
     function spawnParticles(x,y,color,n){
       for(let i=0;i<n;i++) particles.push({x,y,vx:rnd(-120,120),vy:rnd(-120,120),life:rnd(.3,.7),max:.7,color,size:rnd(1.5,3.5)});
     }
@@ -151,7 +153,7 @@
     // ===== 敌人 =====
     function spawnEnemy(){
       const r=rnd(14,20), x=rnd(r,W-r);
-      const roll=Math.random();
+      const roll=_randFn();
       let type='basic';
       if(roll>0.78) type='shooter'; else if(roll>0.6) type='zig'; else if(roll>0.5) type='tank';
       const lf=1+(level-1)*0.05;
@@ -262,7 +264,7 @@
       if(!boss){
         spawnT-=dt;
         if(spawnT<=0){ spawnEnemy();
-          if(level>5 && Math.random()<0.35) spawnEnemy();
+          if(level>5 && _randFn()<0.35) spawnEnemy();
           spawnT=Math.max(0.35,1.0-level*0.08);
         }
       }
@@ -332,8 +334,8 @@
     }
 
     function maybeDrop(x,y){
-      if(Math.random()<0.18){
-        const r=Math.random(); let type;
+      if(_randFn()<0.18){
+        const r=_randFn(); let type;
         if(r<0.26) type='power';
         else if(r<0.44) type='life';
         else if(r<0.62) type='shield';
@@ -546,6 +548,8 @@
     window.__t = {
       /* 表 */
       DROP: DROP,
+      /* T-178：可注入随机源 */
+      setRand: function(fn){ _randFn = fn || Math.random; },
       /* 工具 */
       rnd: rnd,
       firePattern: firePattern,

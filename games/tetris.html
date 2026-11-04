@@ -298,6 +298,8 @@
   const J = (typeof Juice !== 'undefined') ? Juice : null;
 
   // ====== 常量 / 配置 ======
+  // T-178：可注入随机源（默认 Math.random；必须在 shuffle/newBag 等早期逻辑之前定义）
+  var _randFn = Math.random;
   const COLS = 10, ROWS = 20, CELL = 30;
   const COLORS = {
     I:'#02c076', // 绿
@@ -371,7 +373,7 @@
     const b = TYPES.slice();
     // Fisher-Yates 洗牌
     for(let i=b.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
+      const j = Math.floor(_randFn()*(i+1));
       const t = b[i]; b[i]=b[j]; b[j]=t;
     }
     return b;
@@ -599,15 +601,15 @@
   function spawnParticles(row){
     for(let c=0;c<COLS;c++){
       for(let k=0;k<3;k++){
-        const colorPick = Math.random()<0.5 ? '#f6465d' : '#f0b90b';
+        const colorPick = _randFn()<0.5 ? '#f6465d' : '#f0b90b';
         particles.push({
           x: c*CELL + CELL/2,
           y: row*CELL + CELL/2,
-          vx: (Math.random()-0.5)*0.35,
-          vy: (Math.random()-0.9)*0.35,
+          vx: (_randFn()-0.5)*0.35,
+          vy: (_randFn()-0.9)*0.35,
           life: 1,
-          decay: 0.012 + Math.random()*0.012,
-          size: 2 + Math.random()*3,
+          decay: 0.012 + _randFn()*0.012,
+          size: 2 + _randFn()*3,
           color: colorPick
         });
       }
@@ -897,7 +899,7 @@
       getCharges: () => charges,
       addCharge(n){ charges = Math.min(3, charges + (n||1)); },
       getShield: () => shieldCharge,
-      setRand(fn){ if (fn) Math.random = fn; },
+      setRand(fn){ _randFn = fn || Math.random; },
       startGame,
       confettiFired: () => _confettiFired,
       // —— T-126 本地 Top5 榜单钩子（Common.HighScores 数据层）——

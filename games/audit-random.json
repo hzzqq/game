@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T17:32:13.556Z",
+  "generatedAt": "2026-11-04T17:42:45.560Z",
   "games": [
     {
       "file": "2048.html",
@@ -338,7 +338,7 @@
     },
     {
       "file": "bubble.html",
-      "mathRandom": 6,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -347,7 +347,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 28,
+      "hookFnCount": 29,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1613,7 +1613,7 @@
     },
     {
       "file": "plane.html",
-      "mathRandom": 5,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -1622,7 +1622,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 67,
+      "hookFnCount": 68,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1998,7 +1998,7 @@
     },
     {
       "file": "snakebattle.html",
-      "mathRandom": 1,
+      "mathRandom": 0,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -2007,7 +2007,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 22,
+      "hookFnCount": 23,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2203,7 +2203,7 @@
     },
     {
       "file": "tetris.html",
-      "mathRandom": 7,
+      "mathRandom": 2,
       "mulberryDef": false,
       "mulberryCalls": 0,
       "usesCommon": true,
@@ -2609,7 +2609,7 @@
   ],
   "summary": {
     "gamesScanned": 165,
-    "totalNakedMathRandom": 170,
+    "totalNakedMathRandom": 157,
     "gamesWithMulberryDef": 0,
     "gamesUsingCommon": 165,
     "gamesWithLocalPrngHelpers": 8,
