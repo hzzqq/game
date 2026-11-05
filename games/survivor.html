@@ -109,6 +109,7 @@
   // ---------- state ----------
   let S = null;
   var _confettiFired = false; // 升级里程碑 confetti 锁（独立于 Juice 的只读测试钩子）
+  var _hsShown = false;       // T-181：榜单渲染幂等标志
   function reset(opts){
     opts = opts||{};
     S = {
@@ -123,6 +124,7 @@
     };
     addWeapon('whip');
     _confettiFired = false;
+    _hsShown = false;
     if(opts.seed!==undefined){ /* deterministic hook reserved */ }
     return S;
   }
@@ -432,9 +434,17 @@
         box.appendChild(d);
       });
     } else if(S.state==='over'){
-      ov.className='overlay';
-      ov.innerHTML='<h1 class="lose">GAME OVER</h1><p>存活 '+Math.floor(S.time)+'s · 击杀 '+S.kills+' · 等级 '+S.level+'</p><button class="btn" id="rs">重新开始</button>';
-      const b=ov.querySelector('#rs'); if(b) b.onclick=()=>{ reset(); if(typeof document!=='undefined') syncOverlay(); };
+      // T-181：结算面板只在首次进入 over 时重建，并写入最高击杀榜（幂等）
+      if(!_hsShown){
+        _hsShown = true;
+        ov.className='overlay';
+        ov.innerHTML='<h1 class="lose">GAME OVER</h1><p>存活 '+Math.floor(S.time)+'s · 击杀 '+S.kills+' · 等级 '+S.level+'</p><button class="btn" id="rs">重新开始</button><div id="top5Board" style="margin-top:12px"></div>';
+        const b=ov.querySelector('#rs'); if(b) b.onclick=()=>{ reset(); if(typeof document!=='undefined') syncOverlay(); };
+        try {
+          var _tr = Common.HighScores.record('survivor', S.kills, null);
+          Common.HighScores.render('survivor', ov.querySelector('#top5Board'), _tr, 'LOCAL TOP 5 · 最高击杀');
+        } catch(e){}
+      }
     } else if(S.state==='paused'){
       ov.className='overlay';
       ov.innerHTML='<h1>暂停</h1><p>按 P 或 Esc 继续</p></div>';
@@ -479,6 +489,10 @@
       setInput:(x,y)=>{ S.input.x=x; S.input.y=y; },
       setTime:(t)=>{ S.time=t; },
       forceBoss:()=>{ S.bossT=S.time; },
+      // T-181：本地 Top5 榜单钩子
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('survivor', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('survivor'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('survivor','top5',[]); return true; }catch(e){ return false; } },
       confettiFired: function(){ return _confettiFired; },
     };
   }

@@ -60,6 +60,7 @@
       <h1>» 极简竞速</h1>
       <p>在车道间左右走位，<b style="color:var(--red)">躲开障碍</b>，疾驰得越远分越高。<br/>每撞一次损失余机，余机耗尽即结束。越往后车速越快。</p>
       <button class="start" id="startBtn">开始竞速</button>
+      <div id="top5Board" style="margin-top:12px;display:none"></div>
     </div>
   </div>
 
@@ -78,6 +79,7 @@
     let S=null;
     const MILESTONE = 1000;            // 成就里程碑：每累计 1000m 触发一次正反馈
     let confettiFiredFlag = false;    // 成就反馈：命中里程碑置真（跳变防重复）
+    let _hsShown = false;             // T-181：榜单渲染幂等标志
     function fresh(){
       return {
         lanes:4, playerLane:1, playerY:PLAYER_Y,
@@ -98,7 +100,7 @@
     function drawPickups(ctx){ const laneW=W/S.lanes; for(const pk of S.pickups){ const sym=pk.type==='coin'?'💰':pk.type==='shield'?'🛡':pk.type==='boost'?'🚀':'❤'; ctx.save(); ctx.beginPath();ctx.arc(pk.x,pk.y,pk.r+4,0,7);ctx.fillStyle='rgba(240,185,11,.15)';ctx.fill();ctx.strokeStyle='rgba(240,185,11,.6)';ctx.stroke();ctx.fillStyle='#fff';ctx.font='14px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(sym,pk.x,pk.y);ctx.restore(); } }
     function takeHit(){ if(S.shield>0){ S.shield--; if(J)J.flash&&J.flash('#02c076',.3); return; } S.lives--; }
 
-    function reset(){ S=fresh(); confettiFiredFlag=false; syncHud(); }
+    function reset(){ S=fresh(); confettiFiredFlag=false; _hsShown=false; syncHud(); }
     function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; if(typeof Juice!=='undefined') Juice.sfx('click'); syncHud(); }
     function setRand(seed){ S.rng=Common.mulberry32(seed>>>0); pickupRng=Common.lcg(seed>>>0); }
     function setLanes(n){ S.lanes=Math.max(2,n|0); S.playerLane=Math.min(S.playerLane,S.lanes-1); }
@@ -181,6 +183,10 @@
       getBoost(){ return S.boostTimer; }, setBoost(v){ S.boostTimer=v; },
       getLives(){ return S.lives; },
       getPlayerX(){ return laneX(S.playerLane); },
+      // T-181：本地 Top5 榜单钩子
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('lanesprint', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('lanesprint'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('lanesprint','top5',[]); return true; }catch(e){ return false; } },
       // —— 成就反馈只读钩子（里程碑命中置真，跳变防重复）——
       confettiFired(){ return confettiFiredFlag; }
     };
@@ -210,6 +216,16 @@
     }
     function showOver(){
       if(overlay){overlay.style.display='flex';const h1=overlay.querySelector('h1');if(h1)h1.textContent='💥 撞毁 · 距离 '+Math.floor(S.distance)+'m';const b=overlay.querySelector('.start');if(b)b.textContent='再冲一次';}
+      // T-181：最远距离入榜（距离即本作得分口径），幂等
+      if(!_hsShown){
+        _hsShown = true;
+        try {
+          var _dist = Math.floor(S.distance);
+          var _tr = Common.HighScores.record('lanesprint', _dist, null);
+          var _el = $('top5Board');
+          if(_el){ _el.style.display='block'; Common.HighScores.render('lanesprint', _el, _tr, 'LOCAL TOP 5 · 最远距离'); }
+        } catch(e){}
+      }
     }
     if(startBtn)startBtn.addEventListener('click',start);
     if($('pauseBtn'))$('pauseBtn').addEventListener('click',()=>{S.paused=!S.paused;});

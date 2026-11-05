@@ -704,14 +704,15 @@
      * 一行调用即得完整榜单 UI（金/银/铜/[ME]徽章/空榜文案），零复制。
      * 需要深度定制的游戏（snake hero 卡 / bubble 主题化）仍按主题自绘，render 仅为缺省实现。
      * myRank：本局名次（1..5 高亮 [ME]，0=未上榜不高亮）。vm 沙箱无 DOM 时静默跳过。 */
-    render: function (gameKey, el, myRank) {
+    render: function (gameKey, el, myRank, title) {
       try {
         if (!el || typeof document === 'undefined' || !document.createElement) return;
         // 样式注入一次（幂等，与用时榜共用）
         this.ensureBoardStyle();
         if (el.classList && el.classList.add) el.classList.add('hs-board');
         var list = Common.HighScores.read(gameKey);
-        var html = '<div class="hs-title">LOCAL TOP 5 · 本地最高分</div><ol class="hs-list">';
+        // title 可选：距离/击杀等非「分」指标由游戏自定义表头（缺省保持原文案）
+        var html = '<div class="hs-title">' + (title || 'LOCAL TOP 5 · 本地最高分') + '</div><ol class="hs-list">';
         if (list.length === 0) {
           html += '<li class="hs-empty"><div class="hs-empty-hint">👑 NO RECORDS YET</div>暂无记录 · 来一局<br>你的分数将占榜首</li>';
         } else {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-05T06:35:48.666Z",
+  "generatedAt": "2026-11-05T06:41:14.750Z",
   "games": [
     {
       "file": "2048.html",
@@ -1197,7 +1197,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 10,
+      "hookFnCount": 13,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2147,7 +2147,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 17,
+      "hookFnCount": 20,
       "hasLogicTest": true,
       "localPrngHelpers": [
         {
