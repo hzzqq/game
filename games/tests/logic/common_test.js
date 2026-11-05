@@ -281,4 +281,64 @@ H.ok('DIFFICULTY normal 档主倍率全 1（growth 除外=1.12 渐进）', (func
   }
 })();
 
+// ---- T-180：HighScores 分数榜 / 最快通关榜（排序、上限、边界、互不污染）----
+(function () {
+  const mem = {};
+  global.localStorage = {
+    getItem: (k) => (k in mem ? mem[k] : null),
+    setItem: (k, v) => { mem[k] = String(v); },
+    removeItem: (k) => { delete mem[k]; },
+  };
+  try {
+    const HS = Common.HighScores;
+
+    // 分数榜：降序
+    H.eq('record 首条上榜名次=1', HS.record('t_score', 100, 5000), 1);
+    H.eq('record 更高分排到第 1', HS.record('t_score', 300, 6000), 1);
+    const sc = HS.read('t_score');
+    H.eq('read 返回 2 条', sc.length, 2);
+    H.ok('read 降序（高分在前）', sc[0].score === 300 && sc[1].score === 100);
+    H.eq('record 非正分不入榜', HS.record('t_score', 0), 0);
+    H.eq('record 负分不入榜', HS.record('t_score', -5), 0);
+    H.eq('read 仍为 2 条', HS.read('t_score').length, 2);
+
+    for (let i = 0; i < 8; i++) HS.record('t_cap', 10 + i);
+    const cap = HS.read('t_cap');
+    H.eq('分数榜最多保留 5 条', cap.length, 5);
+    H.ok('分数榜保留最高 5 条', cap[0].score === 17 && cap[4].score === 13);
+
+    // 最快通关榜：升序
+    H.eq('recordTime 首条名次=1', HS.recordTime('t_time', 42.5), 1);
+    H.eq('recordTime 更快用时排到第 1', HS.recordTime('t_time', 12.3), 1);
+    const tm = HS.readTime('t_time');
+    H.eq('readTime 返回 2 条', tm.length, 2);
+    H.ok('readTime 升序（用时短在前）', tm[0].score === 12.3 && tm[1].score === 42.5);
+    H.eq('recordTime 负值不入榜', HS.recordTime('t_time', -1), 0);
+    H.eq('recordTime NaN 不入榜', HS.recordTime('t_time', NaN), 0);
+
+    for (let i = 0; i < 8; i++) HS.recordTime('t_timecap', 60 - i);
+    const tcap = HS.readTime('t_timecap');
+    H.eq('用时榜最多保留 5 条', tcap.length, 5);
+    H.ok('用时榜保留最快 5 条', tcap[0].score === 53 && tcap[4].score === 57);
+
+    // 两榜互不污染（不同子键）
+    HS.record('t_mix', 99);
+    HS.recordTime('t_mix', 7.7);
+    H.eq('分数榜不受用时榜影响', HS.read('t_mix').length, 1);
+    H.eq('用时榜不受分数榜影响', HS.readTime('t_mix').length, 1);
+    H.ok('两榜数值各自独立', HS.read('t_mix')[0].score === 99 && HS.readTime('t_mix')[0].score === 7.7);
+
+    // fmtSec 格式化
+    H.eq('fmtSec 秒级保留 1 位小数', HS.fmtSec(42.34), '42.3s');
+    H.eq('fmtSec 分钟级转 mm:ss', HS.fmtSec(75), '01:15');
+    H.eq('fmtSec 非法输入返回 --', HS.fmtSec(-1), '--');
+
+    // 空榜
+    H.eq('read 无记录返回空数组', HS.read('t_none').length, 0);
+    H.eq('readTime 无记录返回空数组', HS.readTime('t_none').length, 0);
+  } finally {
+    delete global.localStorage;
+  }
+})();
+
 module.exports = {};

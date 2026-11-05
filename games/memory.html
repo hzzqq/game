@@ -66,6 +66,7 @@
         <div>用时 <b id="tm">0</b>s</div>
       </div>
       <div class="board" id="board"></div>
+      <div id="top5Board" style="margin-top:10px;display:none"></div>
       <div class="controls">
         <button id="s4" class="btn-go active">4×4</button>
         <button id="s6" class="btn-go">6×6</button>
@@ -86,7 +87,7 @@
   (function () {
     var COL = { red:'#f6465d', green:'#02c076', gold:'#f0b90b', dim:'#6b7785' };
     var SYMS = ['◆','▲','●','■','★','✦','◐','◑','▼','◇','○','□','☆','✧','◍','◒','▼','◭'];
-    var size = 4, cards = [], openIdx = [], moves = 0, matched = 0, won = false, started = 0, celebrated = false, _confettiFired = false;
+    var size = 4, cards = [], openIdx = [], moves = 0, matched = 0, won = false, started = 0, celebrated = false, _confettiFired = false, _hsShown = false;
 
     var boardEl = document.getElementById('board');
     var fx = document.getElementById('fx');
@@ -98,7 +99,7 @@
     function shuffle(a) { return Common.shuffle(a, _randFn); }
 
     function newGame(n) {
-      size = n; cards = []; openIdx = []; moves = 0; matched = 0; won = false; celebrated = false; _confettiFired = false; started = Date.now();
+      size = n; cards = []; openIdx = []; moves = 0; matched = 0; won = false; celebrated = false; _confettiFired = false; _hsShown = false; started = Date.now();
       var pairs = (n * n) / 2;
       var deck = [];
       for (var i = 0; i < pairs; i++) { deck.push(i); deck.push(i); }
@@ -145,6 +146,16 @@
           Juice.achievement('✓ 全部配对！' + moves + ' 步');
         }
         celebrate();
+        // T-180：通关用时入「最快通关」榜（幂等）
+        if (!_hsShown) {
+          _hsShown = true;
+          try {
+            var sec = started ? (Date.now() - started) / 1000 : 0;
+            var _tr = Common.HighScores.recordTime('memory', sec);
+            var _el = document.getElementById('top5Board');
+            if (_el) { _el.style.display = 'block'; Common.HighScores.renderTime('memory', _el, _tr); }
+          } catch (e) {}
+        }
       }
       renderHUD();
     }
@@ -222,6 +233,10 @@
       celebrate: celebrate, spawnParticle: spawnParticle,
       triggerWinEffect: function () { celebrate(); },
       wasCelebrated: function () { return celebrated; },
+      // T-180：最快通关榜钩子
+      recordTime: function (s) { _hsShown = false; return Common.HighScores.recordTime('memory', s); },
+      getTop5Time: function () { try { return Common.HighScores.readTime('memory'); } catch (e) { return []; } },
+      clearTop5Time: function () { try { Common.Storage.set('memory', 'besttime', []); return true; } catch (e) { return false; } },
       confettiFired: function () { return _confettiFired; }
     };
 

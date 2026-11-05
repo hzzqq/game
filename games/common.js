@@ -588,6 +588,16 @@
       return ('0' + Math.floor(s / 60)).slice(-2) + ':' + ('0' + (s % 60)).slice(-2);
     },
 
+    // T-180：秒数人类可读（<60s 保留 1 位小数，≥60s 转 mm:ss）
+    fmtSec: function (sec) {
+      if (!(sec >= 0) || !isFinite(sec)) return '--';
+      if (sec >= 60) {
+        var m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+        return ('0' + m).slice(-2) + ':' + ('0' + s).slice(-2);
+      }
+      return (Math.round(sec * 10) / 10) + 's';
+    },
+
     // 写入一条成绩，返回本次名次（1..topN=上榜，0=未上榜/非正分）。
     record: function (gameKey, score, durMs) {
       if (!(score > 0)) return 0;
@@ -622,6 +632,73 @@
       return list;
     },
 
+    /* ---------- T-180：解谜/棋类「最快通关」榜（用时越短越优） ----------
+     * 与分数榜共用 Storage 命名空间但独立子键 besttime，互不污染。
+     * 复用 score 字段承载秒数（浮点），渲染层用 fmtSec 加单位。 */
+    recordTime: function (gameKey, seconds) {
+      if (!(seconds >= 0) || !isFinite(seconds)) return 0;
+      var list = [];
+      try { list = Common.Storage.get(gameKey, 'besttime', []) || []; } catch (e) { list = []; }
+      if (!Array.isArray(list)) list = [];
+      var now = new Date();
+      var rec = {
+        score: Math.round(seconds * 10) / 10,
+        user: this.playerTag(gameKey),
+        ts: now.getTime(),
+        dur: Math.round(seconds * 1000),
+        date: now.toISOString().slice(0, 10)
+      };
+      list.push(rec);
+      list.sort(function (a, b) { return a.score - b.score || ((a.ts || 0) - (b.ts || 0)); });
+      if (list.length > 5) list.length = 5;
+      var rank = 0;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].score === rec.score && list[i].ts === rec.ts) { rank = i + 1; break; }
+      }
+      try { Common.Storage.set(gameKey, 'besttime', list); } catch (e) {}
+      return rank;
+    },
+
+    // 读取最快通关榜（已按用时升序）
+    readTime: function (gameKey) {
+      var list = [];
+      try { list = Common.Storage.get(gameKey, 'besttime', []) || []; } catch (e) { list = []; }
+      if (!Array.isArray(list)) list = [];
+      return list;
+    },
+
+    /* 榜单样式注入（幂等）。分数榜与用时榜共用，抽成一份避免复制。 */
+    ensureBoardStyle: function () {
+      if (typeof document === 'undefined' || !document.createElement || !document.head) return;
+      if (document.getElementById('hs-board-style')) return;
+      var st = document.createElement('style');
+      st.id = 'hs-board-style';
+      st.textContent = [
+        '.hs-board{margin-top:10px;border-top:1px solid var(--border,#1f2a38);padding-top:10px;text-align:left;max-width:min(340px,92vw);margin-left:auto;margin-right:auto}',
+        '.hs-board .hs-title{color:var(--gold,#f0b90b);font-size:12px;letter-spacing:4px;font-weight:700;text-align:center;margin-bottom:8px}',
+        '.hs-board .hs-list{list-style:none;padding:0;margin:0}',
+        '.hs-board .hs-row{display:grid;grid-template-columns:30px 26px 1fr auto;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;margin-bottom:4px;background:rgba(255,255,255,.02)}',
+        '.hs-board .hs-rk{font-size:15px;font-weight:700;color:var(--dim,#6b7785);text-align:center}',
+        '.hs-board .hs-avatar{display:inline-block;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:700;color:#0a0e14;font-size:13px}',
+        '.hs-board .hs-info{display:flex;flex-direction:column;gap:2px;min-width:0}',
+        '.hs-board .hs-line1{display:flex;gap:6px;align-items:baseline}',
+        '.hs-board .hs-name{font-weight:700;color:var(--text,#e6edf3);font-size:13px}',
+        '.hs-board .hs-tier{font-size:10px;color:var(--dim,#6b7785)}',
+        '.hs-board .hs-line2{display:flex;gap:5px;align-items:baseline}',
+        '.hs-board .hs-sc{font-weight:700;color:var(--text,#e6edf3);font-size:15px}',
+        '.hs-board .hs-sub{font-size:10px;color:var(--dim,#6b7785)}',
+        '.hs-board .hs-badge{font-size:9px;font-weight:700;letter-spacing:1px;background:var(--red,#f6465d);color:#0a0e14;padding:2px 6px;border-radius:3px}',
+        '.hs-board .hs-gold{background:linear-gradient(90deg,rgba(240,185,11,.14),transparent 70%);box-shadow:inset 3px 0 0 var(--gold,#f0b90b)}',
+        '.hs-board .hs-gold .hs-rk,.hs-board .hs-gold .hs-sc{color:var(--gold,#f0b90b)}',
+        '.hs-board .hs-silver{background:linear-gradient(90deg,rgba(192,192,192,.10),transparent 70%);box-shadow:inset 3px 0 0 #c0c0c0}',
+        '.hs-board .hs-bronze{background:linear-gradient(90deg,rgba(205,127,50,.10),transparent 70%);box-shadow:inset 3px 0 0 #cd7f32}',
+        '.hs-board .hs-mine{box-shadow:inset 0 0 0 1px var(--red,#f6465d),0 0 12px rgba(246,70,93,.25);background:rgba(246,70,93,.06)}',
+        '.hs-board .hs-empty{padding:18px 12px;text-align:center;color:var(--dim,#6b7785);font-size:12px;line-height:1.9;list-style:none}',
+        '.hs-board .hs-empty-hint{color:var(--gold,#f0b90b);font-size:13px;letter-spacing:3px;margin-bottom:6px;font-weight:700}'
+      ].join('');
+      (document.head || document.body).appendChild(st);
+    },
+
     /* 标准榜单视图（T-106 收口）：把 snake/bubble 各自重复的 ~40 行渲染收敛为一份，
      * 新接入游戏（racing/parkour/runner/tempprun/subwaysuroffers/geometrydash/whack/2048）
      * 一行调用即得完整榜单 UI（金/银/铜/[ME]徽章/空榜文案），零复制。
@@ -630,35 +707,8 @@
     render: function (gameKey, el, myRank) {
       try {
         if (!el || typeof document === 'undefined' || !document.createElement) return;
-        // 样式注入一次（幂等）：全部类名 hs- 前缀避免与游戏样式冲突
-        if (!document.getElementById('hs-board-style')) {
-          var st = document.createElement('style');
-          st.id = 'hs-board-style';
-          st.textContent = [
-            '.hs-board{margin-top:10px;border-top:1px solid var(--border,#1f2a38);padding-top:10px;text-align:left;max-width:min(340px,92vw);margin-left:auto;margin-right:auto}',
-            '.hs-board .hs-title{color:var(--gold,#f0b90b);font-size:12px;letter-spacing:4px;font-weight:700;text-align:center;margin-bottom:8px}',
-            '.hs-board .hs-list{list-style:none;padding:0;margin:0}',
-            '.hs-board .hs-row{display:grid;grid-template-columns:30px 26px 1fr auto;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;margin-bottom:4px;background:rgba(255,255,255,.02)}',
-            '.hs-board .hs-rk{font-size:15px;font-weight:700;color:var(--dim,#6b7785);text-align:center}',
-            '.hs-board .hs-avatar{display:inline-block;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:700;color:#0a0e14;font-size:13px}',
-            '.hs-board .hs-info{display:flex;flex-direction:column;gap:2px;min-width:0}',
-            '.hs-board .hs-line1{display:flex;gap:6px;align-items:baseline}',
-            '.hs-board .hs-name{font-weight:700;color:var(--text,#e6edf3);font-size:13px}',
-            '.hs-board .hs-tier{font-size:10px;color:var(--dim,#6b7785)}',
-            '.hs-board .hs-line2{display:flex;gap:5px;align-items:baseline}',
-            '.hs-board .hs-sc{font-weight:700;color:var(--text,#e6edf3);font-size:15px}',
-            '.hs-board .hs-sub{font-size:10px;color:var(--dim,#6b7785)}',
-            '.hs-board .hs-badge{font-size:9px;font-weight:700;letter-spacing:1px;background:var(--red,#f6465d);color:#0a0e14;padding:2px 6px;border-radius:3px}',
-            '.hs-board .hs-gold{background:linear-gradient(90deg,rgba(240,185,11,.14),transparent 70%);box-shadow:inset 3px 0 0 var(--gold,#f0b90b)}',
-            '.hs-board .hs-gold .hs-rk,.hs-board .hs-gold .hs-sc{color:var(--gold,#f0b90b)}',
-            '.hs-board .hs-silver{background:linear-gradient(90deg,rgba(192,192,192,.10),transparent 70%);box-shadow:inset 3px 0 0 #c0c0c0}',
-            '.hs-board .hs-bronze{background:linear-gradient(90deg,rgba(205,127,50,.10),transparent 70%);box-shadow:inset 3px 0 0 #cd7f32}',
-            '.hs-board .hs-mine{box-shadow:inset 0 0 0 1px var(--red,#f6465d),0 0 12px rgba(246,70,93,.25);background:rgba(246,70,93,.06)}',
-            '.hs-board .hs-empty{padding:18px 12px;text-align:center;color:var(--dim,#6b7785);font-size:12px;line-height:1.9;list-style:none}',
-            '.hs-board .hs-empty-hint{color:var(--gold,#f0b90b);font-size:13px;letter-spacing:3px;margin-bottom:6px;font-weight:700}'
-          ].join('');
-          (document.head || document.body).appendChild(st);
-        }
+        // 样式注入一次（幂等，与用时榜共用）
+        this.ensureBoardStyle();
         if (el.classList && el.classList.add) el.classList.add('hs-board');
         var list = Common.HighScores.read(gameKey);
         var html = '<div class="hs-title">LOCAL TOP 5 · 本地最高分</div><ol class="hs-list">';
@@ -678,6 +728,38 @@
             var avatar = '<span class="hs-avatar" style="background:linear-gradient(135deg,hsl(' + hue + ',72%,52%),hsl(' + ((hue + 40) % 360) + ',72%,38%))">' + user.charAt(0) + '</span>';
             var info = '<span class="hs-info"><span class="hs-line1"><span class="hs-name">' + user + '</span><span class="hs-tier">' + tier.e + ' ' + tier.n + '</span></span>'
               + '<span class="hs-line2"><span class="hs-sc">' + rec.score + '</span><span class="hs-sub">' + dur + ' · ' + rt + '</span></span></span>';
+            html += '<li class="hs-row ' + cupCls + (mine ? ' hs-mine' : '') + '">'
+              + '<span class="hs-rk">' + cup + '</span>' + avatar + info
+              + (mine ? '<span class="hs-badge">[ME]</span>' : '') + '</li>';
+          }
+        }
+        html += '</ol>';
+        el.innerHTML = html;
+      } catch (e) { /* 静默：不阻断游戏流程 */ }
+    },
+
+    /* T-180：最快通关榜视图（用时升序，秒经 fmtSec 格式化）。与分数榜同卡片样式。 */
+    renderTime: function (gameKey, el, myRank) {
+      try {
+        if (!el || typeof document === 'undefined' || !document.createElement) return;
+        this.ensureBoardStyle();
+        if (el.classList && el.classList.add) el.classList.add('hs-board');
+        var list = Common.HighScores.readTime(gameKey);
+        var html = '<div class="hs-title">FASTEST CLEAR · 最快通关</div><ol class="hs-list">';
+        if (list.length === 0) {
+          html += '<li class="hs-empty"><div class="hs-empty-hint">⏱ NO RECORDS YET</div>暂无记录 · 通关一次<br>你的用时将占榜首</li>';
+        } else {
+          for (var i = 0; i < list.length; i++) {
+            var rec = list[i], rank = i + 1;
+            var user = rec.user || 'PLAYER';
+            var hue = Common.HighScores.avatarHue(user);
+            var rt = Common.HighScores.relTime(rec.ts || 0);
+            var mine = (myRank > 0 && rank === myRank);
+            var cup = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
+            var cupCls = rank === 1 ? 'hs-gold' : (rank === 2 ? 'hs-silver' : (rank === 3 ? 'hs-bronze' : ''));
+            var avatar = '<span class="hs-avatar" style="background:linear-gradient(135deg,hsl(' + hue + ',72%,52%),hsl(' + ((hue + 40) % 360) + ',72%,38%))">' + user.charAt(0) + '</span>';
+            var info = '<span class="hs-info"><span class="hs-line1"><span class="hs-name">' + user + '</span></span>'
+              + '<span class="hs-line2"><span class="hs-sc">' + Common.HighScores.fmtSec(rec.score) + '</span><span class="hs-sub">' + rt + '</span></span></span>';
             html += '<li class="hs-row ' + cupCls + (mine ? ' hs-mine' : '') + '">'
               + '<span class="hs-rk">' + cup + '</span>' + avatar + info
               + (mine ? '<span class="hs-badge">[ME]</span>' : '') + '</li>';

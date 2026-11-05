@@ -90,7 +90,7 @@
 
   <div id="tip">左键翻开 · 右击/标雷模式插旗 · 首次点击保证安全 · 数字表示周围 8 格的雷数</div>
 
-  <div id="overlay"><div class="box"><h2 id="ovTitle">💥 踩雷了</h2><p id="ovText"></p><button class="act" id="ovBtn">再来一局</button></div></div>
+  <div id="overlay"><div class="box"><h2 id="ovTitle">💥 踩雷了</h2><p id="ovText"></p><button class="act" id="ovBtn">再来一局</button><div id="top5Board" style="margin-top:12px;display:none"></div></div></div>
 
 <script src="common.js"></script>
 <script>Common.injectTheme();</script>
@@ -111,6 +111,7 @@
   let grid=[], open=[], flag=[], revealedCount=0, flagCount=0;
   let started=false, dead=false, won=false, _confettiFired=false;
   let flagMode=false, timer=0, timerId=null;
+  let _hsShown=false;   // T-180：最快通关榜渲染幂等标志
 
   function setDiff(d){ diff=d; const cfg=DIFFS[d]; R=cfg.r;C=cfg.c;M=cfg.m; }
 
@@ -122,7 +123,7 @@
     grid=new Array(R*C).fill(0);
     open=new Array(R*C).fill(false);
     flag=new Array(R*C).fill(false);
-    revealedCount=0; flagCount=0; started=false; dead=false; won=false; timer=0; _confettiFired=false;
+    revealedCount=0; flagCount=0; started=false; dead=false; won=false; timer=0; _confettiFired=false; _hsShown=false;
     document.getElementById('time').textContent='000';
     document.getElementById('face').textContent='🙂';
 
@@ -239,6 +240,15 @@
       document.getElementById('face').textContent='😎';
       showOverlay('🎉 通关！','用时 '+timer+' 秒 · 雷区全部标记');
       if(!_confettiFired){ _confettiFired = true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+      // T-180：通关用时入「最快通关」榜（幂等）
+      if(!_hsShown){
+        _hsShown = true;
+        try {
+          var _tr = Common.HighScores.recordTime('minesweeper', timer);
+          var _el = document.getElementById('top5Board');
+          if(_el){ _el.style.display='block'; Common.HighScores.renderTime('minesweeper', _el, _tr); }
+        } catch(e){}
+      }
     }
   }
 
@@ -296,7 +306,11 @@
         revealedCount, flagCount, dead, won, R, C, M
       };
     },
-    confettiFired: function () { return _confettiFired; }
+    confettiFired: function () { return _confettiFired; },
+    // T-180：最快通关榜钩子
+    recordTime: function (s) { _hsShown = false; return Common.HighScores.recordTime('minesweeper', s); },
+    getTop5Time: function () { try { return Common.HighScores.readTime('minesweeper'); } catch (e) { return []; } },
+    clearTop5Time: function () { try { Common.Storage.set('minesweeper', 'besttime', []); return true; } catch (e) { return false; } }
   };
 })();
 </script>
