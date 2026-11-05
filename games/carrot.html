@@ -126,6 +126,7 @@
           <div id="ovTitle" class="ov-title"></div>
           <div id="ovMsg" class="ov-msg"></div>
           <button id="ovBtn" class="btn primary">新局 / RESTART</button>
+          <div id="top5Board" style="margin-top:12px;display:none"></div>
         </div>
       </div>
     </div>
@@ -219,6 +220,7 @@
   const occupied = new Set();
   const state = {};
   let _confettiFired = false;
+  let _hsShown = false;   // T-179：榜单渲染幂等标志
   let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子（击杀敌人→burst+shake）
   function resetState(){
     state.coins = 120;
@@ -240,6 +242,7 @@
     state.won = false;
     state.running = true;
     _confettiFired = false;
+    _hsShown = false;   // T-179：新局重置榜单标志
     _fxShakes = 0; _fxBursts = 0;
     occupied.clear();
     hideOverlay();
@@ -752,6 +755,15 @@
       msg.innerHTML = '萝卜被吃光了…<br/>坚持到第 ' + Math.min(state.waveIndex + 1, WAVES.length) + ' 波 · 得分 ' + state.score;
     }
     ov.classList.remove('hidden');
+    // T-179：胜负结算时写入榜单并渲染（幂等）
+    if(!_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.record('carrot', state.score, null);
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.render('carrot', _el, _tr); }
+      } catch(e){}
+    }
     if(typeof Juice!=='undefined'){
       const b = Juice.best('carrot', state.score); const rk = Juice.rank(state.score);
       if(kind === 'WIN'){ Juice.sfx('win'); Juice.flash('#02c076',0.4); Juice.achievement('🏆 通关！得分 '+state.score+' · 段位 '+rk); }
@@ -864,6 +876,10 @@
     getPickups(){ return state.pickups.length; },
     getEnergy(){ return state.energyTimer; },
     getLives(){ return state.lives; },
+    // T-179：本地 Top5 榜单钩子
+    recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('carrot', s, d||null); },
+    getTop5:()=>{ try{ return Common.HighScores.read('carrot'); }catch(e){ return []; } },
+    clearTop5:()=>{ try{ Common.Storage.set('carrot','top5',[]); return true; }catch(e){ return false; } },
     getCoins(){ return state.coins; },
     // ---- 注入：手感 / 拾取道具 钩子 ----
     setRand: setRand,

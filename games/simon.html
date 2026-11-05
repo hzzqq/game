@@ -41,6 +41,7 @@
       <div class="pad p2" data-p="2"></div>
       <div class="pad p3" data-p="3"></div>
     </div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="controls">
       <button id="start">开始 START</button>
       <button id="next" class="ghost" disabled>下一轮 NEXT</button>
@@ -62,8 +63,9 @@
 
   let seq, inp, round, over, complete, score, best;
   let _confettiCount=0;   // 完成彩带触发计数（只读标记）
+  let _hsShown=false;     // T-179：榜单渲染幂等标志
   function newGame(){
-    seq=[]; inp=[]; round=0; over=false; complete=false; score=0;
+    seq=[]; inp=[]; round=0; over=false; complete=false; score=0; _hsShown=false;
   }
   function reset(){ newGame(); }
   function startRound(){
@@ -138,6 +140,14 @@
       else { msg.className='msg'; msg.textContent='复现当前序列（'+seq.length+' 盏）…'; }
     }
     if(ns) ns.disabled = !(complete && !over);
+    // T-179：首次进入结束态时写入榜单并渲染
+    if(over && !_hsShown){
+      _hsShown=true;
+      try {
+        var _tr=Common.HighScores.record('simon', score, null);
+        var _el=$('top5Board'); if(_el){ _el.style.display='block'; Common.HighScores.render('simon', _el, _tr); }
+      } catch(e){}
+    }
   }
   function bindUI(){
     if(typeof document==='undefined') return;
@@ -155,6 +165,10 @@
       PADS,
       setRand, newGame, reset, startRound, input,
       getSequence, getInput, getRound, getScore, getBest, isOver, isRoundComplete, setBest,
+      // T-179：本地 Top5 榜单钩子
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('simon', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('simon'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('simon','top5',[]); return true; }catch(e){ return false; } },
     };
     Object.defineProperty(window.__t, 'confettiFired', { get: ()=>_confettiCount, enumerable:true });
   }

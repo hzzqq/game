@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-05T05:56:53.472Z",
+  "generatedAt": "2026-11-05T06:14:55.233Z",
   "games": [
     {
       "file": "2048.html",
@@ -1667,7 +1667,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 2,
+      "hookFnCount": 5,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1882,7 +1882,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 3,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1947,7 +1947,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 3,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2622,6 +2622,6 @@
     "gamesLogicNakedRandom": 0,
     "gamesWithTestHooks": 165,
     "gamesWithLogicTest": 165,
-    "avgHookFnsPerGame": 8.8
+    "avgHookFnsPerGame": 8.9
   }
 }
