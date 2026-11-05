@@ -333,9 +333,24 @@ H.ok('DIFFICULTY normal 档主倍率全 1（growth 除外=1.12 渐进）', (func
     H.eq('fmtSec 分钟级转 mm:ss', HS.fmtSec(75), '01:15');
     H.eq('fmtSec 非法输入返回 --', HS.fmtSec(-1), '--');
 
+    // 最少步数榜：升序
+    H.eq('recordMoves 首条名次=1', HS.recordMoves('t_moves', 40), 1);
+    H.eq('recordMoves 更少步数排到第 1', HS.recordMoves('t_moves', 22), 1);
+    H.ok('readMoves 升序（步数少在前）', HS.readMoves('t_moves')[0].score === 22);
+    H.eq('recordMoves 负值不入榜', HS.recordMoves('t_moves', -3), 0);
+    H.eq('fmtMoves 整数加单位', HS.fmtMoves(22), '22 步');
+    H.eq('fmtMoves 非法输入返回 --', HS.fmtMoves(-1), '--');
+
+    // 三榜隔离：同一 key 下 分数 / 用时 / 步数 各走独立子键
+    HS.record('t_three', 500);
+    HS.recordTime('t_three', 30);
+    HS.recordMoves('t_three', 12);
+    H.ok('三榜互不污染', HS.read('t_three').length === 1 && HS.readTime('t_three').length === 1 && HS.readMoves('t_three').length === 1);
+
     // 空榜
     H.eq('read 无记录返回空数组', HS.read('t_none').length, 0);
     H.eq('readTime 无记录返回空数组', HS.readTime('t_none').length, 0);
+    H.eq('readMoves 无记录返回空数组', HS.readMoves('t_none').length, 0);
   } finally {
     delete global.localStorage;
   }

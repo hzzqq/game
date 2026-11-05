@@ -36,6 +36,7 @@
   <div class="wrap">
     <div class="hud"><span>步数 MOVES · <span class="st" id="moves">0</span> / 最少 <span class="st" id="min">7</span></span><span id="status">把所有盘移到最右柱</span></div>
     <div class="pegs" id="pegs"></div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="controls">
       <button id="new">新局 NEW</button>
       <button id="reset" class="ghost">重来 RESET</button>
@@ -56,12 +57,13 @@
   const COLORS = ['#f6465d','#f0b90b','#02c076','#3aa0ff','#b073ff','#ff8a3a','#27c93f','#ff5f56'];
 
   let N, pegs, moves, won, over, sel, _confettiFired;
+  let _hsShown = false;   // T-182：最少步数榜渲染幂等标志
   let _fxShakes = 0, _fxBursts = 0;
   function newGame(n){
     N = (n && n>=1 && n<=8) ? n : 3;
     pegs = [[],[],[]];
     for(let d=N; d>=1; d--) pegs[0].push(d); // 底大顶小
-    moves=0; won=false; over=false; sel=null; _confettiFired=false; _fxShakes=0; _fxBursts=0;
+    moves=0; won=false; over=false; sel=null; _confettiFired=false; _hsShown=false; _fxShakes=0; _fxBursts=0;
   }
   function reset(){ newGame(N); }
   function top(p){ return pegs[p].length ? pegs[p][pegs[p].length-1] : null; }
@@ -83,6 +85,15 @@
       Juice.burst(px, py, {color: COLORS[(moved-1)%COLORS.length] || '#f0b90b', n:8, speed:120});
     }
     if(pegs[TARGET].length===N){ won=true; over=true; }
+    // T-182：最少步数入榜（幂等）
+    if(won && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.recordMoves('hanoi', moves);
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('hanoi', _el, _tr); }
+      } catch(e){}
+    }
     if(typeof Juice!=='undefined'){
       if(won){
         _fxShakes++;
@@ -163,6 +174,10 @@
       PEGS, TARGET, COLORS,
       newGame, reset, move, canMove, isWin, isOver, getMoves, getMinMoves,
       getPegs, getN, getSel, select, setPegs, top,
+      // T-182：最少步数榜钩子
+      recordMoves:(m)=>Common.HighScores.recordMoves('hanoi', m),
+      getTop5Moves:()=>{ try{ return Common.HighScores.readMoves('hanoi'); }catch(e){ return []; } },
+      clearTop5Moves:()=>{ try{ Common.Storage.set('hanoi','bestmoves',[]); return true; }catch(e){ return false; } },
       get confettiFired() { return _confettiFired; },
       fxShakes: () => _fxShakes,
       fxBursts: () => _fxBursts

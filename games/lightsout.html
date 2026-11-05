@@ -36,6 +36,7 @@
   <div class="wrap">
     <div class="hud"><span>步数 MOVES · <span class="st" id="moves">0</span></span><span id="status">把所有灯按灭</span></div>
     <div class="board" id="board"></div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="controls">
       <button id="new">新局 NEW</button>
       <button id="reset" class="ghost">重来 RESET</button>
@@ -58,6 +59,7 @@
   function setRand(fn){ _rand = fn; }
 
   let board, moves, won, over, scramble, _confettiFired = false;
+  let _hsShown = false;   // T-182：最少步数榜渲染幂等标志
   function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
   function flip(r,c){ if(inb(r,c)) board[r][c] = board[r][c] ? 0 : 1; }
   // 点击 (r,c)：反转自身 + 上下左右
@@ -66,7 +68,7 @@
   }
   function newGame(){
     board = Array.from({length:N}, ()=>new Array(N).fill(0));
-    moves = 0; won = false; over = false; scramble = []; _confettiFired = false;
+    moves = 0; won = false; over = false; scramble = []; _confettiFired = false; _hsShown = false;
     // 从全灭出发随机按若干下，保证可解
     for(let i=0;i<SCRAMBLE;i++){
       const r = Math.floor(_rand()*N), c = Math.floor(_rand()*N);
@@ -81,6 +83,15 @@
     if(over || !inb(r,c)) return false;
     toggle(r,c); moves++;
     if(isWin()){ won = true; over = true; }
+    // T-182：最少步数入榜（幂等）
+    if(won && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.recordMoves('lightsout', moves);
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('lightsout', _el, _tr); }
+      } catch(e){}
+    }
     if(typeof Juice!=='undefined'){
       if(won){ Juice.sfx('levelup'); Juice.best('lightsout', moves); if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
       else Juice.sfx('click');
@@ -148,6 +159,10 @@
       N, SCRAMBLE,
       setRand, newGame, reset, click, toggle, isWin, countOn,
       getCell, getBoard, getMoves, isOver, getScramble, setBoard,
+      // T-182：最少步数榜钩子
+      recordMoves:(m)=>Common.HighScores.recordMoves('lightsout', m),
+      getTop5Moves:()=>{ try{ return Common.HighScores.readMoves('lightsout'); }catch(e){ return []; } },
+      clearTop5Moves:()=>{ try{ Common.Storage.set('lightsout','bestmoves',[]); return true; }catch(e){ return false; } },
       get confettiFired() { return _confettiFired; },
     };
   }

@@ -38,6 +38,7 @@
   <div class="wrap">
     <div class="hud"><span>剩余 PEGS · <span class="st" id="pegs">32</span></span><span id="status">跳吃直到只剩 1 子</span></div>
     <div class="board" id="board"></div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="controls">
       <button id="new">新局 NEW</button>
       <button id="reset" class="ghost">重来 RESET</button>
@@ -63,12 +64,13 @@
     return m;
   }
   let board, moves, won, over, sel, celebrated=false, _confettiFired=false;
+  let _hsShown = false;   // T-182：最少步数榜渲染幂等标志
   function newGame(){
     mask=buildMask();
     board=Array.from({length:N},()=>new Array(N).fill(0));
     for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(mask[r][c]) board[r][c]=1;
     board[3][3]=0; // 中心空
-    moves=0; won=false; over=false; sel=null; celebrated=false; _confettiFired=false;
+    moves=0; won=false; over=false; sel=null; celebrated=false; _confettiFired=false; _hsShown=false;
   }
   function reset(){ newGame(); }
   function isValid(r,c){ return r>=0&&r<N&&c>=0&&c<N && mask[r][c]; }
@@ -84,6 +86,15 @@
     board[fr][fc]=0; board[mr][mc]=0; board[tr][tc]=1;
     moves++; sel=null;
     if(pegsLeft()===1){ won=true; over=true; }
+    // T-182：最少步数入榜（幂等）
+    if(won && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.recordMoves('pegsolitaire', moves);
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('pegsolitaire', _el, _tr); }
+      } catch(e){}
+    }
     if(typeof Juice!=='undefined'){
       if(won){ Juice.sfx('levelup'); Juice.best('pegsolitaire', moves); }
       else Juice.sfx('click');
@@ -167,6 +178,10 @@
       N,
       newGame, reset, move, isWin, isOver, getMoves, getBoard,
       getPegsLeft, getValidCount, isValid, getSel, select, setBoard,
+      // T-182：最少步数榜钩子
+      recordMoves:(m)=>Common.HighScores.recordMoves('pegsolitaire', m),
+      getTop5Moves:()=>{ try{ return Common.HighScores.readMoves('pegsolitaire'); }catch(e){ return []; } },
+      clearTop5Moves:()=>{ try{ Common.Storage.set('pegsolitaire','bestmoves',[]); return true; }catch(e){ return false; } },
       celebrate, spawnParticle,
       triggerWinEffect:function(){ celebrate(); },
       wasCelebrated:function(){ return celebrated; },

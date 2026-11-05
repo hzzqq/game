@@ -41,6 +41,7 @@
   <div class="wrap">
     <div class="hud"><span>步数 MOVES · <span class="st" id="moves">0</span></span><span id="status">护送曹操逃出底部</span></div>
     <div class="board" id="board"><div class="exit"></div></div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="controls">
       <button id="up">▲</button><button id="down">▼</button>
       <button id="left">◀</button><button id="right">▶</button>
@@ -81,6 +82,7 @@
     ];
   }
   let pieces, moves, won, over, sel, _confettiFired = false;
+  let _hsShown = false;   // T-182：最少步数榜渲染幂等标志
   function buildGrid(){
     const g=Array.from({length:H},()=>new Array(W).fill(-1));
     for(const p of pieces){
@@ -109,6 +111,15 @@
     if(!rawMove(id, dr, dc)) return false;
     moves++;
     if(isWin()){ won=true; over=true; }
+    // T-182：最少步数入榜（幂等）
+    if(won && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.recordMoves('klotski', moves);
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('klotski', _el, _tr); }
+      } catch(e){}
+    }
     if(typeof Juice!=='undefined'){
       if(won){ Juice.sfx('levelup'); Juice.best('klotski', moves); if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
       else Juice.sfx('click');
@@ -125,10 +136,10 @@
   function getExit(){ return [EXIT_R,EXIT_C]; }
   function getSel(){ return sel; }
   function select(id){ sel = (sel===id)?null:id; }
-  function setPieces(arr){ pieces=arr.map(p=>({...p})); moves=0; won=false; over=false; sel=null; _confettiFired=false; }
+  function setPieces(arr){ pieces=arr.map(p=>({...p})); moves=0; won=false; over=false; sel=null; _confettiFired=false; _hsShown=false; }
   function newGame(){
     pieces = startPieces();
-    moves=0; won=false; over=false; sel=null; _confettiFired=false;
+    moves=0; won=false; over=false; sel=null; _confettiFired=false; _hsShown=false;
     // 从经典开局随机走若干步 → 产生变化且保证可解（合法走法可逆）
     const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
     let guard=0;
@@ -213,6 +224,10 @@
       W, H, EXIT_R, EXIT_C, SCRAMBLE,
       setRand, newGame, reset, move, isWin, isOver, getMoves,
       getPieces, getExit, getSel, select, setPieces, buildGrid,
+      // T-182：最少步数榜钩子
+      recordMoves:(m)=>Common.HighScores.recordMoves('klotski', m),
+      getTop5Moves:()=>{ try{ return Common.HighScores.readMoves('klotski'); }catch(e){ return []; } },
+      clearTop5Moves:()=>{ try{ Common.Storage.set('klotski','bestmoves',[]); return true; }catch(e){ return false; } },
       get confettiFired() { return _confettiFired; },
     };
   }

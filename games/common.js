@@ -598,6 +598,12 @@
       return (Math.round(sec * 10) / 10) + 's';
     },
 
+    // T-181：步数人类可读
+    fmtMoves: function (v) {
+      if (!(v >= 0) || !isFinite(v)) return '--';
+      return Math.round(v) + ' 步';
+    },
+
     // 写入一条成绩，返回本次名次（1..topN=上榜，0=未上榜/非正分）。
     record: function (gameKey, score, durMs) {
       if (!(score > 0)) return 0;
@@ -632,20 +638,20 @@
       return list;
     },
 
-    /* ---------- T-180：解谜/棋类「最快通关」榜（用时越短越优） ----------
-     * 与分数榜共用 Storage 命名空间但独立子键 besttime，互不污染。
-     * 复用 score 字段承载秒数（浮点），渲染层用 fmtSec 加单位。 */
-    recordTime: function (gameKey, seconds) {
-      if (!(seconds >= 0) || !isFinite(seconds)) return 0;
+    /* ---------- T-180/T-181：解谜类「越低越优」榜（用时 / 步数） ----------
+     * 与分数榜共用 Storage 命名空间但各走独立子键（besttime / bestmoves），互不污染。
+     * 复用 score 字段承载数值，渲染层用 fmt 加单位。 */
+    recordLow: function (gameKey, subkey, value) {
+      if (!(value >= 0) || !isFinite(value)) return 0;
       var list = [];
-      try { list = Common.Storage.get(gameKey, 'besttime', []) || []; } catch (e) { list = []; }
+      try { list = Common.Storage.get(gameKey, subkey, []) || []; } catch (e) { list = []; }
       if (!Array.isArray(list)) list = [];
       var now = new Date();
       var rec = {
-        score: Math.round(seconds * 10) / 10,
+        score: Math.round(value * 10) / 10,
         user: this.playerTag(gameKey),
         ts: now.getTime(),
-        dur: Math.round(seconds * 1000),
+        dur: Math.round(value * 1000),
         date: now.toISOString().slice(0, 10)
       };
       list.push(rec);
@@ -655,16 +661,31 @@
       for (var i = 0; i < list.length; i++) {
         if (list[i].score === rec.score && list[i].ts === rec.ts) { rank = i + 1; break; }
       }
-      try { Common.Storage.set(gameKey, 'besttime', list); } catch (e) {}
+      try { Common.Storage.set(gameKey, subkey, list); } catch (e) {}
       return rank;
     },
 
-    // 读取最快通关榜（已按用时升序）
-    readTime: function (gameKey) {
+    readLow: function (gameKey, subkey) {
       var list = [];
-      try { list = Common.Storage.get(gameKey, 'besttime', []) || []; } catch (e) { list = []; }
+      try { list = Common.Storage.get(gameKey, subkey, []) || []; } catch (e) { list = []; }
       if (!Array.isArray(list)) list = [];
       return list;
+    },
+
+    // 最快通关榜（用时升序）
+    recordTime: function (gameKey, seconds) {
+      return Common.HighScores.recordLow(gameKey, 'besttime', seconds);
+    },
+    readTime: function (gameKey) {
+      return Common.HighScores.readLow(gameKey, 'besttime');
+    },
+
+    // 最少步数榜（步数升序）
+    recordMoves: function (gameKey, moves) {
+      return Common.HighScores.recordLow(gameKey, 'bestmoves', moves);
+    },
+    readMoves: function (gameKey) {
+      return Common.HighScores.readLow(gameKey, 'bestmoves');
     },
 
     /* 榜单样式注入（幂等）。分数榜与用时榜共用，抽成一份避免复制。 */
@@ -739,16 +760,20 @@
       } catch (e) { /* 静默：不阻断游戏流程 */ }
     },
 
-    /* T-180：最快通关榜视图（用时升序，秒经 fmtSec 格式化）。与分数榜同卡片样式。 */
-    renderTime: function (gameKey, el, myRank) {
+    /* T-180/T-181：「越低越优」榜通用视图（用时 / 步数共用）。
+     * opts: { subkey, title, fmt, emptyHint, emptyText } */
+    renderLow: function (gameKey, el, myRank, opts) {
+      opts = opts || {};
       try {
         if (!el || typeof document === 'undefined' || !document.createElement) return;
-        this.ensureBoardStyle();
+        Common.HighScores.ensureBoardStyle();
         if (el.classList && el.classList.add) el.classList.add('hs-board');
-        var list = Common.HighScores.readTime(gameKey);
-        var html = '<div class="hs-title">FASTEST CLEAR · 最快通关</div><ol class="hs-list">';
+        var list = Common.HighScores.readLow(gameKey, opts.subkey || 'besttime');
+        var fmt = opts.fmt || Common.HighScores.fmtSec;
+        var html = '<div class="hs-title">' + (opts.title || 'FASTEST CLEAR · 最快通关') + '</div><ol class="hs-list">';
         if (list.length === 0) {
-          html += '<li class="hs-empty"><div class="hs-empty-hint">⏱ NO RECORDS YET</div>暂无记录 · 通关一次<br>你的用时将占榜首</li>';
+          html += '<li class="hs-empty"><div class="hs-empty-hint">' + (opts.emptyHint || '⏱ NO RECORDS YET') + '</div>'
+            + (opts.emptyText || '暂无记录 · 通关一次<br>你的用时将占榜首') + '</li>';
         } else {
           for (var i = 0; i < list.length; i++) {
             var rec = list[i], rank = i + 1;
@@ -760,7 +785,7 @@
             var cupCls = rank === 1 ? 'hs-gold' : (rank === 2 ? 'hs-silver' : (rank === 3 ? 'hs-bronze' : ''));
             var avatar = '<span class="hs-avatar" style="background:linear-gradient(135deg,hsl(' + hue + ',72%,52%),hsl(' + ((hue + 40) % 360) + ',72%,38%))">' + user.charAt(0) + '</span>';
             var info = '<span class="hs-info"><span class="hs-line1"><span class="hs-name">' + user + '</span></span>'
-              + '<span class="hs-line2"><span class="hs-sc">' + Common.HighScores.fmtSec(rec.score) + '</span><span class="hs-sub">' + rt + '</span></span></span>';
+              + '<span class="hs-line2"><span class="hs-sc">' + fmt(rec.score) + '</span><span class="hs-sub">' + rt + '</span></span></span>';
             html += '<li class="hs-row ' + cupCls + (mine ? ' hs-mine' : '') + '">'
               + '<span class="hs-rk">' + cup + '</span>' + avatar + info
               + (mine ? '<span class="hs-badge">[ME]</span>' : '') + '</li>';
@@ -769,6 +794,24 @@
         html += '</ol>';
         el.innerHTML = html;
       } catch (e) { /* 静默：不阻断游戏流程 */ }
+    },
+
+    // 最快通关榜视图（用时升序，秒经 fmtSec 格式化）
+    renderTime: function (gameKey, el, myRank) {
+      Common.HighScores.renderLow(gameKey, el, myRank, {
+        subkey: 'besttime', title: 'FASTEST CLEAR · 最快通关', fmt: Common.HighScores.fmtSec
+      });
+    },
+
+    // 最少步数榜视图（步数升序）
+    renderMoves: function (gameKey, el, myRank, title) {
+      Common.HighScores.renderLow(gameKey, el, myRank, {
+        subkey: 'bestmoves',
+        title: title || 'FEWEST MOVES · 最少步数',
+        fmt: Common.HighScores.fmtMoves,
+        emptyHint: '🧩 NO RECORDS YET',
+        emptyText: '暂无记录 · 通关一次<br>你的步数将占榜首'
+      });
     }
   };
 
