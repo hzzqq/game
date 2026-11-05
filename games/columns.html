@@ -32,6 +32,7 @@
   <div class="wrap">
     <div class="hud"><span>得分 <span class="sc" id="score">0</span></span><span>里程碑 <span class="ms" id="ms">0</span></span></div>
     <div class="boardwrap"><canvas id="cv"></canvas></div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="controls">
       <button id="left">◀ 左 (←/A)</button>
       <button id="rotate">旋转 (↑/W)</button>
@@ -68,6 +69,7 @@
 
   // 核心状态（普通 JS 变量，逻辑脱离 DOM）
   let board, current, score, over;
+  let _hsShown = false;   // T-179：榜单渲染幂等标志
   let _confettiFired = false; // 成就/过关 confetti 钩子（独立于 Juice，只读暴露）
   let _fxShakes = 0, _fxBursts = 0; // 手感反馈计数器（只读暴露，受 __t 钩子观测）
 
@@ -89,7 +91,7 @@
   }
   function reset(){
     board = emptyBoard();
-    score = 0; over = false; current = null;
+    score = 0; over = false; current = null; _hsShown = false;
     _confettiFired = false;
     _fxShakes = 0; _fxBursts = 0;
     spawn();
@@ -278,6 +280,14 @@
     if(sc) sc.textContent=score;
     if(ms) ms.textContent=Math.floor(score/1000);
     if(msg){ if(over){ msg.className='msg over'; msg.textContent='终局（生成位被占）· 得分 '+score+' · 刷新重开'; } else msg.className='msg'; }
+    // T-179：首次进入终局时写入榜单并渲染
+    if(over && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.record('columns', score, null);
+        var _el = $('top5Board'); if(_el){ _el.style.display='block'; Common.HighScores.render('columns', _el, _tr); }
+      } catch(e){}
+    }
   }
 
   newGame();
@@ -296,6 +306,10 @@
       setCurrent:(p)=>{ current = { x:p.x, cells:p.cells.slice(), y:p.y }; },
       setScore:(v)=>{ score=v; },
       setOver:(v)=>{ over=!!v; },
+      // T-179：本地 Top5 榜单钩子
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('columns', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('columns'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('columns','top5',[]); return true; }catch(e){ return false; } },
       confettiFired:()=>_confettiFired,
       fxShakes:()=>_fxShakes,
       fxBursts:()=>_fxBursts,

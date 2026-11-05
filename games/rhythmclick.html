@@ -68,6 +68,7 @@
       <h1>♪ 双键节奏</h1>
       <p>金色音符顺两条轨道下落，落到 <b style="color:var(--gold)">判定线</b> 时按下对应键。<br/>正中=100，接近=50，错过或错键=失误并断连击。连击越长分越高。</p>
       <button class="start" id="startBtn">开始演奏</button>
+      <div id="top5Board" style="margin-top:12px;display:none"></div>
     </div>
   </div>
 
@@ -85,6 +86,7 @@
     const HIT=H-100, PERFECT=20, GOOD=50, PASS=60, MAXMISS=10;
     let S=null;
     let _confettiFired = false;
+    let _hsShown = false;   // T-179：榜单渲染幂等标志
     function fresh(){
       return {
         notes:[], score:0, combo:0, maxCombo:0, misses:0,
@@ -104,7 +106,7 @@
     // 护盾门控失误：有盾消耗护盾吸收一次失误，否则计数失误
     function registerMiss(){ if(S.shield>0){ S.shield--; if(J)J.popup&&J.popup('🛡'); return; } S.misses++; }
 
-    function reset(){ S=fresh(); _confettiFired=false; syncHud(); }
+    function reset(){ S=fresh(); _confettiFired=false; _hsShown=false; syncHud(); }
     function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; if(typeof Juice!=='undefined') Juice.sfx('click'); syncHud(); }
     function setRand(seed){ S.rng=Common.mulberry32(seed>>>0); pickupRng=Common.lcg(seed>>>0); }
     function spawnNote(lane,y){ S.notes.push({lane:lane?1:0,y:y,hit:false,missed:false}); }
@@ -200,6 +202,10 @@
       getCoins(){ return S.coins; }, setCoins(v){ S.coins=v; },
       getBoost(){ return S.boostTimer; }, setBoost(v){ S.boostTimer=v; },
       getMisses(){ return S.misses; },
+      // T-179：本地 Top5 榜单钩子
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('rhythmclick', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('rhythmclick'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('rhythmclick','top5',[]); return true; }catch(e){ return false; } },
       confettiFired(){ return _confettiFired; }
     };
 
@@ -229,6 +235,15 @@
     function showOver(){
       if(overlay){overlay.style.display='flex';const h1=overlay.querySelector('h1');if(h1)h1.textContent='✗ 演奏中断 · 得分 '+S.score;const b=overlay.querySelector('.start');if(b)b.textContent='再来一次';}
       if(J){ J.sfx&&J.sfx('lose'); J.flash('#f6465d',0.3); J.achievement&&J.achievement('演奏中断'); }
+      // T-179：结算入榜 + 渲染（幂等）
+      if(!_hsShown){
+        _hsShown = true;
+        try {
+          var _tr = Common.HighScores.record('rhythmclick', S.score, null);
+          var _el = document.getElementById('top5Board');
+          if(_el){ _el.style.display='block'; Common.HighScores.render('rhythmclick', _el, _tr); }
+        } catch(e){}
+      }
     }
     if(startBtn)startBtn.addEventListener('click',start);
     if($('pauseBtn'))$('pauseBtn').addEventListener('click',()=>{S.paused=!S.paused;});
