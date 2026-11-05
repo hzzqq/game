@@ -36,7 +36,8 @@
     <span class="t">TERMINAL // <b>过马路</b> CROSSY ROAD</span></div>
   <div class="wrap">
     <div class="hud"><span>最前行 · <span class="st" id="score">0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
-    <div class="boardwrap"><canvas id="board" width="360" height="600"></canvas></div>
+    <div class="boardwrap"><canvas id="board" width="360" height="600"></canvas>
+    <div id="top5Board" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;display:none"></div>
     <div class="controls">
       <button data-d="up">↑上</button><button data-d="left">←左</button>
       <button data-d="down">↓下</button><button data-d="right">→右</button>
@@ -76,6 +77,8 @@
   const ROWS = 15, COLS = 9;
   const START_ROW = ROWS - 1;
   let rows, player, gameOver, furthest, score, pickups, bonus;
+  // T-179：HighScores 渲染幂等标志
+  let _hsShown = false;
   const COIN_VALUE = 20;
   let _fxShakes = 0, _fxBursts = 0;   // Juice 手感计数（只读钩子）
 
@@ -119,7 +122,7 @@
       rows.push({ type, dir, speed, obstacles });
     }
     player = { row: START_ROW, col: Math.floor(COLS/2), shield: 0 };
-    gameOver = false;
+    gameOver = false; _hsShown = false;   // T-179：新局重置榜单渲染标志
     furthest = START_ROW;
     score = 0; bonus = 0;
     confettiFx = 0; nextMilestone = MILESTONE_STEP; _fxShakes = 0; _fxBursts = 0;
@@ -411,6 +414,14 @@
       else if(boss){ msg.className='msg'; msg.textContent='⚠ 鹰 BOSS 来袭！躲开红色俯冲列，向前推进削弱它。'; }
       else msg.className='msg';
     }
+    // T-179：首次进入 gameOver 时写入榜单并渲染
+    if(gameOver && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.record('crossyroad', score, null);
+        var _el = $('top5Board'); if(_el){ _el.style.display='block'; Common.HighScores.render('crossyroad', _el, _tr); }
+      } catch(e){}
+    }
   }
   function bindUI(){
     if(typeof document==='undefined') return;
@@ -445,6 +456,10 @@
       spawnPickup:(type,row,col)=>{ pickups.push({ type:type, row:row, col:col }); },
       getPickups:()=>pickups.length,
       getShield:()=>player.shield, setShield:(v)=>{ player.shield=v; },
+      // ---- 本地 Top5 榜单钩子 ----
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('crossyroad', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('crossyroad'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('crossyroad','top5',[]); return true; }catch(e){ return false; } },
       getBonus:()=>bonus,
       applyPickup:(type)=>{ if(type==='coin'){ bonus+=COIN_VALUE; score=(START_ROW-furthest)+bonus; } else if(type==='shield'){ player.shield++; } checkMilestone(); },
       collectPickups,

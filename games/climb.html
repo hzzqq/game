@@ -32,7 +32,8 @@
     <span class="t">TERMINAL // <b>攀爬</b> CLIMB</span></div>
   <div class="wrap">
     <div class="hud"><span>高度 · <span class="st" id="score">0</span></span><span>状态 · <span class="st" id="st">攀爬中</span></span></div>
-    <div class="boardwrap"><canvas id="board" width="360" height="600"></canvas></div>
+    <div class="boardwrap"><canvas id="board" width="360" height="600"></canvas>
+    <div id="top5Board" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;display:none"></div>
     <div class="controls">
       <button data-d="up">↑上</button><button data-d="left">←左</button>
       <button data-d="down">↓下</button><button data-d="right">→右</button>
@@ -60,7 +61,9 @@
   const BOOST_DUR = 40;        // 🚀加速持续帧数（每帧自动向上冲一格）
   const ROCK_INTERVAL = 14;    // 落石生成间隔（步）
   let player, rocks, pickups, gameOver, win, score, bonus, furthest, rockTimer, confettiFired = false;
-  let _fxShakes = 0, _fxBursts = 0; // 手感深化：屏震/粒子 只读计数钩子
+  let _fxShakes = 0, _fxBursts = 0;
+  // T-179：HighScores 渲染幂等标志
+  let _hsShown = false;
 
   function genField(){
     player = { row: START_ROW, col: Math.floor(COLS/2), shield: 0, boost: 0 };
@@ -68,7 +71,7 @@
     pickups = [];
     score = 0; bonus = 0; furthest = START_ROW;
     gameOver = false; win = false;
-    confettiFired = false;  // 重置成就标记
+    confettiFired = false; _hsShown = false;  // T-179：新局重置榜单渲染标志
     rockTimer = ROCK_INTERVAL;
     // 道具：随机撒在塔身若干格（coin 加分 / shield 护盾 / boost 加速）
     for(let i=0;i<5;i++){
@@ -221,6 +224,14 @@
       else if(gameOver){ msg.className='msg over'; msg.textContent='💀 被落石击中，游戏结束。'; }
       else msg.className='msg';
     }
+    // T-179：首次进入 gameOver/win 时写入榜单并渲染
+    if((gameOver || win) && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.record('climb', score, null);
+        var _el = $('top5Board'); if(_el){ _el.style.display='block'; Common.HighScores.render('climb', _el, _tr); }
+      } catch(e){}
+    }
   }
   function bindUI(){
     if(typeof document==='undefined') return;
@@ -251,6 +262,10 @@
       getBoost:()=>player.boost, setBoost:(v)=>{ player.boost=v; },
       applyPickup, collectPickups,
       stepPickups:()=>{ if(player.boost>0) player.boost--; collectPickups(); },
+      // ---- 本地 Top5 榜单钩子 ----
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('climb', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('climb'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('climb','top5',[]); return true; }catch(e){ return false; } },
       confettiFired:()=>confettiFired,
       fxShakes:()=>_fxShakes,
       fxBursts:()=>_fxBursts };

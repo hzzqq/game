@@ -32,7 +32,8 @@
     <span class="t">TERMINAL // <b>蜈蚣</b> CENTIPEDE</span></div>
   <div class="wrap">
     <div class="hud"><span>得分 · <span class="st" id="score">0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
-    <div class="boardwrap"><canvas id="board" width="450" height="600"></canvas></div>
+    <div class="boardwrap"><canvas id="board" width="450" height="600"></canvas>
+    <div id="top5Board" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;display:none"></div>
     <div class="controls">
       <button data-d="left">←左</button><button data-d="right">→右</button>
       <button data-d="up">↑上</button><button data-d="down">↓下</button>
@@ -55,6 +56,8 @@
 
   const ROWS = 20, COLS = 15;
   let mush, centi, player, bullets, gameOver, score, pickups, killStreak;
+  // T-179：HighScores 渲染幂等标志
+  let _hsShown = false;
 
   // —— Boss 系统（每 BOSS_EVERY 波出现"蜈蚣女王"）——
   const BOSS_EVERY = 3;
@@ -78,7 +81,7 @@
     for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
       if(r < ROWS-6 && _rng() < 0.12) mush[r][c] = true;   // 顶部蘑菇田
     }
-    wave = 1; boss = null;   // 新局重置波次与 Boss
+    wave = 1; boss = null; _hsShown = false;   // T-179：新局重置榜单渲染标志
     buildCentipede();
     player = { row: ROWS-1, col: Math.floor(COLS/2), rapid: 0, spread: 0, shield: 0 };
     bullets = [];
@@ -366,6 +369,14 @@
     const sc = $('score'); if(sc) sc.textContent = String(score);
     const st = $('st'); if(st) st.textContent = gameOver ? '结束' : '进行中';
     const msg = $('msg'); if(msg){ if(gameOver){ msg.className='msg over'; msg.textContent='💀 被蜈蚣击中，游戏结束。'; } else msg.className='msg'; }
+    // T-179：首次进入 gameOver 时写入榜单并渲染
+    if(gameOver && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.record('centipede', score, null);
+        var _el = $('top5Board'); if(_el){ _el.style.display='block'; Common.HighScores.render('centipede', _el, _tr); }
+      } catch(e){}
+    }
   }
   function bindUI(){
     if(typeof document==='undefined') return;
@@ -390,6 +401,10 @@
       applyPickup, collectPickups,
       // ---- Boss 系统钩子（B4 蜈蚣女王）----
       BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
+      // ---- 本地 Top5 榜单钩子 ----
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('centipede', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('centipede'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('centipede','top5',[]); return true; }catch(e){ return false; } },
       getBoss:()=> boss ? { col:boss.col, row:boss.row, w:boss.w, h:boss.h, hp:boss.hp, maxHp:boss.maxHp, phase:boss.phase, dir:boss.dir } : null,
       setBossHp:(v)=>{ if(boss) boss.hp = v; },
       setWave:(v)=>{ wave = v; },

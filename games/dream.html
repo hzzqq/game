@@ -113,6 +113,7 @@
         清理小妖 → 抵达关卡尽头 → 击败 BOSS = 胜利
       </div>
       <button class="btn" id="startBtn">开始 征战</button>
+      <div id="top5Board" style="margin-top:12px;display:none"></div>
       <div class="hint">纯离线单文件 · 无任何外部依赖</div>
     </div>
   </div>
@@ -374,6 +375,8 @@
     if(typeof Juice!=='undefined'){ Juice.sfx('lose'); _fxShakes++; Juice.addTrauma(0.6); Juice.flash('#f6465d',0.45); }
     showOverlay('征战失败', '英雄陨落于妖魔之手。分数 ' + score, '重新 征战');
     if(typeof Juice!=='undefined'){ var b=Juice.best('dream',score); var rk=Juice.rank(score); if(score>0 && b.isNew) Juice.achievement('🏆 新纪录 '+score+'！段位 '+rk); }
+    // T-179：榜单入榜 + 渲染
+    try { var _tr=Common.HighScores.record('dream',score,null); var _el=document.getElementById('top5Board'); if(_el){_el.style.display='block';Common.HighScores.render('dream',_el,_tr);} } catch(e){}
   }
   function win(){
     state = 'win';
@@ -385,6 +388,8 @@
     if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',0.4); }
     showOverlay('★ 关卡通关 ★', '牛魔王已被斩杀！最终分数 ' + score, '再来一局');
     if(typeof Juice!=='undefined'){ var b=Juice.best('dream',score); var rk=Juice.rank(score); Juice.achievement('🏆 通关！分数 '+score+' · 段位 '+rk); }
+    // T-179：榜单入榜 + 渲染
+    try { var _tr=Common.HighScores.record('dream',score,null); var _el=document.getElementById('top5Board'); if(_el){_el.style.display='block';Common.HighScores.render('dream',_el,_tr);} } catch(e){}
   }
   function showOverlay(title, msg, btn){
     var ov = document.getElementById('overlay');
@@ -806,6 +811,10 @@
     getState(){ return state; },
     confettiFired(){ return _confettiFired; },
     fxShakes(){ return _fxShakes; }, fxBursts(){ return _fxBursts; },
+    // T-179：本地 Top5 榜单钩子
+    recordScore:(s,d)=>Common.HighScores.record('dream', s, d||null),
+    getTop5:()=>{ try{ return Common.HighScores.read('dream'); }catch(e){ return []; } },
+    clearTop5:()=>{ try{ Common.Storage.set('dream','top5',[]); return true; }catch(e){ return false; } },
     damageEnemy: damageEnemy,
     /* T-153 断言薄缺口变现：只读/驱动钩子（纯追加，不改逻辑）——锁攻击冷却/技能消耗/aabb 边界 */
     tryAttack: tryAttack, trySkill: trySkill, aabb: aabb,

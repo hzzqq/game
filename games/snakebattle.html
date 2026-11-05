@@ -76,6 +76,7 @@
     <h2 id="ovTitle">准备就绪</h2>
     <p id="ovText">按「开始 / 暂停」或空格开战</p>
     <button class="act" id="ovBtn">开始</button>
+    <div id="sbTop5" style="margin-top:12px;display:none"></div>
   </div></div>
 
 <script src="common.js"></script>
@@ -346,13 +347,23 @@
     gameOver = true; running = false;
     const a1 = snakes[0].alive, a2 = snakes[1].alive;
     let title, sub, col;
-    if(a1 && !a2){ title='P1 红方胜利！'; sub='绿方已被淘汰，红方存活。'; col=RED; }
-    else if(a2 && !a1){ title='P2 绿方胜利！'; sub='红方已被淘汰，绿方存活。'; col=GREEN; }
+    // T-179：胜者分数入榜（平局不入）
+    let _finalScore = 0;
+    if(a1 && !a2){ title='P1 红方胜利！'; sub='绿方已被淘汰，红方存活。'; col=RED; _finalScore = snakes[0].len; }
+    else if(a2 && !a1){ title='P2 绿方胜利！'; sub='红方已被淘汰，绿方存活。'; col=GREEN; _finalScore = snakes[1].len; }
     else { title='同归于尽 · 平局'; sub='双方同时出局。'; col=GOLD; }
     const ov=document.getElementById('overlay');
     document.getElementById('ovTitle').textContent=title;
     document.getElementById('ovTitle').style.color=col;
     document.getElementById('ovText').textContent=sub;
+    // T-179：写入榜单 + 渲染（overlay 已显示，榜单在其下）
+    try {
+      if(_finalScore > 0){
+        var _tr = Common.HighScores.record('snakebattle', _finalScore, null);
+        var _hsEl = document.getElementById('sbTop5');
+        if(_hsEl){ _hsEl.style.display='block'; Common.HighScores.render('snakebattle', _hsEl, _tr); }
+      }
+    } catch(e){}
     if(typeof Juice!=='undefined'){
       if(a1&&!a2){ Juice.sfx('win'); Juice.flash(RED,0.3); Juice.addTrauma(0.6); const b=Juice.best('snakebattle',snakes[0].len); Juice.rank(snakes[0].len); if(b.isNew) Juice.achievement('红方最长 '+snakes[0].len); }
       else if(a2&&!a1){ Juice.sfx('win'); Juice.flash(GREEN,0.3); Juice.addTrauma(0.6); const b=Juice.best('snakebattle',snakes[1].len); Juice.rank(snakes[1].len); if(b.isNew) Juice.achievement('绿方最长 '+snakes[1].len); }
@@ -451,7 +462,11 @@
     get running(){ return running; },
     // ---- 注入：胜利彩带只读/驱动钩子 ----
     confettiFired: function(){ return _confettiFired; },
-    win: function(){ snakes[1].alive=false; gameOver=false; running=false; endGame(); }
+    win: function(){ snakes[1].alive=false; gameOver=false; running=false; endGame(); },
+    // —— T-179：本地 Top5 榜单钩子 ——
+    recordScore:(s,d)=>Common.HighScores.record('snakebattle', s, d||null),
+    getTop5:()=>{ try{ return Common.HighScores.read('snakebattle'); }catch(e){ return []; } },
+    clearTop5:()=>{ try{ Common.Storage.set('snakebattle','top5',[]); return true; }catch(e){ return false; } }
   };
 })();
 </script>
