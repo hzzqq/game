@@ -32,6 +32,7 @@
   <div class="wrap">
     <div class="hud"><span>得分 · <span class="st" id="sc">0</span></span><span>剩余 · <span class="st" id="rem">0</span></span><span id="buff"></span></div>
     <canvas id="cv" width="400" height="300"></canvas>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="msg" id="msg">方向键转向、空格射击。击碎小行星：大块裂成两块，全部清空即胜。</div>
     <div class="controls">
       <button id="shoot">射击 FIRE</button>
@@ -52,11 +53,12 @@
   "use strict";
   const W=400, H=300, BR=2, SH=8;
   let ship, asteroids, bullets, score;
+  let _hsShown = false;   // T-179：榜单渲染幂等标志
   let pickups, boostTimer, shield, rapid, spread, lives, over, spawnTimer;
   let wave=1, boss=null, ebullets=[];
   let _confettiFired=false; // Boss 击败 confetti 已触发（独立于 Juice 的只读测试锁）
   let _fxShakes=0, _fxBursts=0; // Juice 手感只读计数（测试钩子，纯反馈层）
-  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; rapid=0; spread=0; lives=3; over=false; spawnTimer=4; fireCd=0; wave=1; boss=null; ebullets=[]; _confettiFired=false; _fxShakes=0; _fxBursts=0; spawnWave(); }
+  function reset(){ ship={x:W/2,y:H/2,angle:-Math.PI/2}; asteroids=[]; bullets=[]; score=0; pickups=[]; boostTimer=0; shield=0; rapid=0; spread=0; lives=3; over=false; spawnTimer=4; fireCd=0; wave=1; boss=null; ebullets=[]; _confettiFired=false; _hsShown=false; _fxShakes=0; _fxBursts=0; spawnWave(); }
   function spawnWave(){ asteroids=[]; for(let i=0;i<4;i++) asteroids.push({x:_randFn()*W,y:_randFn()*H,vx:(_randFn()*2-1)*30,vy:(_randFn()*2-1)*30,r:30}); }
   // ---------- Boss 系统（每 BOSS_EVERY 波出现：巨大多边形母体，多阶段 + 击败奖励）----------
   const BOSS_EVERY = 3;
@@ -224,6 +226,14 @@
     ctx.fillStyle='#02c076'; ctx.save(); ctx.translate(ship.x,ship.y); ctx.rotate(ship.angle); ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-6,5); ctx.lineTo(-6,-5); ctx.closePath(); ctx.fill(); ctx.restore();
     if(shield>0){ ctx.strokeStyle='rgba(80,180,255,.85)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(ship.x,ship.y,14,0,Math.PI*2); ctx.stroke(); } // 护盾环（仅绘制层）
     const sc=$('sc'),rem=$('rem'),bf=$('buff'); if(sc)sc.textContent=score; if(rem)rem.textContent=asteroids.length; if(bf){ let s=''; if(shield>0)s+='🛡'+shield+' '; if(rapid>0)s+='⚡'+Math.ceil(rapid)+'s '; if(spread>0)s+='✳'+Math.ceil(spread)+'s'; if(boostTimer>0)s+='🚀'+Math.ceil(boostTimer)+'s'; bf.textContent=s; }
+    // T-179：首次进入结束态时写入榜单并渲染
+    if(over && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.record('asteroids', score, null);
+        var _el = $('top5Board'); if(_el){ _el.style.display='block'; Common.HighScores.render('asteroids', _el, _tr); }
+      } catch(e){}
+    }
   }
   var loop = Common.Loop(function () {
   if(typeof requestAnimationFrame==='undefined') return; step(0.016); render(); ;
@@ -245,6 +255,10 @@
     DROP_PROB,
     getLives(){ return lives; }, setLives(v){ lives=v; },
     takeHit, getShip(){ return {x:ship.x,y:ship.y}; }, getOver(){ return over; },
+    // T-179：本地 Top5 榜单钩子
+    recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('asteroids', s, d||null); },
+    getTop5:()=>{ try{ return Common.HighScores.read('asteroids'); }catch(e){ return []; } },
+    clearTop5:()=>{ try{ Common.Storage.set('asteroids','top5',[]); return true; }catch(e){ return false; } },
     // —— Boss 系统钩子 ——
     BOSS_EVERY, isBossWave, spawnBoss, updateBoss,
     getBoss:()=> boss ? {x:boss.x,y:boss.y,r:boss.r,hp:boss.hp,maxHp:boss.maxHp,phase:boss.phase,dir:boss.dir,downY:boss.downY} : null,

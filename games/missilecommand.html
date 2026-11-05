@@ -41,6 +41,7 @@
     <span id="hStat" style="color:var(--gold)">运行中</span>
   </div>
   <canvas id="cv" width="600" height="600"></canvas>
+  <div id="top5Board" style="margin-top:10px;display:none"></div>
   <div class="msg">来袭导弹（红）会落向地面摧毁城市。点击天空发射拦截弹（绿），在导弹附近引爆可摧毁之。所有城市被毁即失败。</div>
 
 <script src="common.js"></script>
@@ -75,10 +76,11 @@
 
   let cities, missiles, interceptors, explosions, score, clearedWaves, over, won, auto, stars=[];
   let _confettiFired = false; // 通关 confetti 锁（独立于 Juice 的只读测试钩子）
+  let _hsShown = false;       // T-179：榜单渲染幂等标志
 
   function reset(){
     cities=[]; for(let i=0;i<TOTAL_CITIES;i++) cities.push({ x: 80 + i*((W-160)/(TOTAL_CITIES-1)), alive:true });
-    missiles=[]; interceptors=[]; explosions=[]; score=0; clearedWaves=0; over=false; won=false; auto=false; _confettiFired=false;
+    missiles=[]; interceptors=[]; explosions=[]; score=0; clearedWaves=0; over=false; won=false; auto=false; _confettiFired=false; _hsShown=false;
   }
   function start(){
     reset(); auto=true;
@@ -193,6 +195,15 @@
     const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
     set('hCities', aliveCities()); set('hScore', score); set('hWave', clearedWaves);
     set('hStat', over?(won?'通关':'失败'):'运行中');
+    // T-179：首次进入结束态时写入榜单并渲染
+    if(over && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.record('missilecommand', score, null);
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.render('missilecommand', _el, _tr); }
+      } catch(e){}
+    }
   }
 
   function bindUI(){
@@ -213,6 +224,10 @@
     window.__t={ W,H,GROUND,BX,BY,TOTAL_CITIES,TARGET_WAVES,INT_SPD,BLAST,CITY_HIT,
       setSeed, reset, start, setAuto, spawnIncoming, launch, explodeAt, step, checkEnd, setClearedWaves, killCity, aliveCities, getState,
       DIFFICULTY, setDifficulty, getDifficulty,
+      // T-179：本地 Top5 榜单钩子
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('missilecommand', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('missilecommand'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('missilecommand','top5',[]); return true; }catch(e){ return false; } },
       confettiFired: function(){ return _confettiFired; } };
   }
 })();

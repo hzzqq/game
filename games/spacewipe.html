@@ -62,6 +62,7 @@
       <p>驾驶红色战机清剿每一波来犯敌机，<b style="color:var(--green)">清空整波</b>即进入下一关。<br/>方向键移动，自动开火；敌机触底会损失余机，余机耗尽即失败。</p>
       <div class="diffbar" id="diffbar"></div>
       <button class="start" id="startBtn">开始战斗</button>
+      <div id="top5Board" style="margin-top:12px;display:none"></div>
     </div>
   </div>
 
@@ -96,6 +97,7 @@
     function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
     let S=null;
     let confettiFiredFlag = false;    // 成就反馈：击败 Boss 置真（跳变防重复）
+    let _hsShown = false;             // T-179：榜单渲染幂等标志
     function fresh(){
       return {
         player:{x:W/2,y:H-60,r:16,speed:360,fireCd:0},
@@ -185,6 +187,7 @@
     function reset(){
       S=fresh();
       confettiFiredFlag=false;
+      _hsShown=false;
       syncHud();
     }
     function start(){
@@ -282,6 +285,10 @@
       getBoost(){ return S.boostTimer; }, setBoost(v){ S.boostTimer=v; },
       getLives(){ return S.lives; },
       setRand(seed){ pickupRng=mk(seed>>>0); },
+      // ---- T-179：本地 Top5 榜单钩子 ----
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('spacewipe', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('spacewipe'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('spacewipe','top5',[]); return true; }catch(e){ return false; } },
       // ---- 难度系统钩子 ----
       DIFFICULTY, setDifficulty, getDifficulty,
       // ---- Boss 系统钩子 ----
@@ -337,6 +344,15 @@
       if(overlay){ overlay.style.display='flex';
         const h1=overlay.querySelector('h1'); if(h1)h1.textContent='☠ 任务失败 · 得分 '+S.score;
         const b=overlay.querySelector('.start'); if(b)b.textContent='再战一次'; }
+      // T-179：结算入榜 + 渲染（幂等）
+      if(!_hsShown){
+        _hsShown = true;
+        try {
+          var _tr = Common.HighScores.record('spacewipe', S.score, null);
+          var _el = document.getElementById('top5Board');
+          if(_el){ _el.style.display='block'; Common.HighScores.render('spacewipe', _el, _tr); }
+        } catch(e){}
+      }
     }
     function buildDiffBar(){
       // T-121：委托共享核心（四档键与本项目 DIFFICULTY 一致）；bar.set 同步当前档位高亮

@@ -64,6 +64,7 @@
       <p>红色弹幕从四面来袭，操控绿色机体灵活走位。<br/>每生存 <b style="color:var(--gold)">8 秒</b> 进入下一波（弹幕更密），被击中损失余机，余机耗尽即失败。</p>
       <div class="diffbar" id="diffbar"></div>
       <button class="start" id="startBtn">开始躲避</button>
+      <div id="top5Board" style="margin-top:12px;display:none"></div>
     </div>
   </div>
 
@@ -94,6 +95,7 @@
     function diffCfg(){ return DIFFICULTY[difficulty] || DIFFICULTY.normal; }
     let S=null;
     let _confettiFired = false;
+    let _hsShown = false;   // T-179：榜单渲染幂等标志
     let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子（命中/Boss击败→shake+burst）
     function fresh(){
       return {
@@ -160,7 +162,7 @@
     function drawPickups(ctx){ for(const pk of S.pickups){ const sym=pk.type==='coin'?'💰':pk.type==='shield'?'🛡':pk.type==='boost'?'🚀':'❤'; ctx.save(); ctx.beginPath(); ctx.arc(pk.x,pk.y,pk.r+4,0,7); ctx.fillStyle='rgba(240,185,11,.15)'; ctx.fill(); ctx.strokeStyle='rgba(240,185,11,.6)'; ctx.stroke(); ctx.fillStyle='#fff'; ctx.font='14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(sym,pk.x,pk.y); ctx.restore(); } }
     function takeHit(){ if(S.shield>0){ S.shield--; if(J)J.flash&&J.flash('#02c076',.3); return; } S.lives--; }
 
-    function reset(){ S=fresh(); _confettiFired = false; _fxShakes=0; _fxBursts=0; syncHud(); }
+    function reset(){ S=fresh(); _confettiFired = false; _hsShown=false; _fxShakes=0; _fxBursts=0; syncHud(); }
     function start(){ reset(); S.running=true; S.over=false; if(overlay)overlay.style.display='none'; if(typeof Juice!=='undefined') Juice.sfx('click'); syncHud(); }
     function setRand(seed){ S.rng=Common.mulberry32(seed>>>0); pickupRng=Common.lcg(seed>>>0); }
 
@@ -260,6 +262,10 @@
       getCoins(){ return S.coins; }, setCoins(v){ S.coins=v; },
       getBoost(){ return S.boostTimer; }, setBoost(v){ S.boostTimer=v; },
       getLives(){ return S.lives; },
+      // ---- T-179：本地 Top5 榜单钩子 ----
+      recordScore:(s,d)=>{ _hsShown=false; return Common.HighScores.record('bullethell', s, d||null); },
+      getTop5:()=>{ try{ return Common.HighScores.read('bullethell'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('bullethell','top5',[]); return true; }catch(e){ return false; } },
       // ---- 难度系统钩子 ----
       DIFFICULTY, setDifficulty, getDifficulty,
       // ---- Boss 系统钩子 ----
@@ -309,6 +315,15 @@
     }
     function showOver(){
       if(overlay){overlay.style.display='flex';const h1=overlay.querySelector('h1');if(h1)h1.textContent='☠ 被弹幕吞没 · 得分 '+S.score;const b=overlay.querySelector('.start');if(b)b.textContent='再躲一次';}
+      // T-179：结算入榜 + 渲染（幂等）
+      if(!_hsShown){
+        _hsShown = true;
+        try {
+          var _tr = Common.HighScores.record('bullethell', S.score, null);
+          var _el = document.getElementById('top5Board');
+          if(_el){ _el.style.display='block'; Common.HighScores.render('bullethell', _el, _tr); }
+        } catch(e){}
+      }
     }
     function buildDiffBar(){
       // T-121：委托共享核心（四档键与本项目 DIFFICULTY 一致）；bar.set 同步当前档位高亮
