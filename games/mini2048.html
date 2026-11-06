@@ -40,6 +40,7 @@
     <div class="hud"><span>分数 SCORE · <span class="st" id="score">0</span></span><span id="status">滑动合成 128</span></div>
     <div class="board" id="board"></div>
     <div class="msg" id="msg">用方向键 / WASD / 滑动 移动。相同数字合并翻倍，先合成 128 即胜。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="hint">↑↓←→ 或 WASD · 触屏滑动</div>
   </div>
   <div class="foot">3×3 2048 变体：规则同经典 2048（相邻相同翻倍），但棋盘缩小为 3×3，胜利目标降为 128，节奏更紧凑。</div>
@@ -57,10 +58,11 @@
   function setRand(fn){ _rand = fn; }
 
   let board, score, status, _confettiFired = false; // status: 'playing' | 'win' | 'over'
+  let _hsShown = false;   // T-184：最高分榜渲染幂等标志
 
   function emptyBoard(){ return Array.from({length:SIZE},()=>new Array(SIZE).fill(0)); }
   function reset(){
-    board = emptyBoard(); score = 0; status = 'playing'; _confettiFired = false;
+    board = emptyBoard(); score = 0; status = 'playing'; _confettiFired = false; _hsShown = false;
     spawn(); spawn();
   }
   function spawn(){
@@ -74,7 +76,7 @@
   }
   function setBoard(b){
     board = b.map(row=>row.slice());
-    score = 0; status = 'playing'; _confettiFired = false;
+    score = 0; status = 'playing'; _confettiFired = false; _hsShown = false;
   }
   // 单行向左压缩+合并（相邻相同翻倍，一次合并只生效一次），返回 {row, gained}
   function slideLine(line){
@@ -128,6 +130,15 @@
     }
     if(status==='win'){ celebrate(); }
     else if(gained>0){ spawnParticle(window.innerWidth/2, window.innerHeight/2, '#f0b90b'); }
+    // T-184：终局（胜利/无路可走）记录最高分，一次性幂等
+    if(status!=='playing' && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.record('mini2048', score);
+        var _el = $('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.render('mini2048', _el, _tr, 'LOCAL TOP 5 · 迷你 2048 最高分'); }
+      } catch(e){}
+    }
     return {moved, gained, status};
   }
   function celebrate(){
@@ -194,6 +205,10 @@
       triggerWinEffect:function(){ celebrate(); },
       wasCelebrated:function(){ return _confettiFired; },
       confettiFired:function(){ return _confettiFired; },
+      // T-184：最高分榜钩子
+      recordScore:function(v){ _hsShown=false; return Common.HighScores.record('mini2048', v); },
+      getTop5:function(){ try{ return Common.HighScores.read('mini2048'); }catch(e){ return []; } },
+      clearTop5:function(){ try{ Common.Storage.set('mini2048','top5',[]); return true; }catch(e){ return false; } },
     };
   }
 })();
