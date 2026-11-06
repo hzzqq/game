@@ -44,6 +44,7 @@
     <div class="hud"><span>步数 STEP · <span class="st" id="step">0</span>/10</span><span id="status">破解隐藏密码</span></div>
     <div class="colors" id="colors"></div>
     <div class="history" id="history"></div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="msg" id="msg">输入 4 位数字（每位 0-5），回车提交。黑=位值全对，白=值对位错。</div>
     <div class="controls">
       <input id="guess" type="text" inputmode="numeric" maxlength="4" placeholder="0000" />
@@ -82,9 +83,10 @@
   }
 
   let secret, history, step, won, over, confettiFired;
+  let _hsShown = false;   // T-183：最少步数榜渲染幂等标志
   function reset(){
     secret = generateSecret();
-    history = []; step = 0; won = false; over = false; confettiFired = false;
+    history = []; step = 0; won = false; over = false; confettiFired = false; _hsShown = false;
   }
   // 提交一次猜测（guess: number[] 长度 LEN，每位 0..DOMAIN-1）
   function submitGuess(guess){
@@ -96,6 +98,15 @@
     step++;
     if(fb.black===LEN){ won=true; over=true; confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     else if(step>=MAX_STEP){ over=true; }
+    // T-183：猜中次数入榜（幂等）
+    if(won && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.recordMoves('mastermind', step);
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('mastermind', _el, _tr, 'LOCAL TOP 5 · 最少猜测'); }
+      } catch(e){}
+    }
     if(typeof Juice!=='undefined'){
       if(won){ Juice.sfx('levelup'); Juice.best('mastermind', MAX_STEP-step+1); }
       else Juice.sfx(step>=MAX_STEP?'boom':'click');
@@ -152,6 +163,10 @@
       setRand, generateSecret, evaluate, reset, submitGuess, isWin, isOver,
       getSecret:()=>secret, getHistory:()=>history, getStep:()=>step,
       setSecret:(s)=>{ secret=s; }, getConfettiFired:()=>confettiFired,
+      // T-183：最少步数榜钩子
+      recordMoves:(m)=>{ _hsShown=false; return Common.HighScores.recordMoves('mastermind', m); },
+      getTop5Moves:()=>{ try{ return Common.HighScores.readMoves('mastermind'); }catch(e){ return []; } },
+      clearTop5Moves:()=>{ try{ Common.Storage.set('mastermind','bestmoves',[]); return true; }catch(e){ return false; } },
     };
   }
 })();
