@@ -46,6 +46,7 @@
     </div>
     <div class="card-grid" id="card"></div>
     <div class="msg" id="msg">每回合最多投 3 次：点骰子可保留（金色边框），再投只重摇未保留的。13 类各用一次，总分越高越好。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">经典 Yahtzee：5 颗骰子、13 回合，每回合选一类记分（顺子/葫芦/同花/各类点数等），13 类全部分配完比总分。</div>
 
@@ -65,10 +66,11 @@
   function setRand(fn){ _rand = fn; }
 
   let dice, rolls, kept, used, scores, total, over;
+  let _hsShown = false;   // T-185：最高总分榜渲染幂等标志
   let _confettiFired=false; // 终局 confetti 已触发（独立于 Juice 的只读测试锁）
   function newGame(){
     dice=new Array(DICE).fill(1); rolls=0; kept=new Array(DICE).fill(false);
-    used={}; scores={}; total=0; over=false; _confettiFired=false;
+    used={}; scores={}; total=0; over=false; _confettiFired=false; _hsShown=false;
   }
   function reset(){ newGame(); }
   function rnd6(){ return 1+Math.floor(_rand()*6); }
@@ -122,6 +124,15 @@
     const sc=compute(cat);
     used[cat]=true; scores[cat]=sc; total+=sc;
     if(Object.keys(used).length>=TURNS){ over=true; }
+    // T-185：13 回合终局记录总分（一次性幂等）
+    if(over && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.record('yahtzee', total);
+        var _el = $('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.render('yahtzee', _el, _tr, 'LOCAL TOP 5 · 快艇骰子最高总分'); }
+      } catch(e){}
+    }
     if(over && !_confettiFired){
       _confettiFired=true;
       if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:160, life:3});
@@ -204,6 +215,10 @@
       DICE, MAX_ROLLS, TURNS, CATS,
       setRand, newGame, reset, roll, compute, assign,
       getDice, getRolls, getKept, getScores, getTotal, isOver, getRound, getUsedCats, getCats,       setDice,
+      // T-185：最高总分榜钩子
+      recordScore:(v)=>{ _hsShown=false; return Common.HighScores.record('yahtzee', v); },
+      getTop5:()=>{ try{ return Common.HighScores.read('yahtzee'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('yahtzee','top5',[]); return true; }catch(e){ return false; } },
       confettiFired:()=>_confettiFired,
     };
   }

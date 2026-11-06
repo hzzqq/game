@@ -40,6 +40,7 @@
   </div>
   <canvas id="cv" width="600" height="600"></canvas>
   <div class="msg">控制推力让飞船软着陆到金色平台：落速 ≤ <b>22</b>、落角 ≤ <b>15°</b>、横向速度 ≤ <b>18</b>，且须落在平台上。撞毁或飞出界即失败。</div>
+  <div id="top5Board" style="margin-top:10px;display:none"></div>
 
 <script src="common.js"></script>
 <script>Common.injectTheme();</script>
@@ -62,17 +63,18 @@
   const FUEL_REFILL = 40, STABLE_DUR = 4, SPAWN_INTERVAL = 5;
 
   let ship, over, won, stars=[], _confettiFired=false;
+  let _hsShown = false;   // T-185：最省燃料榜渲染幂等标志
   let pickups=[], score=0, spawnTimer=0;
   let input={thrust:false,left:false,right:false};
 
   function reset(){
     ship={ x:W/2, y:40, vx:( _rng()*2-1)*10, vy:6, angle:0, fuel:100, thrusting:false, shield:0, stableT:0, r:SHIP_R };
     over=false; won=false; input={thrust:false,left:false,right:false};
-    pickups=[]; score=0; spawnTimer=SPAWN_INTERVAL; _confettiFired=false;
+    pickups=[]; score=0; spawnTimer=SPAWN_INTERVAL; _confettiFired=false; _hsShown=false;
   }
   function start(){ reset(); }
 
-  function setShip(s){ Object.assign(ship, s); over=false; won=false; _confettiFired=false; }
+  function setShip(s){ Object.assign(ship, s); over=false; won=false; _confettiFired=false; _hsShown=false; }
 
   function evaluateLanding(){
     const touched = (ship.y + SHIP_H/2) >= GROUND;
@@ -111,6 +113,23 @@
     const res=evaluateLanding();
     if(res==='landed'){
       over=true; won=true; ship.status='landed';
+      // T-185：软着陆记录耗油量（越低越省，低值榜 bestfuel，一次性幂等）
+      if(!_hsShown){
+        _hsShown = true;
+        try {
+          var _used = Math.max(0, Math.round(100 - ship.fuel));
+          var _tr = Common.HighScores.recordLow('lunarlander', 'bestfuel', _used);
+          var _el = document.getElementById('top5Board');
+          if(_el){
+            _el.style.display='block';
+            Common.HighScores.renderLow('lunarlander', _el, _tr, {
+              subkey:'bestfuel', title:'LOCAL TOP 5 · 最省燃料',
+              fmt:function(v){ return Math.round(v) + ' 燃料'; },
+              emptyHint:'⛽ NO RECORDS YET', emptyText:'暂无记录 · 软着陆一次<br>你的耗油将占榜首'
+            });
+          }
+        } catch(e){}
+      }
       if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, { n:120, life:2.4 }); }
       if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('月球软着陆'); }
     }
@@ -235,6 +254,9 @@
       getFuel:()=>ship.fuel, setFuel:(v)=>{ ship.fuel=Common.clamp(v, 0, 100); },
       getStable:()=>ship.stableT||0, setStable:(v)=>{ ship.stableT=v; },
       getScore:()=>score, setScore:(v)=>{ score=v; },
+      // T-185：最省燃料榜钩子（bestfuel）
+      getTop5Fuel:()=>{ try{ return Common.HighScores.readLow('lunarlander','bestfuel'); }catch(e){ return []; } },
+      clearTop5Fuel:()=>{ try{ Common.Storage.set('lunarlander','bestfuel',[]); return true; }catch(e){ return false; } },
       get confettiFired(){ return _confettiFired; } };
   }
 })();
