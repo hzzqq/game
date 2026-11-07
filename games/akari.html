@@ -43,6 +43,7 @@
       <button id="reset" class="ghost">清空 RESET</button>
     </div>
     <div class="msg" id="msg">点空格放/收灯。每个带数字墙的四邻须恰有该数盏灯；任意空格须被照亮且灯之间不可互相对视。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Akari（数灯）：在空格放灯。每盏灯照亮整行整列直到遇墙；带数字墙的四邻恰有该数盏灯；灯不可互相照射；所有空格须被照亮。</div>
 
@@ -62,6 +63,19 @@
   let lamps;   // N×N bool
   let sol;     // N×N bool 规范解
   let won = false;
+  let _startTs = 0;      // T-191：本局起始时间（最短用时榜）
+  let _hsShown = false;  // T-191：用时榜渲染幂等标志
+  // T-191：通关记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('akari', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('akari', _el, _tr); }
+    } catch(e){}
+  }
   let _confettiFired = false;
   let _fxShakes = 0, _fxBursts = 0;
 
@@ -121,7 +135,7 @@
     }
     sol = lamps.map(row=>row.slice());
     won = false;
-    _confettiFired = false;
+    _confettiFired = false; _startTs = Date.now(); _hsShown = false;
     _fxShakes = 0; _fxBursts = 0;
     return getState();
   }
@@ -187,6 +201,7 @@
     }
     won=isWin();
     if(won){
+      recordSolve();
       _fxShakes++;
       if (typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.2);
       if (typeof Juice!=='undefined') Juice.sfx('levelup');
@@ -198,10 +213,11 @@
     return true;
   }
   function toggleLamp(r,c){ return setLamp(r,c, !lamps[r][c]); }
-  function reset(){ lamps=Array.from({length:N},()=>new Array(N).fill(false)); won=false; _confettiFired=false; _fxShakes=0; _fxBursts=0; return getState(); }
+  function reset(){ lamps=Array.from({length:N},()=>new Array(N).fill(false)); won=false; _confettiFired=false; _fxShakes=0; _fxBursts=0; _startTs=Date.now(); _hsShown=false; return getState(); }
   function applySolution(){
     lamps=sol.map(row=>row.slice()); won=isWin();
     if(won){
+      recordSolve();
       _fxShakes++;
       if (typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.2);
       if(!_confettiFired){ _confettiFired=true; if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
@@ -261,7 +277,10 @@
     else { buildBoard(); bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setLamp, toggleLamp, applySolution, getSolution, getState, lit, MAXLEN, confettiFired: function () { return _confettiFired; }, fxShakes: function () { return _fxShakes; }, fxBursts: function () { return _fxBursts; } };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setLamp, toggleLamp, applySolution, getSolution, getState, lit, MAXLEN, confettiFired: function () { return _confettiFired; }, fxShakes: function () { return _fxShakes; }, fxBursts: function () { return _fxBursts; },
+      // T-191：最短用时榜钩子
+      getTop5Time(){ try{ return Common.HighScores.readTime('akari'); }catch(e){ return []; } },
+      clearTop5Time(){ try{ Common.Storage.set('akari','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

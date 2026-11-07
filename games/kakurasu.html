@@ -42,6 +42,7 @@
       <button id="reset" class="ghost">清空 RESET</button>
     </div>
     <div class="msg" id="msg">点格选中（列权 1,2,4,8,16）。每行选中格的列权之和须等于右侧目标，每列选中格的行权之和须等于底部目标。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Kakurasu（累加）：在网格中选格。每行所选格的「列权重」之和 = 右侧目标；每列所选格的「行权重」之和 = 底部目标。每局由随机选格派生目标，必可解且唯一。</div>
 
@@ -65,6 +66,19 @@
   let sol;        // N×N boolean 规范解
   let won = false;
   let _wonPrev = false;
+  let _startTs = 0;      // T-191：本局起始时间（最短用时榜）
+  let _hsShown = false;  // T-191：用时榜渲染幂等标志
+  // T-191：通关记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('kakurasu', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('kakurasu', _el, _tr); }
+    } catch(e){}
+  }
   let _confettiCount = 0;
   let _fxShakes = 0, _fxBursts = 0;   // 手感深化：屏震/粒子计数（只读钩子 fxShakes/fxBursts）
   function _fireConfetti(){
@@ -72,7 +86,7 @@
     if(typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
     if(typeof Juice !== 'undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.4, {color:'#f0b90b', n:40});
   }
-  function _checkWinFx(){ if(won && !_wonPrev) _fireConfetti(); _wonPrev = won; }
+  function _checkWinFx(){ if(won && !_wonPrev){ _fireConfetti(); recordSolve(); } _wonPrev = won; }
 
   function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
 
@@ -85,7 +99,7 @@
     rowTarget = s.map((row,r)=>row.reduce((a,v,c)=>a+(v?colW[c]:0),0));
     colTarget = new Array(N).fill(0);
     for(let c=0;c<N;c++) for(let r=0;r<N;r++) if(s[r][c])     colTarget[c]+=rowW[r];
-    won = false; _wonPrev = false;
+    won = false; _wonPrev = false; _startTs = Date.now(); _hsShown = false;
     _fxShakes = 0; _fxBursts = 0;
     return getState();
   }
@@ -115,7 +129,7 @@
 
   function reset(){
     sel = Array.from({length:N},()=>new Array(N).fill(false));
-    won=false; _wonPrev=false;
+    won=false; _wonPrev=false; _startTs = Date.now(); _hsShown = false;
     _fxShakes = 0; _fxBursts = 0;
     return getState();
   }
@@ -186,7 +200,10 @@
     window.__t = { N, setRand, newPuzzle, reset, isWin, setCell, toggle, applySolution, getSolution, getState, colW, rowW,
       get confettiFired(){ return _confettiCount; },
       fxShakes(){ return _fxShakes; },
-      fxBursts(){ return _fxBursts; } };
+      fxBursts(){ return _fxBursts; },
+      // T-191：最短用时榜钩子
+      getTop5Time(){ try{ return Common.HighScores.readTime('kakurasu'); }catch(e){ return []; } },
+      clearTop5Time(){ try{ Common.Storage.set('kakurasu','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

@@ -54,6 +54,7 @@
       <button id="reset" class="ghost">重来 RESET</button>
     </div>
     <div class="msg" id="msg">根据每行/每列的数字提示（连续填充块长度）点击格子填色，还原出隐藏图案即过关。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">经典 Nonogram（Picross）：行列数字表示该行/列连续黑块的长度。推理出哪些格子该填，完全还原隐藏图即胜。</div>
 
@@ -70,6 +71,19 @@
   function setRand(fn){ _rand = fn; }
 
   let solution, marks, won, over, filled, _confettiFired = false;
+  let _startTs = 0;      // T-191：本局起始时间（最短用时榜）
+  let _hsShown = false;  // T-191：用时榜渲染幂等标志
+  // T-191：通关记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('nonogram', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('nonogram', _el, _tr); }
+    } catch(e){}
+  }
   function hintsFor(line){
     const h=[]; let run=0;
     for(const v of line){ if(v===1){ run++; } else { if(run>0){ h.push(run); run=0; } } }
@@ -89,7 +103,7 @@
   function newGame(){
     solution=genSolution();
     marks=Array.from({length:R},()=>new Array(C).fill(0));
-    won=false; over=false; filled=0; _confettiFired=false;
+    won=false; over=false; filled=0; _confettiFired=false; _startTs=Date.now(); _hsShown=false;
   }
   function reset(){ newGame(); }
   function computeHints(){
@@ -101,7 +115,7 @@
     if(over || r<0||r>=R||c<0||c>=C) return false;
     marks[r][c] = marks[r][c]?0:1;
     filled = marks.flat().reduce((a,b)=>a+b,0);
-    if(matches()){ won=true; over=true; }
+    if(matches()){ won=true; over=true; recordSolve(); }
     if(typeof Juice!=='undefined'){
       if(won){ Juice.sfx('levelup'); Juice.best('nonogram', filled); if(!_confettiFired){ _confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
       else Juice.sfx('click');
@@ -117,7 +131,7 @@
   function getRHints(){ return computeHints().rh; }
   function getCHints(){ return computeHints().ch; }
   function getRC(){ return [R,C]; }
-  function setSolution(b){ solution=b.map(row=>row.slice()); marks=Array.from({length:R},()=>new Array(C).fill(0)); won=false; over=false; filled=0; _confettiFired=false; }
+  function setSolution(b){ solution=b.map(row=>row.slice()); marks=Array.from({length:R},()=>new Array(C).fill(0)); won=false; over=false; filled=0; _confettiFired=false; _startTs=Date.now(); _hsShown=false; }
 
   /* ===================== UI ===================== */
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
@@ -164,6 +178,9 @@
       R, C, setRand, newGame, reset, toggle, isWin, isOver, getFilled,
       getSolution, getMarks, getRHints, getCHints, getRC, setSolution,
       confettiFired: function () { return _confettiFired; },
+      // T-191：最短用时榜钩子
+      getTop5Time(){ try{ return Common.HighScores.readTime('nonogram'); }catch(e){ return []; } },
+      clearTop5Time(){ try{ Common.Storage.set('nonogram','besttime',[]); return true; }catch(e){ return false; } },
     };
   }
 })();

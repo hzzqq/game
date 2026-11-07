@@ -38,6 +38,7 @@
     <div class="hud"><span>进度 · <span class="st" id="prog">0/0</span></span><span>状态 · <span class="st" id="st">进行中</span></span></div>
     <div class="board" id="board"></div>
     <div class="msg" id="msg">在每行每列填入 1..n 各一次，并使每个笼满足其运算目标（+ 和 / − 差 / × 积 / ÷ 商）。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="controls">
       <input id="r" placeholder="行0起" /><input id="c" placeholder="列0起" /><input id="v" placeholder="值1..n" />
       <button id="set">填入 SET</button>
@@ -59,6 +60,19 @@
   let rand = Math.random;
   let _solvedPrev = false;
   let _confettiCount = 0;
+  let _startTs = 0;      // T-191：本局起始时间（最短用时榜）
+  let _hsShown = false;  // T-191：用时榜渲染幂等标志
+  // T-191：通关记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('kenken', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('kenken', _el, _tr); }
+    } catch(e){}
+  }
   function _fireConfetti(){
     _confettiCount++;
     if(typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
@@ -180,7 +194,7 @@
     grid = Array.from({length:n},()=>Array(n).fill(0));
     cellCage={}; cages.forEach((cage,i)=>cage.cells.forEach(p=>{ cellCage[p[0]+','+p[1]]=i; }));
     recomputeCageSat();
-    _solvedPrev = false;
+    _solvedPrev = false; _startTs = Date.now(); _hsShown = false;
   }
   function setValue(r,c,v){
     if(r<0||c<0||r>=n||c>=n) return false;
@@ -192,7 +206,7 @@
     recomputeCageSat();
     if(idx!=null && cageSat[idx] && !beforeSat){ Juice.sfx('pickup'); Juice.addTrauma(.15); }
     if(v>=1 && (rowHasDup(r)||colHasDup(c))) Juice.sfx('error');
-    if(isSolved()){ if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } if(!_solvedPrev) _fireConfetti(); }
+    if(isSolved()){ if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } if(!_solvedPrev){ _fireConfetti(); recordSolve(); } }
     _solvedPrev = isSolved();
     return true;
   }
@@ -238,7 +252,7 @@
   function check(){
     const s=getState();
     const msg=$('msg');
-    if(s.solved){ Juice.sfx('win'); Juice.flash('#02c076',.5); if(msg){msg.className='msg win';msg.textContent='✅ 全部笼运算达成，通关！';} }
+    if(s.solved){ Juice.sfx('win'); Juice.flash('#02c076',.5); recordSolve(); if(msg){msg.className='msg win';msg.textContent='✅ 全部笼运算达成，通关！';} }
     else if(s.mistakes>0){ Juice.sfx('error'); if(msg){msg.className='msg';msg.textContent='⚠ 发现 '+s.mistakes+' 处冲突，检查行/列重复与笼运算。';} }
     else { if(msg){msg.className='msg';msg.textContent='进行中：还有空格未填或笼未满足。';} }
     render();
@@ -261,7 +275,10 @@
   newPuzzle(1); // 固定 seed 保证确定性，避免随机改变干扰逻辑单测
   if(typeof document!=='undefined'){ bindUI(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',render); else render(); }
   if(typeof window!=='undefined'){ window.__t={ reset, newPuzzle, setValue, getState, setRand, solution,
-    get confettiFired(){ return _confettiCount; } }; }
+    get confettiFired(){ return _confettiCount; },
+    // T-191：最短用时榜钩子
+    getTop5Time(){ try{ return Common.HighScores.readTime('kenken'); }catch(e){ return []; } },
+    clearTop5Time(){ try{ Common.Storage.set('kenken','besttime',[]); return true; }catch(e){ return false; } } }; }
 })();
 </script>
 </body>
