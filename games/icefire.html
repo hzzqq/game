@@ -109,6 +109,7 @@
       <button class="kb right" data-c="fire" data-d="right">▶</button>
     </div>
   </div>
+  <div id="top5Board" style="margin-top:10px;display:none"></div>
 
   <div id="overlay"><div class="box">
     <h2 id="ovTitle">关卡完成</h2>
@@ -194,6 +195,7 @@
 
   let grid=[], W=24, H=14;
   let doorOpen=false, score=0, currentLevel=0, state='play', flash=0;
+  let _hsShown=false;   // T-186：通关积分榜渲染幂等标志
   let _confettiFired=false;   // 注入：通关彩带只读锁（独立于 Juice，仅视觉状态）
   let _fxShakes=0, _fxBursts=0;   // 手感深化：反馈层计数器（不改动玩法）
   let iceStart=null, fireStart=null;
@@ -255,7 +257,7 @@
     if(L.powerups){
       for(const p of L.powerups){ powerups.push({ type:p.type, x:p.x*T+T/2, y:p.y*T+T/2, dead:false }); }
     }
-    if(resetScore) score=0;
+    if(resetScore){ score=0; _hsShown=false; }
     state='play';
     hideOverlay();
     updateHUD();
@@ -507,6 +509,15 @@
       showOverlay('关卡完成', 'LEVEL '+(currentLevel+1)+' CLEARED · 当前积分 '+score, '下一关 ▸');
     } else {
       state='win';
+      // T-186：全部通关记录总积分（一次性幂等）
+      if(!_hsShown){
+        _hsShown=true;
+        try {
+          var _tr = Common.HighScores.record('icefire', score);
+          var _el = document.getElementById('top5Board');
+          if(_el){ _el.style.display='block'; Common.HighScores.render('icefire', _el, _tr, 'LOCAL TOP 5 · 冰火人通关积分'); }
+        } catch(e){}
+      }
       if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',0.4); const b=Juice.best('icefire',score); const rk=Juice.rank(score); Juice.achievement('🏆 全部通关！积分 '+score+' · 段位 '+rk); }
       showOverlay('全部通关', 'YOU WIN · 总积分 '+score, '再玩一次');
       // 注入：全部通关（state='win'）→ 庆祝彩带 + 屏震（只读锁，不依赖 Juice）
@@ -726,6 +737,10 @@
     next: function(){ if(state==='clear'){ currentLevel++; loadLevel(currentLevel,false); } },
     // ---- 注入：通关彩带只读/驱动钩子 ----
     confettiFired: function(){ return _confettiFired; },
+    // T-186：通关积分榜钩子
+    recordScore: function(v){ _hsShown=false; return Common.HighScores.record('icefire', v); },
+    getTop5: function(){ try{ return Common.HighScores.read('icefire'); }catch(e){ return []; } },
+    clearTop5: function(){ try{ Common.Storage.set('icefire','top5',[]); return true; }catch(e){ return false; } },
     fxShakes: function(){ return _fxShakes; },
     fxBursts: function(){ return _fxBursts; },
     win: function(){ currentLevel = LEVELS.length-1; completeLevel(); }

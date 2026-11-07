@@ -351,6 +351,15 @@ H.ok('DIFFICULTY normal 档主倍率全 1（growth 除外=1.12 渐进）', (func
     H.eq('read 无记录返回空数组', HS.read('t_none').length, 0);
     H.eq('readTime 无记录返回空数组', HS.readTime('t_none').length, 0);
     H.eq('readMoves 无记录返回空数组', HS.readMoves('t_none').length, 0);
+
+    // 累计胜局计数器（T-186）：独立子键 wincount
+    H.eq('readWin 新 key 为 0', HS.readWin('t_win'), 0);
+    H.eq('recordWin 首次返回 1', HS.recordWin('t_win'), 1);
+    H.eq('recordWin 二次返回 2', HS.recordWin('t_win'), 2);
+    H.eq('recordWin 三次返回 3', HS.recordWin('t_win'), 3);
+    H.eq('readWin 持久化计数', HS.readWin('t_win'), 3);
+    H.ok('胜局计数不污染分数榜', HS.read('t_win').length === 0);
+    H.ok('renderWin 无 DOM 时静默', (function () { try { HS.renderWin('t_win', null); return true; } catch (e) { return false; } })());
   } finally {
     delete global.localStorage;
   }

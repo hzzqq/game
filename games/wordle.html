@@ -44,6 +44,7 @@
       <button id="new" class="ghost">新局 NEW</button>
     </div>
     <div class="msg" id="msg">猜 5 字母单词：绿=位置对，黄=有此字母但位置错，灰=无。6 次内猜中即胜。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">猜词（Wordle）：经典每日猜词，颜色反馈提示字母位置，绿色正确、黄色异位、灰色缺失。</div>
 
@@ -59,8 +60,9 @@
   "use strict";
   const WORDS=['CRANE','SLATE','BRICK','PLANT','SOUND','FANCY','GHOST','WORLD','MONEY','LIGHT','APPLE','ALLOY'];
   let solution, guesses, over, won, winFx = 0;
+  let _hsShown = false;   // T-186：最少猜词数榜渲染幂等标志
   function choose(){ solution=Common.pick(WORDS, _randFn); }
-  function setSolution(w){ solution=w.toUpperCase(); guesses=[]; over=false; won=false; }
+  function setSolution(w){ solution=w.toUpperCase(); guesses=[]; over=false; won=false; _hsShown=false; }
   function feedback(guess){
     const g=guess.toUpperCase(), s=solution, n=s.length; const res=new Array(n).fill('x');
     const counts={}; for(const c of s) counts[c]=(counts[c]||0)+1;
@@ -73,6 +75,15 @@
     const fb=feedback(word); guesses.push(word.toUpperCase());
     if(word.toUpperCase()===solution){ over=true; won=true; }
     else if(guesses.length>=6){ over=true; won=false; }
+    // T-186：猜中时记录猜词次数（越少越好），一次性幂等
+    if(over && won && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.recordMoves('wordle', guesses.length);
+        var _el = $('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('wordle', _el, _tr, 'LOCAL TOP 5 · 最少猜词数'); }
+      } catch(e){}
+    }
     if(over && won){ Juice.sfx('win'); Juice.flash('#02c076', .5); if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); winFx++; }
     else if(over && !won){ Juice.sfx('lose'); Juice.flash('#f6465d', .5); }
     else { Juice.sfx('hit'); Juice.addTrauma(.2); }
@@ -82,7 +93,7 @@
   function getSolution(){ return solution; }
   function isOver(){ return over; }
   function isWon(){ return won; }
-  function newGame(){ choose(); guesses=[]; over=false; won=false; }
+  function newGame(){ choose(); guesses=[]; over=false; won=false; _hsShown=false; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
@@ -104,7 +115,11 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ newGame, setSolution, guess, feedback, getGuesses, getSolution, isOver, isWon, WORDS, confettiFired: function(){ return winFx; } };
+    window.__t={ newGame, setSolution, guess, feedback, getGuesses, getSolution, isOver, isWon, WORDS, confettiFired: function(){ return winFx; },
+      // T-186：最少猜词数榜钩子
+      recordMoves:(v)=>{ _hsShown=false; return Common.HighScores.recordMoves('wordle', v); },
+      getTop5Moves:()=>{ try{ return Common.HighScores.readMoves('wordle'); }catch(e){ return []; } },
+      clearTop5Moves:()=>{ try{ Common.Storage.set('wordle','bestmoves',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

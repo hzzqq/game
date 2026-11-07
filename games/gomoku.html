@@ -64,6 +64,7 @@
   <div class="diffbar" id="diffbar"></div>
 
   <div id="wrap"><canvas id="cv"></canvas></div>
+  <div id="top5Board" style="margin-top:8px;display:none"></div>
 
   <div class="foot">规则: 你执红先手，AI 执绿。任意方向连成 5 子即胜。点击/轻触交叉点落子。</div>
 
@@ -88,6 +89,7 @@
   const wrap = document.getElementById('wrap');
 
   let board, history, current, gameOver, lastWin, _confettiFired;
+  let _winCounted = false;   // T-186：本局胜局是否已计数
   let _fxShakes = 0, _fxBursts = 0;
   let cssSize = 0, MARGIN = 0, STEP = 0;
   const RED = '#f6465d', GREEN = '#02c076';
@@ -118,6 +120,7 @@
     gameOver = false;
     lastWin = null;
     _confettiFired = false;
+    _winCounted = false;
     _fxShakes = 0; _fxBursts = 0;
     setTurn();
     hideOverlay();
@@ -362,6 +365,15 @@
     document.getElementById('ovTitle').style.color = (title.indexOf('你赢')>=0) ? GREEN : (title.indexOf('平')>=0 ? '#f0b90b' : RED);
     document.getElementById('ovText').textContent = text;
     if(title.indexOf('你赢')>=0){
+      // T-186：本地玩家获胜累计 +1（一次性幂等）
+      if(!_winCounted){
+        _winCounted = true;
+        try {
+          Common.HighScores.recordWin('gomoku');
+          var _el = document.getElementById('top5Board');
+          if(_el){ _el.style.display='block'; Common.HighScores.renderWin('gomoku', _el, '🏆 LOCAL WINS · 累计胜局'); }
+        } catch(e){}
+      }
       _fxShakes++;
       if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash(GREEN,0.28); Juice.addTrauma(0.5); const b=Juice.best('gomoku',1); Juice.rank(1); if(b.isNew) Juice.achievement('新纪录！'); }
     }
@@ -425,7 +437,11 @@
     get current() { return current; },
     set current(v) { current = v; },
     fxShakes: () => _fxShakes,
-    fxBursts: () => _fxBursts
+    fxBursts: () => _fxBursts,
+    // T-186：累计胜局钩子
+    getWinCount(){ try{ return Common.HighScores.readWin('gomoku'); }catch(e){ return 0; } },
+    recordWin(){ _winCounted=false; return Common.HighScores.recordWin('gomoku'); },
+    clearWinCount(){ try{ Common.Storage.set('gomoku','wincount',0); return true; }catch(e){ return false; } }
   };
 })();
 </script>

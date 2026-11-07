@@ -74,6 +74,7 @@
       <div class="pay">
         赔率 PAYTABLE — 三连：🍒×3 · 🍋×5 · 🔔×10 · BAR×20 · 7×50 · 💎×100 ｜ 两樱桃 ×5 ｜ 任意两同 ×2
       </div>
+      <div id="top5Board" style="margin-top:10px;display:none"></div>
     </div>
     <div class="foot">暗色金融终端风老虎机。余额归零即结束，可重开。红涨绿跌，祝你好运。</div>
   </div>
@@ -130,10 +131,12 @@
 
   /* ===================== 状态机 ===================== */
   let balance, bet, spinning, reels, lastWin, gameOver;
+  let peakWin = 0;        // T-186：本局最高单次赔付
+  let _hsShown = false;   // T-186：峰值榜渲染幂等标志
   let _confettiFired=false; // jackpot confetti 已触发（独立于 Juice 的只读测试锁）
   function reset(){
     balance = START_BAL; bet = 10; spinning = false; reels = [0,1,2];
-    lastWin = 0; gameOver = false; _confettiFired=false;
+    lastWin = 0; gameOver = false; _confettiFired=false; peakWin = 0; _hsShown = false;
   }
   function setBet(v){
     if(spinning) return false;
@@ -153,7 +156,17 @@
     spinning = false;
     reels = rs;
     lastWin = p.win;
+    if(p.win > peakWin) peakWin = p.win;
     if(balance<=0){ gameOver = true; }
+    // T-186：余额归零结算，记录本局最高单次赔付（一次性幂等）
+    if(gameOver && !_hsShown){
+      _hsShown = true;
+      try {
+        var _tr = Common.HighScores.record('slots', peakWin);
+        var _el = $('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.render('slots', _el, _tr, 'LOCAL TOP 5 · 最高单局赔付'); }
+      } catch(e){}
+    }
     if(typeof Juice!=='undefined'){
       Juice.sfx(p.win>0 ? 'win' : 'click');
       if(p.win>0){
@@ -208,6 +221,11 @@
       reset, setBet, spin,
       getBalance:()=>balance, getBet:()=>bet, getReels:()=>reels,
       getLastWin:()=>lastWin, isGameOver:()=>gameOver, isSpinning:()=>spinning,
+      // T-186：最高单局赔付榜钩子
+      getPeakWin:()=>peakWin,
+      recordScore:(v)=>{ _hsShown=false; return Common.HighScores.record('slots', v); },
+      getTop5:()=>{ try{ return Common.HighScores.read('slots'); }catch(e){ return []; } },
+      clearTop5:()=>{ try{ Common.Storage.set('slots','top5',[]); return true; }catch(e){ return false; } },
       confettiFired:()=>_confettiFired,
     };
   }

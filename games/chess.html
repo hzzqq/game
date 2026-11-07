@@ -59,6 +59,7 @@
   </div>
   <div class="diffbar" id="diffbar"></div>
   <div id="wrap"><canvas id="cv"></canvas></div>
+  <div id="top5Board" style="margin-top:8px;display:none"></div>
   <div class="foot">规则: 红方先手，点棋子选中 → 点高亮格落子。将/帅不可照面，被「将军」须应。双人热座 + 可选 AI。难度越高 AI 越少走随机步。</div>
   <div id="overlay"><div class="box">
     <h2 id="ovTitle">游戏结束</h2>
@@ -85,6 +86,7 @@
   const wrap = document.getElementById('wrap');
 
   let board, turn, gameOver, mode, selected, legalCache, lastMove, history;
+  let _winCounted=false;   // T-186：本局胜局是否已计数
   let _confettiFired = false;
   let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子
   let cssW=0, MARGIN=0, CW=0, CH=0;
@@ -205,7 +207,7 @@
     return b;
   }
   function reset(){
-    board=initialBoard(); turn='r'; gameOver=false; mode='pvp'; selected=null; legalCache=[]; lastMove=null;     history=[];     _confettiFired = false;
+    board=initialBoard(); turn='r'; gameOver=false; mode='pvp'; selected=null; legalCache=[]; lastMove=null;     history=[];     _confettiFired = false; _winCounted = false;
     _fxShakes = 0; _fxBursts = 0;
     document.getElementById('modeBtn').textContent='对手: 双人'; document.getElementById('modeBtn').classList.remove('on');
     setTurn(); hideOverlay(); draw();
@@ -299,6 +301,16 @@
     gameOver=true;
     if(!_confettiFired){ _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     const redLost = (turn==='r'); // 轮到红方却无棋 → 红负
+    // T-186：本地玩家获胜累计 +1（AI 局只算红方胜；双人局任意一方胜都算）
+    const localWin = (mode==='pvp') || (mode==='ai' && !redLost);
+    if(localWin && !_winCounted){
+      _winCounted = true;
+      try {
+        Common.HighScores.recordWin('chess');
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderWin('chess', _el, '🏆 LOCAL WINS · 累计胜局'); }
+      } catch(e){}
+    }
     let title, sub, col;
     if(redLost){ title='绿方胜利！'; sub='红方无棋可走（将死/困毙）。'; col=GREEN; }
     else { title='红方胜利！'; sub='绿方无棋可走（将死/困毙）。'; col=RED; }
@@ -374,7 +386,11 @@
     get selected(){ return selected; },
     get legalCache(){ return legalCache; },
     get confettiFired(){ return _confettiFired; },
-    fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
+    fxShakes: () => _fxShakes, fxBursts: () => _fxBursts,
+    // T-186：累计胜局钩子
+    getWinCount(){ try{ return Common.HighScores.readWin('chess'); }catch(e){ return 0; } },
+    recordWin(){ _winCounted=false; return Common.HighScores.recordWin('chess'); },
+    clearWinCount(){ try{ Common.Storage.set('chess','wincount',0); return true; }catch(e){ return false; } }
   };
 })();
 </script>

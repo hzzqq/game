@@ -64,6 +64,7 @@
   </div>
   <div class="diffbar" id="diffbar"></div>
   <div id="wrap"><canvas id="cv"></canvas></div>
+  <div id="top5Board" style="margin-top:8px;display:none"></div>
   <div class="foot">规则: 落子必须夹住对方棋子并翻面，无子可翻则跳过，终局子多者胜。双人热座 + 可选 AI。难度仅在 AI 对手下生效。</div>
   <div id="overlay"><div class="box">
     <h2 id="ovTitle">游戏结束</h2>
@@ -103,13 +104,14 @@
   const wrap = document.getElementById('wrap');
 
   let board, current, gameOver, mode, history, passed, _confettiFired=false;
+  let _winCounted=false;   // T-186：本局胜局是否已计数（防悔棋重算重复 +1）
   let cssW = 0, MARGIN = 0, CELL = 0, RADIUS = 0;
 
   function reset(){
     board = [];
     for(let r=0;r<N;r++){ const row=[]; for(let c=0;c<N;c++) row.push(EMPTY); board.push(row); }
     board[3][3]=G; board[3][4]=R; board[4][3]=R; board[4][4]=G;
-    current = R; gameOver = false; mode = 'pvp'; passed = false; history = []; _confettiFired = false;
+    current = R; gameOver = false; mode = 'pvp'; passed = false; history = []; _confettiFired = false; _winCounted = false;
     document.getElementById('modeBtn').textContent = '对手: 双人';
     document.getElementById('modeBtn').classList.remove('on');
     setTurn(); hideOverlay(); updateScore(); draw();
@@ -282,6 +284,16 @@
     document.getElementById('ovTitle').style.color=col;
     document.getElementById('ovText').textContent=sub;
     const hasWinner = (s.r>s.g) || (s.g>s.r);
+    // T-186：本地玩家获胜累计 +1（AI 局只算红方胜；双人局任一方胜都算本地胜）
+    const localWin = hasWinner && (mode==='pvp' || (mode==='ai' && s.r>s.g));
+    if(localWin && !_winCounted){
+      _winCounted = true;
+      try {
+        Common.HighScores.recordWin('reversi');
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderWin('reversi', _el, '🏆 LOCAL WINS · 累计胜局'); }
+      } catch(e){}
+    }
     if(hasWinner && !_confettiFired){
       _confettiFired = true;   // ⚠️ 无条件置位，不依赖 Juice 存在
       if(typeof Juice!=='undefined'){
@@ -357,7 +369,11 @@
     get gameOver(){ return gameOver; },
     get mode(){ return mode; }, set mode(v){ mode=v; },
     score(){ return updateScore(); },
-    confettiFired(){ return _confettiFired; }
+    confettiFired(){ return _confettiFired; },
+    // T-186：累计胜局钩子
+    getWinCount(){ try{ return Common.HighScores.readWin('reversi'); }catch(e){ return 0; } },
+    recordWin(){ _winCounted=false; return Common.HighScores.recordWin('reversi'); },
+    clearWinCount(){ try{ Common.Storage.set('reversi','wincount',0); return true; }catch(e){ return false; } }
   };
 })();
 </script>

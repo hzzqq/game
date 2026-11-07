@@ -812,6 +812,31 @@
         emptyHint: '🧩 NO RECORDS YET',
         emptyText: '暂无记录 · 通关一次<br>你的步数将占榜首'
       });
+    },
+
+    /* ---------- T-186：棋类「累计胜局」计数器（非 top5，单一持久计数） ----------
+     * 棋类/对战类没有连续分数，用「本地累计赢下多少局」作为长期反馈。
+     * 独立子键 wincount，与分数/用时/步数榜互不污染。 */
+    readWin: function (gameKey) {
+      var n = 0;
+      try { n = Number(Common.Storage.get(gameKey, 'wincount', 0)) || 0; } catch (e) { n = 0; }
+      return (n > 0 && isFinite(n)) ? Math.floor(n) : 0;
+    },
+    recordWin: function (gameKey) {
+      var n = Common.HighScores.readWin(gameKey) + 1;
+      try { Common.Storage.set(gameKey, 'wincount', n); } catch (e) {}
+      return n;
+    },
+    renderWin: function (gameKey, el, title) {
+      try {
+        if (!el || typeof document === 'undefined' || !document.createElement) return;
+        Common.HighScores.ensureBoardStyle();
+        if (el.classList && el.classList.add) el.classList.add('hs-board');
+        var n = Common.HighScores.readWin(gameKey);
+        el.innerHTML = '<div class="hs-title">' + (title || '🏆 LOCAL WINS · 累计胜局') + '</div>'
+          + '<div style="text-align:center;padding:10px 0 4px"><span style="font-size:36px;font-weight:700;color:var(--gold,#f0b90b)">' + n + '</span></div>'
+          + '<div style="text-align:center;font-size:11px;color:var(--dim,#6b7785);padding-bottom:6px">本地累计 · 每赢一局 +1</div>';
+      } catch (e) {}
     }
   };
 

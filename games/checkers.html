@@ -50,6 +50,7 @@
       <button id="restart" class="ghost">重开 NEW</button>
     </div>
     <div class="msg" id="msg">点红色棋子选中，再点高亮格落子。可吃子时必须吃，连吃到底。吃掉对方全部棋子即胜。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">经典西洋跳棋（8×8，英式）：红方（你）在下、向上走，黑方（AI）在上、向下走。到底线升王♔（可双向走）。暗色终端风 + 反馈音效。</div>
 
@@ -81,6 +82,7 @@
   function getDifficulty(){ return difficulty; }
 
   let board, turn, pending; // pending=[r,c] 必须继续连吃的棋子，或 null
+  let _winCounted = false;  // T-186：本局胜局是否已计数
   let _confettiFired = false;
   let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子
 
@@ -104,6 +106,7 @@
     }
     turn = 'red'; pending = null;
     _confettiFired = false;
+    _winCounted = false;
     _fxShakes = 0; _fxBursts = 0;
   }
 
@@ -259,6 +262,15 @@
     }
     if(turnEl) turnEl.textContent = turn==='red' ? '红 RED' : '黑 BLACK';
     const w=winner();
+    // T-186：玩家（红方）获胜累计 +1（一次性幂等）
+    if(w==='red' && !_winCounted){
+      _winCounted = true;
+      try {
+        Common.HighScores.recordWin('checkers');
+        var _el = $('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderWin('checkers', _el, '🏆 LOCAL WINS · 累计胜局'); }
+      } catch(e){}
+    }
     if(statusEl){ statusEl.textContent = w ? (w==='red'?'你赢了':'AI 获胜') : (turn==='red'?'你执红':'AI 思考中'); }
     if(msgEl){
       if(w){ msgEl.className='msg win'; msgEl.textContent = w==='red' ? '🎉 你赢了！' : '💀 AI 获胜。'; }
@@ -309,7 +321,11 @@
       setBoard, setTurn, setPending, aiMove, scoreMoveAI,
       setRand, DIFFICULTY, setDifficulty, getDifficulty,
       get confettiFired(){ return _confettiFired; },
-      fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
+      fxShakes: () => _fxShakes, fxBursts: () => _fxBursts,
+      // T-186：累计胜局钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('checkers'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('checkers'); },
+      clearWinCount(){ try{ Common.Storage.set('checkers','wincount',0); return true; }catch(e){ return false; } }
     };
   }
 })();

@@ -63,6 +63,7 @@
     </div>
     <div class="keyrow" id="keys"></div>
     <div class="msg" id="msg">输入一个字母，猜出隐藏的英文单词。拼错 6 次即被吊死！</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">经典 Hangman：计算机随机选词，每次猜一个字母。猜中亮绿、猜错亮红，6 次错误触发结局。暗色终端皮肤 + 反馈音效。</div>
 
@@ -140,6 +141,7 @@
   function pickWord(){ return Common.pick(WORDS, _rand); }
 
   let secret, guessed, wrong, status, winFx = 0;
+  let _hsShown = false;   // T-186：最少错误数榜渲染幂等标志
   // 手感深化（P-juice）：屏震 / 粒子计数器（纯反馈，不改玩法）
   let _fxShakes = 0, _fxBursts = 0;
   function reset(wordObj){
@@ -147,7 +149,7 @@
     guessed = new Set();
     wrong = 0;
     status = 'playing';
-    _fxShakes = 0; _fxBursts = 0;
+    _fxShakes = 0; _fxBursts = 0; _hsShown = false;
   }
   // 返回 'ok' | 'repeat' | 'invalid' | 'over'
   function guess(letter){
@@ -158,7 +160,16 @@
     guessed.add(letter);
     if(secret.w.indexOf(letter) >= 0){
       if(isWin()){ status = 'won'; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); winFx++;
-        _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {n:14}); }
+        _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {n:14});
+        // T-186：猜中记录错误次数（越少越好），一次性幂等
+        if(!_hsShown){
+          _hsShown = true;
+          try {
+            var _tr = Common.HighScores.recordMoves('hangman', wrong);
+            var _el = $('top5Board');
+            if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('hangman', _el, _tr, 'LOCAL TOP 5 · 最少错误数'); }
+          } catch(e){}
+        } }
     } else {
       wrong++;
       if(wrong >= MAX_WRONG) status = 'lost';
@@ -242,6 +253,10 @@
       masked, isWin, getWrong, getMaxWrong, getRemaining, getGuessed,
       getStatus, getSecret, getHint, hasWon, hasLost, getGallows,
       confettiFired: function(){ return winFx; },
+      // T-186：最少错误数榜钩子
+      recordMoves:(v)=>{ _hsShown=false; return Common.HighScores.recordMoves('hangman', v); },
+      getTop5Moves:()=>{ try{ return Common.HighScores.readMoves('hangman'); }catch(e){ return []; } },
+      clearTop5Moves:()=>{ try{ Common.Storage.set('hangman','bestmoves',[]); return true; }catch(e){ return false; } },
       // 手感深化（P-juice）：屏震 / 粒子只读钩子
       fxShakes: function(){ return _fxShakes; },
       fxBursts: function(){ return _fxBursts; },

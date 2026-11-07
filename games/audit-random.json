@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T06:16:44.410Z",
+  "generatedAt": "2026-11-07T05:20:08.345Z",
   "games": [
     {
       "file": "2048.html",
@@ -167,7 +167,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 57,
+      "hookFnCount": 62,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -442,7 +442,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 1,
+      "hookFnCount": 4,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -457,7 +457,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 3,
+      "hookFnCount": 6,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -897,7 +897,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 4,
+      "hookFnCount": 7,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -927,7 +927,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 3,
+      "hookFnCount": 6,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1772,7 +1772,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 4,
+      "hookFnCount": 7,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1977,7 +1977,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 3,
+      "hookFnCount": 7,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2437,7 +2437,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 3,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2622,6 +2622,6 @@
     "gamesLogicNakedRandom": 0,
     "gamesWithTestHooks": 165,
     "gamesWithLogicTest": 165,
-    "avgHookFnsPerGame": 9.4
+    "avgHookFnsPerGame": 9.6
   }
 }

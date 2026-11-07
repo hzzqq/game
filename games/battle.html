@@ -86,6 +86,7 @@
     <div class="pside p2" style="text-align:right"><div class="pname"><span id="s2">0</span><span>P2 绿方 ●</span></div><div class="pbar"><i id="hp2" style="width:100%"></i></div></div>
   </div>
   <div id="status"></div>
+  <div id="top5Board" style="position:fixed;left:12px;bottom:12px;z-index:6;display:none;width:250px"></div>
 
   <div id="touch">
     <div id="joy"><div id="knob"></div></div>
@@ -182,6 +183,8 @@
     const tankB={x:W*0.75,y:H*0.5,a:Math.PI/2,hp:MAXHP,fireCd:0};
     let bullets=[];           // {x,y,vx,vy,owner:'A'|'B'}
     let scoreA=0, scoreB=0;
+    let matchRounds=0;        // T-186：本场已打回合数
+    let _hsShown=false;       // T-186：最少回合榜渲染幂等标志
     const keys={};
     let myBullets=[];         // 本地发射的（在线模式只发自己的）
     let remoteBullets=[];     // 对手发来的
@@ -362,10 +365,21 @@
   function endRound(winner){
     if(over) return;
     if(winner==='A') scoreA++; else scoreB++;
+    matchRounds++;
     setStatus((winner==='A'?'红方 P1':'绿方 P2')+' 获胜本回合！');
     _fxShakes++; if(typeof Juice!=='undefined'){ Juice.sfx('boom'); Juice.addTrauma(0.5); Juice.flash(winner==='A'?'#f6465d':'#02c076',0.25); }
     over=true; setTimeout(()=>{
-      if(scoreA>=3||scoreB>=3){ winConfetti(); setStatus((scoreA>scoreB?'红方 P1':'绿方 P2')+' 赢得比赛！点击返回大厅再战。'); if(typeof Juice!=='undefined'){ if(scoreA>scoreB){ Juice.sfx('win'); Juice.flash('#02c076',0.3); } else { Juice.sfx('lose'); Juice.flash('#f6465d',0.3); } Juice.addTrauma(0.7); } return; }
+      if(scoreA>=3||scoreB>=3){ winConfetti(); setStatus((scoreA>scoreB?'红方 P1':'绿方 P2')+' 赢得比赛！点击返回大厅再战。'); if(typeof Juice!=='undefined'){ if(scoreA>scoreB){ Juice.sfx('win'); Juice.flash('#02c076',0.3); } else { Juice.sfx('lose'); Juice.flash('#f6465d',0.3); } Juice.addTrauma(0.7); }
+        // T-186：比赛结束记录本场总回合数（越少越好），一次性幂等
+        if(!_hsShown){
+          _hsShown = true;
+          try {
+            var _tr = Common.HighScores.recordMoves('battle', matchRounds);
+            var _el = document.getElementById('top5Board');
+            if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('battle', _el, _tr, 'LOCAL TOP 5 · 最少回合赢下比赛'); }
+          } catch(e){}
+        }
+        return; }
       resetPositions(); over=false; setStatus('');
     }, 1600);
   }
@@ -499,7 +513,7 @@
     document.getElementById('resetBtn').onclick=()=>{ running=false; if(raf)cancelAnimationFrame(raf); if(peer){try{peer.destroy();}catch(e){}} mode=null;role=null;conn=null;remoteTank=null;lobby.style.display='flex'; setStatus(''); };
 
     function beginGame(){
-      lobby.style.display='none'; resetPositions(); scoreA=0;scoreB=0; over=false; running=true; last=0;
+      lobby.style.display='none'; resetPositions(); scoreA=0;scoreB=0; over=false; running=true; last=0; matchRounds=0; _hsShown=false;
       if(raf) cancelAnimationFrame(raf);
       raf=loop.start();
     }
@@ -533,6 +547,12 @@
       setScoreA: function(v){ scoreA = v; },
       getScoreB: function(){ return scoreB; },
       setScoreB: function(v){ scoreB = v; },
+      // T-186：最少回合榜钩子
+      getMatchRounds: function(){ return matchRounds; },
+      setMatchRounds: function(v){ matchRounds = v; },
+      recordMoves: function(v){ _hsShown=false; return Common.HighScores.recordMoves('battle', v); },
+      getTop5Moves: function(){ try{ return Common.HighScores.readMoves('battle'); }catch(e){ return []; } },
+      clearTop5Moves: function(){ try{ Common.Storage.set('battle','bestmoves',[]); return true; }catch(e){ return false; } },
       getMode: function(){ return mode; },
       setMode: function(v){ mode = (v==='cpu')?'cpu':(v==='2p'?'local':v); },
       getRole: function(){ return role; },

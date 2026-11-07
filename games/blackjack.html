@@ -80,6 +80,7 @@
         <button id="again" class="btn-go">下一局 ▶</button>
       </div>
       <div class="hint">H 要牌 · S 停牌 · 庄家 17 点必停 · 黑杰克赔率 3:2</div>
+      <div id="top5Board" style="margin-top:10px;display:none"></div>
     </div>
   </div>
 
@@ -102,6 +103,8 @@
     ];
 
     var shoe = [], chips = 1000, bet = 10;
+    var peakChips = 1000;   // T-186：本局筹码峰值
+    var _hsShown = false;   // T-186：峰值榜渲染幂等标志
     var player = [], dealer = [], dealerHidden = true, phase = 'bet', result = null;
     var _confettiFired = false;   // 胜利彩带仅触发一次的纯旁路标记
     var _fxShakes = 0, _fxBursts = 0;
@@ -147,6 +150,16 @@
       if (result === 'win') chips += bet * 2;
       else if (result === 'blackjack') chips += Math.floor(bet * 2.5);
       else if (result === 'push') chips += bet;
+      if (chips > peakChips) peakChips = chips;
+      // T-186：筹码归零结算，记录本局峰值筹码（一次性幂等）
+      if (chips <= 0 && !_hsShown) {
+        _hsShown = true;
+        try {
+          var _tr = Common.HighScores.record('blackjack', peakChips);
+          var _el = (typeof document !== 'undefined') ? document.getElementById('top5Board') : null;
+          if (_el) { _el.style.display = 'block'; Common.HighScores.render('blackjack', _el, _tr, 'LOCAL TOP 5 · 峰值筹码'); }
+        } catch (e) {}
+      }
       if (typeof Juice !== 'undefined') {
         if (result === 'blackjack') { _fxBursts++; Juice.sfx('win'); Juice.achievement('🂡 黑杰克 BLACKJACK!'); Juice.burst(W / 2, H / 2, { color: COL.gold, n: 22, speed: 240 }); Juice.ring(W / 2, H / 2, { color: COL.gold, r1: 120 }); if (typeof Juice!=='undefined' && Juice.confetti && !_confettiFired) { _confettiFired = true; Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
         else if (result === 'win') { _fxBursts++; Juice.sfx('win'); Juice.burst(W / 2, H / 2, { color: COL.green, n: 16, speed: 220 }); Juice.popup(W / 2, H / 2, '+' + bet, COL.green, { size: 28, big: true }); if (typeof Juice!=='undefined' && Juice.confetti && !_confettiFired) { _confettiFired = true; Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
@@ -258,6 +271,11 @@
         return result;
       },
       getResult: function () { return result; },
+      // T-186：峰值筹码榜钩子
+      getPeakChips: function () { return peakChips; },
+      recordScore: function (v) { _hsShown = false; return Common.HighScores.record('blackjack', v); },
+      getTop5: function () { try { return Common.HighScores.read('blackjack'); } catch (e) { return []; } },
+      clearTop5: function () { try { Common.Storage.set('blackjack', 'top5', []); return true; } catch (e) { return false; } },
       getState: function () { return { phase: phase, chips: chips, bet: bet, result: result,
         player: player.map(function (c) { return c.r; }), dealer: dealer.map(function (c) { return c.r; }) }; },
       confettiFired: function () { return _confettiFired; },
