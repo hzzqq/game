@@ -104,6 +104,7 @@
   </div>
 
   <div id="msg"></div>
+  <div id="top5Board" style="margin-top:10px;display:none"></div>
   <div class="hint">点击手牌选中 → 按「出」打牌。可「碰」/「胡」时按钮亮起。胡 = 4 面子 + 1 将（对子）。</div>
 
   <div id="overlay">
@@ -199,6 +200,7 @@ let messageText='';
 
 /* 胜利/完成特效：仅渲染层，受 Juice 存在性守卫（confetti 在桩环境为 no-op）。_confettiFired 保证整局仅庆祝一次（纯视觉，不改判定）。 */
 let _confettiFired=false;
+let _winCounted=false;   // T-189：本局胜局是否已计数
 function celebrate(){ if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
 function discardFx(){ if(typeof Juice!=='undefined' && Juice.spawnParticle) Juice.spawnParticle(window.innerWidth/2, window.innerHeight*0.72, {color:'#e6edf3', n:6}); }
 
@@ -214,7 +216,7 @@ function newGame(){
   hands=[[],[],[],[]];
   melds=[0,0,0,0];
   discards=[];
-  currentPlayer=0; selected=null; drawnTile=null; over=false; _confettiFired=false;
+  currentPlayer=0; selected=null; drawnTile=null; over=false; _confettiFired=false; _winCounted=false;
   claimPhase=false; pendingDiscard=null; pendingDiscarder=null; humanSelfWin=false;
   for(let i=0;i<13;i++) for(let p=0;p<4;p++) hands[p].push(wall.pop());
   for(let p=0;p<4;p++) hands[p].sort((a,b)=>a-b);
@@ -306,6 +308,15 @@ function nextTurn(d){ if(over) return; currentPlayer=(d+1)%4; startTurn(currentP
 function winGame(p, type){
   over=true;
   const human = (p===0);
+  // T-189：本地玩家胡牌累计 +1（一次性幂等）
+  if(human && !_winCounted){
+    _winCounted=true;
+    try {
+      Common.HighScores.recordWin('mahjong');
+      const _el=document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('mahjong', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
   showOverlay((human?'你赢了':'玩家'+(p+1)+' 胜'), type==='自摸' ? '自摸 (self-draw)' : '点炮胡 (ron)');
   msg((human?'你胡了 ('+type+')':'玩家'+(p+1)+' 胡 ('+type+')'));
   if(typeof Juice!=='undefined'){
@@ -433,7 +444,11 @@ function hideOverlay(){ const o=document.getElementById('overlay'); if(o) o.styl
     canFormMelds, canWin, mostIsolated,
     tileLabel, tileClass,
     triggerWinEffect:celebrate, winGame, newGame,
-    get confettiFired(){ return _confettiFired; }
+    get confettiFired(){ return _confettiFired; },
+    // T-189：累计胜局钩子
+    getWinCount(){ try{ return Common.HighScores.readWin('mahjong'); }catch(e){ return 0; } },
+    recordWin(){ _winCounted=false; return Common.HighScores.recordWin('mahjong'); },
+    clearWinCount(){ try{ Common.Storage.set('mahjong','wincount',0); return true; }catch(e){ return false; } }
   };
 
   newGame();

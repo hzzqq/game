@@ -46,6 +46,7 @@
       <button id="new" class="ghost">新局 NEW</button>
     </div>
     <div class="msg" id="msg">4 人各 13 张：出单张或一对，跟同型更大牌；都过则赢家领出。先出完手牌者胜（黑桃 2 最大）。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">大老二（Big Two）：含 2 的最大牌序，组合单/对，跟牌须同型更大；先把手牌出光者获胜。</div>
 
@@ -57,6 +58,7 @@
   "use strict";
   const SUITS=['♣','♦','♥','♠']; // ♣<♦<♥<♠（黑桃最大）
   let hands, turn, lead, lastWinner, passes, over, winner, sel;
+  let _winCounted=false;   // T-189：本局胜局是否已计数
   let _confettiFired=false;
   let _fxShakes=0, _fxBursts=0; // 手感计数器：屏震/粒子触发次数（仅视觉反馈，不影响玩法）
   function setRand(fn){ _rand=fn||Math.random; } let _rand=Math.random;
@@ -84,7 +86,7 @@
     const d=[]; for(let s=0;s<4;s++) for(let r=1;r<=13;r++) d.push({s,r});
     for(let i=d.length-1;i>0;i--){ const j=Math.floor((_rand||Math.random)()*(i+1)); const t=d[i];d[i]=d[j];d[j]=t; }
     hands=[[],[],[],[]]; for(let i=0;i<52;i++) hands[i%4].push(d[i]);
-    turn=0; lead=null; lastWinner=0; passes=0; over=false; winner=null; sel=[]; _confettiFired=false; _fxShakes=0; _fxBursts=0;
+    turn=0; lead=null; lastWinner=0; passes=0; over=false; winner=null; sel=[]; _confettiFired=false; _fxShakes=0; _fxBursts=0; _winCounted=false;
   }
   function play(player, combo){
     if(over) return false;
@@ -108,6 +110,15 @@
       if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight/2, {color:'#f0b90b', n:16});
     }
     if(hands[player].length===0){ over=true; winner=player; Juice.sfx('win'); Juice.flash('#02c076', .5);
+      // T-189：本地玩家（P0）先出完手牌累计 +1（一次性幂等）
+      if(player===0 && !_winCounted){
+        _winCounted=true;
+        try {
+          Common.HighScores.recordWin('bigtwo');
+          var _el=document.getElementById('top5Board');
+          if(_el){ _el.style.display='block'; Common.HighScores.renderWin('bigtwo', _el, '🏆 LOCAL WINS · 累计胜局'); }
+        } catch(e){}
+      }
       _fxShakes++;
       if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5);
       _fxBursts++;
@@ -199,7 +210,11 @@
   if(typeof window!=='undefined'){
     window.__t={ SUITS, rankVal, suitVal, comboOf, higher, newGame, play, isWin, getWinner, getTurn, getHands, setHands, setRand,
       DIFFICULTY, setDifficulty, getDifficulty, legalCombos, aiChoose, aiTurn, stepBots, confettiFired: ()=>_confettiFired,
-      fxShakes: ()=>_fxShakes, fxBursts: ()=>_fxBursts };
+      fxShakes: ()=>_fxShakes, fxBursts: ()=>_fxBursts,
+      // T-189：累计胜局钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('bigtwo'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('bigtwo'); },
+      clearWinCount(){ try{ Common.Storage.set('bigtwo','wincount',0); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

@@ -57,6 +57,7 @@
       <button id="new" class="ghost">新局 NEW</button>
     </div>
     <div class="msg" id="msg">传牌阶段：选 3 张传给左手；出牌阶段：跟花色，红心未破不能首攻红心。吃红心与♠Q 扣分，全收则转 26 分给三家。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">拱猪（Hearts）：4 人各 13 张，每墩同花色最大者赢；避免吃红心（各 1 分）与 ♠Q（13 分）；若一人全收 26 分，改为其余三家各 26 分。</div>
 
@@ -115,11 +116,12 @@
   // ---- 状态 ----
   let hands, phase, current, trick, leadSuit, heartsBroken, tricksPlayed, taken, scores, passed, sel, lastSeed, lastRoundCards;
   let _confettiFired=false;
+  let _winCounted=false;   // T-189：本局胜局是否已计数
 
   function freshState(){
     hands=[[],[],[],[]]; phase='pass'; current=0; trick=[]; leadSuit=null;
     heartsBroken=false; tricksPlayed=0; taken=[[],[],[],[]];
-    scores=[0,0,0,0]; passed=[null,null,null,null]; sel=[]; lastRoundCards=0; _confettiFired=false;
+    scores=[0,0,0,0]; passed=[null,null,null,null]; sel=[]; lastRoundCards=0; _confettiFired=false; _winCounted=false;
     _fxShakes=0; _fxBursts=0;
   }
 
@@ -272,6 +274,15 @@
     if(scores.some(s=>s>=100)){
       phase='over';
       if(J) J.sfx('levelup');
+      // T-189：本地玩家（P0）分数最低即胜，累计 +1（一次性幂等）
+      if(scores[0]===Math.min.apply(null, scores) && !_winCounted){
+        _winCounted=true;
+        try {
+          Common.HighScores.recordWin('hearts');
+          var _el=$('top5Board');
+          if(_el){ _el.style.display='block'; Common.HighScores.renderWin('hearts', _el, '🏆 LOCAL WINS · 累计胜局'); }
+        } catch(e){}
+      }
       if(scores[0]===Math.min.apply(null, scores) && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     } else {
       deal();
@@ -455,6 +466,10 @@
       setRand, newGame, reset, getState, legalMoves, playCard, step,
       passCards, aiChoose, winnerOfTrick, scoreRound, playRound, getScores, isOver, setHands, setScores, gameOver, confettiFired: ()=>_confettiFired,
       fxShakes: () => _fxShakes, fxBursts: () => _fxBursts,
+      // T-189：累计胜局钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('hearts'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('hearts'); },
+      clearWinCount(){ try{ Common.Storage.set('hearts','wincount',0); return true; }catch(e){ return false; } },
       DIFFICULTY, setDifficulty, getDifficulty
     };
   }

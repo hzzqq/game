@@ -60,6 +60,7 @@
       <button id="new" class="ghost">新局 NEW</button>
     </div>
     <div class="msg" id="msg">叫牌阶段：填入叫墩数（0-13）点确认；出牌阶段：跟花色，黑桃为将，黑桃未破不能首攻黑桃。完成叫数 +10/墩，超叫 +1/墩(记 bag)，欠叫 -10/墩。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">黑桃（Spades）：4 人各 13 张，先叫墩数；黑桃为将牌，最大将牌赢墩。完成叫数得 10×叫数 + 超叫墩(bag)；欠叫扣 10×叫数；bag 累计 10 个扣 100 分。</div>
 
@@ -97,11 +98,12 @@
 
   let hands, phase, current, trick, leadSuit, spadesBroken, tricksPlayed, won, bids, scores, bags, sel, lastSeed, lastRoundCards;
   let _won=false, _confettiFired=0;
+  let _winCounted=false;   // T-189：本局胜局是否已计数
 
   function freshState(){
     hands=[[],[],[],[]]; phase='bid'; current=0; trick=[]; leadSuit=null;
     spadesBroken=false; tricksPlayed=0; won=[0,0,0,0]; bids=[null,null,null,null];
-    scores=[0,0,0,0]; bags=[0,0,0,0]; sel=[]; lastRoundCards=0; _won=false; _confettiFired=0;
+    scores=[0,0,0,0]; bags=[0,0,0,0]; sel=[]; lastRoundCards=0; _won=false; _confettiFired=0; _winCounted=false;
   }
   function deal(){
     const d=[]; for(let c=0;c<52;c++) d.push(c);
@@ -238,6 +240,15 @@
     if(scores.some(s=>s>=500)){
       phase='over';
       if(scores[0] >= 500 && scores[0] >= Math.max.apply(null, scores)){
+        // T-189：本地玩家达 500 分且最高即胜，累计 +1（一次性幂等）
+        if(!_winCounted){
+          _winCounted=true;
+          try {
+            Common.HighScores.recordWin('spades');
+            var _el=$('top5Board');
+            if(_el){ _el.style.display='block'; Common.HighScores.renderWin('spades', _el, '🏆 LOCAL WINS · 累计胜局'); }
+          } catch(e){}
+        }
         if(!_won){ _won=true; _confettiFired++;
           if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
           if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30});
@@ -355,6 +366,10 @@
       setRand, newGame, reset, getState, legalMoves, playCard, bid, aiBid,
       winnerOfTrick, roundScore, step, getScores, getBags, isOver, setHands,
       forceWin: function(){ scores[0]=500; endRound(); },
+      // T-189：累计胜局钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('spades'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('spades'); },
+      clearWinCount(){ try{ Common.Storage.set('spades','wincount',0); return true; }catch(e){ return false; } },
       confettiFired: function(){ return _confettiFired; }
     };
   }
