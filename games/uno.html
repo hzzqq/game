@@ -82,6 +82,7 @@
     </div>
   </div>
   <div class="seats" id="seats"></div>
+  <div id="top5Board" style="margin-top:8px;display:none"></div>
   <div class="center">
     <div class="pile deck" id="deck">🂠</div>
     <div class="pileinfo">
@@ -122,6 +123,7 @@
   let N=4;
   let deck, hands, discard, currentColor, currentValue, current, dir, gameOver, waitingColor, pending;
   let _wonPrev=false, _confettiFired=0;
+  let _winCounted=false;   // T-187：本局胜局是否已计数
 
   function buildDeck(){
     const d=[]; const cols=['r','g','b','y'];
@@ -141,7 +143,7 @@
     if(first.color==='w'){ first.color='r'; } // 首张变色简化为红
     discard=[first]; currentColor=first.color; currentValue=(first.value==='wild'||first.value==='wild4')?null:first.value;
     current=0; dir=1; gameOver=false; waitingColor=false; pending=null;
-    _wonPrev=false; _confettiFired=0;
+    _wonPrev=false; _confettiFired=0; _winCounted=false;
     hideOverlay(); document.getElementById('colorPick').style.display='none';
     render();
     if(typeof Juice!=='undefined') Juice.sfx('click');
@@ -231,6 +233,15 @@
     gameOver=true;
     const ov=document.getElementById('overlay');
     const youWin = (winner===0);
+    // T-187：本地玩家获胜累计 +1（一次性幂等）
+    if(youWin && !_winCounted){
+      _winCounted = true;
+      try {
+        Common.HighScores.recordWin('uno');
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderWin('uno', _el, '🏆 LOCAL WINS · 累计胜局'); }
+      } catch(e){}
+    }
     document.getElementById('ovTitle').textContent = youWin?'你赢了！':'P'+(winner+1)+' 获胜';
     document.getElementById('ovTitle').style.color = youWin?GREEN:RED;
     document.getElementById('ovText').textContent = youWin?'你率先出完所有手牌。':('P'+(winner+1)+' 先出完，下局加油。');
@@ -321,7 +332,11 @@
     hand(p){ return hands[p].map(function(c){ return {color:c.color, value:c.value}; }); },
     get gameOver(){ return gameOver; },
     forceWin: function(){ endGame(0); },
-    confettiFired: function(){ return _confettiFired; }
+    confettiFired: function(){ return _confettiFired; },
+    // T-187：累计胜局钩子
+    getWinCount(){ try{ return Common.HighScores.readWin('uno'); }catch(e){ return 0; } },
+    recordWin(){ _winCounted=false; return Common.HighScores.recordWin('uno'); },
+    clearWinCount(){ try{ Common.Storage.set('uno','wincount',0); return true; }catch(e){ return false; } }
   };
 })();
 </script>

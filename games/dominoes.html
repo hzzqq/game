@@ -52,6 +52,7 @@
       <button id="new" class="ghost">新局 NEW</button>
     </div>
     <div class="msg" id="msg">轮流把双数骨牌接在棋链两端（点数要匹配）。手牌出完即胜；都接不上则点数少者胜。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">西洋骨牌（Block Dominoes）：双六套 28 张，接龙玩法，先出完手牌或终局点数少者赢。</div>
 
@@ -65,6 +66,7 @@
   var _randFn = Math.random;
   function setRand(fn){ _randFn = fn || Math.random; }
   let hands, line, turn, over, winner, passed;
+  let _winCounted = false;   // T-187：本局胜局是否已计数
   let _confettiFired=false;
   let _fxShakes = 0, _fxBursts = 0;   // 手感计数钩子（只读，测试用）
   // 胜利/完成特效：仅渲染层，受 Juice 存在性守卫（confetti 在桩环境为 no-op）
@@ -77,7 +79,7 @@
     for(let a=0;a<=6;a++) for(let b=a;b<=6;b++) d.push([a,b]);
     return Common.shuffle(d, _randFn);
   }
-  function newGame(){ const deck=buildDeck(); hands=[deck.slice(0,7),deck.slice(7,14)]; line=[]; turn=0; over=false; winner=null; passed=0; _confettiFired=false; _fxShakes=0; _fxBursts=0; }
+  function newGame(){ const deck=buildDeck(); hands=[deck.slice(0,7),deck.slice(7,14)]; line=[]; turn=0; over=false; winner=null; passed=0; _confettiFired=false; _fxShakes=0; _fxBursts=0; _winCounted=false; }
   function leftEnd(){ return line.length?line[0][0]:null; }
   function rightEnd(){ return line.length?line[line.length-1][1]:null; }
   function canPlace(tile){
@@ -108,7 +110,7 @@
     passed=0;
     if(typeof Juice!=='undefined'){ Juice.sfx('hit'); _fxShakes++; Juice.addTrauma(.2); _fxBursts++; Juice.burst(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:8}); Juice.popup(window.innerWidth/2, window.innerHeight*0.5, a+'-'+b, '#f0b90b', {size:14}); }
     placeFx(a,b);
-    if(hands[turn].length===0){ over=true; winner=turn; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } celebrate(); return true; }
+    if(hands[turn].length===0){ over=true; winner=turn; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } celebrate(); recordLocalWin(); return true; }
     turn = turn===0?1:0;
     return true;
   }
@@ -117,7 +119,7 @@
     if(canPlaceAny()) return false;
     if(typeof Juice!=='undefined') Juice.sfx('click');
     passed++; turn = turn===0?1:0;
-    if(passed>=2){ over=true; const p0=hands[0].reduce((s,t)=>s+t[0]+t[1],0), p1=hands[1].reduce((s,t)=>s+t[0]+t[1],0); winner = p0<p1?0:(p1<p0?1:'draw'); if(winner!=='draw' && typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } if(winner!=='draw') celebrate(); }
+    if(passed>=2){ over=true; const p0=hands[0].reduce((s,t)=>s+t[0]+t[1],0), p1=hands[1].reduce((s,t)=>s+t[0]+t[1],0); winner = p0<p1?0:(p1<p0?1:'draw'); if(winner!=='draw' && typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); } if(winner!=='draw'){ celebrate(); recordLocalWin(); } }
     return true;
   }
   function pips(p){ return hands[p].reduce((s,t)=>s+t[0]+t[1],0); }
@@ -126,7 +128,18 @@
   function getTurn(){ return turn; }
   function isOver(){ return over; }
   function getWinner(){ return winner; }
-  function setHands(h0,h1){ hands=[h0.map(t=>t.slice()),h1.map(t=>t.slice())]; line=[]; turn=0; over=false; winner=null; passed=0; }
+  function setHands(h0,h1){ hands=[h0.map(t=>t.slice()),h1.map(t=>t.slice())]; line=[]; turn=0; over=false; winner=null; passed=0; _winCounted=false; }
+
+  // T-187：本地对局分出胜负时累计 +1（双人热座，任一方胜都算；平局不计）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted = true;
+    try {
+      Common.HighScores.recordWin('dominoes');
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('dominoes', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function tileHTML(t){ return '<div class="tile"><div>'+t[0]+'</div><div>'+t[1]+'</div></div>'; }
   function render(){
@@ -153,7 +166,11 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ setRand, newGame, place, pass, canPlace, canPlaceAny, getHands, getLine, getTurn, isOver, getWinner, pips, leftEnd, rightEnd, setHands, triggerWinEffect:celebrate, confettiFired:()=>_confettiFired, fxShakes:()=>_fxShakes, fxBursts:()=>_fxBursts };
+    window.__t={ setRand, newGame, place, pass, canPlace, canPlaceAny, getHands, getLine, getTurn, isOver, getWinner, pips, leftEnd, rightEnd, setHands, triggerWinEffect:celebrate, confettiFired:()=>_confettiFired, fxShakes:()=>_fxShakes, fxBursts:()=>_fxBursts,
+      // T-187：累计胜局钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('dominoes'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('dominoes'); },
+      clearWinCount(){ try{ Common.Storage.set('dominoes','wincount',0); return true; }catch(e){ return false; } } };
   }
 })();
 </script>
