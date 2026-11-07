@@ -61,6 +61,7 @@
       <button id="new" class="ghost">新局 NEW</button>
     </div>
     <div class="msg" id="msg">发 6 张、切牌；各弃 2 张进庄家 crib。出牌阶段轮流出牌，凑 15/对子/顺子得分，满 31 得分；最后亮手牌+切牌计分。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">克里比奇（Cribbage）：2 人，发 6 弃 2 进 crib；出牌 peg（15=2、对子 2/三同 6/四同 12、顺子 3+、31=2、最后牌 1）；亮牌计 15/对子/顺子/同花/knob。</div>
 
@@ -110,10 +111,11 @@
   let _confettiFired=false;
   let _fxShakes = 0, _fxBursts = 0;   // Juice 手感计数（只读钩子，测试可断言）
   let _lastSeed = 1;
+  let _winCounted = false;   // T-190：本局胜局是否已计数
 
   function freshState(){
     hands=[[],[]]; crib=[]; starter=-1; dealer=0; phase='discard';
-    playPile=[]; playTotal=0; current=0; peg=[0,0]; show=[0,0,0]; playedCount=0; lastToPlay=-1; _confettiFired=false; _fxShakes=0; _fxBursts=0;
+    playPile=[]; playTotal=0; current=0; peg=[0,0]; show=[0,0,0]; playedCount=0; lastToPlay=-1; _confettiFired=false; _fxShakes=0; _fxBursts=0; _winCounted=false;
   }
   function deal(){
     const d=[]; for(let c=0;c<52;c++) d.push(c);
@@ -267,6 +269,15 @@
     // 胜局屏震
     if(peg[0] > peg[1]){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.5); }
     if(peg[0]>peg[1] && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+    // T-190：本地玩家（P0）总分更高即胜，累计 +1（一次性幂等）
+    if(peg[0]>peg[1] && !_winCounted){
+      _winCounted=true;
+      try {
+        Common.HighScores.recordWin('cribbage');
+        var _el=$('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderWin('cribbage', _el, '🏆 LOCAL WINS · 累计胜局'); }
+      } catch(e){}
+    }
   }
 
   function step(){
@@ -406,6 +417,10 @@
       setRand, newGame, reset, getState, legalMoves, playCard, discard, go:doGo,
       scorePeg, scoreHand, scoreCrib, scoreShow, step, getScores, getPegScore, isOver, setup, confettiFired: ()=>_confettiFired,
       fxShakes: ()=>_fxShakes, fxBursts: ()=>_fxBursts,
+      // T-190：累计胜局钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('cribbage'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('cribbage'); },
+      clearWinCount(){ try{ Common.Storage.set('cribbage','wincount',0); return true; }catch(e){ return false; } },
       DIFFICULTY, setDifficulty, getDifficulty
     };
   }

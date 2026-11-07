@@ -45,6 +45,7 @@
       <button id="new" class="ghost">新局 NEW</button>
     </div>
     <div class="msg" id="msg">双方各翻一张：点数大者收走两张入自己牌堆底；相同则开战（各压 3 张再比）。谁先没钱谁输。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">战争（War）：经典比大小纸牌，平局加注再战，赢家通吃，耗光对手牌堆者获胜。</div>
 
@@ -59,6 +60,17 @@
   function setRand(fn){ _randFn = fn || Math.random; }
   let p1, p2, over, winner, last;
   let _wonPrev=false, _confettiFired=0;
+  let _winCounted=false;   // T-190：本局胜局是否已计数
+  // T-190：本地玩家（P1）耗尽对手牌堆累计 +1（一次性幂等）
+  function recordLocalWin(){
+    if(winner!==1 || _winCounted) return;
+    _winCounted=true;
+    try {
+      Common.HighScores.recordWin('war');
+      var _el=document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('war', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
 
   // ---- 注入：掉落道具/增益系统（纯反馈分支，不改核心玩法）----
   // 真实浏览器判定：node 测试 harness 的 navigator.userAgent 固定为 'node-test'
@@ -96,7 +108,7 @@
     for(let s=0;s<4;s++) for(let r=2;r<=14;r++) d.push({r:r});
     return Common.shuffle(d, _randFn);
   }
-  function newGame(){ const deck=buildDeck(); p1=deck.slice(0,26); p2=deck.slice(26); over=false; winner=null; last=null; pickups=[]; shield=0; rngPick=mk(0x7A5B3C1D); _wonPrev=false; _confettiFired=0; }
+  function newGame(){ const deck=buildDeck(); p1=deck.slice(0,26); p2=deck.slice(26); over=false; winner=null; last=null; pickups=[]; shield=0; rngPick=mk(0x7A5B3C1D); _wonPrev=false; _confettiFired=0; _winCounted=false; }
   function step(){
     if(over) return null;
     const pot=[];
@@ -117,19 +129,19 @@
       // 注入：翻牌掉落（仅真实游玩，局部 PRNG）
       if(IN_BROWSER && rngPick()<0.3) spawnPickupAt(150, 150);
       if(!p1.length||!p2.length){ over=true; winner=p1.length?1:2; }
-      if(over){ Juice.sfx('win'); Juice.flash('#02c076', .5); if(winner===1 && !_wonPrev){ _wonPrev=true; _confettiFired++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30}); } }
+      if(over){ Juice.sfx('win'); Juice.flash('#02c076', .5); recordLocalWin(); if(winner===1 && !_wonPrev){ _wonPrev=true; _confettiFired++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30}); } }
       else { Juice.sfx('hit'); Juice.addTrauma(.2); }
       return last;
     }
     over=true; winner = p1.length>p2.length?1:(p2.length>p1.length?2:'draw');
-    if(over){ Juice.sfx('win'); Juice.flash('#02c076', .5); if(winner===1 && !_wonPrev){ _wonPrev=true; _confettiFired++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30}); } }
+    if(over){ Juice.sfx('win'); Juice.flash('#02c076', .5); recordLocalWin(); if(winner===1 && !_wonPrev){ _wonPrev=true; _confettiFired++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30}); } }
     return last;
   }
   function getDecks(){ return { p1:p1.length, p2:p2.length }; }
   function getWinner(){ return winner; }
   function isOver(){ return over; }
   function getLast(){ return last; }
-  function setDecks(d1,d2){ p1=d1.map(c=>({...c})); p2=d2.map(c=>({...c})); over=false; winner=null; last=null; _wonPrev=false; _confettiFired=0; }
+  function setDecks(d1,d2){ p1=d1.map(c=>({...c})); p2=d2.map(c=>({...c})); over=false; winner=null; last=null; _wonPrev=false; _confettiFired=0; _winCounted=false; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
@@ -166,6 +178,10 @@
       collectPickup:(i)=>{ collectPickup(i); },
       getShield:()=>shield, setShield:(v)=>{shield=v;},
       confettiFired:()=>_confettiFired,
+      // T-190：累计胜局钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('war'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('war'); },
+      clearWinCount(){ try{ Common.Storage.set('war','wincount',0); return true; }catch(e){ return false; } },
     };
   }
 })();

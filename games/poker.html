@@ -83,6 +83,7 @@
       </div>
     </div>
     <div class="log" id="log"></div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="foot">你坐 0 号位（绿色高亮为当前行动者）。盲注 5/10，4 人桌，AI 按手牌强度决策。纯休闲，主池平分（简化版，忽略边池）。</div>
   </div>
 
@@ -160,6 +161,17 @@
   const NAMES = ['你','AI-北','AI-南','AI-东'];
   let players, deck, community, stage, pot, currentBet, minRaise, dealerIdx, toAct, handOver, busy, handCount;
   let _confettiFired=false;
+  let _winCounted=false;   // T-190：本手胜局是否已计数（每手重置）
+  // T-190：本地玩家（0 号位）赢下底池累计 +1（一次性幂等，每手一记）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted=true;
+    try {
+      Common.HighScores.recordWin('poker');
+      var _el=document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('poker', _el, '🏆 LOCAL WINS · 累计赢下底池'); }
+    } catch(e){}
+  }
 
   function freshPlayers(){
     const ps = [];
@@ -173,7 +185,7 @@
     players = freshPlayers();
     deck = shuffle(makeDeck());
     community = [];
-    pot = 0; currentBet = 0; minRaise = BB; handOver = false; busy = false; _confettiFired=false;
+    pot = 0; currentBet = 0; minRaise = BB; handOver = false; busy = false; _confettiFired=false; _winCounted=false;
     // 发底牌
     for(let i=0;i<4;i++){ players[i].hole = [deck.pop(), deck.pop()]; }
     // 庄家轮转（首局 0 号，之后 +1）
@@ -287,7 +299,7 @@
     const winner = activePlayers()[0];
     winner.chips += pot;
     winner._win = true;
-    if(winner.id===0 && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+    if(winner.id===0){ recordLocalWin(); if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
     handOver = true;
     if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('poker', players[0].chips); }
     logMsg('[' + winner.name + '] 赢下底池 ' + pot + '（其余弃牌）', 'me');
@@ -304,7 +316,7 @@
     });
     const share = Math.floor(pot/winners.length);
     winners.forEach(w=>{ w.chips += share; w._win = true; });
-    if(winners.some(w=>w.id===0) && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+    if(winners.some(w=>w.id===0)){ recordLocalWin(); if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
     const rem = pot - share*winners.length; if(rem>0 && winners[0]) winners[0].chips += rem;
     handOver = true;
     const names = winners.map(w=>w.name).join('、');
@@ -481,6 +493,10 @@
       isHandOver: () => handOver,
       getHandCount: () => handCount,
       setHandCount: (n) => { handCount = n; },
+      // T-190：累计赢下底池钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('poker'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('poker'); },
+      clearWinCount(){ try{ Common.Storage.set('poker','wincount',0); return true; }catch(e){ return false; } },
       // 测试辅助：直接设定局面
       setCommunity: (arr) => { community = arr; },
       setHole: (i, arr) => { players[i].hole = arr; },
