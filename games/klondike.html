@@ -50,6 +50,7 @@
     <div class="tableau" id="tableau"></div>
     <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
     <div class="msg" id="msg">点牌库发牌；点弃牌或列顶尝试收牌 / 接龙（红黑交替、降序）。四座收齐 A→K 即胜。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">经典纸牌接龙（Klondike）：7 列牌桌、4 座收牌堆，A→K 同花色收齐即通关。</div>
 
@@ -61,6 +62,8 @@
   "use strict";
   const SUITS=['♠','♥','♦','♣'];
   let stock, waste, foundations, tableau, over, won, _rand, _confettiFired;
+  let _startTs = 0;        // T-188：本局起始时间（用时榜）
+  let _hsShown = false;    // T-188：用时榜渲染幂等标志
   function setRand(fn){ _rand=fn; }
   function color(s){ return (s===1||s===2)?'red':'black'; }
   function newDeck(){ const d=[]; for(let s=0;s<4;s++) for(let r=1;r<=13;r++) d.push({s,r}); return d; }
@@ -69,7 +72,7 @@
     const deck=shuffle(newDeck());
     tableau=[[],[],[],[],[],[],[]];
     for(let c=0;c<7;c++){ for(let k=0;k<=c;k++){ tableau[c].push(deck.pop()); } }
-    stock=deck; waste=[]; foundations=[0,0,0,0]; over=false; won=false; _confettiFired=false;
+    stock=deck; waste=[]; foundations=[0,0,0,0]; over=false; won=false; _confettiFired=false; _startTs=Date.now(); _hsShown=false;
   }
   function canFoundation(card){ const f=foundations[card.s]; return f===0? card.r===1 : card.r===f+1; }
   function canTableau(card, col){ const t=tableau[col]; if(t.length===0) return card.r===13; const top=t[t.length-1]; return color(card.s)!==color(top.s) && card.r===top.r-1; }
@@ -78,11 +81,22 @@
   function moveTableauToFoundation(col){ if(!tableau[col].length) return false; const c=tableau[col][tableau[col].length-1]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; tableau[col].pop(); checkWin(); Juice.sfx('levelup'); Juice.addTrauma(.2); return true; }
   function moveTableauToTableau(from,to){ if(!tableau[from].length) return false; const c=tableau[from][tableau[from].length-1]; if(!canTableau(c,to)) return false; tableau[to].push(c); tableau[from].pop(); Juice.sfx('click'); Juice.addTrauma(.1); return true; }
   function draw(){ if(over) return; if(!stock.length){ if(!waste.length) return; while(waste.length) stock.push(waste.pop()); return; } waste.push(stock.pop()); Juice.sfx('click'); Juice.addTrauma(.1); }
-  function checkWin(){ won = foundations.every(f=>f===13); if(won){ over=true; Juice.sfx('win'); Juice.flash('#02c076',.5); if(!_confettiFired){ _confettiFired=true; if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } }
+  function checkWin(){ won = foundations.every(f=>f===13); if(won){ over=true; Juice.sfx('win'); Juice.flash('#02c076',.5);
+    // T-188：通关记录用时（越短越好），一次性幂等
+    if(!_hsShown){
+      _hsShown = true;
+      try {
+        var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+        var _tr = Common.HighScores.recordTime('klondike', _sec);
+        var _el = document.getElementById('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderTime('klondike', _el, _tr); }
+      } catch(e){}
+    }
+    if(!_confettiFired){ _confettiFired=true; if (typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } } }
   function isWin(){ return won || foundations.every(f=>f===13); }
   function foundationsCount(){ return foundations.reduce((a,b)=>a+b,0); }
   function getState(){ return { stock:stock.length, waste:waste.map(c=>({...c})), foundations:foundations.slice(), tableau:tableau.map(t=>t.map(c=>({...c}))), over, won }; }
-  function setTableau(t,f,s,w){ const COLS=7; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f.slice(); stock=(s||[]).map(c=>({...c})); waste=(w||[]).map(c=>({...c})); over=false; won=false; _confettiFired=false; }
+  function setTableau(t,f,s,w){ const COLS=7; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f.slice(); stock=(s||[]).map(c=>({...c})); waste=(w||[]).map(c=>({...c})); over=false; won=false; _confettiFired=false; _startTs=Date.now(); _hsShown=false; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function cardHTML(c){ if(!c) return '<div class="slot empty">·</div>'; const nm=c.r===1?'A':c.r===11?'J':c.r===12?'Q':c.r===13?'K':c.r; return '<div class="slot '+(color(c.s)==='red'?'red':'black')+'">'+nm+SUITS[c.s]+'</div>'; }
   function build(){
@@ -115,7 +129,10 @@
   }
   if(typeof window!=='undefined'){
     window.__t={ SUITS, color, newGame, newDeck, canFoundation, canTableau, moveWasteToFoundation, moveWasteToTableau, moveTableauToFoundation, moveTableauToTableau, draw, isWin, foundationsCount, getState, setTableau, setRand,
-      get confettiFired(){ return _confettiFired; } };
+      get confettiFired(){ return _confettiFired; },
+      // T-188：最短用时榜钩子
+      getTop5Time(){ try{ return Common.HighScores.readTime('klondike'); }catch(e){ return []; } },
+      clearTop5Time(){ try{ Common.Storage.set('klondike','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

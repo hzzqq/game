@@ -41,6 +41,7 @@
       <button id="new" class="ghost">新局 NEW</button>
     </div>
     <div class="msg" id="msg">同花色 K→A 整列自动收走。点列顶把牌移到相邻列（目标比它大 1 即可，花色不限）。集满 8 套通关。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">蜘蛛纸牌（Spider，双色版）：104 张牌 10 列，降序接龙，同花色完整顺子自动收入 8 座。</div>
 
@@ -52,6 +53,8 @@
   "use strict";
   const SUITS=['♠','♥'];
   let tableau, stock, foundations, over, won, _rand;
+  let _startTs = 0;        // T-188：本局起始时间（用时榜）
+  let _hsShown = false;    // T-188：用时榜渲染幂等标志
   let _wonPrev=false, _confettiFired=0;
   function setRand(fn){ _rand=fn; }
   function color(s){ return s===1?'red':'black'; }
@@ -61,20 +64,20 @@
     const deck=shuffle(newDeck());
     tableau=[[],[],[],[],[],[],[],[],[],[]];
     for(let c=0;c<10;c++){ const n=(c<4)?6:5; for(let k=0;k<n;k++) tableau[c].push(deck.pop()); }
-    stock=deck; foundations=0; over=false; won=false; _wonPrev=false; _confettiFired=0;
+    stock=deck; foundations=0; over=false; won=false; _wonPrev=false; _confettiFired=0; _startTs=Date.now(); _hsShown=false;
   }
   function canStack(card, col){ const t=tableau[col]; if(t.length===0) return true; return t[t.length-1].r === card.r+1; }
   function moveToColumn(from,to){ if(from===to) return false; if(!tableau[from].length) return false; const c=tableau[from][tableau[from].length-1]; if(!canStack(c,to)) return false; tableau[to].push(c); tableau[from].pop(); settle(); return true; }
   function settle(){
     for(let c=0;c<10;c++){ const t=tableau[c]; if(t.length<13) continue; let ok=true; const suit=t[t.length-1].s;
       for(let k=0;k<13;k++){ const card=t[t.length-1-k]; if(card.r!==(1+k) || card.s!==suit){ ok=false; break; } }
-      if(ok){ t.splice(t.length-13,13); foundations++; if(foundations>=8){ over=true; won=true; if(!_wonPrev){ _wonPrev=true; _confettiFired++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30}); } Juice.sfx('win'); Juice.flash('#02c076',.5); } else { Juice.sfx('pickup'); } }
+      if(ok){ t.splice(t.length-13,13); foundations++; if(foundations>=8){ over=true; won=true; if(won && !_hsShown){ _hsShown=true; try{ var _sec=Math.max(0,Math.round((Date.now()-_startTs)/1000)); var _tr=Common.HighScores.recordTime('spider', _sec); var _el=$('top5Board'); if(_el){ _el.style.display='block'; Common.HighScores.renderTime('spider', _el, _tr); } }catch(e){} } if(!_wonPrev){ _wonPrev=true; _confettiFired++; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.3, {color:'#02c076', n:30}); } Juice.sfx('win'); Juice.flash('#02c076',.5); } else { Juice.sfx('pickup'); } }
     }
   }
   function dealOne(){ if(over||!stock.length) return false; for(let c=0;c<10;c++){ if(!stock.length) break; if(tableau[c].length) tableau[c].push(stock.pop()); } return true; }
   function isWin(){ return won || foundations>=8; }
   function getState(){ return { tableau:tableau.map(t=>t.map(c=>({...c}))), stock:stock.length, foundations, over, won }; }
-  function setTableau(t,f,s){ const COLS=10; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f||0; stock=(s||[]).map(c=>({...c})); over=false; won=false; _wonPrev=false; _confettiFired=0; }
+  function setTableau(t,f,s){ const COLS=10; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f||0; stock=(s||[]).map(c=>({...c})); over=false; won=false; _wonPrev=false; _confettiFired=0; _startTs=Date.now(); _hsShown=false; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function cardHTML(c){ if(!c) return '<div class="slot empty">·</div>'; const nm=c.r===1?'A':c.r===11?'J':c.r===12?'Q':c.r===13?'K':c.r; return '<div class="slot '+(color(c.s))+'">'+nm+SUITS[c.s]+'</div>'; }
   function build(){
@@ -103,7 +106,10 @@
   }
   if(typeof window!=='undefined'){
     window.__t={ SUITS, color, newGame, newDeck, canStack, moveToColumn, settle, dealOne, isWin, getState, setTableau, setRand,
-      confettiFired: function(){ return _confettiFired; } };
+      confettiFired: function(){ return _confettiFired; },
+      // T-188：最短用时榜钩子
+      getTop5Time(){ try{ return Common.HighScores.readTime('spider'); }catch(e){ return []; } },
+      clearTop5Time(){ try{ Common.Storage.set('spider','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

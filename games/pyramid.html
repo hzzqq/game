@@ -46,6 +46,7 @@
     </div>
     <div class="controls"><button id="draw">翻基准 DRAW</button><button id="new" class="ghost">新局 NEW</button></div>
     <div class="msg" id="msg">点亮的牌是与「基准牌」点数相差 1 的牌，点击即可消除并顶替为新的基准牌；无可消时翻牌库。消掉整座金字塔即胜。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">金字塔纸牌（Pyramid，自定义规则）：底层可消牌须与基准牌点数相差 1；消除后该牌成为新基准。清空金字塔即通关。</div>
 
@@ -64,6 +65,8 @@
   const TOTAL = ROWS*(ROWS+1)/2;
 
   let pyramid, base, stock, removed, over, won, _confettiFired=false;
+  let _startTs = 0;        // T-188：本局起始时间（用时榜）
+  let _hsShown = false;    // T-188：用时榜渲染幂等标志
 
   function rankName(r){ return r===1?'A':r===11?'J':r===12?'Q':r===13?'K':String(r); }
   function color(s){ return s===1?'red':'black'; }
@@ -76,14 +79,14 @@
     for(let r=0;r<ROWS;r++){ const row=[]; for(let c=0;c<=r;c++) row.push({ s:deck[k].s, r:deck[k].r, removed:false }); k++; pyramid.push(row); }
     base = deck[k++];
     stock = deck.slice(k);
-    removed=0; over=false; won=false; _confettiFired=false;
+    removed=0; over=false; won=false; _confettiFired=false; _startTs=Date.now(); _hsShown=false;
   }
 
   function setPyramid(rows, baseCard, stockCards){
     pyramid = rows.map(row=>row.map(c=>({ s:c.s, r:c.r, removed:false })));
     base = baseCard ? {s:baseCard.s, r:baseCard.r} : null;
     stock = (stockCards||[]).map(c=>({s:c.s, r:c.r}));
-    removed=0; over=false; won=false; _confettiFired=false;
+    removed=0; over=false; won=false; _confettiFired=false; _startTs=Date.now(); _hsShown=false;
     if(typeof document!=='undefined'){ build(); render(); }
   }
 
@@ -101,7 +104,18 @@
     if(Math.abs(pyramid[r][c].r - base.r) !== 1) return false;
     pyramid[r][c].removed=true; removed++;
     base = { s:pyramid[r][c].s, r:pyramid[r][c].r };
-    if(removed===pyramidTotal()){ over=true; won=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('金字塔通关'); } if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } render(); return true; }
+    if(removed===pyramidTotal()){ over=true; won=true;
+      // T-188：清空金字塔记录用时（越短越好），一次性幂等
+      if(!_hsShown){
+        _hsShown = true;
+        try {
+          var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+          var _tr = Common.HighScores.recordTime('pyramid', _sec);
+          var _el = $('top5Board');
+          if(_el){ _el.style.display='block'; Common.HighScores.renderTime('pyramid', _el, _tr); }
+        } catch(e){}
+      }
+      if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.achievement('金字塔通关'); } if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } render(); return true; }
     if(typeof Juice!=='undefined') Juice.sfx('pickup');
     render(); return true;
   }
@@ -162,7 +176,10 @@
   newGame();
   if(typeof document!=='undefined'){ build(); bindUI(); render(); }
   if(typeof window!=='undefined'){
-    window.__t={ SUITS, ROWS, TOTAL, setSeed, newGame, setPyramid, remove, drawBase, free, getState, rankName, confettiFired:function(){ return _confettiFired; } };
+    window.__t={ SUITS, ROWS, TOTAL, setSeed, newGame, setPyramid, remove, drawBase, free, getState, rankName, confettiFired:function(){ return _confettiFired; },
+      // T-188：最短用时榜钩子
+      getTop5Time(){ try{ return Common.HighScores.readTime('pyramid'); }catch(e){ return []; } },
+      clearTop5Time(){ try{ Common.Storage.set('pyramid','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

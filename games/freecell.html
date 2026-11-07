@@ -51,6 +51,7 @@
     <div class="tableau" id="tableau"></div>
     <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
     <div class="msg" id="msg">4 个自由格 + 8 列牌桌：红黑交替降序接龙，A→K 同花色收牌。利用自由格周转即可通关。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">空当接龙（FreeCell）：发牌即定胜负（理论上都可解），靠 4 个临时格调度，把整副牌收进 4 座。</div>
 
@@ -62,6 +63,8 @@
   "use strict";
   const SUITS=['♠','♥','♦','♣'];
   let tableau, free, foundations, over, won, _confettiFired, _rand;
+  let _startTs = 0;        // T-188：本局起始时间（用时榜）
+  let _hsShown = false;    // T-188：用时榜渲染幂等标志
   let _fxShakes = 0, _fxBursts = 0;
   function setRand(fn){ _rand=fn; }
   function color(s){ return (s===1||s===2)?'red':'black'; }
@@ -71,7 +74,7 @@
     const deck=shuffle(newDeck());
     tableau=[[],[],[],[],[],[],[],[]];
     for(let c=0;c<8;c++){ const n=(c<4)?7:6; for(let k=0;k<n;k++) tableau[c].push(deck.pop()); }
-    free=[null,null,null,null]; foundations=[0,0,0,0]; over=false; won=false; _confettiFired=false; _fxShakes=0; _fxBursts=0;
+    free=[null,null,null,null]; foundations=[0,0,0,0]; over=false; won=false; _confettiFired=false; _fxShakes=0; _fxBursts=0; _startTs=Date.now(); _hsShown=false;
   }
   function canFoundation(card){ const f=foundations[card.s]; return f===0? card.r===1 : card.r===f+1; }
   function canTableau(card, col){ const t=tableau[col]; if(t.length===0) return card.r===13; const top=t[t.length-1]; return color(card.s)!==color(top.s) && card.r===top.r-1; }
@@ -80,11 +83,24 @@
   function moveTableauToFree(col){ if(free.every(x=>x!==null)) return false; if(!tableau[col].length) return false; const c=tableau[col].pop(); const i=free.indexOf(null); free[i]=c; Juice.sfx('pickup'); return true; }
   function moveTableauToFoundation(col){ if(!tableau[col].length) return false; const c=tableau[col][tableau[col].length-1]; if(!canFoundation(c)) return false; foundations[c.s]=c.r; tableau[col].pop(); _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.6, {color:'#02c076', n:8}); checkWin(); Juice.sfx('hit'); Juice.addTrauma(.2); won && (Juice.sfx('win'), Juice.flash('#02c076',.5)); return true; }
   function moveTableauToTableau(from,to){ if(!tableau[from].length) return false; const c=tableau[from][tableau[from].length-1]; if(!canTableau(c,to)) return false; tableau[to].push(c); tableau[from].pop(); Juice.sfx('click'); return true; }
-  function checkWin(){ won = foundations.every(f=>f===13); if(won) over=true; if(won && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
+  function checkWin(){
+    won = foundations.every(f=>f===13); if(won) over=true;
+    // T-188：通关记录用时（越短越好），一次性幂等
+    if(won && !_hsShown){
+      _hsShown = true;
+      try {
+        var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+        var _tr = Common.HighScores.recordTime('freecell', _sec);
+        var _el = $('top5Board');
+        if(_el){ _el.style.display='block'; Common.HighScores.renderTime('freecell', _el, _tr); }
+      } catch(e){}
+    }
+    if(won && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+  }
   function isWin(){ return won || foundations.every(f=>f===13); }
   function foundationsCount(){ return foundations.reduce((a,b)=>a+b,0); }
   function getState(){ return { tableau:tableau.map(t=>t.map(c=>({...c}))), free:free.map(x=>x?{...x}:null), foundations:foundations.slice(), over, won }; }
-  function setTableau(t,f,fr){ const COLS=8; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f.slice(); free=(fr||[null,null,null,null]).slice(); over=false; won=false; _confettiFired=false; _fxShakes=0; _fxBursts=0; }
+  function setTableau(t,f,fr){ const COLS=8; let arr=(t||[]).map(col=>col.map(c=>({...c}))); while(arr.length<COLS) arr.push([]); tableau=arr; foundations=f.slice(); free=(fr||[null,null,null,null]).slice(); over=false; won=false; _confettiFired=false; _fxShakes=0; _fxBursts=0; _startTs=Date.now(); _hsShown=false; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function cardHTML(c){ if(!c) return '<div class="slot empty">·</div>'; const nm=c.r===1?'A':c.r===11?'J':c.r===12?'Q':c.r===13?'K':c.r; return '<div class="slot '+(color(c.s)==='red'?'red':'black')+'">'+nm+SUITS[c.s]+'</div>'; }
   function build(){
@@ -114,7 +130,10 @@
     else { build(); bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ SUITS, color, newGame, newDeck, canFoundation, canTableau, moveFreeToFoundation, moveFreeToTableau, moveTableauToFree, moveTableauToFoundation, moveTableauToTableau, isWin, foundationsCount, getState, setTableau, setRand, get confettiFired(){ return _confettiFired; }, fxShakes: () => _fxShakes, fxBursts: () => _fxBursts };
+    window.__t={ SUITS, color, newGame, newDeck, canFoundation, canTableau, moveFreeToFoundation, moveFreeToTableau, moveTableauToFree, moveTableauToFoundation, moveTableauToTableau, isWin, foundationsCount, getState, setTableau, setRand, get confettiFired(){ return _confettiFired; }, fxShakes: () => _fxShakes, fxBursts: () => _fxBursts,
+      // T-188：最短用时榜钩子
+      getTop5Time(){ try{ return Common.HighScores.readTime('freecell'); }catch(e){ return []; } },
+      clearTop5Time(){ try{ Common.Storage.set('freecell','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>
