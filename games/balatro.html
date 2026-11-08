@@ -47,6 +47,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>巴尔牌</b> BALATRO · 类小丑牌</span></div>
   <div class="wrap" id="screen"></div>
+  <div id="top5Board" style="margin-top:10px;display:none"></div>
   <div class="foot">Balatro（巴尔牌）：扑克构筑 roguelike。用手牌凑成德州牌型（对子/顺子/同花/四条…），基础筹码×倍率，再吃小丑牌的加成，在有限出手次数内凑够目标分数通关。</div>
 
 <script src="common.js"></script>
@@ -114,9 +115,21 @@
   // ---- run state ----
   let S=null;
   let _confettiFired = false;
+  let _winCounted = false;   // T-197：本局胜局是否已计数
+  // T-197：通关全部底注时累计胜局 +1（一次性幂等）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted = true;
+    try {
+      Common.HighScores.recordWin('balatro');
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('balatro', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
   let _fxShakes = 0, _fxBursts = 0;
   function newRun(){
     _confettiFired = false;
+    _winCounted = false;
     _fxShakes = 0; _fxBursts = 0;
     S={
       ante:1, blindIdx:0, target:0, bossDebuff:null,
@@ -208,7 +221,7 @@
     if(J){ J.sfx('win'); J.flash('#02c076', .5); }
     if(!_confettiFired){ _confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.32, {n:46}); }
     if(S.blindIdx===2){
-      if(S.ante>=MAXANTE){ S.won=true; if(!_confettiFired){ _confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.28, {n:160, life:2.6}); } S.screen='win'; return; }
+      if(S.ante>=MAXANTE){ S.won=true; recordLocalWin(); if(!_confettiFired){ _confettiFired=true; if(J&&J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.28, {n:160, life:2.6}); } S.screen='win'; return; }
       S.ante++; S.blindIdx=0;
     } else S.blindIdx++;
     S.reward={cards:shuffle(JOKER_IDS.slice()).slice(0,3)};
@@ -301,6 +314,10 @@
       chooseReward, skipReward,
       isOver:()=>S.over, isWin:()=>S.won,
       confettiFired:()=>_confettiFired,
+      // T-197：累计胜局钩子
+      getWinCount:()=>{ try{ return Common.HighScores.readWin('balatro'); }catch(e){ return 0; } },
+      recordWin:()=>{ _winCounted=false; return Common.HighScores.recordWin('balatro'); },
+      clearWinCount:()=>{ try{ Common.Storage.set('balatro','wincount',0); return true; }catch(e){ return false; } },
       fxShakes:()=>_fxShakes,
       fxBursts:()=>_fxBursts,
       // debug hooks

@@ -50,6 +50,7 @@ canvas{display:block;width:100%;height:auto;touch-action:none;image-rendering:pi
       <button class="btn-restart" id="restart">新局 / RESTART</button>
     </div>
   </div>
+  <div id="top5Board" style="margin-top:10px;display:none"></div>
   <div class="touch">
     <button class="btn" data-action="left">◀ 左</button>
     <button class="btn" data-action="right">右 ▶</button>
@@ -109,6 +110,17 @@ var ai=makeFighter(false);
 var pWins=0,aWins=0,round=1,phase='fight';
 var roundEndTimer=0,roundWinnerText='';
 var _confettiFired=false;   // 注入：胜利彩带只读锁（独立于 Juice，仅视觉状态）
+var _winCounted=false;      // T-197：本场胜局是否已计数
+// T-197：三局两胜拿下比赛时累计胜局 +1（一次性幂等）
+function recordLocalWin(){
+  if(_winCounted) return;
+  _winCounted=true;
+  try {
+    Common.HighScores.recordWin('fighting');
+    var _el=document.getElementById('top5Board');
+    if(_el){ _el.style.display='block'; Common.HighScores.renderWin('fighting', _el, '🏆 LOCAL WINS · 累计胜局'); }
+  } catch(e){}
+}
 var _fxShakes = 0, _fxBursts = 0;
 
 var held={left:false,right:false,block:false};
@@ -437,6 +449,7 @@ var loop = Common.Loop(function (now) {
 function showOverlay(){
   var o=document.getElementById('overlay');
   var win=pWins>=2;
+  if(win) recordLocalWin();
   document.getElementById('ovmsg').textContent = win?'你赢了 // YOU WIN':'你输了 // YOU LOSE';
   o.style.display='flex';
   if(typeof Juice!=='undefined'){
@@ -457,6 +470,7 @@ function restart(){
   pWins=0; aWins=0; round=1; phase='fight';
   resetFighter(player,200); resetFighter(ai,600);
   _confettiFired=false;   // 注入：重置胜利彩带锁
+  _winCounted=false;      // T-197：重置胜局计数锁
   _fxShakes = 0; _fxBursts = 0;
   hideOverlay();
 }
@@ -538,6 +552,10 @@ document.getElementById('restart').addEventListener('click',restart);
     // ---- 注入：胜利彩带只读/驱动钩子 ----
     confettiFired: function(){ return _confettiFired; },
     fxShakes: function(){ return _fxShakes; }, fxBursts: function(){ return _fxBursts; },
+    // T-197：累计胜局钩子
+    getWinCount(){ try{ return Common.HighScores.readWin('fighting'); }catch(e){ return 0; } },
+    recordWin(){ _winCounted=false; return Common.HighScores.recordWin('fighting'); },
+    clearWinCount(){ try{ Common.Storage.set('fighting','wincount',0); return true; }catch(e){ return false; } },
     win: function(){ pWins=2; phase='matchend'; showOverlay(); }
   };
 

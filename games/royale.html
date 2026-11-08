@@ -110,6 +110,7 @@
         <div class="c" id="buff" style="color:var(--gold)"></div>
       </div>
     </div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="stage">
       <canvas id="game"></canvas>
       <div id="overlay" class="overlay hidden">
@@ -178,6 +179,17 @@
     return [mk('king',xC,yk), mk('princess',xL,yp), mk('princess',xR,yp)];
   }
   let _confettiFired = false; // 摧毁敌方国王塔胜利 confetti 锁（独立于 Juice 的只读测试钩子）
+  let _winCounted = false;    // T-197：本局胜局是否已计数
+  // T-197：摧毁敌方国王塔获胜时累计胜局 +1（一次性幂等）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted = true;
+    try {
+      Common.HighScores.recordWin('royale');
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('royale', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
   function resetState(){
     state.units = [];
     state.towers = [].concat(makeTowers('me'), makeTowers('ai'));
@@ -192,7 +204,7 @@
     state.deckMe = DECK.slice(); state.deckAi = DECK.slice();
     state.selCard = null;
     state.time = 150;            // 比赛时长（秒）
-    state.over = false; state.win = false; _confettiFired = false;
+    state.over = false; state.win = false; _confettiFired = false; _winCounted = false;
     state.aiTimer = 2.2;
     hideOverlay();
     renderHand(); renderPips();
@@ -497,6 +509,7 @@
     if(state.over) return;
     state.over = true; state.result = result;
     if(result==='win'){
+      recordLocalWin();
       if(!_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(W/2, H*0.32, {n:140, life:2.6}); if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.7); }
     }
     showOverlay(result);
@@ -737,7 +750,11 @@
     setBoost: function(v){ state.boostTimer=v; },
     takeHit: function(dmg){ takeHit(dmg); },
     finish: finish,
-    confettiFired: function(){ return _confettiFired; }
+    confettiFired: function(){ return _confettiFired; },
+    // T-197：累计胜局钩子
+    getWinCount: function(){ try{ return Common.HighScores.readWin('royale'); }catch(e){ return 0; } },
+    recordWin: function(){ _winCounted=false; return Common.HighScores.recordWin('royale'); },
+    clearWinCount: function(){ try{ Common.Storage.set('royale','wincount',0); return true; }catch(e){ return false; } }
   };
 })();
 </script>

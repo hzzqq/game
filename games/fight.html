@@ -81,6 +81,8 @@
     <span class="t">TERMINAL // <b>FIGHT</b> · 拳皇式 1v1 格斗</span>
   </div>
 
+  <div id="top5Board" style="margin-top:10px;display:none"></div>
+
   <div id="hud">
     <div class="pcol p1">
       <div class="nm"><span>● PLAYER</span><span id="p1hp">100</span></div>
@@ -184,6 +186,17 @@
     var bannerTimer = 0, bannerText = '';
     var startTapped = false;
     var _confettiFired = false;
+    var _winCounted = false;   // T-197：本场胜局是否已计数
+    // T-197：三局两胜拿下比赛时累计胜局 +1（一次性幂等）
+    function recordLocalWin(){
+      if (_winCounted) return;
+      _winCounted = true;
+      try {
+        Common.HighScores.recordWin('fight');
+        var _el = document.getElementById('top5Board');
+        if (_el) { _el.style.display = 'block'; Common.HighScores.renderWin('fight', _el, '🏆 LOCAL WINS · 累计胜局'); }
+      } catch (e) {}
+    }
     var _fxShakes = 0, _fxBursts = 0;   // 手感计数钩子（只读，测试用）
 
     var player, cpu, projectiles, floats, items, itemTimer;
@@ -482,6 +495,7 @@
     // ---- round / match flow ----
     function beginMatch() {
       _confettiFired = false;
+      _winCounted = false;   // T-197：重置胜局计数锁
       _fxShakes = 0; _fxBursts = 0;
       pips = { p: 0, c: 0 }; roundNum = 1;
       hide(startOv); hide(matchOv); hide(pauseOv);
@@ -727,6 +741,7 @@
     function hide(el) { el.style.display = 'none'; }
     function showMatchOver() {
       var youWin = pips.p >= 2;
+      if (youWin) recordLocalWin();
       matchTitle.textContent = youWin ? 'YOU WIN' : 'CPU WINS';
       matchTitle.style.color = youWin ? '#02c076' : '#f6465d';
       matchSub.textContent = '回合 ' + pips.p + ' : ' + pips.c;
@@ -816,6 +831,10 @@
       setShake: function(v){ shake=v; },
       forceWin: winConfetti,
       confettiFired: () => _confettiFired,
+      // T-197：累计胜局钩子
+      getWinCount: function () { try { return Common.HighScores.readWin('fight'); } catch (e) { return 0; } },
+      recordWin: function () { _winCounted = false; return Common.HighScores.recordWin('fight'); },
+      clearWinCount: function () { try { Common.Storage.set('fight', 'wincount', 0); return true; } catch (e) { return false; } },
       fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
     };
 

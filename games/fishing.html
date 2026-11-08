@@ -34,6 +34,7 @@
     <div class="hud"><span>渔获 · <span class="st" id="sc">0</span></span><span>状态 · <span class="st" id="st">抛竿中</span></span><span>BUFF · <span class="st" id="buff">-</span></span></div>
     <canvas id="cv" width="400" height="240"></canvas>
     <div class="msg" id="msg">抛竿入水，当鱼钩附近有鱼咬钩时收线即可钓起。把池塘里的鱼尽量多钓上来。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="controls">
       <input id="x" placeholder="X" /><input id="y" placeholder="Y" />
       <button id="cast">抛竿 CAST</button>
@@ -54,8 +55,19 @@
   let pickups, shield, boostTimer, luckTimer, lives;
   let _confettiFired=false;
   let _fxShakes = 0, _fxBursts = 0;   // 手感计数钩子（只读，测试用）
+  let _hsShown = false;   // T-197：单局渔获榜幂等标志
+  // T-197：池塘鱼全部钓起时结算本局得分（越高越好），一次性幂等
+  function recordCatch(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _tr = Common.HighScores.record('fishing', Math.max(1, score));
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.render('fishing', _el, _tr, 'LOCAL TOP 5 · 单局渔获'); }
+    } catch(e){}
+  }
   const SCORE_MILESTONE=3;
-  function reset(){ fish=[{x:120,y:80,id:1},{x:260,y:150,id:2},{x:200,y:60,id:3}]; hook=null; score=0; pickups=[]; shield=0; boostTimer=0; luckTimer=0; lives=3; _confettiFired=false; _fxShakes=0; _fxBursts=0; }
+  function reset(){ fish=[{x:120,y:80,id:1},{x:260,y:150,id:2},{x:200,y:60,id:3}]; hook=null; score=0; pickups=[]; shield=0; boostTimer=0; luckTimer=0; lives=3; _confettiFired=false; _fxShakes=0; _fxBursts=0; _hsShown=false; }
   function setFish(arr){ fish=arr.map(f=>({x:f.x,y:f.y,id:f.id})); hook=null; score=0; }
   function castAt(x,y){ hook={x,y}; }
   function dist(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); }
@@ -70,7 +82,7 @@
     if(best){ fish=fish.filter(f=>f.id!==best.id); score++; maybeCelebrate();
       _fxShakes++; if(typeof Juice!=='undefined'){ Juice.sfx('hit'); Juice.addTrauma(.25); }
       _fxBursts++; if(typeof Juice!=='undefined'){ Juice.burst(hook.x,hook.y,{color:'#f0b90b',n:12}); Juice.popup(hook.x,hook.y,'+1','#f0b90b'); }
-      spawnPickupAtRandom(hook.x,hook.y); return best.id; }
+      spawnPickupAtRandom(hook.x,hook.y); if(fish.length===0) recordCatch(); return best.id; }
     return null;
   }
   function getScore(){ return score; }
@@ -157,7 +169,10 @@
     getLuck(){ return luckTimer; }, setLuck(v){ luckTimer=v; },
     getLives(){ return lives; }, setLives(v){ lives=v; },
     getHook(){ return hook?{x:hook.x,y:hook.y}:null; },
-    get confettiFired(){ return _confettiFired; } }; }
+    get confettiFired(){ return _confettiFired; },
+    // T-197：单局渔获榜钩子
+    getTop5(){ try{ return Common.HighScores.read('fishing'); }catch(e){ return []; } },
+    clearTop5(){ try{ Common.Storage.set('fishing','top5',[]); return true; }catch(e){ return false; } } }; }
 })();
 </script>
 </body>

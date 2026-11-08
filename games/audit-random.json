@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T05:12:32.904Z",
+  "generatedAt": "2026-11-08T05:25:11.854Z",
   "games": [
     {
       "file": "2048.html",
@@ -132,7 +132,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 12,
+      "hookFnCount": 15,
       "hasLogicTest": true,
       "localPrngHelpers": [
         {
@@ -687,7 +687,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 25,
+      "hookFnCount": 28,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -702,7 +702,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 22,
+      "hookFnCount": 25,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -732,7 +732,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 10,
+      "hookFnCount": 12,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2082,7 +2082,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 19,
+      "hookFnCount": 22,
       "hasLogicTest": true,
       "localPrngHelpers": [
         {
@@ -2622,6 +2622,6 @@
     "gamesLogicNakedRandom": 0,
     "gamesWithTestHooks": 165,
     "gamesWithLogicTest": 165,
-    "avgHookFnsPerGame": 10.3
+    "avgHookFnsPerGame": 10.4
   }
 }

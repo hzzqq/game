@@ -52,6 +52,7 @@
   <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
     <span class="t">TERMINAL // <b>尖塔</b> SPIRE · 类杀戮尖塔</span></div>
   <div class="wrap" id="screen"></div>
+  <div id="top5Board" style="margin-top:10px;display:none"></div>
   <div class="foot">SlaySpire（尖塔）：回合制卡牌构筑 roguelike。沿地图节点推进，战斗中以能量打出攻击/技能/能力牌，击杀敌人后三选一扩充牌组，挑战最终 Boss。</div>
 
 <script src="common.js"></script>
@@ -106,8 +107,20 @@
   // ---------- run state ----------
   let S=null, C=null;
   let _confettiFired = false;   // 只读钩子：通关/胜利庆祝是否已触发（仅一次）
+  let _winCounted = false;      // T-197：本局胜局是否已计数
+  // T-197：击败最终 Boss 时累计胜局 +1（一次性幂等）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted = true;
+    try {
+      Common.HighScores.recordWin('spire');
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('spire', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
   function resetRun(opts){
     _confettiFired = false;
+    _winCounted = false;
     opts=opts||{};
     S={
       floor:0, map:genMap(), pos:{f:0,n:0},
@@ -211,7 +224,7 @@
   function onWin(){
     if(S.relics.includes('burning')) S.hp=Math.min(S.maxhp,S.hp+6);
     S.gold += randi(12,22) + (C.kind==='elite'?25:0) + (C.kind==='boss'?60:0);
-    if(C.kind==='boss'){ S.won=true; S.screen='win'; C=null; return; }
+    if(C.kind==='boss'){ S.won=true; recordLocalWin(); S.screen='win'; C=null; return; }
     const cards=shuffle(POOL.slice()).slice(0,3);
     let relic=null;
     if(_randFn()<0.4 && S.relics.length<4){ const avail=Object.keys(RELICS).filter(r=>!S.relics.includes(r)); if(avail.length) relic=choice(avail); }
@@ -416,6 +429,10 @@
       getRelics:()=>S.relics.slice(),
       isOver:()=>S.over,
       isWin:()=>S.won,
+      // T-197：累计胜局钩子
+      getWinCount:()=>{ try{ return Common.HighScores.readWin('spire'); }catch(e){ return 0; } },
+      recordWin:()=>{ _winCounted=false; return Common.HighScores.recordWin('spire'); },
+      clearWinCount:()=>{ try{ Common.Storage.set('spire','wincount',0); return true; }catch(e){ return false; } },
       addRelic:(r)=>{ if(RELICS[r]&&!S.relics.includes(r)) S.relics.push(r); },
       // --- debug-only hooks for deterministic logic tests ---
       debugDeal:(i,d)=>dealToEnemy(i,d),
