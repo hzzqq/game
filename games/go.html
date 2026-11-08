@@ -44,6 +44,7 @@
       <button id="new">新局 NEW</button>
     </div>
     <div class="msg" id="msg">黑先。点空格落子：吃子规则自动结算（无气即提）。连续两手停则终局按目数判胜。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">经典围棋（9 路）：围地吃子，比终局目数。简化：含无气提子、禁自杀、基础劫争（ko）。</div>
 
@@ -57,7 +58,18 @@
   let board,turn,captures,ko,over,winner,passes,_wonPrev=false;
   // 手感深化（P-juice）：屏震 / 粒子计数器（纯反馈，不改玩法）
   let _fxShakes = 0, _fxBursts = 0;
-  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn='b'; captures={b:0,w:0}; ko=null; over=false; winner=null; passes=0; _wonPrev=false; _fxShakes=0; _fxBursts=0; }
+  let _winCounted = false;   // T-194：本局胜局是否已计数
+  // T-194：本地对局分出胜负时累计胜局 +1（一次性幂等）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted = true;
+    try {
+      Common.HighScores.recordWin('go');
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('go', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
+  function newGame(){ board=Array.from({length:N},()=>new Array(N).fill(null)); turn='b'; captures={b:0,w:0}; ko=null; over=false; winner=null; passes=0; _wonPrev=false; _fxShakes=0; _fxBursts=0; _winCounted=false; }
   function inb(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
   function opp(x){ return x==='b'?'w':'b'; }
   function group(r,c){
@@ -100,8 +112,8 @@
     if(passes>=2){ finish(); }
     return true;
   }
-  function resign(color){ if(over) return; over=true; winner=opp(color); if(winner && !_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } Juice.sfx('win'); Juice.flash('#02c076',.5); }
-  function finish(){ over=true; const s=score(); winner = s.b===s.w?null:(s.b>s.w?'b':'w'); if(winner && !_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } if(winner){ Juice.sfx('win'); Juice.flash('#02c076',.5); } else { Juice.flash('#f0b90b',.4); } }
+  function resign(color){ if(over) return; over=true; winner=opp(color); if(winner) recordLocalWin(); if(winner && !_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } Juice.sfx('win'); Juice.flash('#02c076',.5); }
+  function finish(){ over=true; const s=score(); winner = s.b===s.w?null:(s.b>s.w?'b':'w'); if(winner) recordLocalWin(); if(winner && !_wonPrev){ _wonPrev=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } if(winner){ Juice.sfx('win'); Juice.flash('#02c076',.5); } else { Juice.flash('#f0b90b',.4); } }
   function score(){
     let bs=0, ws=0; const seen=new Set();
     for(let r=0;r<N;r++) for(let c=0;c<N;c++){
@@ -122,7 +134,7 @@
   function isOver(){ return over; }
   function getWinner(){ return winner; }
   function getScore(){ return score(); }
-  function setBoard(b,t){ board=b.map(r=>r.slice()); turn=t||'b'; over=false; winner=null; ko=null; passes=0; }
+  function setBoard(b,t){ board=b.map(r=>r.slice()); turn=t||'b'; over=false; winner=null; ko=null; passes=0; _winCounted=false; }
 
   /* ===================== 难度系统 ===================== */
   const DIFFICULTY = {
@@ -226,7 +238,11 @@
       confettiFired(){ return _wonPrev; },
       // 手感深化（P-juice）：屏震 / 粒子只读钩子
       fxShakes(){ return _fxShakes; },
-      fxBursts(){ return _fxBursts; } };
+      fxBursts(){ return _fxBursts; },
+      // T-194：累计胜局钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('go'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('go'); },
+      clearWinCount(){ try{ Common.Storage.set('go','wincount',0); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

@@ -40,6 +40,7 @@
       <button id="reset" class="ghost">重置 RESET</button>
     </div>
     <div class="msg" id="msg">红先。将死对方主帅即胜。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Xiangqi（中国象棋）：9×10 棋盘，含飞将、蹩马腿、塞象眼、炮架等完整规则。落子后若令己方主帅被将或将面对脸，则该着非法。</div>
 
@@ -62,6 +63,17 @@
   let sel = null;   // 选中格 [r,c]（仅 UI）
   let over = null;  // 胜利方 'r'/'b'/null
   let confettiFired = false;
+  let _winCounted = false;   // T-194：本局胜局是否已计数
+  // T-194：本地对局分出胜负时累计胜局 +1（一次性幂等）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted = true;
+    try {
+      Common.HighScores.recordWin('xiangqi');
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('xiangqi', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
 
   const SYM = {
     r: { k:'帅', a:'仕', e:'相', h:'馬', r:'車', c:'炮', p:'兵' },
@@ -218,6 +230,7 @@
     board[tr][tc] = p; board[fr][fc] = null;
     turn = other(turn);
     over = isWin(other(turn)) ? other(turn) : null;
+    if(over) recordLocalWin();
     if(over && J) J.sfx('levelup');
     return true;
   }
@@ -226,7 +239,7 @@
     if(typeof seed==='number') _rng = mk(seed>>>0);
     board = initialBoard();
     turn = 'r';
-    sel = null; over = null;
+    sel = null; over = null; _winCounted = false;
     return getState();
   }
   function reset(){ return newGame(); }
@@ -235,7 +248,7 @@
   function setup(b, t){
     board = clone(b);
     if(t==='r'||t==='b') turn=t;
-    sel=null; over=null;
+    sel=null; over=null; _winCounted=false;
     return getState();
   }
 
@@ -344,7 +357,11 @@
       isWin,
       rawTargets: function(b,r,c){ return rawTargets(b,r,c); },
       facingKings: function(b){ return facingKings(b); },
-      COLS, ROWS
+      COLS, ROWS,
+      // T-194：累计胜局钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('xiangqi'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('xiangqi'); },
+      clearWinCount(){ try{ Common.Storage.set('xiangqi','wincount',0); return true; }catch(e){ return false; } }
     };
   }
 })();

@@ -47,6 +47,7 @@
       <button id="new" class="ghost">新局 NEW</button>
     </div>
     <div class="msg" id="msg">红方连上下边、绿方连左右边即胜。点空格落子，先连成己方两岸者赢（无平局）。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">六角棋（Hex）：菱形棋盘上双方轮流落子，抢先用自己的颜色连通对向两岸。经典无平局连线游戏。</div>
 
@@ -58,7 +59,18 @@
   "use strict";
   let N=7, board, turn, over, winner, cur, _confettiFired=false;
   let _fxShakes=0, _fxBursts=0;   // 手感深化：反馈层计数器（不改动玩法）
-  function newGame(n){ N=n||7; board=Array.from({length:N},()=>new Array(N).fill(null)); turn='r'; over=false; winner=null; cur='r'; _confettiFired=false; _fxShakes=0; _fxBursts=0; }
+  let _winCounted=false;          // T-194：本局胜局是否已计数
+  // T-194：玩家（红）获胜时累计胜局 +1（一次性幂等；AI 绿方获胜不计）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted = true;
+    try {
+      Common.HighScores.recordWin('hex');
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('hex', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
+  function newGame(n){ N=n||7; board=Array.from({length:N},()=>new Array(N).fill(null)); turn='r'; over=false; winner=null; cur='r'; _confettiFired=false; _fxShakes=0; _fxBursts=0; _winCounted=false; }
   function neighbors(r,c){
     const out=[]; const cand=[[r-1,c],[r+1,c],[r,c-1],[r,c+1],[r-1,c+1],[r+1,c-1]];
     for(const [nr,nc] of cand){ if(nr>=0&&nr<N&&nc>=0&&nc<N) out.push([nr,nc]); }
@@ -76,7 +88,7 @@
     const col=color||turn;
     if(board[r][c]!==null){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.15); return false; }
     board[r][c]=col;
-    if(isWin(col)){ over=true; winner=col; Juice.sfx('win'); Juice.flash('#02c076',.5); fireConfetti(); _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(c*40+20, r*40+20, {n:14}); return true; }
+    if(isWin(col)){ over=true; winner=col; if(col==='r') recordLocalWin(); Juice.sfx('win'); Juice.flash('#02c076',.5); fireConfetti(); _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(c*40+20, r*40+20, {n:14}); return true; }
     turn = turn==='r'?'g':'r';
     return true;
   }
@@ -99,7 +111,7 @@
   function getTurn(){ return turn; }
   function isOver(){ return over; }
   function getWinner(){ return winner; }
-  function setBoard(b,t,n){ N=n||b.length; board=b.map(r=>r.slice()); turn=t||'r'; over=false; winner=null; cur=t||'r'; _confettiFired=false; }
+  function setBoard(b,t,n){ N=n||b.length; board=b.map(r=>r.slice()); turn=t||'r'; over=false; winner=null; cur=t||'r'; _confettiFired=false; _winCounted=false; }
 
   /* ===================== 难度系统 ===================== */
   const DIFFICULTY = {
@@ -180,7 +192,11 @@
   if(typeof window!=='undefined'){
     window.__t={ newGame, play, isWin, getBoard, getTurn, isOver, getWinner, neighbors, setBoard, confettiFired,
       fxShakes: () => _fxShakes, fxBursts: () => _fxBursts,
-      DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves };
+      DIFFICULTY, setDifficulty, getDifficulty, setRand, aiMove, legalMoves,
+      // T-194：累计胜局钩子
+      getWinCount(){ try{ return Common.HighScores.readWin('hex'); }catch(e){ return 0; } },
+      recordWin(){ _winCounted=false; return Common.HighScores.recordWin('hex'); },
+      clearWinCount(){ try{ Common.Storage.set('hex','wincount',0); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

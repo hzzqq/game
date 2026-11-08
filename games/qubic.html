@@ -47,6 +47,7 @@
       <button id="restart" class="ghost">重开 NEW</button>
     </div>
     <div class="msg" id="msg">在 4 层 4×4 棋盘的任意空格落子（自由放置，无重力）。先在任何一条直线上连成 4 子者胜。AI 含极小化极大 + alpha-beta。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">立体四子棋（Qubic）：4×4×4 立方棋盘，共 76 条四连直线（三轴/面对角/体对角）。红绿轮流自由落子，连成四子即胜，填满无连子则平。暗色终端风。</div>
 
@@ -62,6 +63,17 @@
   let _rand = Math.random;
   function setRand(fn){ _rand = fn; }
   let _wonPrev=false, winFx=0; // 胜利特效跳变防重 + 计数
+  let _winCounted=false;       // T-194：本局胜局是否已计数
+  // T-194：玩家（HUMAN）获胜时累计胜局 +1（一次性幂等；AI 获胜不计）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted = true;
+    try {
+      Common.HighScores.recordWin('qubic');
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('qubic', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
   /* 难度：alpha-beta 搜索深度 + 随机弱化概率分级（地狱最深无随机） */
   const DIFFICULTY = {
     easy:   {label:'简单', depth:1, aiRandom:0.55},
@@ -95,10 +107,11 @@
   })();
 
   let S; // {board:[64], turn, winner}
-  function newGame(){ S={ board:new Array(64).fill(0), turn:HUMAN, winner:0 }; _wonPrev=false; winFx=0; }
+  function newGame(){ S={ board:new Array(64).fill(0), turn:HUMAN, winner:0 }; _wonPrev=false; winFx=0; _winCounted=false; }
   function fireWinFx(){ // 仅玩家(HUMAN)获胜时触发彩带 + 粒子，_wonPrev 跳变防重复
     if(S.winner===HUMAN && !_wonPrev){
       _wonPrev=true; winFx++;
+      recordLocalWin();
       if(typeof Juice!=='undefined'){
         if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
         if(Juice.burst) Juice.burst(window.innerWidth/2, window.innerHeight*0.5, {color:'#f0b90b', n:40, speed:160});
@@ -193,7 +206,7 @@
 
   /* ===================== 对外状态 / 操作 ===================== */
   function getState(){ return cloneState(S); }
-  function setBoard(st){ if(st) S = cloneState(st); }
+  function setBoard(st){ if(st) S = cloneState(st); _winCounted=false; }
   function legalMoves(){ return legalMovesState(S); }
   function doMove(x,y,z){
     if(S.winner!==0) return {ok:false,reason:'over'};
@@ -287,6 +300,10 @@
     setRand, DIFFICULTY, setDifficulty, getDifficulty,
     getBoard(){ return S.board.slice(); },
     confettiFired(){ return winFx; },
+    // T-194：累计胜局钩子
+    getWinCount(){ try{ return Common.HighScores.readWin('qubic'); }catch(e){ return 0; } },
+    recordWin(){ _winCounted=false; return Common.HighScores.recordWin('qubic'); },
+    clearWinCount(){ try{ Common.Storage.set('qubic','wincount',0); return true; }catch(e){ return false; } },
   };
 })();
 </script>

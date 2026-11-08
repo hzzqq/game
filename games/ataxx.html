@@ -45,6 +45,7 @@
       <button id="restart" class="ghost">重开 NEW</button>
     </div>
     <div class="msg" id="msg">点你的红子选中：相邻格（1 格）克隆——原件保留、新格出现；隔 2 格跳跃——原件消失。落子后周围 8 格的敌子被同化（变红）。终局子多者胜。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">传染棋（Ataxx）：7×7，红（你）在左上 2×2、黑（AI）在右下 2×2 各 4 子。克隆扩张或跳跃突进，落点周围敌子被感染。棋盘填满或双方均无法行动时，子多者胜。暗色终端风。</div>
 
@@ -66,16 +67,28 @@
   let S; // {board:[49], turn, winner}
   let _wonPrev=false, winFx=0; // 胜利特效跳变防重 + 计数
   let _fxShakes=0, _fxBursts=0; // Juice 手感只读计数（测试钩子，纯反馈层）
+  let _winCounted=false;        // T-194：本局胜局是否已计数
+  // T-194：玩家（红）获胜时累计胜局 +1（一次性幂等；AI 黑方获胜不计）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted = true;
+    try {
+      Common.HighScores.recordWin('ataxx');
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('ataxx', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
   function newGame(){
     S={ board:new Array(SIZE*SIZE).fill(0), turn:RED, winner:0 };
     const corners=[[0,0],[0,1],[1,0],[1,1],[SIZE-1,SIZE-1],[SIZE-1,SIZE-2],[SIZE-2,SIZE-1],[SIZE-2,SIZE-2]];
     corners.forEach((p,i)=> S.board[idx(p[0],p[1])] = (i<4)?RED:BLACK);
     _wonPrev=false; winFx=0;
-    _fxShakes=0; _fxBursts=0;
+    _fxShakes=0; _fxBursts=0; _winCounted=false;
   }
   function fireWinFx(){ // 仅玩家(红)获胜时触发彩带 + 粒子，_wonPrev 跳变防重复
     if(S.winner===RED && !_wonPrev){
       _wonPrev=true; winFx++;
+      recordLocalWin();
       _fxShakes++; _fxBursts++;
       if(typeof Juice!=='undefined'){
         if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
@@ -182,7 +195,7 @@
 
   /* ===================== 对外状态 / 操作 ===================== */
   function getState(){ return cloneState(S); }
-  function setBoard(st){ if(st) S=cloneState(st); }
+  function setBoard(st){ if(st) S=cloneState(st); _winCounted=false; }
   function legalMoves(){ return legalMovesState(S); }
   function doMove(mv){
     if(S.winner!==0) return {ok:false,reason:'over'};
@@ -283,6 +296,10 @@
     confettiFired(){ return winFx; },
     fxShakes(){ return _fxShakes; },
     fxBursts(){ return _fxBursts; },
+    // T-194：累计胜局钩子
+    getWinCount(){ try{ return Common.HighScores.readWin('ataxx'); }catch(e){ return 0; } },
+    recordWin(){ _winCounted=false; return Common.HighScores.recordWin('ataxx'); },
+    clearWinCount(){ try{ Common.Storage.set('ataxx','wincount',0); return true; }catch(e){ return false; } },
   };
 })();
 </script>
