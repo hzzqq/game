@@ -38,6 +38,7 @@
       <button id="reset" class="ghost">清空 RESET</button>
     </div>
     <div class="msg" id="msg">点一个岛，再点同行/同列且无遮挡的另一岛建桥；再点一次加为双桥，第三次拆除。满足每个岛的数字且不交叉、全连通即过关。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">连桥（Hashiwokakero）：在岛屿间建 1~2 座桥，桥不能交叉或斜穿，每个岛连出的桥数必须等于其标注数字，且所有岛必须连成一片。</div>
 
@@ -59,6 +60,19 @@
   let won = false;
   let confettiFired = false;
   let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子（建桥→小 burst）
+  let _startTs = 0;      // T-195：本局起始时间（最短用时榜）
+  let _hsShown = false;  // T-195：榜单渲染幂等标志
+  // T-195：通关记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('bridges', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('bridges', _el, _tr); }
+    } catch(e){}
+  }
 
   function key(i,j){ return i<j ? i+'-'+j : j+'-'+i; }
   function inb(r,c){ return r>=0 && r<N_local && c>=0 && c<N_local; }
@@ -148,7 +162,7 @@
       }
     }
     won=isWin();
-    if(won){ fireWin(); if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('bridges', islands.length); } }
+    if(won){ recordSolve(); fireWin(); if(typeof Juice!=='undefined'){ Juice.sfx('levelup'); Juice.best('bridges', islands.length); } }
     return true;
   }
   function removeBridge(i,j){ return addBridge(i,j,0); }
@@ -178,7 +192,7 @@
     islands = islandList.map(p=>({r:p.r,c:p.c,deg:p.deg,used:0}));
     bridges = {};
     sol = [];
-    won=false; confettiFired=false; _fxShakes=0; _fxBursts=0;
+    won=false; confettiFired=false; _fxShakes=0; _fxBursts=0; _startTs=Date.now(); _hsShown=false;
     return {islands:islands.length, won:isWin()};
   }
 
@@ -187,7 +201,7 @@
     bridges = {};
     for(const e of sol){ bridges[key(e.i,e.j)] = e.count; }
     won=isWin();
-    if(won) fireWin();
+    if(won){ recordSolve(); fireWin(); }
     return won;
   }
 
@@ -247,7 +261,7 @@
   function newGame(){
     let ok=false, guard=0;
     do { ok = buildSolution(); guard++; } while(!ok && guard<10);
-    won=false; confettiFired=false; _fxShakes=0; _fxBursts=0;
+    won=false; confettiFired=false; _fxShakes=0; _fxBursts=0; _startTs=Date.now(); _hsShown=false;
   }
   function reset(){ newGame(); }
 
@@ -336,6 +350,8 @@
       get confettiFired(){ return confettiFired; },
       fxShakes: () => _fxShakes,
       fxBursts: () => _fxBursts,
+      getTop5Time: function(){ try{ return Common.HighScores.readTime('bridges'); }catch(e){ return []; } },
+      clearTop5Time: function(){ try{ Common.Storage.set('bridges','besttime',[]); return true; }catch(e){ return false; } },
     };
   }
 })();

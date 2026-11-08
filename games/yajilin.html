@@ -38,6 +38,7 @@
       <button id="reset" class="ghost">清空 RESET</button>
     </div>
     <div class="msg" id="msg">点相邻白格之间的边画线/取消，使形成一条闭合单环，穿过全部白格且不经过黑格。箭头数字表示同方向连续黑格数量。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Yajilin（ヤジリン）：网格中预置若干黑格（部分带箭头数字）。画一条不自交的闭合单环，穿过所有白格、且不经过任何黑格。</div>
 
@@ -61,6 +62,19 @@
   let sol;     // {he,ve}
   let won = false;
   let confettiFired = false;
+  let _startTs = 0;      // T-195：本局起始时间（最短用时榜）
+  let _hsShown = false;  // T-195：榜单渲染幂等标志
+  // T-195：通关记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('yajilin', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('yajilin', _el, _tr); }
+    } catch(e){}
+  }
 
   const DIRS = { 'U':[-1,0], 'D':[1,0], 'L':[0,-1], 'R':[0,1] };
 
@@ -146,6 +160,7 @@
     he = Array.from({length:N},()=>new Array(N-1).fill(false));
     ve = Array.from({length:N-1},()=>new Array(N).fill(false));
     won=false;
+    _startTs = Date.now(); _hsShown = false;
     return getState();
   }
 
@@ -198,12 +213,13 @@
       ve[r][c]=!!val;
     }
     won=isWin();
+    if(won) recordSolve();
     if(won&&J) J.sfx('levelup');
     return true;
   }
   function toggleEdge(type,r,c){ const cur=(type==='h')?he[r][c]:ve[r][c]; return setEdge(type,r,c,!cur); }
-  function reset(){ he=Array.from({length:N},()=>new Array(N-1).fill(false)); ve=Array.from({length:N-1},()=>new Array(N).fill(false)); won=false; return getState(); }
-  function applySolution(){ he=sol.he.map(row=>row.slice()); ve=sol.ve.map(row=>row.slice()); won=isWin(); return won; }
+  function reset(){ he=Array.from({length:N},()=>new Array(N-1).fill(false)); ve=Array.from({length:N-1},()=>new Array(N).fill(false)); won=false; _startTs=Date.now(); _hsShown=false; return getState(); }
+  function applySolution(){ he=sol.he.map(row=>row.slice()); ve=sol.ve.map(row=>row.slice()); won=isWin(); if(won) recordSolve(); return won; }
   function getSolution(){ return { h:sol.he.map(r=>r.slice()), v:sol.ve.map(r=>r.slice()) }; }
   function getState(){ return { N, black:black.map(r=>r.slice()), arrows:arrows.map(r=>r.slice()), h:he.map(r=>r.slice()), v:ve.map(r=>r.slice()), won }; }
 
@@ -268,7 +284,9 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setEdge, toggleEdge, applySolution, getSolution, getState, cellDeg };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setEdge, toggleEdge, applySolution, getSolution, getState, cellDeg,
+      getTop5Time: function(){ try{ return Common.HighScores.readTime('yajilin'); }catch(e){ return []; } },
+      clearTop5Time: function(){ try{ Common.Storage.set('yajilin','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

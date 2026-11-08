@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T04:33:10.856Z",
+  "generatedAt": "2026-11-08T05:08:01.742Z",
   "games": [
     {
       "file": "2048.html",
@@ -212,7 +212,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 1,
+      "hookFnCount": 3,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -332,7 +332,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 2,
+      "hookFnCount": 4,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -717,7 +717,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 2,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -822,7 +822,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 1,
+      "hookFnCount": 3,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2197,7 +2197,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 2,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2512,7 +2512,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 2,
       "hasLogicTest": true,
       "localPrngHelpers": []
     }

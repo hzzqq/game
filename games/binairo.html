@@ -38,6 +38,7 @@
       <button id="reset" class="ghost">清空 RESET</button>
     </div>
     <div class="msg" id="msg">点格子切换：空 → 0 → 1 → 空。填满整盘并满足每行/列 0、1 数量相等且无 3 个连续相同即过关。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Binairo（Takuzu）：在 N×N 棋盘上填入 0 与 1，要求每行每列 0、1 各占一半，且任意方向不得出现 3 个连续相同数字。</div>
 
@@ -59,6 +60,19 @@
   let won = false;
   let confettiFired = false;
   let _fxShakes=0, _fxBursts=0, _solvedFx=false; // 手感计数器：解出谜题屏震/粒子（仅视觉反馈）
+  let _startTs = 0;      // T-195：本局起始时间（最短用时榜）
+  let _hsShown = false;  // T-195：榜单渲染幂等标志
+  // T-195：通关记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('binairo', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('binairo', _el, _tr); }
+    } catch(e){}
+  }
 
   // ---- 生成合法解：回溯逐格填，约束行/列计数与无 3 连同色 ----
   function genSolution(){
@@ -92,6 +106,7 @@
     board = Array.from({length:N},()=>new Array(N).fill(null));
     won = false;
     _solvedFx=false; _fxShakes=0; _fxBursts=0;
+    _startTs = Date.now(); _hsShown = false;
     return getState();
   }
 
@@ -129,6 +144,7 @@
     else if(val===0||val===1){ board[r][c]=val; }
     else return false;
     won=isWin();
+    if(won) recordSolve();
     if(won&&J) J.sfx('levelup');
     if(won) _fireSolveFx();
     return true;
@@ -138,12 +154,13 @@
     const v=board[r][c];
     board[r][c] = (v===null)?0 : (v===0?1:null);
     won=isWin();
+    if(won) recordSolve();
     if(won&&J) J.sfx('levelup');
     if(won) _fireSolveFx();
     return true;
   }
-  function reset(){ board=Array.from({length:N},()=>new Array(N).fill(null)); won=false; _solvedFx=false; _fxShakes=0; _fxBursts=0; return getState(); }
-  function applySolution(){ board=sol.map(row=>row.slice()); won=isWin(); if(won) _fireSolveFx(); return won; }
+  function reset(){ board=Array.from({length:N},()=>new Array(N).fill(null)); won=false; _solvedFx=false; _fxShakes=0; _fxBursts=0; _startTs=Date.now(); _hsShown=false; return getState(); }
+  function applySolution(){ board=sol.map(row=>row.slice()); won=isWin(); if(won) recordSolve(); if(won) _fireSolveFx(); return won; }
   function getSolution(){ return sol.map(row=>row.slice()); }
   function getState(){ return { N, board:board.map(r=>r.slice()), sol:sol.map(r=>r.slice()), won }; }
 
@@ -196,7 +213,9 @@
   }
   if(typeof window!=='undefined'){
     window.__t = { N, setRand, newPuzzle, reset, isWin, setCell, toggleCell, applySolution, getSolution, getState,
-      fxShakes: ()=>_fxShakes, fxBursts: ()=>_fxBursts };
+      fxShakes: ()=>_fxShakes, fxBursts: ()=>_fxBursts,
+      getTop5Time: function(){ try{ return Common.HighScores.readTime('binairo'); }catch(e){ return []; } },
+      clearTop5Time: function(){ try{ Common.Storage.set('binairo','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>
