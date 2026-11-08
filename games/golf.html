@@ -39,6 +39,7 @@
       <button id="hit">击球 HIT</button>
       <button id="new" class="ghost">新局 NEW</button>
     </div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Golf（迷你高尔夫）：设定出球角度与力度，球沿直线滚动，撞墙或越界即停，落入球洞即过关，比拼最少杆数。</div>
 
@@ -53,7 +54,19 @@
   // 手感深化（P-juice）：屏震 / 粒子计数器（纯反馈，不改玩法）
   let _fxShakes = 0, _fxBursts = 0;
   let pickups, shield, boostTimer, lives, score;
-  function reset(){ ball={x:30,y:H/2}; hole={x:360,y:H/2}; obstacles=[]; strokes=0; inHole=false; pickups=[]; shield=0; boostTimer=0; lives=3; score=0; confettiFired=false; _fxShakes=0; _fxBursts=0; }
+  let _hsShown = false;   // T-193：最少杆数榜幂等标志
+  // T-193：进洞记录本局杆数（越少越好），一次性幂等
+  function recordClear(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _mv = Math.max(1, strokes|0);
+      var _rk = Common.HighScores.recordMoves('golf', _mv);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('golf', _el, _rk); }
+    } catch(e){}
+  }
+  function reset(){ ball={x:30,y:H/2}; hole={x:360,y:H/2}; obstacles=[]; strokes=0; inHole=false; pickups=[]; shield=0; boostTimer=0; lives=3; score=0; confettiFired=false; _fxShakes=0; _fxBursts=0; _hsShown=false; }
   // 胜利彩带：进洞时一次性触发，跳变防重复
   function fireVictory(){
     if(confettiFired) return;
@@ -80,7 +93,7 @@
       ball.x=nx; ball.y=ny;
     }
     if(dist(ball.x,ball.y,hole.x,hole.y)<=HOLE_R) inHole=true;
-    if(inHole){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.burst(hole.x,hole.y,{color:'#02c076',n:14}); spawnPickup('coin', hole.x, hole.y); fireVictory(); }
+    if(inHole){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.burst(hole.x,hole.y,{color:'#02c076',n:14}); spawnPickup('coin', hole.x, hole.y); fireVictory(); recordClear(); }
     updatePickups(0);
   }
   function getStrokes(){ return strokes; }
@@ -178,7 +191,9 @@
     getShield(){ return shield; }, setShield(v){ shield=v; },
     getBoost(){ return boostTimer; }, setBoost(v){ boostTimer=v; },
     getLives(){ return lives; }, setLives(v){ lives=v; },
-    getScore(){ return score; } }; }
+    getScore(){ return score; },
+    getTop5Moves: function(){ try{ return Common.HighScores.readMoves('golf'); }catch(e){ return []; } },
+    clearTop5Moves: function(){ try{ Common.Storage.set('golf','bestmoves',[]); return true; }catch(e){ return false; } } }; }
 })();
 </script>
 </body>

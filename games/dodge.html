@@ -38,6 +38,7 @@
       <button data-d="right">→</button>
       <button id="new" class="ghost">新局 NEW</button>
     </div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Dodge（闪避）：操控飞船左右移动，躲避不断坠落的陨石，被击中即游戏结束，存活时间越长越好。</div>
 
@@ -50,8 +51,20 @@
   const W=400, H=300, PY=H-20, PR=16, HR=16;
   let player, obstacles, dead, time, pickups, boostTimer, shield, lives, spawnTimer, confettiFired = false;
   let _fxShakes = 0, _fxBursts = 0;   // Juice 手感计数（只读钩子）
+  let _hsShown = false;   // T-193：最长存活榜幂等标志
+  // T-193：死亡时记录存活秒数（越长越好），一次性幂等
+  function recordSurvive(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sc = Math.max(1, Math.round(time));
+      var _rk = Common.HighScores.record('dodge', _sc);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.render('dodge', _el, _rk, 'LONGEST SURVIVAL · 最长存活(秒)'); }
+    } catch(e){}
+  }
   var SURVIVE_GOAL = 60;   // 存活到目标时间触发成就正反馈（仅视觉层，不改死亡/计分）
-  function reset(){ player={x:W/2}; obstacles=[]; dead=false; time=0; pickups=[]; boostTimer=0; shield=0; lives=1; spawnTimer=3; confettiFired=false; _fxShakes=0; _fxBursts=0; }
+  function reset(){ player={x:W/2}; obstacles=[]; dead=false; time=0; pickups=[]; boostTimer=0; shield=0; lives=1; spawnTimer=3; confettiFired=false; _fxShakes=0; _fxBursts=0; _hsShown=false; }
   function setPlayer(x){ player={x}; }
   function setObstacles(arr){ obstacles=arr.map(o=>({x:o.x,y:o.y,vy:o.vy||5})); }
   function move(d){ if(dead) return; player.x += d==='left'?-20:20; if(player.x<PR)player.x=PR; if(player.x>W-PR)player.x=W-PR; }
@@ -63,7 +76,7 @@
   function applyPickup(p){ if(!p) return; if(p.type==='heart'){ lives=Math.min(lives+1,3); if(typeof Juice!=='undefined') Juice.popup('❤ 回血'); } else if(p.type==='shield'){ shield=Math.min(shield+1,2); if(typeof Juice!=='undefined') Juice.popup('🛡'); } else if(p.type==='boost'){ boostTimer=8; if(typeof Juice!=='undefined') Juice.popup('🚀'); } const idx=pickups.indexOf(p); if(idx>=0) pickups.splice(idx,1); }
   function updatePickups(dt){ for(let i=pickups.length-1;i>=0;i--){ const p=pickups[i]; p.y+=p.vy*dt; p.life-=dt; const dx=p.x-player.x, dy=p.y-PY; if(dx*dx+dy*dy < (p.r+PR)*(p.r+PR)){ applyPickup(p); continue; } if(p.life<=0 || p.y>H+20) pickups.splice(i,1); } if(boostTimer>0) boostTimer=Math.max(0,boostTimer-dt); }
   function drawPickups(ctx){ for(const p of pickups){ const sym=p.type==='heart'?'❤':p.type==='shield'?'🛡':'🚀'; ctx.save(); ctx.beginPath(); ctx.arc(p.x,p.y,p.r+4,0,Math.PI*2); ctx.fillStyle='rgba(2,192,118,.15)'; ctx.fill(); ctx.strokeStyle='rgba(2,192,118,.6)'; ctx.stroke(); ctx.fillStyle='#fff'; ctx.font='16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(sym,p.x,p.y); ctx.restore(); } }
-  function takeHit(){ if(shield>0){ shield--; if(typeof Juice!=='undefined') Juice.flash('#02c076',.3); return; } if(lives>1){ lives--; } else { dead=true; if(typeof Juice!=='undefined') Juice.flash('#f6465d',.5); } }
+  function takeHit(){ if(shield>0){ shield--; if(typeof Juice!=='undefined') Juice.flash('#02c076',.3); return; } if(lives>1){ lives--; } else { dead=true; recordSurvive(); if(typeof Juice!=='undefined') Juice.flash('#f6465d',.5); } }
   function tick(){
     if(dead) return;
     time += (boostTimer>0?2:1);
@@ -109,8 +122,10 @@
     getPY(){ return PY; },
     takeHit, getOver(){ return dead; },
     confettiFired: function(){ return confettiFired; },
-    fxShakes: function(){ return _fxShakes; }, fxBursts: function(){ return _fxBursts; }
-  }; }
+    fxShakes: function(){ return _fxShakes; }, fxBursts: function(){ return _fxBursts; },
+    getTop5: function(){ try{ return Common.HighScores.read('dodge'); }catch(e){ return []; } },
+    clearTop5: function(){ try{ Common.Storage.set('dodge','top5',[]); return true; }catch(e){ return false; } } };
+  }
 })();
 </script>
 </body>

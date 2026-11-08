@@ -43,6 +43,7 @@
     <div class="board" id="board"></div>
     <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
     <div class="msg" id="msg">旋转管道，把左侧水源（绿框）连到右侧出水口（红框）。两端互通才能通水。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">管道连接（Pipe Connect）：旋转方格管道，使从起点到终点形成一条连通水路即过关。每局随机生成，保证有解。</div>
 
@@ -59,6 +60,18 @@
   const N=6;
   const U=1,R=2,D=4,L=8;
   let board, over, won, confettiFired;
+  let _rotations = 0;     // T-193：本局旋转次数（最少旋转榜）
+  let _hsShown = false;   // T-193：榜单渲染幂等标志
+  // T-193：连通时记录本局旋转次数（越少越好），一次性幂等
+  function recordClear(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _rk = Common.HighScores.recordMoves('pipes', _rotations);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('pipes', _el, _rk); }
+    } catch(e){}
+  }
 
   function rotMask(m){ return ((m<<1)|(m>>3))&15; }
   function randInt(n){ return Math.floor(_rng()*n); }
@@ -88,13 +101,15 @@
     for(let i=0;i<N*N;i++){ const k=randInt(4); for(let q=0;q<k;q++) mask[i]=rotMask(mask[i]); }
     board = mask.map(m=>({m}));
     over=false; won=false; confettiFired=false;
+    _rotations=0; _hsShown=false;
   }
 
   function rotate(r,c){
     if(over) return;
     board[r*N+c].m = rotMask(board[r*N+c].m);
+    _rotations++;
     if(typeof Juice!=='undefined') Juice.sfx('click');
-    if(isSolved() && !over){ over=true; won=true; confettiFired=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.achievement('管道连通'); if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
+    if(isSolved() && !over){ over=true; won=true; confettiFired=true; recordClear(); if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076',.5); Juice.achievement('管道连通'); if(Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
     render();
   }
 
@@ -116,7 +131,7 @@
     return seen.has(String(N*N-1));
   }
 
-  function setBoard(m){ board=m.map(x=>({m:x})); over=false; won=false; confettiFired=false; }
+  function setBoard(m){ board=m.map(x=>({m:x})); over=false; won=false; confettiFired=false; _rotations=0; _hsShown=false; }
 
   function getState(){ return { board: getBoard(), over, won, solved: isSolved() }; }
 
@@ -146,7 +161,10 @@
   newGame();
   if(typeof document!=='undefined'){ build(); bindUI(); render(); }
   if(typeof window!=='undefined'){
-    window.__t={ N, U, R, D, L, setSeed, newGame, rotate, getMask, getBoard, isSolved, setBoard, rotMask, getState, get confettiFired(){ return confettiFired; } };
+    window.__t={ N, U, R, D, L, setSeed, newGame, rotate, getMask, getBoard, isSolved, setBoard, rotMask, getState, get confettiFired(){ return confettiFired; },
+      getRotations: function(){ return _rotations; },
+      getTop5Moves: function(){ try{ return Common.HighScores.readMoves('pipes'); }catch(e){ return []; } },
+      clearTop5Moves: function(){ try{ Common.Storage.set('pipes','bestmoves',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>
