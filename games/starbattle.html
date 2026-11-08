@@ -38,6 +38,7 @@
       <button id="reset" class="ghost">清空 RESET</button>
     </div>
     <div class="msg" id="msg">点击格子放置/取消星。每行、每列、每个区域恰好一颗星，且任意两颗星不相邻（含对角）。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Star Battle（星战）：在 N×N 网格中放置 N 颗星，使每行、每列、每个区域恰好包含一颗星，且任意两颗星（含对角）互不相邻。区域由随机分区生成，必可解。</div>
 
@@ -60,6 +61,19 @@
   let stars;    // 2D boolean: player stars
   let won = false;
   let confettiFired = false;
+  let _startTs = 0;      // T-192：本局起始时间（最短用时榜）
+  let _hsShown = false;  // T-192：用时榜渲染幂等标志
+  // T-192：通关记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('starbattle', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('starbattle', _el, _tr); }
+    } catch(e){}
+  }
 
   const NEI8 = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
   const NEI4 = [[1,0],[-1,0],[0,1],[0,-1]];
@@ -114,6 +128,7 @@
     stars_.forEach(([r,c])=> sol[r][c]=true);
     stars = Array.from({length:N},()=>new Array(N).fill(false));
     won=false;
+    _startTs = Date.now(); _hsShown = false;
     return getState();
   }
 
@@ -135,13 +150,13 @@
   function setStar(r,c,val){
     if(!inb(r,c)) return false;
     stars[r][c]=!!val;
-    won=isWin();
+    won=isWin(); if(won) recordSolve();
     if(won && J) J.sfx('levelup');
     return true;
   }
   function toggleStar(r,c){ if(!inb(r,c)) return false; return setStar(r,c,!stars[r][c]); }
-  function reset(){ stars=Array.from({length:N},()=>new Array(N).fill(false)); won=false; return getState(); }
-  function applySolution(){ stars=sol.map(row=>row.slice()); won=isWin(); return won; }
+  function reset(){ stars=Array.from({length:N},()=>new Array(N).fill(false)); won=false; _startTs=Date.now(); _hsShown=false; return getState(); }
+  function applySolution(){ stars=sol.map(row=>row.slice()); won=isWin(); if(won) recordSolve(); return won; }
   function getSolution(){ return sol.map(row=>row.slice()); }
   function getState(){ return { N, region:region.map(r=>r.slice()), stars:stars.map(r=>r.slice()), won }; }
 
@@ -202,7 +217,9 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setStar, toggleStar, applySolution, getSolution, getState };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setStar, toggleStar, applySolution, getSolution, getState,
+      getTop5Time: function(){ try{ return Common.HighScores.readTime('starbattle'); }catch(e){ return []; } },
+      clearTop5Time: function(){ try{ Common.Storage.set('starbattle','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

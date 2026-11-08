@@ -38,6 +38,7 @@
       <button id="reset" class="ghost">清空 RESET</button>
     </div>
     <div class="msg" id="msg">点格子切换涂黑。规则：同行/同列中白格数字互不相同；黑格彼此不相邻；所有白格连通。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Hitori（ひとり）：给定数字盘，涂黑若干格。要求每行每列留下的白格数字互不相同、黑格互不相邻、且所有白格四连通。</div>
 
@@ -58,6 +59,19 @@
   let black;   // N×N 玩家涂黑标记 bool
   let sol;     // N×N 规范解黑格 bool
   let won = false;
+let _startTs = 0;      // T-192：本局起始时间（最短用时榜）
+let _hsShown = false;  // T-192：用时榜渲染幂等标志
+// T-192：通关记录用时（越短越好），一次性幂等
+function recordSolve(){
+  if(_hsShown) return;
+  _hsShown = true;
+  try {
+    var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+    var _tr = Common.HighScores.recordTime('hitori', _sec);
+    var _el = document.getElementById('top5Board');
+    if(_el){ _el.style.display='block'; Common.HighScores.renderTime('hitori', _el, _tr); }
+  } catch(e){}
+}
   let confettiFired = false;
   let _fxShakes=0, _fxBursts=0;   // 手感深化：反馈层计数器（不改动玩法）
 
@@ -123,7 +137,7 @@
     grid = genLatin();
     sol = genBlack();
     black = Array.from({length:N},()=>new Array(N).fill(false));
-    won = false;
+    won = false; _startTs = Date.now(); _hsShown = false;
     _fxShakes=0; _fxBursts=0;
     return getState();
   }
@@ -159,7 +173,7 @@
   function setBlack(r,c,val){
     if(r<0||r>=N||c<0||c>=N) return false;
     black[r][c]=!!val;
-    won=isWin();
+    won=isWin(); if(won) recordSolve();
     if(won){ _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(PAD+c*CELL+CELL/2, PAD+r*CELL+CELL/2, {n:14}); }
     if(!won && black[r][c]!==!!sol[r][c]){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.15); }
     if(won&&J) J.sfx('levelup');
@@ -168,14 +182,14 @@
   function toggleBlack(r,c){
     if(r<0||r>=N||c<0||c>=N) return false;
     black[r][c]=!black[r][c];
-    won=isWin();
+    won=isWin(); if(won) recordSolve();
     if(won){ _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(PAD+c*CELL+CELL/2, PAD+r*CELL+CELL/2, {n:14}); }
     if(!won && black[r][c]!==!!sol[r][c]){ _fxShakes++; if(typeof Juice!=='undefined' && Juice.shake) Juice.shake(0.15); }
     if(won&&J) J.sfx('levelup');
     return true;
   }
-  function reset(){ black=Array.from({length:N},()=>new Array(N).fill(false)); won=false; _fxShakes=0; _fxBursts=0; return getState(); }
-  function applySolution(){ black=sol.map(row=>row.slice()); won=isWin(); if(won){ _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(PAD+N*CELL/2, PAD+N*CELL/2, {n:14}); } return won; }
+  function reset(){ black=Array.from({length:N},()=>new Array(N).fill(false)); won=false; _fxShakes=0; _fxBursts=0; _startTs=Date.now(); _hsShown=false; return getState(); }
+  function applySolution(){ black=sol.map(row=>row.slice()); won=isWin(); if(won) recordSolve(); if(won){ _fxBursts++; if(typeof Juice!=='undefined' && Juice.burst) Juice.burst(PAD+N*CELL/2, PAD+N*CELL/2, {n:14}); } return won; }
   function getSolution(){ return sol.map(row=>row.slice()); }
   function getState(){ return { N, grid:grid.map(r=>r.slice()), black:black.map(r=>r.slice()), sol:sol.map(r=>r.slice()), won }; }
 
@@ -230,7 +244,9 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setBlack, toggleBlack, applySolution, getSolution, getState, fxShakes: () => _fxShakes, fxBursts: () => _fxBursts };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setBlack, toggleBlack, applySolution, getSolution, getState, fxShakes: () => _fxShakes, fxBursts: () => _fxBursts,
+      getTop5Time: function(){ try{ return Common.HighScores.readTime('hitori'); }catch(e){ return []; } },
+      clearTop5Time: function(){ try{ Common.Storage.set('hitori','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

@@ -38,6 +38,7 @@
       <button id="reset" class="ghost">清空 RESET</button>
     </div>
     <div class="msg" id="msg">点格间连线/取消。白珠：线直穿且邻格有拐弯；黑珠：线在珠处拐弯且两侧直穿。线须成一条单环穿过所有珍珠。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Masyu（珍珠）：画一条不分支的闭合单环穿过全部珍珠。白珠处线直行、相邻须拐弯；黑珠处线拐弯、两侧须直行。每局由随机单环派生珍珠，必可解。</div>
 
@@ -59,6 +60,19 @@
   let won = false, _confettiFired = false;
   // 胜利庆祝：仅视觉，整局只触发一次；受 Juice 存在性守卫（桩环境为 no-op）
   function fireWinFx(){ if(won && !_confettiFired){ _confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } }
+  let _startTs = 0;      // T-192：本局起始时间（最短用时榜）
+  let _hsShown = false;  // T-192：用时榜渲染幂等标志
+  // T-192：通关记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('masyu', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('masyu', _el, _tr); }
+    } catch(e){}
+  }
 
   function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
 
@@ -144,6 +158,7 @@
     h = Array.from({length:N},()=>new Array(N).fill(false));
     v = Array.from({length:N},()=>new Array(N).fill(false));
     won=false; _confettiFired=false;
+    _startTs = Date.now(); _hsShown = false;
     return getState();
   }
 
@@ -207,13 +222,13 @@
     if(type!=='h'&&type!=='v') return false;
     if(type==='h'){ if(r<0||r>=N||c<0||c>=N-1) return false; h[r][c]=!!val; }
     else { if(r<0||r>=N-1||c<0||c>=N) return false; v[r][c]=!!val; }
-    won=isWin();
+    won=isWin(); if(won) recordSolve();
     if(won){ if(typeof Juice!=='undefined') Juice.sfx('levelup'); fireWinFx(); }
     return true;
   }
   function toggleEdge(type,r,c){ const cur=(type==='h')?h[r][c]:v[r][c]; return setEdge(type,r,c,!cur); }
-  function reset(){ h=Array.from({length:N},()=>new Array(N).fill(false)); v=Array.from({length:N},()=>new Array(N).fill(false)); won=false; _confettiFired=false; return getState(); }
-  function applySolution(){ h=sol.h.map(row=>row.slice()); v=sol.v.map(row=>row.slice()); won=isWin(); if(won) fireWinFx(); return won; }
+  function reset(){ h=Array.from({length:N},()=>new Array(N).fill(false)); v=Array.from({length:N},()=>new Array(N).fill(false)); won=false; _confettiFired=false; _startTs=Date.now(); _hsShown=false; return getState(); }
+  function applySolution(){ h=sol.h.map(row=>row.slice()); v=sol.v.map(row=>row.slice()); won=isWin(); if(won){ recordSolve(); fireWinFx(); } return won; }
   function getSolution(){ return {h:sol.h.map(r=>r.slice()), v:sol.v.map(r=>r.slice())}; }
   function getState(){ return { N, pearls:pearls.map(r=>r.slice()), h:h.map(r=>r.slice()), v:v.map(r=>r.slice()), won }; }
 
@@ -273,7 +288,9 @@
   }
   if(typeof window!=='undefined'){
     window.__t = { N, setRand, newPuzzle, reset, isWin, setEdge, toggleEdge, applySolution, getSolution, getState, analyze, isStraightCell, isTurnCell,
-      get confettiFired(){ return _confettiFired; } };
+      get confettiFired(){ return _confettiFired; },
+      getTop5Time: function(){ try{ return Common.HighScores.readTime('masyu'); }catch(e){ return []; } },
+      clearTop5Time: function(){ try{ Common.Storage.set('masyu','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

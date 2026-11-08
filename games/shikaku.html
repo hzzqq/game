@@ -42,6 +42,7 @@
       <button id="reset" class="ghost">清空 RESET</button>
     </div>
     <div class="msg" id="msg">点带数字格选中为标签，再点任意格定义其矩形（包围盒）。每块面积须等于其中数字。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">Shikaku（四角）：将网格划分为若干矩形，每个矩形恰好包含标有其面积数字的一个格子。每局由随机矩形分割派生，必可解。</div>
 
@@ -62,6 +63,19 @@
   let sol;         // 规范解矩形
   let won = false;
   let _confettiFired = false;   // 只读钩子：胜利庆祝是否已触发（仅一次）
+  let _startTs = 0;      // T-192：本局起始时间（最短用时榜）
+  let _hsShown = false;  // T-192：用时榜渲染幂等标志
+  // T-192：通关记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('shikaku', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('shikaku', _el, _tr); }
+    } catch(e){}
+  }
   let active = null; // 当前选中标签 {r,c}
 
   function inb(r,c){ return r>=0 && r<N && c>=0 && c<N; }
@@ -93,6 +107,7 @@
     active = null;
     won = false;
     _confettiFired = false;
+    _startTs = Date.now(); _hsShown = false;
     return getState();
   }
 
@@ -133,7 +148,7 @@
     // 移除同标签旧矩形
     rects = rects.filter(rc=>!(rc.lr===lr&&rc.lc===lc));
     rects.push({lr,lc,r1:rr1,c1:cc1,r2:rr2,c2:cc2});
-    won=isWin();
+    won=isWin(); if(won) recordSolve();
     if(won && typeof Juice!=='undefined') Juice.sfx('levelup');
     if(won){ if(!_confettiFired) _confettiFired = true; if(J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     return true;
@@ -142,8 +157,8 @@
     rects = rects.filter(rc=>!(rc.lr===lr&&rc.lc===lc));
     won=isWin();
   }
-  function reset(){ rects=[]; active=null; won=false; _confettiFired=false; return getState(); }
-  function applySolution(){ rects = sol.map(rc=>({...rc})); won=isWin(); if(won){ if(!_confettiFired) _confettiFired = true; if(J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } return won; }
+  function reset(){ rects=[]; active=null; won=false; _confettiFired=false; _startTs=Date.now(); _hsShown=false; return getState(); }
+  function applySolution(){ rects = sol.map(rc=>({...rc})); won=isWin(); if(won) recordSolve(); if(won){ if(!_confettiFired) _confettiFired = true; if(J && J.confetti) J.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } return won; }
   function getSolution(){ return sol.map(rc=>({...rc})); }
   function getState(){
     const {owner} = computeOwner(rects);
@@ -204,7 +219,9 @@
     else { buildBoard(); bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t = { N, setRand, newPuzzle, reset, isWin, setRect, clearRect, applySolution, getSolution, getState, areaOf, confettiFired: () => _confettiFired };
+    window.__t = { N, setRand, newPuzzle, reset, isWin, setRect, clearRect, applySolution, getSolution, getState, areaOf, confettiFired: () => _confettiFired,
+      getTop5Time: function(){ try{ return Common.HighScores.readTime('shikaku'); }catch(e){ return []; } },
+      clearTop5Time: function(){ try{ Common.Storage.set('shikaku','besttime',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>
