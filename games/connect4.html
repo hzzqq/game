@@ -52,6 +52,7 @@
     </div>
   </div>
   <div id="wrap"><canvas id="cv"></canvas></div>
+  <div id="top5Board" style="margin-top:10px;display:none;width:min(560px,96vw)"></div>
   <div class="foot">规则: 红方先手，轮流点列顶端落子，横/竖/斜任意方向连成 4 子即胜。双人热座对战。</div>
   <div id="overlay"><div class="box">
     <h2 id="ovTitle">游戏结束</h2>
@@ -77,6 +78,17 @@
   let board, current, gameOver, lastWin;
   let _confettiFired = false;
   let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子
+  let _winCounted = false;          // T-196：本局胜局是否已计数
+  // T-196：本地双人分出胜负时累计胜局 +1（一次性幂等；平局不计）
+  function recordLocalWin(){
+    if(_winCounted) return;
+    _winCounted = true;
+    try {
+      Common.HighScores.recordWin('connect4');
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderWin('connect4', _el, '🏆 LOCAL WINS · 累计胜局'); }
+    } catch(e){}
+  }
   let cssW = 0, MARGIN = 0, CELL = 0, RADIUS = 0;
   let dropAnim = null; // {col,row,color,t}
   let animating = false;
@@ -84,7 +96,7 @@
   function reset(){
     board = [];
     for(let r=0;r<ROWS;r++){ const row=[]; for(let c=0;c<COLS;c++) row.push(EMPTY); board.push(row); }
-    current = R; gameOver = false; lastWin = null; dropAnim = null; animating = false; _confettiFired = false;
+    current = R; gameOver = false; lastWin = null; dropAnim = null; animating = false; _confettiFired = false; _winCounted = false;
     _fxShakes = 0; _fxBursts = 0;
     setTurn(); hideOverlay(); draw();
   }
@@ -222,6 +234,7 @@
 
   function endGame(title, text){
     const isWin = title.indexOf('红')>=0 || title.indexOf('绿')>=0;
+    if (isWin) recordLocalWin();
     if (isWin && !_confettiFired) { _confettiFired = true; if (typeof Juice !== 'undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     const ov = document.getElementById('overlay');
     document.getElementById('ovTitle').textContent = title;
@@ -273,7 +286,11 @@
     get animating(){ return animating; },
     cellCenter,
     get confettiFired(){ return _confettiFired; },
-    fxShakes: () => _fxShakes, fxBursts: () => _fxBursts
+    fxShakes: () => _fxShakes, fxBursts: () => _fxBursts,
+    // T-196：累计胜局钩子
+    getWinCount(){ try{ return Common.HighScores.readWin('connect4'); }catch(e){ return 0; } },
+    recordWin(){ _winCounted=false; return Common.HighScores.recordWin('connect4'); },
+    clearWinCount(){ try{ Common.Storage.set('connect4','wincount',0); return true; }catch(e){ return false; } }
   };
 })();
 </script>

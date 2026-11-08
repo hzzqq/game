@@ -56,6 +56,7 @@
     </div>
 
     <div class="msg" id="msg">选择下注方与筹码，点击「发牌」。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
 
     <div class="bets">
       <button data-bet="player" id="bp">闲 PLAYER 1:1</button>
@@ -88,6 +89,18 @@
   let shoe, player, banker, result, balance, bet, lastPayout;
   let _confettiFired = false;
   let _fxShakes = 0, _fxBursts = 0;
+  let _peakBalance = START_BALANCE;  // T-196：本局筹码峰值
+  let _hsShown = false;              // T-196：峰值榜幂等标志
+  // T-196：破产（余额 ≤ 0）结算本局峰值筹码，一次性幂等
+  function recordPeak(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _tr = Common.HighScores.record('baccarat', _peakBalance);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.render('baccarat', _el, _tr, 'LOCAL TOP 5 · 峰值筹码'); }
+    } catch(e){}
+  }
   let _rand = Math.random;
 
   // ---- 钩子：注入确定性随机数 ----
@@ -126,6 +139,7 @@
     player = []; banker = [];
     result = null; bet = null; lastPayout = 0;
     balance = START_BALANCE;
+    _peakBalance = START_BALANCE; _hsShown = false;
     _confettiFired = false;
     _fxShakes = 0; _fxBursts = 0;
   }
@@ -178,6 +192,8 @@
     else net = (res === 'tie') ? amt * 8 : -amt;
 
     balance += net;
+    if (balance > _peakBalance) _peakBalance = balance;
+    if (balance <= 0) recordPeak();
     lastPayout = net;
     result = res;
     return res;
@@ -260,7 +276,11 @@
     else render();
   }
   if (typeof window !== 'undefined'){
-    window.__t = { reset, newShoe, placeBet, deal, getState, setRand, confettiFired: function () { return _confettiFired; }, fxShakes: function () { return _fxShakes; }, fxBursts: function () { return _fxBursts; } };
+    window.__t = { reset, newShoe, placeBet, deal, getState, setRand, confettiFired: function () { return _confettiFired; }, fxShakes: function () { return _fxShakes; }, fxBursts: function () { return _fxBursts; },
+      // T-196：峰值筹码榜钩子
+      getPeakBalance: function(){ return _peakBalance; },
+      getTop5: function(){ try{ return Common.HighScores.read('baccarat'); }catch(e){ return []; } },
+      clearTop5: function(){ try{ Common.Storage.set('baccarat','top5',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T05:08:01.742Z",
+  "generatedAt": "2026-11-08T05:12:32.904Z",
   "games": [
     {
       "file": "2048.html",
@@ -102,7 +102,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 3,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -397,7 +397,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 4,
+      "hookFnCount": 6,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -502,7 +502,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 3,
+      "hookFnCount": 6,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -652,7 +652,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 3,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -1897,7 +1897,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 2,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2317,7 +2317,7 @@
       "hasRAF": false,
       "logicNakedRandom": false,
       "testHooks": true,
-      "hookFnCount": 0,
+      "hookFnCount": 2,
       "hasLogicTest": true,
       "localPrngHelpers": []
     },
@@ -2622,6 +2622,6 @@
     "gamesLogicNakedRandom": 0,
     "gamesWithTestHooks": 165,
     "gamesWithLogicTest": 165,
-    "avgHookFnsPerGame": 10.2
+    "avgHookFnsPerGame": 10.3
   }
 }

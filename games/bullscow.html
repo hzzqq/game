@@ -43,6 +43,7 @@
     <div class="legend"><span class="a">A = 位置与数字都对</span><span class="b">B = 数字对但位置错</span></div>
     <div class="history" id="history"></div>
     <div class="msg" id="msg">输入 4 位互不相同的数字（0-9），回车提交。例：1234 反馈 1A2B 表示 1 位全对、2 位数字对位错。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
     <div class="controls">
       <input id="guess" type="text" inputmode="numeric" maxlength="4" placeholder="0000" />
       <button id="submit">提交 GUESS</button>
@@ -81,9 +82,20 @@
 
   let secret, history, tries, won, over, confettiFired;
   let _fxShakes = 0, _fxBursts = 0; // 手感反馈只读计数钩子（命中一位→burst；全错→shake）
+  let _hsShown = false;   // T-196：最少猜次榜幂等标志
+  // T-196：猜中时记录本局猜次（越少越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _rk = Common.HighScores.recordMoves('bullscow', Math.max(1, tries));
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderMoves('bullscow', _el, _rk); }
+    } catch(e){}
+  }
   function reset(){
     secret = generateSecret();
-    history = []; tries = 0; won = false; over = false; confettiFired = false; _fxShakes = 0; _fxBursts = 0;
+    history = []; tries = 0; won = false; over = false; confettiFired = false; _fxShakes = 0; _fxBursts = 0; _hsShown = false;
   }
   // 提交一次猜测（guess: number[] 长度 4，每位 0..9，互不重复）
   function guess(g){
@@ -102,7 +114,7 @@
     }
     history.push({guess:g.slice(), A:fb.A, B:fb.B});
     tries++;
-    if(fb.A===LEN){ won=true; over=true; confettiFired=true; if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
+    if(fb.A===LEN){ won=true; over=true; confettiFired=true; recordSolve(); if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); }
     else if(tries>=MAX_TRIES){ over=true; }
     if(typeof Juice!=='undefined'){
       if(won){ Juice.sfx('levelup'); Juice.best('bullscow', MAX_TRIES-tries+1); }
@@ -164,6 +176,9 @@
       getConfettiFired:()=>confettiFired,
       fxShakes: () => _fxShakes,
       fxBursts: () => _fxBursts,
+      // T-196：最少猜次榜钩子
+      getTop5Moves: function(){ try{ return Common.HighScores.readMoves('bullscow'); }catch(e){ return []; } },
+      clearTop5Moves: function(){ try{ Common.Storage.set('bullscow','bestmoves',[]); return true; }catch(e){ return false; } }
     };
   }
 })();

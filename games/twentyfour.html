@@ -40,6 +40,7 @@
       <button id="new" class="ghost">新局 NEW</button>
     </div>
     <div class="msg" id="msg">用 + - * / 和括号把 4 个数凑成 24。可点「求解」看是否可解；输入算式验证是否正好得 24。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">24 点：给定 4 个数字，用四则运算与括号凑出 24。经典算术脑力游戏，存在无解组合。</div>
 
@@ -51,6 +52,19 @@
   "use strict";
   let nums, over;
   let _confettiCount=0;   // 完成彩带触发计数（只读标记）
+  let _startTs = 0;      // T-196：本题起始时间（最短用时榜）
+  let _hsShown = false;  // T-196：榜单渲染幂等标志
+  // T-196：凑出 24 时记录用时（越短越好），一次性幂等
+  function recordSolve(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _sec = Math.max(0, Math.round((Date.now()-_startTs)/1000));
+      var _tr = Common.HighScores.recordTime('twentyfour', _sec);
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.renderTime('twentyfour', _el, _tr); }
+    } catch(e){}
+  }
   function setRand(fn){ _rand=fn; } let _rand;
   function rand4(){ const pool=[1,2,3,4,5,6,7,8,9,10,11,12,13]; for(let i=pool.length-1;i>0;i--){ const j=Math.floor((_rand||Math.random)()*(i+1)); const t=pool[i];pool[i]=pool[j];pool[j]=t; } return pool.slice(0,4); }
   function solve(arr){
@@ -82,10 +96,10 @@
       return true;
     }catch(e){ return null; }
   }
-  function newGame(){ nums=rand4(); over=false; }
+  function newGame(){ nums=rand4(); over=false; _startTs=Date.now(); _hsShown=false; }
   function getNums(){ return nums.slice(); }
   function isSolvable(){ return solve(nums); }
-  function setNums(a){ nums=a.slice(); over=false; }
+  function setNums(a){ nums=a.slice(); over=false; _startTs=Date.now(); _hsShown=false; }
   function $(id){ return (typeof document!=='undefined')?document.getElementById(id):null; }
   function render(){
     if(typeof document==='undefined') return;
@@ -103,7 +117,7 @@
   }
   function submitAnswer(expr){
     const v=evalExpr(expr, nums);
-    if(v===true){ over=true; if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076', .5); Juice.addTrauma(.3); } if(typeof Juice!=='undefined' && Juice.confetti){ Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } _confettiCount++; render(); }
+    if(v===true){ over=true; recordSolve(); if(typeof Juice!=='undefined'){ Juice.sfx('win'); Juice.flash('#02c076', .5); Juice.addTrauma(.3); } if(typeof Juice!=='undefined' && Juice.confetti){ Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4}); } _confettiCount++; render(); }
     else if(v===false){ if(typeof Juice!=='undefined') Juice.sfx('error'); if(typeof document!=='undefined'){ const m=$('msg'); if(m){ m.className='msg'; m.textContent='❌ 不等于 24，再试试。'; } } }
     return v;
   }
@@ -113,7 +127,9 @@
     else { bindUI(); render(); }
   }
   if(typeof window!=='undefined'){
-    window.__t={ newGame, solve, evalExpr, submitAnswer, getNums, isSolvable, setNums, setRand };
+    window.__t={ newGame, solve, evalExpr, submitAnswer, getNums, isSolvable, setNums, setRand,
+      getTop5Time: function(){ try{ return Common.HighScores.readTime('twentyfour'); }catch(e){ return []; } },
+      clearTop5Time: function(){ try{ Common.Storage.set('twentyfour','besttime',[]); return true; }catch(e){ return false; } } };
     Object.defineProperty(window.__t, 'confettiFired', { get: ()=>_confettiCount, enumerable:true });
   }
 })();

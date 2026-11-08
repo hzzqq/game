@@ -39,6 +39,7 @@
     <div class="row hand" id="hand"></div>
     <div class="controls"><button id="new" class="ghost">新局 NEW</button></div>
     <div class="msg" id="msg">出一张手牌：若它的点数等于桌上若干张牌之和，就把那些牌收走（清空桌面算「斯科普」加分）。否则这张牌留到桌上。</div>
+    <div id="top5Board" style="margin-top:10px;display:none"></div>
   </div>
   <div class="foot">斯卡帕（Scopa）：意大利经典牌戏，用点数凑牌收桌，清台得「斯科普」加分，终局以收牌数/金币/七金等计分。</div>
 
@@ -53,6 +54,17 @@
   function setRand(fn){ _randFn = fn || Math.random; }
   let table, hand, captured, scopaCount, sel;
   let _won=false, _confettiFired=0;
+  let _hsShown=false;   // T-196：单局收牌榜幂等标志
+  // T-196：手牌打完结算本局收牌数（越多越好），一次性幂等
+  function recordRound(){
+    if(_hsShown) return;
+    _hsShown = true;
+    try {
+      var _tr = Common.HighScores.record('scopa', Math.max(1, captured));
+      var _el = document.getElementById('top5Board');
+      if(_el){ _el.style.display='block'; Common.HighScores.render('scopa', _el, _tr, 'MOST CAPTURED · 单局收牌'); }
+    } catch(e){}
+  }
   // T-118 修复：此前桌面与手牌均为硬编码固定牌（每局完全相同、零重玩性）；
   // 现从 40 张整副牌（点数 1..10 × 4 花色）洗牌后发 4 张桌面 + 4 张手牌（_randFn 可注入复现）。
   function buildDeck(){
@@ -60,7 +72,7 @@
     for(let s=0;s<4;s++) for(let v=1;v<=10;v++) d.push({v:v,s:s});
     return Common.shuffle(d, _randFn);
   }
-  function newGame(){ const deck=buildDeck(); table=deck.slice(0,4); hand=deck.slice(4,8); captured=0; scopaCount=0; sel=null; _won=false; _confettiFired=0; }
+  function newGame(){ const deck=buildDeck(); table=deck.slice(0,4); hand=deck.slice(4,8); captured=0; scopaCount=0; sel=null; _won=false; _confettiFired=0; _hsShown=false; }
   function findCapture(val){
     const n=table.length; let best=null;
     for(let mask=1;mask<(1<<n);mask++){ let sum=0,cnt=0; for(let i=0;i<n;i++) if(mask&(1<<i)){ sum+=table[i].v; cnt++; } if(sum===val){ if(!best||cnt>best.cnt||(cnt===best.cnt&&sum>best.sum)) best={mask,cnt,sum}; } }
@@ -72,14 +84,14 @@
     hand.splice(idx,1);
     if(cap){ const before=table.length; const rm=[]; for(let i=0;i<table.length;i++) if(cap.mask&(1<<i)) rm.push(i);
       rm.sort((a,b)=>b-a).forEach(i=>table.splice(i,1));
-      captured+=rm.length+1; if(table.length===0) scopaCount++; Juice.sfx('hit'); Juice.addTrauma(.25); return true; }
-    table.push(card); Juice.sfx('click'); return false;
+      captured+=rm.length+1; if(table.length===0) scopaCount++; Juice.sfx('hit'); Juice.addTrauma(.25); if(hand.length===0) recordRound(); return true; }
+    table.push(card); Juice.sfx('click'); if(hand.length===0) recordRound(); return false;
   }
   function getTable(){ return table.map(c=>({...c})); }
   function getHand(){ return hand.map(c=>({...c})); }
   function getCaptured(){ return captured; }
   function getScopa(){ return scopaCount; }
-  function setTableau(t,h){ table=t.map(c=>({...c})); hand=h.map(c=>({...c})); captured=0; scopaCount=0; sel=null; _won=false; _confettiFired=0; }
+  function setTableau(t,h){ table=t.map(c=>({...c})); hand=h.map(c=>({...c})); captured=0; scopaCount=0; sel=null; _won=false; _confettiFired=0; _hsShown=false; }
   // 玩家获胜反馈：仅在状态跳变时触发一次，守卫 Juice 以防测试桩缺失
   function declareWin(){ if(_won) return; _won=true; _confettiFired++;
     if(typeof Juice!=='undefined' && Juice.confetti) Juice.confetti(window.innerWidth/2, window.innerHeight*0.3, {n:120, life:2.4});
@@ -100,7 +112,9 @@
   }
   if(typeof window!=='undefined'){
     window.__t={ setRand, newGame, play, getTable, getHand, getCaptured, getScopa, findCapture, setTableau,
-      declareWin, hasWon: function(){ return _won; }, confettiFired: function(){ return _confettiFired; } };
+      declareWin, hasWon: function(){ return _won; }, confettiFired: function(){ return _confettiFired; },
+      getTop5: function(){ try{ return Common.HighScores.read('scopa'); }catch(e){ return []; } },
+      clearTop5: function(){ try{ Common.Storage.set('scopa','top5',[]); return true; }catch(e){ return false; } } };
   }
 })();
 </script>
